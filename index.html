@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>First-Person Survival</title>
+    </head>
+    <body>
+        <canvas id="game"></canvas>
+        <div id="crosshair"></div>
+        <div id="hud"></div>
+        <div id="overlay">
+            <div class="panel">
+                <h1>First-Person Survival</h1>
+                <p class="subtitle">World map demo</p>
+                <ul class="controls">
+                    <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move</li>
+                    <li><kbd>Mouse</kbd> look</li>
+                    <li><kbd>Shift</kbd> sprint</li>
+                    <li><kbd>Space</kbd> jump</li>
+                    <li><kbd>F</kbd> toggle flying (<kbd>Space</kbd>/<kbd>C</kbd> up/down)</li>
+                    <li><kbd>Esc</kbd> release the mouse</li>
+                </ul>
+                <p id="status">Loading world...</p>
+                <button id="play" disabled>Click to play</button>
+            </div>
+        </div>
+        <script type="module" src="/src/main.ts"></script>
+    </body>
+</html>

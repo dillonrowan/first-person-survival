@@ -1,0 +1,28 @@
+node_modules/
+dist/
+
+# Downloaded OSRS cache (npm run download-cache)
+cache/
+
+# Generated world map (npm run export-world), ~1.5 GB
+public/world/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# TypeScript / Vite build info
+*.tsbuildinfo
+.vite/
+
+# Editor / OS files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db

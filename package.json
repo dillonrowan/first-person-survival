@@ -1,0 +1,26 @@
+{
+    "name": "first-person-survival",
+    "private": true,
+    "version": "0.1.0",
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "npm run typecheck && vite build",
+        "preview": "vite preview",
+        "typecheck": "tsc --noEmit && tsc --noEmit -p tools/world-export",
+        "download-cache": "node scripts/download-cache.mjs",
+        "export-world": "tsx --tsconfig tools/world-export/tsconfig.json tools/world-export/export-world.ts"
+    },
+    "dependencies": {
+        "three": "^0.187.0"
+    },
+    "devDependencies": {
+        "@types/node": "^26.6.6",
+        "@types/three": "^0.187.0",
+        "bzip2": "^0.1.1",
+        "fflate": "^0.8.3",
+        "tsx": "^4.23.15",
+        "typescript": "^7.0.2",
+        "vite": "^8.3.5"
+    }
+}

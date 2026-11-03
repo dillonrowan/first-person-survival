@@ -1,0 +1,317 @@
+import { Model } from "../../model/Model";
+import { ModelData } from "../../model/ModelData";
+import { ModelLoader } from "../../model/ModelLoader";
+import { TextureLoader } from "../../texture/TextureLoader";
+import { LocModelType } from "./LocModelType";
+import { LocType } from "./LocType";
+import { LocTypeLoader } from "./LocTypeLoader";
+
+export type ContourGroundInfo = {
+    type: number;
+    param: number;
+    heightMap: Int32Array[];
+    heightMapAbove: Int32Array[] | undefined;
+    entityX: number;
+    entityY: number;
+    entityZ: number;
+};
+
+export class LocModelLoader {
+    static mergeLocModelsCache: ModelData[] = new Array(4);
+
+    modelDataCache: Map<number, ModelData>;
+    entityCache: Map<number, Model | ModelData>;
+    modelCache: Map<number, Model>;
+
+    constructor(
+        readonly locTypeLoader: LocTypeLoader,
+        readonly modelLoader: ModelLoader,
+        readonly textureLoader: TextureLoader,
+    ) {
+        this.modelDataCache = new Map();
+        this.entityCache = new Map();
+        this.modelCache = new Map();
+    }
+
+    getModelData(id: number, mirrored: boolean): ModelData | undefined {
+        let key = id;
+        if (mirrored) {
+            key += 0x10000;
+        }
+        let model = this.modelDataCache.get(key);
+        if (!model) {
+            model = this.modelLoader.getModel(id);
+            if (model) {
+                if (mirrored) {
+                    model.mirror();
+                }
+                this.modelDataCache.set(key, model);
+            }
+        }
+
+        return model;
+    }
+
+    getLocModelData(locType: LocType, type: LocModelType, rotation: number): ModelData | undefined {
+        let model: ModelData | undefined;
+        const isMirrored = locType.isRotated || (type === LocModelType.WALL_CORNER && rotation > 3);
+        if (!locType.types) {
+            if (type !== LocModelType.NORMAL) {
+                return undefined;
+            }
+
+            if (!locType.models || locType.models.length === 0) {
+                return undefined;
+            }
+
+            // const isMirrored = locType.isRotated;
+
+            const modelCount = locType.models[0].length;
+
+            for (let i = 0; i < modelCount; i++) {
+                const modelId = locType.models[0][i];
+
+                model = this.getModelData(modelId, isMirrored);
+                if (!model) {
+                    return undefined;
+                }
+
+                if (modelCount > 1) {
+                    LocModelLoader.mergeLocModelsCache[i] = model;
+                }
+            }
+
+            if (modelCount > 1) {
+                model = ModelData.merge(LocModelLoader.mergeLocModelsCache, modelCount);
+            }
+        } else {
+            let index = -1;
+
+            for (let i = 0; i < locType.types.length; i++) {
+                if (locType.types[i] === type) {
+                    index = i;
+                    break;
+                }
+            }
+
+            if (index === -1) {
+                return undefined;
+            }
+
+            // const isMirrored = locType.isRotated !== rotation > 3;
+
+            const modelIds = locType.models[index];
+            const modelCount = modelIds.length;
+            for (let i = 0; i < modelCount; i++) {
+                const modelId = modelIds[i];
+
+                model = this.getModelData(modelId, isMirrored);
+                if (!model) {
+                    return undefined;
+                }
+
+                if (modelCount > 1) {
+                    LocModelLoader.mergeLocModelsCache[i] = model;
+                }
+            }
+
+            if (modelCount > 1) {
+                model = ModelData.merge(LocModelLoader.mergeLocModelsCache, modelCount);
+            }
+        }
+
+        if (!model) {
+            return undefined;
+        }
+
+        const hasResize =
+            locType.modelSizeX !== 128 ||
+            locType.modelSizeHeight !== 128 ||
+            locType.modelSizeY !== 128;
+
+        const hasOffset =
+            locType.offsetX !== 0 || locType.offsetHeight !== 0 || locType.offsetY !== 0;
+
+        const copy = ModelData.copyFrom(
+            model,
+            true,
+            rotation === 0 && !hasResize && !hasOffset,
+            !locType.recolorFrom,
+            false,
+        );
+
+        if (type === LocModelType.WALL_DECORATION_INSIDE && rotation > 3) {
+            copy.rotate(256);
+            copy.translate(45, 0, -45);
+        }
+
+        rotation &= 3;
+        if (rotation === 1) {
+            copy.rotate90();
+        } else if (rotation === 2) {
+            copy.rotate180();
+        } else if (rotation === 3) {
+            copy.rotate270();
+        }
+
+        if (locType.recolorFrom) {
+            const retexture =
+                locType.cacheInfo.game === "runescape" && locType.cacheInfo.revision <= 464;
+            for (let i = 0; i < locType.recolorFrom.length; i++) {
+                copy.recolor(locType.recolorFrom[i], locType.recolorTo[i]);
+                if (retexture) {
+                    copy.retexture(locType.recolorFrom[i], locType.recolorTo[i]);
+                }
+            }
+        }
+
+        if (locType.retextureFrom) {
+            for (let i = 0; i < locType.retextureFrom.length; i++) {
+                copy.retexture(locType.retextureFrom[i], locType.retextureTo[i]);
+            }
+        }
+
+        if (hasResize) {
+            copy.resize(locType.modelSizeX, locType.modelSizeHeight, locType.modelSizeY);
+        }
+
+        if (hasOffset) {
+            copy.translate(locType.offsetX, locType.offsetHeight, locType.offsetY);
+        }
+
+        return copy;
+    }
+
+    getModel(
+        locType: LocType,
+        type: LocModelType,
+        rotation: number,
+        contourGroundInfo?: ContourGroundInfo,
+    ): Model | ModelData | undefined {
+        let key: number;
+        if (locType.types) {
+            key = rotation + (type << 3) + (locType.id << 10);
+        } else {
+            key = rotation + (locType.id << 10);
+        }
+
+        let model = this.entityCache.get(key);
+        if (!model) {
+            const modelData = this.getLocModelData(locType, type, rotation);
+            if (!modelData) {
+                return undefined;
+            }
+
+            const isDiagonal = type === LocModelType.NORMAL && rotation > 3;
+            if (isDiagonal) {
+                modelData.rotate(256);
+            }
+
+            if (!locType.mergeNormals) {
+                model = modelData.light(
+                    this.textureLoader,
+                    locType.ambient + 64,
+                    locType.contrast + 768,
+                    -50,
+                    -10,
+                    -50,
+                );
+            } else {
+                let ambient = 64;
+                let constrast = 768;
+                const ignoreLocLighting =
+                    locType.cacheInfo.game === "runescape" && locType.cacheInfo.revision <= 445;
+                if (!ignoreLocLighting) {
+                    ambient += locType.ambient;
+                    constrast += locType.contrast;
+                }
+                modelData.ambient = ambient;
+                modelData.contrast = constrast;
+                modelData.calculateVertexNormals();
+
+                model = modelData;
+            }
+
+            this.entityCache.set(key, model);
+        }
+
+        if (locType.mergeNormals) {
+            model = (model as ModelData).copy();
+        }
+
+        if (locType.contourGroundType !== 0 && contourGroundInfo) {
+            model = model.contourGround(
+                contourGroundInfo.type,
+                contourGroundInfo.param,
+                contourGroundInfo.heightMap,
+                contourGroundInfo.heightMapAbove,
+                contourGroundInfo.entityX,
+                contourGroundInfo.entityY,
+                contourGroundInfo.entityZ,
+            );
+        }
+
+        return model;
+    }
+
+    // Model for a loc the scene builder deferred as a LocEntity (animated or varbit-transformed).
+    // The world is static, so animated locs use their base pose. The diagonal rotation is applied
+    // to a fresh copy before lighting, so the cached model is never rotated twice.
+    getModelStatic(
+        locType: LocType,
+        type: LocModelType,
+        rotation: number,
+        contourGroundInfo?: ContourGroundInfo,
+    ): Model | undefined {
+        let key: number;
+        if (locType.types) {
+            key = rotation + (type << 3) + (locType.id << 10);
+        } else {
+            key = rotation + (locType.id << 10);
+        }
+
+        let model = this.modelCache.get(key);
+        if (!model) {
+            const modelData = this.getLocModelData(locType, type, rotation);
+            if (!modelData) {
+                return undefined;
+            }
+
+            const isDiagonal = type === LocModelType.NORMAL && rotation > 3;
+            if (isDiagonal) {
+                modelData.rotate(256);
+            }
+
+            model = modelData.light(
+                this.textureLoader,
+                locType.ambient + 64,
+                locType.contrast + 768,
+                -50,
+                -10,
+                -50,
+            );
+
+            this.modelCache.set(key, model);
+        }
+
+        if (locType.contourGroundType !== 0 && contourGroundInfo) {
+            model = model.contourGround(
+                contourGroundInfo.type,
+                contourGroundInfo.param,
+                contourGroundInfo.heightMap,
+                contourGroundInfo.heightMapAbove,
+                contourGroundInfo.entityX,
+                contourGroundInfo.entityY,
+                contourGroundInfo.entityZ,
+            );
+        }
+
+        return model;
+    }
+
+    clearCache() {
+        this.modelDataCache.clear();
+        this.entityCache.clear();
+        this.modelCache.clear();
+    }
+}

@@ -1,0 +1,299 @@
+// One-time conversion of the OSRS cache (cache/) into the game's world map (public/world/).
+//
+//   npm run export-world                         Gielinor's surface (map squares with y < 66)
+//   npm run export-world -- --area all           also dungeons, minigames and instances
+//   npm run export-world -- --area 44,48,54,56   map squares x 44..54, y 48..56 (inclusive)
+//   npm run export-world -- --workers 4
+//
+// The cache decoders live in rs/; RegionBuilder turns each decoded map square into the meshes
+// and collision data the game loads.
+
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { Worker } from "node:worker_threads";
+
+import {
+    REGION_SIZE,
+    TEXTURE_SIZE,
+    TextureLayer,
+    WORLD_FORMAT_VERSION,
+    WorldManifest,
+} from "../../src/world/WorldFormat";
+import { readCacheFiles } from "./cache-files";
+import { ExportResult, ExportWorkerData } from "./export-worker";
+import { encodePng } from "./png";
+import { BRIGHTNESS } from "./RegionBuilder";
+import { TextureLoader } from "./rs/texture/TextureLoader";
+import { createWorldLoaders } from "./WorldLoaders";
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+const CACHE_DIR = path.join(ROOT, "cache");
+const OUT_DIR = path.join(ROOT, "public", "world");
+const REGION_DIR = path.join(OUT_DIR, "regions");
+
+// Lumbridge, where new OSRS characters start.
+const DEFAULT_SPAWN = { x: 3222, y: 3218, plane: 0 };
+
+// Textures scroll `anim` texels per 20 ms client cycle on a 128-texel texture:
+// `time / 0.02 * anim / 128` (time in seconds).
+const TEXTURE_ANIM_PER_SECOND = 50 / 128;
+const ATLAS_COLUMNS = 16;
+
+type Area = { x1: number; y1: number; x2: number; y2: number };
+
+const AREAS: Record<string, Area> = {
+    // Everything north of y 65 is dungeons, minigames and instances, not connected to the surface.
+    surface: { x1: 0, y1: 0, x2: 255, y2: 65 },
+    all: { x1: 0, y1: 0, x2: 255, y2: 255 },
+};
+
+// A worker peaks at roughly 300 MB while building dense regions; keep headroom on top of that.
+const WORKER_MEMORY_BYTES = 600 * 1024 * 1024;
+
+function defaultWorkerCount(): number {
+    const byCores = os.cpus().length - 2;
+    const byMemory = Math.floor(os.freemem() / WORKER_MEMORY_BYTES);
+    return Math.max(1, Math.min(6, byCores, byMemory));
+}
+
+function parseArgs(argv: string[]): { area: Area; workers: number } {
+    let area = AREAS.surface;
+    let workers = defaultWorkerCount();
+    for (let i = 0; i < argv.length; i++) {
+        const arg = argv[i];
+        const value = argv[i + 1];
+        if (arg === "--area" && value) {
+            i++;
+            if (AREAS[value]) {
+                area = AREAS[value];
+            } else {
+                const [x1, y1, x2, y2] = value.split(",").map(Number);
+                if ([x1, y1, x2, y2].some((n) => !Number.isInteger(n))) {
+                    throw new Error(`--area expects surface, all or x1,y1,x2,y2, got "${value}"`);
+                }
+                area = {
+                    x1: Math.min(x1, x2),
+                    y1: Math.min(y1, y2),
+                    x2: Math.max(x1, x2),
+                    y2: Math.max(y1, y2),
+                };
+            }
+        } else if (arg === "--workers" && value) {
+            i++;
+            workers = Math.max(1, Number(value) | 0);
+        } else {
+            throw new Error(`Unknown argument "${arg}"`);
+        }
+    }
+    return { area, workers };
+}
+
+function exportTextures(textureLoader: TextureLoader): WorldManifest["textures"] {
+    const ids = textureLoader.getTextureIds();
+    const layerCount = ids.length + 1;
+    if (layerCount > 256) {
+        // The vertex format stores the layer in 8 bits.
+        throw new Error(`Too many textures for the world format: ${ids.length}`);
+    }
+
+    const rows = Math.ceil(layerCount / ATLAS_COLUMNS);
+    const width = ATLAS_COLUMNS * TEXTURE_SIZE;
+    const height = rows * TEXTURE_SIZE;
+    const atlas = new Uint8Array(width * height * 4);
+
+    const white = new Int32Array(TEXTURE_SIZE * TEXTURE_SIZE).fill(-1);
+    const writeLayer = (layer: number, argb: Int32Array) => {
+        const cellX = (layer % ATLAS_COLUMNS) * TEXTURE_SIZE;
+        const cellY = Math.floor(layer / ATLAS_COLUMNS) * TEXTURE_SIZE;
+        for (let y = 0; y < TEXTURE_SIZE; y++) {
+            for (let x = 0; x < TEXTURE_SIZE; x++) {
+                const pixel = argb[y * TEXTURE_SIZE + x];
+                const i = ((cellY + y) * width + cellX + x) * 4;
+                atlas[i] = (pixel >> 16) & 0xff;
+                atlas[i + 1] = (pixel >> 8) & 0xff;
+                atlas[i + 2] = pixel & 0xff;
+                atlas[i + 3] = (pixel >>> 24) & 0xff;
+            }
+        }
+    };
+
+    const layers: TextureLayer[] = [{ id: -1, animU: 0, animV: 0, alphaCutOff: 0 }];
+    writeLayer(0, white);
+    ids.forEach((id, i) => {
+        let pixels: Int32Array = white;
+        try {
+            pixels = textureLoader.getPixelsArgb(id, TEXTURE_SIZE, true, BRIGHTNESS);
+        } catch (e) {
+            console.warn(`Texture ${id} failed to load, using white`, e);
+        }
+        writeLayer(i + 1, pixels);
+
+        const material = textureLoader.getMaterial(id);
+        layers.push({
+            id,
+            animU: material.animU * TEXTURE_ANIM_PER_SECOND,
+            animV: material.animV * TEXTURE_ANIM_PER_SECOND,
+            alphaCutOff: material.alphaCutOff,
+        });
+    });
+
+    const file = "textures.png";
+    fs.writeFileSync(path.join(OUT_DIR, file), encodePng(width, height, atlas));
+    return { file, tileSize: TEXTURE_SIZE, columns: ATLAS_COLUMNS, layers };
+}
+
+function formatDuration(ms: number): string {
+    const s = Math.round(ms / 1000);
+    return s >= 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${s}s`;
+}
+
+async function exportRegions(
+    cache: ReturnType<typeof readCacheFiles>,
+    regions: [number, number][],
+    workerCount: number,
+): Promise<[number, number][]> {
+    const workerData: ExportWorkerData = {
+        info: cache.info,
+        dat2: cache.dat2 as SharedArrayBuffer,
+        indexFiles: [...cache.indexFiles],
+        xteas: [...cache.xteas],
+        regionDir: REGION_DIR,
+    };
+
+    const queue = [...regions];
+    const exported: [number, number][] = [];
+    const failed: string[] = [];
+    let done = 0;
+    let bytes = 0;
+    const start = Date.now();
+    let lastLog = 0;
+
+    const logProgress = (force = false) => {
+        const now = Date.now();
+        if (!force && now - lastLog < 3000) {
+            return;
+        }
+        lastLog = now;
+        const elapsed = now - start;
+        const eta = done > 0 ? (elapsed / done) * (regions.length - done) : 0;
+        console.log(
+            `  ${done}/${regions.length} regions, ${(bytes / 1048576).toFixed(0)} MiB, ` +
+                `${formatDuration(elapsed)} elapsed, ~${formatDuration(eta)} left`,
+        );
+    };
+
+    const runWorker = () =>
+        new Promise<void>((resolve, reject) => {
+            const worker = new Worker(new URL("./export-worker.ts", import.meta.url), {
+                workerData,
+            });
+            const next = () => {
+                const task = queue.shift();
+                if (task) {
+                    worker.postMessage({ mapX: task[0], mapY: task[1] });
+                } else {
+                    worker.terminate().then(() => resolve(), reject);
+                }
+            };
+            worker.on("message", (result: ExportResult) => {
+                if (result.type !== "ready") {
+                    done++;
+                    if (result.type === "region") {
+                        exported.push([result.mapX, result.mapY]);
+                        bytes += result.bytes;
+                    } else if (result.type === "error") {
+                        failed.push(`${result.mapX},${result.mapY}`);
+                        console.error(
+                            `Region ${result.mapX},${result.mapY} failed:`,
+                            result.message,
+                        );
+                    }
+                    logProgress();
+                }
+                next();
+            });
+            worker.on("error", reject);
+        });
+
+    await Promise.all(Array.from({ length: Math.min(workerCount, regions.length) }, runWorker));
+    logProgress(true);
+    if (failed.length > 0) {
+        console.warn(`${failed.length} regions failed and were skipped: ${failed.join(" ")}`);
+    }
+
+    return exported.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+}
+
+async function main() {
+    const { area, workers } = parseArgs(process.argv.slice(2));
+
+    console.log("Reading cache...");
+    const cache = readCacheFiles(CACHE_DIR);
+    const { download } = cache;
+    console.log(
+        `OSRS revision ${download.revision} (OpenRS2 #${download.id}, ${download.timestamp})`,
+    );
+
+    const loaders = createWorldLoaders(cache);
+
+    const regions: [number, number][] = [];
+    for (let x = area.x1; x <= area.x2; x++) {
+        for (let y = area.y1; y <= area.y2; y++) {
+            if (loaders.sceneBuilder.getTerrainData(x, y)) {
+                regions.push([x, y]);
+            }
+        }
+    }
+    if (regions.length === 0) {
+        throw new Error("No map squares in the selected area");
+    }
+
+    fs.rmSync(OUT_DIR, { recursive: true, force: true });
+    fs.mkdirSync(REGION_DIR, { recursive: true });
+
+    console.log("Exporting textures...");
+    const textures = exportTextures(loaders.textureLoader);
+    console.log(`  ${textures.layers.length - 1} textures -> ${textures.file}`);
+
+    console.log(`Exporting ${regions.length} regions with ${workers} workers...`);
+    const exported = await exportRegions(cache, regions, workers);
+
+    const spawnRegion: [number, number] = [
+        Math.floor(DEFAULT_SPAWN.x / REGION_SIZE),
+        Math.floor(DEFAULT_SPAWN.y / REGION_SIZE),
+    ];
+    let spawn = DEFAULT_SPAWN;
+    if (!exported.some(([x, y]) => x === spawnRegion[0] && y === spawnRegion[1])) {
+        // Lumbridge is outside the exported area: start in the middle of it instead.
+        const [x, y] = exported[Math.floor(exported.length / 2)];
+        spawn = {
+            x: x * REGION_SIZE + REGION_SIZE / 2,
+            y: y * REGION_SIZE + REGION_SIZE / 2,
+            plane: 0,
+        };
+    }
+
+    const manifest: WorldManifest = {
+        format: WORLD_FORMAT_VERSION,
+        source: {
+            game: download.game,
+            revision: download.revision,
+            cacheId: download.id,
+            timestamp: download.timestamp,
+        },
+        regionSize: REGION_SIZE,
+        regions: exported,
+        spawn,
+        textures,
+    };
+    fs.writeFileSync(path.join(OUT_DIR, "world.json"), JSON.stringify(manifest));
+
+    console.log(`Done: ${exported.length} regions in ${path.relative(ROOT, OUT_DIR)}`);
+}
+
+main().catch((e) => {
+    console.error(e);
+    process.exit(1);
+});
