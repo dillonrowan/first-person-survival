@@ -2,10 +2,10 @@ node_modules/
 dist/
 
 # Downloaded OSRS cache (npm run download-cache)
-cache/
+/cache/
 
 # Generated world map (npm run export-world), ~1.5 GB
-public/world/
+/public/world/
 
 # Logs
 *.log
