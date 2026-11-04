@@ -1,11 +1,13 @@
 import * as THREE from "three";
 
+import { gunzip } from "./gunzip";
 import { WorldMaterials } from "./WorldMaterials";
 import {
     LEVELS,
     MeshData,
     REGION_SIZE,
     RS_UNITS_PER_TILE,
+    RegionListener,
     WorldManifest,
     decodeRegion,
     regionFileName,
@@ -44,6 +46,7 @@ export class World {
     private readonly regions = new Map<number, LoadedRegion>();
     private readonly loading = new Set<number>();
     private readonly failed = new Set<number>();
+    private readonly listeners: RegionListener[] = [];
 
     constructor(
         private readonly baseUrl: string,
@@ -53,6 +56,14 @@ export class World {
     ) {
         for (const [mapX, mapY] of manifest.regions) {
             this.available.add(regionKey(mapX, mapY));
+        }
+    }
+
+    /** Calls the listener for every region that loads or unloads, and for those already loaded. */
+    addRegionListener(listener: RegionListener): void {
+        this.listeners.push(listener);
+        for (const region of this.regions.values()) {
+            listener.loaded(region.mapX, region.mapY);
         }
     }
 
@@ -221,6 +232,9 @@ export class World {
                 floors: data.floors.slice(),
                 collision: data.collision.slice(),
             });
+            for (const listener of this.listeners) {
+                listener.loaded(mapX, mapY);
+            }
         } catch (e) {
             console.error(`Failed to load region ${mapX},${mapY}`, e);
             this.failed.add(key);
@@ -236,6 +250,9 @@ export class World {
             mesh.geometry.dispose();
         }
         this.regions.delete(key);
+        for (const listener of this.listeners) {
+            listener.unloaded(region.mapX, region.mapY);
+        }
     }
 }
 
@@ -255,16 +272,6 @@ function distanceToRegion(x: number, y: number, mapX: number, mapY: number): num
     const dx = Math.max(minX - x, 0, x - (minX + REGION_SIZE));
     const dy = Math.max(minY - y, 0, y - (minY + REGION_SIZE));
     return Math.hypot(dx, dy);
-}
-
-async function gunzip(buffer: ArrayBuffer): Promise<ArrayBuffer> {
-    const bytes = new Uint8Array(buffer, 0, 2);
-    // A server may already have removed the gzip layer (Content-Encoding), so check the magic.
-    if (bytes[0] !== 0x1f || bytes[1] !== 0x8b) {
-        return buffer;
-    }
-    const stream = new Blob([buffer]).stream().pipeThrough(new DecompressionStream("gzip"));
-    return new Response(stream).arrayBuffer();
 }
 
 function createGeometry(mesh: MeshData): THREE.BufferGeometry {

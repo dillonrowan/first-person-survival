@@ -4,6 +4,7 @@
 //   npm run export-world -- --area all           also dungeons, minigames and instances
 //   npm run export-world -- --area 44,48,54,56   map squares x 44..54, y 48..56 (inclusive)
 //   npm run export-world -- --workers 4
+//   npm run export-world -- --no-npcs            skip the NPC models and spawns
 //
 // The cache decoders live in rs/; RegionBuilder turns each decoded map square into the meshes
 // and collision data the game loads.
@@ -14,6 +15,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Worker } from "node:worker_threads";
 
+import { NpcManifest } from "../../src/world/NpcFormat";
 import {
     REGION_SIZE,
     TEXTURE_SIZE,
@@ -22,9 +24,10 @@ import {
     WorldManifest,
 } from "../../src/world/WorldFormat";
 import { readCacheFiles } from "./cache-files";
-import { ExportResult, ExportWorkerData } from "./export-worker";
+import { ExportResult, ExportTask, ExportWorkerData } from "./export-worker";
 import { encodePng } from "./png";
-import { BRIGHTNESS } from "./RegionBuilder";
+import { BRIGHTNESS } from "./FaceColors";
+import { NpcAppearanceTask, finalizeNpcManifest, readNpcSpawnFile, selectNpcs } from "./NpcSpawns";
 import { TextureLoader } from "./rs/texture/TextureLoader";
 import { createWorldLoaders } from "./WorldLoaders";
 
@@ -32,6 +35,9 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
 const CACHE_DIR = path.join(ROOT, "cache");
 const OUT_DIR = path.join(ROOT, "public", "world");
 const REGION_DIR = path.join(OUT_DIR, "regions");
+const NPC_DIR = path.join(OUT_DIR, "npcs");
+const NPC_SPAWN_FILE = path.join(ROOT, "tools", "world-export", "data", "npc-spawns-osrs.json");
+const NPC_MANIFEST_FILE = "npcs.json";
 
 // Lumbridge, where new OSRS characters start.
 const DEFAULT_SPAWN = { x: 3222, y: 3218, plane: 0 };
@@ -58,8 +64,9 @@ function defaultWorkerCount(): number {
     return Math.max(1, Math.min(6, byCores, byMemory));
 }
 
-function parseArgs(argv: string[]): { area: Area; workers: number } {
+function parseArgs(argv: string[]): { area: Area; workers: number; npcs: boolean } {
     let area = AREAS.surface;
+    let npcs = true;
     let workers = defaultWorkerCount();
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
@@ -80,6 +87,8 @@ function parseArgs(argv: string[]): { area: Area; workers: number } {
                     y2: Math.max(y1, y2),
                 };
             }
+        } else if (arg === "--no-npcs") {
+            npcs = false;
         } else if (arg === "--workers" && value) {
             i++;
             workers = Math.max(1, Number(value) | 0);
@@ -87,7 +96,7 @@ function parseArgs(argv: string[]): { area: Area; workers: number } {
             throw new Error(`Unknown argument "${arg}"`);
         }
     }
-    return { area, workers };
+    return { area, workers, npcs };
 }
 
 function exportTextures(textureLoader: TextureLoader): WorldManifest["textures"] {
@@ -149,41 +158,25 @@ function formatDuration(ms: number): string {
     return s >= 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${s}s`;
 }
 
-async function exportRegions(
-    cache: ReturnType<typeof readCacheFiles>,
-    regions: [number, number][],
-    workerCount: number,
-): Promise<[number, number][]> {
-    const workerData: ExportWorkerData = {
+function createWorkerData(cache: ReturnType<typeof readCacheFiles>): ExportWorkerData {
+    return {
         info: cache.info,
         dat2: cache.dat2 as SharedArrayBuffer,
         indexFiles: [...cache.indexFiles],
         xteas: [...cache.xteas],
         regionDir: REGION_DIR,
+        npcDir: NPC_DIR,
     };
+}
 
-    const queue = [...regions];
-    const exported: [number, number][] = [];
-    const failed: string[] = [];
-    let done = 0;
-    let bytes = 0;
-    const start = Date.now();
-    let lastLog = 0;
-
-    const logProgress = (force = false) => {
-        const now = Date.now();
-        if (!force && now - lastLog < 3000) {
-            return;
-        }
-        lastLog = now;
-        const elapsed = now - start;
-        const eta = done > 0 ? (elapsed / done) * (regions.length - done) : 0;
-        console.log(
-            `  ${done}/${regions.length} regions, ${(bytes / 1048576).toFixed(0)} MiB, ` +
-                `${formatDuration(elapsed)} elapsed, ~${formatDuration(eta)} left`,
-        );
-    };
-
+/** Runs tasks on a pool of export workers; `onResult` sees every result except "ready". */
+async function runWorkerPool(
+    workerData: ExportWorkerData,
+    tasks: ExportTask[],
+    workerCount: number,
+    onResult: (result: ExportResult) => void,
+): Promise<void> {
+    const queue = [...tasks];
     const runWorker = () =>
         new Promise<void>((resolve, reject) => {
             const worker = new Worker(new URL("./export-worker.ts", import.meta.url), {
@@ -192,33 +185,65 @@ async function exportRegions(
             const next = () => {
                 const task = queue.shift();
                 if (task) {
-                    worker.postMessage({ mapX: task[0], mapY: task[1] });
+                    worker.postMessage(task);
                 } else {
                     worker.terminate().then(() => resolve(), reject);
                 }
             };
             worker.on("message", (result: ExportResult) => {
                 if (result.type !== "ready") {
-                    done++;
-                    if (result.type === "region") {
-                        exported.push([result.mapX, result.mapY]);
-                        bytes += result.bytes;
-                    } else if (result.type === "error") {
-                        failed.push(`${result.mapX},${result.mapY}`);
-                        console.error(
-                            `Region ${result.mapX},${result.mapY} failed:`,
-                            result.message,
-                        );
-                    }
-                    logProgress();
+                    onResult(result);
                 }
                 next();
             });
             worker.on("error", reject);
         });
 
-    await Promise.all(Array.from({ length: Math.min(workerCount, regions.length) }, runWorker));
-    logProgress(true);
+    await Promise.all(Array.from({ length: Math.min(workerCount, tasks.length) }, runWorker));
+}
+
+function createProgressLogger(total: number, label: string) {
+    const start = Date.now();
+    let lastLog = 0;
+    return (done: number, bytes: number, force = false) => {
+        const now = Date.now();
+        if (!force && now - lastLog < 3000) {
+            return;
+        }
+        lastLog = now;
+        const elapsed = now - start;
+        const eta = done > 0 ? (elapsed / done) * (total - done) : 0;
+        console.log(
+            `  ${done}/${total} ${label}, ${(bytes / 1048576).toFixed(0)} MiB, ` +
+                `${formatDuration(elapsed)} elapsed, ~${formatDuration(eta)} left`,
+        );
+    };
+}
+
+async function exportRegions(
+    cache: ReturnType<typeof readCacheFiles>,
+    regions: [number, number][],
+    workerCount: number,
+): Promise<[number, number][]> {
+    const exported: [number, number][] = [];
+    const failed: string[] = [];
+    let done = 0;
+    let bytes = 0;
+    const logProgress = createProgressLogger(regions.length, "regions");
+
+    const tasks: ExportTask[] = regions.map(([mapX, mapY]) => ({ kind: "region", mapX, mapY }));
+    await runWorkerPool(createWorkerData(cache), tasks, workerCount, (result) => {
+        done++;
+        if (result.type === "region") {
+            exported.push([result.mapX, result.mapY]);
+            bytes += result.bytes;
+        } else if (result.type === "error") {
+            failed.push(result.label);
+            console.error(`${result.label} failed:`, result.message);
+        }
+        logProgress(done, bytes);
+    });
+    logProgress(done, bytes, true);
     if (failed.length > 0) {
         console.warn(`${failed.length} regions failed and were skipped: ${failed.join(" ")}`);
     }
@@ -226,8 +251,77 @@ async function exportRegions(
     return exported.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
 }
 
+/** Selects NPC spawns inside the exported regions and bakes one model file per appearance. */
+async function exportNpcs(
+    cache: ReturnType<typeof readCacheFiles>,
+    loaders: ReturnType<typeof createWorldLoaders>,
+    exportedRegions: [number, number][],
+    workerCount: number,
+): Promise<NonNullable<WorldManifest["npcs"]> | undefined> {
+    const exportedKeys = new Set(exportedRegions.map(([x, y]) => (x << 8) | y));
+    const selection = selectNpcs(
+        readNpcSpawnFile(NPC_SPAWN_FILE),
+        (mapX, mapY) => exportedKeys.has((mapX << 8) | mapY),
+        loaders.npcTypeLoader,
+        loaders.varManager,
+    );
+    if (selection.appearances.length === 0) {
+        console.log("No NPC spawns in the exported area");
+        return undefined;
+    }
+
+    fs.mkdirSync(NPC_DIR, { recursive: true });
+    console.log(`Exporting ${selection.appearances.length} NPC models...`);
+    const built = new Set<number>();
+    const failed: string[] = [];
+    let done = 0;
+    let bytes = 0;
+    let withWalk = 0;
+    const logProgress = createProgressLogger(selection.appearances.length, "NPC models");
+
+    const tasks: ExportTask[] = selection.appearances.map(
+        (npc: NpcAppearanceTask, index): ExportTask => ({ kind: "npc", index, npc }),
+    );
+    await runWorkerPool(createWorkerData(cache), tasks, workerCount, (result) => {
+        done++;
+        if (result.type === "npc") {
+            built.add(result.index);
+            bytes += result.bytes;
+            withWalk += result.hasWalk ? 1 : 0;
+        } else if (result.type === "error") {
+            failed.push(result.label);
+            console.error(`${result.label} failed:`, result.message);
+        }
+        logProgress(done, bytes);
+    });
+    logProgress(done, bytes, true);
+    if (failed.length > 0) {
+        console.warn(`${failed.length} NPC models failed and were skipped: ${failed.join(" ")}`);
+    }
+
+    const manifest: NpcManifest = finalizeNpcManifest(
+        selection,
+        built,
+        `osrs-${cache.download.revision}`,
+    );
+    fs.writeFileSync(path.join(OUT_DIR, NPC_MANIFEST_FILE), JSON.stringify(manifest));
+
+    const { skipped } = selection;
+    console.log(
+        `NPCs: ${manifest.spawns.length} spawns, ${manifest.appearances.length} appearances ` +
+            `(${withWalk} can walk), ${(bytes / 1048576).toFixed(0)} MiB; skipped ` +
+            `${skipped.outsideArea} outside the area, ${skipped.nameMismatch} name mismatches, ` +
+            `${skipped.noModel} without model, ${skipped.noIdle} without idle animation`,
+    );
+    return {
+        file: NPC_MANIFEST_FILE,
+        spawns: manifest.spawns.length,
+        appearances: manifest.appearances.length,
+    };
+}
+
 async function main() {
-    const { area, workers } = parseArgs(process.argv.slice(2));
+    const { area, workers, npcs } = parseArgs(process.argv.slice(2));
 
     console.log("Reading cache...");
     const cache = readCacheFiles(CACHE_DIR);
@@ -275,6 +369,8 @@ async function main() {
         };
     }
 
+    const npcInfo = npcs ? await exportNpcs(cache, loaders, exported, workers) : undefined;
+
     const manifest: WorldManifest = {
         format: WORLD_FORMAT_VERSION,
         source: {
@@ -287,6 +383,7 @@ async function main() {
         regions: exported,
         spawn,
         textures,
+        npcs: npcInfo,
     };
     fs.writeFileSync(path.join(OUT_DIR, "world.json"), JSON.stringify(manifest));
 

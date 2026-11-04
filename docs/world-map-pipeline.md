@@ -43,7 +43,7 @@ After this, the cache is only needed again if you re-export.
 
 ## 2. Export the world map
 
-`npm run export-world` is the only step that reads the cache. It uses five kinds of data:
+`npm run export-world` is the only step that reads the cache. It uses these kinds of data (plus one non-cache input, the NPC spawn list, below):
 
 | Cache data                  | What it is used for                                                 |
 | --------------------------- | ------------------------------------------------------------------- |
@@ -52,6 +52,8 @@ After this, the cache is only needed again if you re-export.
 | Object definitions          | Which 3D models an object uses, its size, collision and lighting    |
 | Models                      | The 3D shapes of walls, roofs, trees, furniture and everything else |
 | Textures                    | Images painted on models and ground: water, bricks, roof tiles      |
+| NPC definitions             | Which models an NPC uses, its size, idle and walk animations        |
+| Animations                  | Per-frame bone movements that bend NPC models (idle, walk)         |
 
 Each map square becomes one region file:
 
@@ -81,6 +83,12 @@ flowchart TD
 3. **Record what the player needs**: ground heights for each of the 4 floor levels,
    collision (walls and blocked tiles, with doors left open), and which upper floors exist.
 4. **Write** everything into `regions/X_Y.bin`, compressed.
+
+**NPCs.** The cache says what an NPC looks like but not where it stands, so spawn positions
+come from `tools/world-export/data/npc-spawns-osrs.json`. Spawns inside the exported regions
+are matched to their NPC definition, each distinct appearance is lit and its idle and walk
+animations are baked frame by frame into `npcs/{id}_{displayId}.bin`, and the spawns are
+written to `npcs.json`. The game plays the baked frames back and wanders the NPCs itself.
 
 Besides the regions, the export writes `textures.png` (every texture in one image) and
 `world.json` (the list of regions, the spawn point and texture settings). The 1,636 regions

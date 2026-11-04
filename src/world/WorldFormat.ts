@@ -4,6 +4,7 @@
 //   world.json         WorldManifest
 //   textures.png       texture atlas, TEXTURE_SIZE px cells, `columns` per row (layer 0 = white)
 //   regions/X_Y.bin    one gzip-compressed region per 64x64-tile map square (see encodeRegion)
+//   npcs.json, npcs/*.bin   optional NPC spawns and baked models (see NpcFormat.ts)
 
 export const WORLD_FORMAT_VERSION = 1;
 
@@ -71,6 +72,14 @@ export type WorldManifest = {
     regions: [number, number][];
     spawn: { x: number; y: number; plane: number };
     textures: { file: string; tileSize: number; columns: number; layers: TextureLayer[] };
+    /** NPC spawn list (an NpcManifest file); absent in exports made without NPCs. */
+    npcs?: { file: string; spawns: number; appearances: number };
+};
+
+/** Told when the game streams a region in or out. */
+export type RegionListener = {
+    loaded(mapX: number, mapY: number): void;
+    unloaded(mapX: number, mapY: number): void;
 };
 
 export function regionFileName(mapX: number, mapY: number): string {

@@ -1,8 +1,15 @@
 import { COSINE, SINE } from "../MathConstants";
 import { Entity } from "../scene/entity/Entity";
+import { SeqBase } from "./seq/SeqBase";
+import { SeqFrame } from "./seq/SeqFrame";
+import { SeqTransformType } from "./seq/SeqTransformType";
 
-// Animation (frame + skeletal) support was removed: the world is static.
+// Frame animation is used to bake NPC clips; skeletal animation is not supported.
 export class Model extends Entity {
+    static animateOriginX: number = 0;
+    static animateOriginY: number = 0;
+    static animateOriginZ: number = 0;
+
     version: number = 0;
 
     verticesCount: number;
@@ -92,6 +99,12 @@ export class Model extends Entity {
     field2474!: number;
 
     contourHeight: number = 0;
+
+    static resetAnimateOrigin() {
+        Model.animateOriginX = 0;
+        Model.animateOriginY = 0;
+        Model.animateOriginZ = 0;
+    }
 
     static copy(model: Model): Model {
         return Model.merge([model], 1);
@@ -708,6 +721,228 @@ export class Model extends Entity {
     getXZRadius(): number {
         this.calculateBoundsCylinder();
         return this.xzRadius;
+    }
+
+    animate(frame: SeqFrame, nextFrame: SeqFrame | undefined, op14: boolean): void {
+        if (this.vertexLabels) {
+            Model.resetAnimateOrigin();
+
+            const base = frame.base;
+            if (base !== nextFrame?.base) {
+                nextFrame = undefined;
+            }
+
+            this.transformInterpolated(base, frame, nextFrame, undefined, true, op14, 0xffff);
+            this.postAnimate();
+        }
+    }
+
+    transformInterpolated(
+        base: SeqBase,
+        frame: SeqFrame,
+        nextFrame: SeqFrame | undefined,
+        animateLabels: boolean[] | undefined,
+        condition: boolean,
+        op14: boolean,
+        mask: number,
+    ): void {
+        if (!nextFrame) {
+            for (let i = 0; i < frame.transformCount; i++) {
+                const group = frame.transformGroups[i];
+                const type = base.types[group];
+                if (
+                    !animateLabels ||
+                    animateLabels[group] === condition ||
+                    type === SeqTransformType.ORIGIN
+                ) {
+                    const resetOriginGroup = frame.resetOriginGroups[i];
+                    if (resetOriginGroup !== -1) {
+                        this.transform(
+                            SeqTransformType.ORIGIN,
+                            base.labels[resetOriginGroup],
+                            0,
+                            0,
+                            0,
+                            op14,
+                            base.masks[resetOriginGroup] & mask,
+                        );
+                    }
+
+                    this.transform(
+                        base.types[group],
+                        base.labels[group],
+                        frame.transformX[i],
+                        frame.transformY[i],
+                        frame.transformZ[i],
+                        op14,
+                        base.masks[group] & mask,
+                    );
+                }
+            }
+        }
+    }
+
+    transform(
+        type: SeqTransformType,
+        labels: number[],
+        tx: number,
+        ty: number,
+        tz: number,
+        op14: boolean = false,
+        mask: number = 0xffff,
+    ): void {
+        if (mask !== 0xffff) {
+            // console.error("animate mask", mask);
+            // throw new Error("animate mask");
+        } else {
+            this.transform0(type, labels, tx, ty, tz, op14);
+        }
+    }
+
+    transform0(
+        type: SeqTransformType,
+        labels: number[],
+        tx: number,
+        ty: number,
+        tz: number,
+        op14: boolean,
+    ) {
+        switch (type) {
+            case SeqTransformType.ORIGIN:
+                Model.resetAnimateOrigin();
+
+                let groupVertexCount = 0;
+
+                for (const label of labels) {
+                    if (label < this.vertexLabels.length) {
+                        for (const v of this.vertexLabels[label]) {
+                            Model.animateOriginX += this.verticesX[v];
+                            Model.animateOriginY += this.verticesY[v];
+                            Model.animateOriginZ += this.verticesZ[v];
+                            groupVertexCount++;
+                        }
+                    }
+                }
+
+                if (groupVertexCount > 0) {
+                    Model.animateOriginX = tx + ((Model.animateOriginX / groupVertexCount) | 0);
+                    Model.animateOriginY = ty + ((Model.animateOriginY / groupVertexCount) | 0);
+                    Model.animateOriginZ = tz + ((Model.animateOriginZ / groupVertexCount) | 0);
+                } else {
+                    Model.animateOriginX = tx;
+                    Model.animateOriginY = ty;
+                    Model.animateOriginZ = tz;
+                }
+                break;
+            case SeqTransformType.TRANSLATE:
+                for (const label of labels) {
+                    if (label < this.vertexLabels.length) {
+                        for (const v of this.vertexLabels[label]) {
+                            this.verticesX[v] += tx;
+                            this.verticesY[v] += ty;
+                            this.verticesZ[v] += tz;
+                        }
+                    }
+                }
+                break;
+            case SeqTransformType.ROTATE:
+                for (const label of labels) {
+                    if (label < this.vertexLabels.length) {
+                        for (const v of this.vertexLabels[label]) {
+                            this.verticesX[v] -= Model.animateOriginX;
+                            this.verticesY[v] -= Model.animateOriginY;
+                            this.verticesZ[v] -= Model.animateOriginZ;
+
+                            const angleX = (tx & 0xff) * 8;
+                            const angleY = (ty & 0xff) * 8;
+                            const angleZ = (tz & 0xff) * 8;
+
+                            // const angleX = tx;
+                            // const angleY = ty;
+                            // const angleZ = tz;
+
+                            // roll
+                            if (angleZ !== 0) {
+                                const sin = SINE[angleZ];
+                                const cos = COSINE[angleZ];
+                                const temp =
+                                    (sin * this.verticesY[v] + cos * this.verticesX[v]) >> 16;
+                                this.verticesY[v] =
+                                    (cos * this.verticesY[v] - sin * this.verticesX[v]) >> 16;
+                                this.verticesX[v] = temp;
+                            }
+
+                            // pitch
+                            if (angleX !== 0) {
+                                const sin = SINE[angleX];
+                                const cos = COSINE[angleX];
+                                const temp =
+                                    (cos * this.verticesY[v] - sin * this.verticesZ[v]) >> 16;
+                                this.verticesZ[v] =
+                                    (sin * this.verticesY[v] + cos * this.verticesZ[v]) >> 16;
+                                this.verticesY[v] = temp;
+                            }
+
+                            // yaw
+                            if (angleY !== 0) {
+                                const sin = SINE[angleY];
+                                const cos = COSINE[angleY];
+                                const temp =
+                                    (sin * this.verticesZ[v] + cos * this.verticesX[v]) >> 16;
+                                this.verticesZ[v] =
+                                    (cos * this.verticesZ[v] - sin * this.verticesX[v]) >> 16;
+                                this.verticesX[v] = temp;
+                            }
+
+                            this.verticesX[v] += Model.animateOriginX;
+                            this.verticesY[v] += Model.animateOriginY;
+                            this.verticesZ[v] += Model.animateOriginZ;
+                        }
+                    }
+                }
+                break;
+            case SeqTransformType.SCALE:
+                for (const label of labels) {
+                    if (label < this.vertexLabels.length) {
+                        for (const v of this.vertexLabels[label]) {
+                            this.verticesX[v] -= Model.animateOriginX;
+                            this.verticesY[v] -= Model.animateOriginY;
+                            this.verticesZ[v] -= Model.animateOriginZ;
+
+                            this.verticesX[v] = ((tx * this.verticesX[v]) / 128) | 0;
+                            this.verticesY[v] = ((ty * this.verticesY[v]) / 128) | 0;
+                            this.verticesZ[v] = ((tz * this.verticesZ[v]) / 128) | 0;
+
+                            this.verticesX[v] += Model.animateOriginX;
+                            this.verticesY[v] += Model.animateOriginY;
+                            this.verticesZ[v] += Model.animateOriginZ;
+                        }
+                    }
+                }
+                break;
+            case SeqTransformType.ALPHA:
+                if (this.faceLabels && this.faceAlphas) {
+                    for (const label of labels) {
+                        if (label < this.faceLabels.length) {
+                            for (const f of this.faceLabels[label]) {
+                                let newAlpha = (this.faceAlphas[f] & 0xff) + tx * 8;
+                                if (newAlpha < 0) {
+                                    newAlpha = 0;
+                                } else if (newAlpha > 255) {
+                                    newAlpha = 255;
+                                }
+
+                                this.faceAlphas[f] = newAlpha;
+                            }
+                        }
+                    }
+                }
+                break;
+        }
+    }
+
+    postAnimate() {
+        this.invalidateBounds();
     }
 }
 

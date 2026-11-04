@@ -7,6 +7,9 @@ import {
     ArchiveOverlayFloorTypeLoader,
     ArchiveUnderlayFloorTypeLoader,
 } from "./rs/config/floortype/FloorTypeLoader";
+import { NpcModelLoader } from "./rs/config/npctype/NpcModelLoader";
+import { ArchiveNpcTypeLoader, NpcTypeLoader } from "./rs/config/npctype/NpcTypeLoader";
+import { ArchiveSeqTypeLoader, SeqTypeLoader } from "./rs/config/seqtype/SeqTypeLoader";
 import { LocModelLoader } from "./rs/config/loctype/LocModelLoader";
 import { ArchiveLocTypeLoader, LocTypeLoader } from "./rs/config/loctype/LocTypeLoader";
 import { VarManager } from "./rs/config/vartype/VarManager";
@@ -14,6 +17,8 @@ import { ArchiveVarBitTypeLoader } from "./rs/config/vartype/bit/VarBitTypeLoade
 import { Dat2MapIndex, ModernMapFileIndex } from "./rs/map/MapFileIndex";
 import { MapFileLoader, ModernMapFileLoader } from "./rs/map/MapFileLoader";
 import { IndexModelLoader } from "./rs/model/ModelLoader";
+import { IndexSeqBaseLoader } from "./rs/model/seq/SeqBaseLoader";
+import { Dat2SeqFrameLoader, SeqFrameLoader } from "./rs/model/seq/SeqFrameLoader";
 import { SceneBuilder } from "./rs/scene/SceneBuilder";
 import { SpriteTextureLoader } from "./rs/texture/SpriteTextureLoader";
 import { TextureLoader } from "./rs/texture/TextureLoader";
@@ -33,12 +38,18 @@ export type WorldLoaders = {
     locTypeLoader: LocTypeLoader;
     textureLoader: TextureLoader;
     locModelLoader: LocModelLoader;
+    npcTypeLoader: NpcTypeLoader;
+    seqTypeLoader: SeqTypeLoader;
+    seqFrameLoader: SeqFrameLoader;
+    npcModelLoader: NpcModelLoader;
     varManager: VarManager;
     sceneBuilder: SceneBuilder;
 };
 
 // Only these indices are needed to build the map, so the others are never decoded.
 const REQUIRED_INDICES = [
+    IndexType.DAT2.animations,
+    IndexType.DAT2.skeletons,
     IndexType.DAT2.configs,
     IndexType.DAT2.maps,
     IndexType.DAT2.models,
@@ -49,8 +60,8 @@ const REQUIRED_INDICES = [
 export const REQUIRED_INDEX_FILES = [...REQUIRED_INDICES, 255];
 
 /**
- * Wires up the decoders for an OSRS (dat2) cache, minus everything that is not needed for
- * static map geometry (npcs, objs, animations).
+ * Wires up the decoders for an OSRS (dat2) cache: map geometry plus NPCs and their frame
+ * animations. Objs and skeletal animations are not decoded.
  */
 export function createWorldLoaders(files: CacheFiles): WorldLoaders {
     const { info } = files;
@@ -92,6 +103,20 @@ export function createWorldLoaders(files: CacheFiles): WorldLoaders {
         configIndex.getArchive(ConfigType.DAT2.locs),
     );
 
+    const npcTypeLoader = new ArchiveNpcTypeLoader(
+        info,
+        configIndex.getArchive(ConfigType.DAT2.npcs),
+    );
+    const seqTypeLoader = new ArchiveSeqTypeLoader(
+        info,
+        configIndex.getArchive(ConfigType.DAT2.seqs),
+    );
+    const seqFrameLoader = new Dat2SeqFrameLoader(
+        info,
+        cacheSystem.getIndex(IndexType.DAT2.animations),
+        new IndexSeqBaseLoader(info, cacheSystem.getIndex(IndexType.DAT2.skeletons)),
+    );
+
     const modelLoader = new IndexModelLoader(cacheSystem.getIndex(IndexType.DAT2.models));
     const textureLoader = SpriteTextureLoader.load(
         cacheSystem.getIndex(IndexType.DAT2.textures),
@@ -110,6 +135,15 @@ export function createWorldLoaders(files: CacheFiles): WorldLoaders {
     const varManager = new VarManager(varBitTypeLoader);
     const locModelLoader = new LocModelLoader(locTypeLoader, modelLoader, textureLoader);
 
+    const npcModelLoader = new NpcModelLoader(
+        npcTypeLoader,
+        modelLoader,
+        textureLoader,
+        seqTypeLoader,
+        seqFrameLoader,
+        varManager,
+    );
+
     const sceneBuilder = new SceneBuilder(
         info,
         mapFileLoader,
@@ -120,5 +154,16 @@ export function createWorldLoaders(files: CacheFiles): WorldLoaders {
         files.xteas,
     );
 
-    return { info, locTypeLoader, textureLoader, locModelLoader, varManager, sceneBuilder };
+    return {
+        info,
+        locTypeLoader,
+        textureLoader,
+        locModelLoader,
+        npcTypeLoader,
+        seqTypeLoader,
+        seqFrameLoader,
+        npcModelLoader,
+        varManager,
+        sceneBuilder,
+    };
 }

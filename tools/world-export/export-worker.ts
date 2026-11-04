@@ -3,7 +3,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { parentPort, workerData } from "node:worker_threads";
 
+import { encodeNpcModel } from "../../src/world/NpcFormat";
 import { encodeRegion, regionFileName } from "../../src/world/WorldFormat";
+import { FaceColors } from "./FaceColors";
+import { NpcModelBuilder } from "./NpcModelBuilder";
+import { NpcAppearanceTask } from "./NpcSpawns";
 import { RegionBuilder, RegionStats } from "./RegionBuilder";
 import { CacheFiles, createWorldLoaders } from "./WorldLoaders";
 
@@ -13,46 +17,77 @@ export type ExportWorkerData = {
     indexFiles: [number, ArrayBuffer][];
     xteas: [number, number[]][];
     regionDir: string;
+    /** Directory the NPC model files are written to (public/world/npcs). */
+    npcDir: string;
 };
 
-export type ExportTask = { mapX: number; mapY: number };
+export type ExportTask =
+    | { kind: "region"; mapX: number; mapY: number }
+    | { kind: "npc"; index: number; npc: NpcAppearanceTask };
 
 export type ExportResult =
     | { type: "ready" }
     | { type: "region"; mapX: number; mapY: number; bytes: number; stats: RegionStats }
     | { type: "empty"; mapX: number; mapY: number }
-    | { type: "error"; mapX: number; mapY: number; message: string };
+    | { type: "npc"; index: number; bytes: number; hasWalk: boolean }
+    | { type: "npc-empty"; index: number }
+    | { type: "error"; label: string; message: string };
 
 const data = workerData as ExportWorkerData;
 const port = parentPort!;
 const post = (result: ExportResult) => port.postMessage(result);
 
-const builder = new RegionBuilder(
-    createWorldLoaders({
-        info: data.info,
-        dat2: data.dat2,
-        indexFiles: new Map(data.indexFiles),
-        xteas: new Map(data.xteas),
-    }),
+const loaders = createWorldLoaders({
+    info: data.info,
+    dat2: data.dat2,
+    indexFiles: new Map(data.indexFiles),
+    xteas: new Map(data.xteas),
+});
+const faceColors = new FaceColors(loaders.textureLoader);
+const regionBuilder = new RegionBuilder(loaders, faceColors);
+const npcBuilder = new NpcModelBuilder(
+    loaders.npcTypeLoader,
+    loaders.npcModelLoader,
+    loaders.seqTypeLoader,
+    faceColors,
+    loaders.textureLoader,
 );
 
-port.on("message", ({ mapX, mapY }: ExportTask) => {
+function exportRegion(mapX: number, mapY: number): ExportResult {
+    const built = regionBuilder.build(mapX, mapY);
+    // Model caches would otherwise grow across the whole export.
+    regionBuilder.clearCaches();
+    if (!built || built.stats.triangles === 0) {
+        return { type: "empty", mapX, mapY };
+    }
+    const file = gzipSync(encodeRegion(built.region), { level: 6 });
+    fs.writeFileSync(path.join(data.regionDir, regionFileName(mapX, mapY)), file);
+    return { type: "region", mapX, mapY, bytes: file.length, stats: built.stats };
+}
+
+function exportNpc(index: number, npc: NpcAppearanceTask): ExportResult {
+    const model = npcBuilder.build(npc);
+    loaders.npcModelLoader.clearCache();
+    loaders.seqFrameLoader.clearCache();
+    if (!model) {
+        return { type: "npc-empty", index };
+    }
+    const file = gzipSync(encodeNpcModel(model), { level: 6 });
+    fs.writeFileSync(path.join(data.npcDir, path.basename(npc.file)), file);
+    return { type: "npc", index, bytes: file.length, hasWalk: model.walk !== undefined };
+}
+
+port.on("message", (task: ExportTask) => {
     try {
-        const built = builder.build(mapX, mapY);
-        // Model caches would otherwise grow across the whole export.
-        builder.clearCaches();
-        if (!built || built.stats.triangles === 0) {
-            post({ type: "empty", mapX, mapY });
-            return;
-        }
-        const file = gzipSync(encodeRegion(built.region), { level: 6 });
-        fs.writeFileSync(path.join(data.regionDir, regionFileName(mapX, mapY)), file);
-        post({ type: "region", mapX, mapY, bytes: file.length, stats: built.stats });
+        post(
+            task.kind === "region"
+                ? exportRegion(task.mapX, task.mapY)
+                : exportNpc(task.index, task.npc),
+        );
     } catch (e) {
         post({
             type: "error",
-            mapX,
-            mapY,
+            label: task.kind === "region" ? `region ${task.mapX},${task.mapY}` : `NPC ${task.npc.file}`,
             message: e instanceof Error ? (e.stack ?? e.message) : String(e),
         });
     }

@@ -123,7 +123,7 @@ export class MeshBuilder {
     }
 }
 
-function quantizeUv(value: number): number {
+export function quantizeUv(value: number): number {
     if (!Number.isFinite(value)) {
         return 0;
     }
