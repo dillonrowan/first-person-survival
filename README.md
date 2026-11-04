@@ -54,6 +54,7 @@ roof or into an upper floor and walk around there.
 npm run export-world -- --area all            # surface plus dungeons, minigames, instances
 npm run export-world -- --area 44,48,54,56    # only map squares x 44..54, y 48..56
 npm run export-world -- --workers 4           # parallel workers (default: by cores and free RAM, max 6)
+npm run export-world -- --no-npcs             # skip NPC models and spawns
 npm run download-cache -- 238                 # a specific OSRS revision instead of the newest
 ```
 
@@ -110,7 +111,25 @@ each map square into game files:
   floor don't poke through the ceiling below.
 - Doors and gates (locs with an "Open" action) have their collision removed, since nothing
   can open them yet. Animated locs are shown in their base pose; varbit-dependent locs in
-  their default state. NPCs and ground items are not exported.
+  their default state. Ground items are not exported.
+
+### NPCs
+
+The OSRS cache has NPC definitions, models and animations but **not where NPCs stand**; that
+is server data. Spawn positions come from `tools/world-export/data/npc-spawns-osrs.json`
+(copied from rs-map-viewer, see Credits; it dates from 2023, so spawns whose id or name no
+longer match the cache are skipped and counted in the export log).
+
+- The exporter resolves each spawn to the NPC model shown (multi-NPCs are shown with all
+  variables at 0, like locs), lights it, and bakes every frame of its idle and walk
+  animations into one file per NPC (`npcs/{id}_{displayId}.bin`). The game only copies
+  vertex positions per frame; no RuneScape animation code runs in the browser.
+- In game, NPCs appear and disappear with their map square, loop their idle animation, and
+  wander within 5 tiles of their spawn (walls and objects stop them), like rs-map-viewer.
+- NPCs are visual only: the player walks through them. NPCs with skeletal animations (a
+  handful) are shown in their base pose. Combat, interaction and death animations are not
+  supported.
+- `npm run export-world -- --no-npcs` skips them.
 
 Runtime (`src/`): three.js, one raw shader (`WorldMaterials.ts`), region streaming around the
 player (`World.ts`), and a first-person controller with tile collision (`Player.ts`). In dev
@@ -128,6 +147,9 @@ Defined in `src/world/WorldFormat.ts`, shared by the exporter and the game.
 - `public/world/regions/{x}_{y}.bin`: one gzip-compressed region per map square containing
   the three meshes (16 bytes per vertex), corner heights per level, render flags, floor
   masks and OSRS collision flags per tile.
+- `public/world/npcs.json` and `public/world/npcs/{id}_{displayId}.bin`: NPC spawns, and one
+  gzip-compressed model per NPC appearance (lit mesh plus baked idle and walk frames). Defined
+  in `src/world/NpcFormat.ts`. Absent when exported with `--no-npcs`.
 
 Coordinates are OSRS world tiles (`x` east, `y` north; Lumbridge is 3222, 3218). In three.js
 space, tile `(x, y)` at height `h` is `(x, h, -y)`, one unit per tile.
@@ -139,3 +161,10 @@ space, tile `(x, y)` at height `h` is `(x, h, -y)`, one unit per tile.
   one thing; publishing a game built on them would need permission or your own replacement
   assets.
 - `vite build` copies `public/world/` into `dist/`, so a production build is ~1.5 GB.
+
+## Credits
+
+The cache decoders in `tools/world-export/rs/` (including the NPC and animation ones) and the
+NPC spawn list come from [rs-map-viewer](https://github.com/dennisdev/rs-map-viewer)
+(BSD 2-Clause, Copyright (c) 2022-2023 dennisdev). Caches come from the
+[OpenRS2 archive](https://archive.openrs2.org/).

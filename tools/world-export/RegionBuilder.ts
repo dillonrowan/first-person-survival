@@ -9,8 +9,8 @@ import { SceneTileModel } from "./rs/scene/SceneTileModel";
 import { Entity } from "./rs/scene/entity/Entity";
 import { getIdFromTag } from "./rs/scene/entity/EntityTag";
 import { LocEntity } from "./rs/scene/entity/LocEntity";
-import { buildPalette } from "./rs/util/ColorUtil";
 import { LEVELS, REGION_SIZE, RegionData } from "../../src/world/WorldFormat";
+import { FaceColors, BRIGHTNESS } from "./FaceColors";
 import { MeshBuilder } from "./MeshBuilder";
 import { WorldLoaders } from "./WorldLoaders";
 
@@ -20,8 +20,7 @@ const BORDER_SIZE = 6;
 const SCENE_SIZE = REGION_SIZE + BORDER_SIZE * 2;
 const BORDER_OFFSET = -BORDER_SIZE * 128;
 
-// The OSRS client's middle brightness setting (lower is brighter, 1.0 is the darkest).
-export const BRIGHTNESS = 0.8;
+export { BRIGHTNESS };
 
 // Depth priority per kind of loc, added to each face's own priority (see the shader's bias).
 const PRIORITY_FLOOR_DECORATION = 3;
@@ -41,14 +40,10 @@ type PlacedEntity = {
 };
 
 export class RegionBuilder {
-    private readonly palette: Int32Array;
-    private readonly textureLayers = new Map<number, number>();
-
-    constructor(readonly loaders: WorldLoaders) {
-        this.palette = buildPalette(BRIGHTNESS, 0, 512);
-        // Layer 0 of the texture array is plain white, so cache texture i lives at layer i + 1.
-        loaders.textureLoader.getTextureIds().forEach((id, i) => this.textureLayers.set(id, i + 1));
-    }
+    constructor(
+        readonly loaders: WorldLoaders,
+        private readonly colors: FaceColors = new FaceColors(loaders.textureLoader),
+    ) {}
 
     /** Texture ids in texture-array order (layer = index + 1). */
     getTextureIds(): number[] {
@@ -181,29 +176,16 @@ export class RegionBuilder {
         }
     }
 
-    private hslToRgba(hsl: number, textureLayer: number, alpha: number): number {
-        if (textureLayer !== 0) {
-            // Textured faces only carry a lightness value that modulates the texture.
-            const light = (((hsl & 0x7f) / 127) * 255) | 0;
-            return ((light << 24) | (light << 16) | (light << 8) | alpha) >>> 0;
-        }
-        return ((this.palette[hsl & 0xffff] << 8) | alpha) >>> 0;
-    }
-
-    private textureLayer(textureId: number): number {
-        return textureId === -1 ? 0 : (this.textureLayers.get(textureId) ?? 0);
-    }
-
     // Tile faces already carry their lit colors, uvs and texture ids.
     private addTileModel(mesh: MeshBuilder, tileModel: SceneTileModel, level: number): void {
         for (const face of tileModel.faces) {
             const indices = face.vertices.map((vertex) => {
-                const layer = this.textureLayer(vertex.textureId);
+                const layer = this.colors.textureLayer(vertex.textureId);
                 return mesh.addVertex(
                     vertex.x + BORDER_OFFSET,
                     vertex.y,
                     vertex.z + BORDER_OFFSET,
-                    this.hslToRgba(vertex.hsl, layer, 0xff),
+                    this.colors.hslToRgba(vertex.hsl, layer, 0xff),
                     vertex.u,
                     vertex.v,
                     layer,
@@ -321,7 +303,7 @@ export class RegionBuilder {
                 alpha < 0xff || (textureId !== -1 && textureLoader.isTransparent(textureId));
             const mesh = isTransparent ? meshes.transparent : solid;
 
-            const layer = this.textureLayer(textureId);
+            const layer = this.colors.textureLayer(textureId);
             const priority =
                 (model.faceRenderPriorities ? model.faceRenderPriorities[f] : 0) +
                 1 +
@@ -344,7 +326,7 @@ export class RegionBuilder {
                 sceneX + verticesX[a],
                 height + verticesY[a],
                 sceneZ + verticesZ[a],
-                this.hslToRgba(hslA, layer, alpha),
+                this.colors.hslToRgba(hslA, layer, alpha),
                 hasUv ? uvs[t] : 0,
                 hasUv ? uvs[t + 1] : 0,
                 layer,
@@ -355,7 +337,7 @@ export class RegionBuilder {
                 sceneX + verticesX[b],
                 height + verticesY[b],
                 sceneZ + verticesZ[b],
-                this.hslToRgba(hslB, layer, alpha),
+                this.colors.hslToRgba(hslB, layer, alpha),
                 hasUv ? uvs[t + 2] : 0,
                 hasUv ? uvs[t + 3] : 0,
                 layer,
@@ -366,7 +348,7 @@ export class RegionBuilder {
                 sceneX + verticesX[c],
                 height + verticesY[c],
                 sceneZ + verticesZ[c],
-                this.hslToRgba(hslC, layer, alpha),
+                this.colors.hslToRgba(hslC, layer, alpha),
                 hasUv ? uvs[t + 4] : 0,
                 hasUv ? uvs[t + 5] : 0,
                 layer,

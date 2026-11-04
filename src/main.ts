@@ -1,10 +1,13 @@
 import * as THREE from "three";
 
+import { Npcs } from "./npc/Npcs";
 import { Input } from "./player/Input";
 import { Player } from "./player/Player";
 import "./style.css";
+import { NpcManifest, decodeNpcModel } from "./world/NpcFormat";
 import { World } from "./world/World";
 import { REGION_SIZE, WorldManifest } from "./world/WorldFormat";
+import { gunzip } from "./world/gunzip";
 import { createWorldMaterials } from "./world/WorldMaterials";
 import { loadWorldTextures } from "./world/WorldTextures";
 
@@ -44,6 +47,25 @@ async function loadManifest(): Promise<WorldManifest> {
     return response.json();
 }
 
+/** The NPC spawn list, or undefined if the world was exported without NPCs. */
+async function loadNpcManifest(manifest: WorldManifest): Promise<NpcManifest | undefined> {
+    if (!manifest.npcs) {
+        return undefined;
+    }
+    try {
+        const response = await fetch(`${WORLD_URL}${manifest.npcs.file}`);
+        // Vite's dev server answers missing files with index.html (status 200), so check the type.
+        const contentType = response.headers.get("content-type") ?? "";
+        if (!response.ok || !contentType.includes("json")) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        return await response.json();
+    } catch (e) {
+        console.warn("NPCs could not be loaded, continuing without them", e);
+        return undefined;
+    }
+}
+
 async function main(): Promise<void> {
     const manifest = await loadManifest();
 
@@ -78,11 +100,21 @@ async function main(): Promise<void> {
     });
 
     const world = new World(WORLD_URL, manifest, materials, scene);
+    const npcManifest = await loadNpcManifest(manifest);
+    const npcs = npcManifest
+        ? new Npcs(npcManifest, world, scene, materials, async (file) => {
+              const response = await fetch(`${WORLD_URL}${file}`);
+              if (!response.ok) {
+                  throw new Error(`${file}: HTTP ${response.status}`);
+              }
+              return decodeNpcModel(await gunzip(await response.arrayBuffer()));
+          })
+        : undefined;
     const input = new Input(canvas);
     const player = new Player(world, camera, spawnFromUrl(manifest.spawn));
     if (import.meta.env.DEV) {
         // Handy from the devtools console, e.g. `game.player.x = 3165`.
-        Object.assign(window, { game: { renderer, scene, camera, world, player } });
+        Object.assign(window, { game: { renderer, scene, camera, world, player, npcs } });
     }
 
     const play = () => {
@@ -111,6 +143,7 @@ async function main(): Promise<void> {
         player.update(dt, input);
         input.endFrame();
         world.update(player.x, player.y);
+        npcs?.update(dt);
         materials.setTime(now / 1000);
         renderer.render(scene, camera);
 
@@ -135,7 +168,8 @@ async function main(): Promise<void> {
             `tile ${tileX}, ${tileY} · plane ${player.plane} · region ` +
             `${Math.floor(tileX / REGION_SIZE)},${Math.floor(tileY / REGION_SIZE)}\n` +
             `regions ${world.loadedCount} loaded` +
-            (world.pendingCount > 0 ? `, ${world.pendingCount} loading` : "");
+            (world.pendingCount > 0 ? `, ${world.pendingCount} loading` : "") +
+            (npcs ? ` · npcs ${npcs.count}` : "");
     });
 }
 
