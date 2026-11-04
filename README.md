@@ -10,7 +10,7 @@ Gielinor in first person, with collision.
 ## Quick start
 
 ```bash
-npm install
+npm ci
 ```
 
 Download the OSRS cache once (newest live cache from the [OpenRS2 archive](https://archive.openrs2.org/),

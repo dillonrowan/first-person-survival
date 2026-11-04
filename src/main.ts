@@ -34,7 +34,9 @@ function spawnFromUrl(fallback: WorldManifest["spawn"]): WorldManifest["spawn"] 
 
 async function loadManifest(): Promise<WorldManifest> {
     const response = await fetch(`${WORLD_URL}world.json`);
-    if (!response.ok) {
+    // Vite's dev server answers missing files with index.html (status 200), so check the type too.
+    const contentType = response.headers.get("content-type") ?? "";
+    if (!response.ok || !contentType.includes("json")) {
         throw new Error(
             "No world map found. Create it once with: npm run download-cache && npm run export-world",
         );

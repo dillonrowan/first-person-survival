@@ -340,7 +340,25 @@ export class LocType extends Type {
             this.isHollow = true;
         } else if (opcode === 75) {
             this.supportItems = buffer.readUnsignedByte();
-        } else if (opcode === 77 || opcode === 92) {
+        } else if (
+            opcode === 77 ||
+            opcode === 92 ||
+            (this.cacheInfo.game === "oldschool" && (opcode === 97 || opcode === 98))
+        ) {
+            // 97/98 are OSRS's versions of 77/92 with 24-bit loc ids, used once loc ids
+            // outgrew 16 bits (seen in rev 242).
+            const mediumIds = opcode === 97 || opcode === 98;
+            const readLocId = (): number => {
+                if (mediumIds) {
+                    const id = buffer.readMedium();
+                    return id === 0xffffff ? -1 : id;
+                }
+                const id = this.isLargeModelId()
+                    ? buffer.readBigSmart()
+                    : buffer.readUnsignedShort();
+                return id === 65535 ? -1 : id;
+            };
+
             this.transformVarbit = buffer.readUnsignedShort();
             if (this.transformVarbit === 65535) {
                 this.transformVarbit = -1;
@@ -351,27 +369,16 @@ export class LocType extends Type {
                 this.transformVarp = -1;
             }
 
-            let var3 = -1;
-            if (opcode === 92) {
-                var3 = this.isLargeModelId() ? buffer.readBigSmart() : buffer.readUnsignedShort();
-                if (var3 === 65535) {
-                    var3 = -1;
-                }
-            }
+            const defaultTransform = opcode === 92 || opcode === 98 ? readLocId() : -1;
 
             const count = buffer.readUnsignedByte();
             this.transforms = new Array(count + 2);
 
             for (let i = 0; i <= count; i++) {
-                this.transforms[i] = this.isLargeModelId()
-                    ? buffer.readBigSmart()
-                    : buffer.readUnsignedShort();
-                if (this.transforms[i] === 65535) {
-                    this.transforms[i] = -1;
-                }
+                this.transforms[i] = readLocId();
             }
 
-            this.transforms[count + 1] = var3;
+            this.transforms[count + 1] = defaultTransform;
         } else if (opcode === 78) {
             this.ambientSoundId = buffer.readUnsignedShort();
             this.ambientSoundDistance = buffer.readUnsignedByte();
