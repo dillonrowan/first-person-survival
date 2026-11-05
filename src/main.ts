@@ -5,11 +5,20 @@ import { climbDirection, planClimb } from "./interaction/climb";
 import { createNpcActionHandler, npcTargetSource } from "./interaction/targets";
 import { CollisionDebug } from "./physics/CollisionDebug";
 import { Npcs } from "./npc/Npcs";
+import type { Npc } from "./npc/Npc";
+import type { StrikeEvent } from "./npc/NpcAttacks";
+import { presenceFor } from "./npc/NpcSenses";
+import { ArrowView } from "./combat/ArrowView";
 import { Avatar } from "./avatar/Avatar";
 import { loadAvatarAsset } from "./avatar/AvatarAsset";
 import { CameraRig } from "./player/CameraRig";
 import { Input } from "./player/Input";
 import { Player } from "./player/Player";
+import { CombatTarget, PlayerCombat } from "./combat/PlayerCombat";
+import { tuning } from "./combat/tuning";
+import { WeaponView } from "./combat/WeaponView";
+import type { BodySource } from "./physics/Bodies";
+import { CombatHud } from "./ui/CombatHud";
 import "./style.css";
 import { NpcManifest, decodeNpcModel } from "./world/NpcFormat";
 import { WorldInteractives } from "./world/Interactives";
@@ -95,6 +104,8 @@ async function main(): Promise<void> {
         0.05,
         FOG_FAR + 20,
     );
+    // The camera carries the first-person weapon, so it must be part of the scene graph.
+    scene.add(camera);
 
     status.textContent = "Loading textures...";
     const textures = await loadWorldTextures(WORLD_URL, manifest, renderer);
@@ -122,6 +133,7 @@ async function main(): Promise<void> {
         : undefined;
     const input = new Input(canvas);
     const player = new Player(world, spawnFromUrl(manifest.spawn), { bodies: npcs });
+    const baseFov = camera.fov;
     const cameraRig = new CameraRig(camera, import.meta.env.DEV);
     // Only the character is lit by scene lights; the world shaders have their lighting baked in.
     scene.add(new THREE.HemisphereLight(SKY_COLOR, 0x5a4a3a, 1.6));
@@ -130,6 +142,55 @@ async function main(): Promise<void> {
     scene.add(sun);
     const avatar = new Avatar(await loadAvatarAsset(`${import.meta.env.BASE_URL}models/player.glb`));
     scene.add(avatar.root);
+    const noBodies: BodySource<CombatTarget> = { collectBodies: () => {} };
+    const combat = new PlayerCombat(npcs ?? noBodies, (plane, x, y) => world.collisionFlags(plane, x, y));
+    const weaponView = new WeaponView(
+        camera,
+        import.meta.env.BASE_URL,
+        avatar.root.getObjectByName("socket_hand_r") ?? undefined,
+    );
+    const combatHud = new CombatHud(document.body);
+    combat.groundHeight = (plane, x, y) => world.groundHeight(plane, x, y);
+    combat.onHit = ({ result }) => combatHud.showHit(result.reaction !== "none" && result.reaction !== "flinch");
+    combat.onStruck = ({ outcome }) => {
+        if (outcome === "hit") {
+            combatHud.showDamage();
+        } else if (outcome === "parried") {
+            ui.showMessage("Parried!");
+        }
+    };
+    const arrowView = new ArrowView(scene);
+    const spawn = spawnFromUrl(manifest.spawn);
+    let deadFor = 0;
+    /** An NPC strike's impact: it lands if the player is in reach and in front of the NPC (spec 16.8). */
+    const strike = (npc: Npc, event: StrikeEvent) => {
+        const body = player.footprint();
+        if (!body) {
+            return;
+        }
+        const gap = Math.hypot(body.x - npc.body.x, body.y - npc.body.y) - body.radius - npc.body.radius;
+        const a = event.attack;
+        combat.receiveStrike(
+            player,
+            {
+                fromX: npc.body.x,
+                fromY: npc.body.y,
+                gap,
+                range: a.range,
+                hitPow: a.hitPow[event.hitIndex],
+                push: a.push,
+                breaksParry: a.breaksParry,
+            },
+            npc.facingCos(body.x, body.y) >= Math.cos(tuning.npcStrikeCone),
+        );
+    };
+    combat.onKick = ({ outcome }) => {
+        if (outcome === "hit") {
+            combatHud.showHit(true);
+        } else if (outcome === "dodged") {
+            ui.showMessage("Dodged!");
+        }
+    };
     let messageTimer: ReturnType<typeof setTimeout> | undefined;
     const ui = {
         setPrompt: (text: string) => (promptElement.textContent = text),
@@ -172,7 +233,9 @@ async function main(): Promise<void> {
             : undefined;
     if (import.meta.env.DEV) {
         // Handy from the devtools console, e.g. `game.player.x = 3165`.
-        Object.assign(window, { game: { renderer, scene, camera, world, player, npcs, cameraRig, avatar, interaction, interactives } });
+        Object.assign(window, {
+            game: { renderer, scene, camera, world, player, npcs, cameraRig, avatar, interaction, interactives, combat, tuning },
+        });
     }
 
     const play = () => {
@@ -199,13 +262,59 @@ async function main(): Promise<void> {
         last = now;
 
         player.update(dt, input);
+        const fighting = input.locked && player.ready && !player.flying;
+        combat.switchWeapon(input.consumeWheel());
+        combat.update(dt, player, {
+            attackDown: fighting && input.isDown("Mouse0"),
+            blockDown: fighting && input.isDown("Mouse2"),
+            kickPressed: fighting && input.wasPressed("KeyF"),
+            forward: input.axis("KeyW", "KeyS"),
+            strafe: input.axis("KeyD", "KeyA"),
+        });
+        // Death (spec 11): fade for 4 s, then respawn at the start with full health.
+        if (combat.combatant.dead) {
+            if (deadFor === 0) {
+                ui.showMessage("You died.");
+            }
+            deadFor += dt;
+            if (deadFor >= tuning.deathFade) {
+                deadFor = 0;
+                combat.combatant.reset();
+                player.stamina.value = player.stamina.max;
+                player.teleport(spawn.x + 0.5, spawn.y + 0.5, spawn.plane);
+            }
+        }
+        // Bow zoom (spec 16.4): narrow the view while drawn and nearly still.
+        const fov = baseFov * (1 - combat.bow.zoom * (1 - tuning.bowZoomFov));
+        if (Math.abs(camera.fov - fov) > 1e-3) {
+            camera.fov = fov;
+            camera.updateProjectionMatrix();
+        }
         cameraRig.handleInput(input);
         interaction.update(player, input);
         input.endFrame();
         world.update(player.x, player.y);
         interactives.update(dt);
-        npcs?.update(dt, player.footprint());
+        const alive = !combat.combatant.dead;
+        npcs?.update(dt, alive ? player.footprint() : undefined, player.yaw, {
+            stealth: player.crouching,
+            presence: presenceFor({ ...player, speed: player.speed }),
+            sincePlayerAttack: combat.sinceAttack,
+            strike,
+        });
+        arrowView.update(combat.arrows);
         avatar.update(dt, player, cameraRig.mode);
+        weaponView.update(combat.melee, cameraRig.mode, player.ready && !player.flying, combat.kick, {
+            bowDraw: combat.bow.drawProgress,
+            blocking: combat.blocking,
+        });
+        combatHud.update(dt, {
+            health: combat.combatant.healthFraction,
+            stamina: player.stamina.fraction,
+            adrenaline: combat.melee.adrenaline / tuning.adrenalineMax,
+            charge: combat.weapon.family === "bow" ? combat.bow.drawProgress : combat.melee.chargeProgress,
+            weaponName: combat.weapon.family === "bow" ? `${combat.weapon.name} (${combat.bow.arrows})` : combat.weapon.name,
+        });
         cameraRig.update(player);
         if (collisionDebug && npcs) {
             collisionDebug.update(npcs, player.footprint(), player.plane, player.x, player.y);

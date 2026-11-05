@@ -55,16 +55,43 @@ function run(player: Player, keys: string[], seconds: number, dt = 0.05): void {
 }
 
 describe("Player", () => {
-    it("walks at walking speed", () => {
+    it("ramps up to walking speed instead of starting at it", () => {
         const player = new Player(fakeWorld(), { x: 100, y: 100, plane: 0 });
         player.update(0.05, input([])); // places the player
-        const y0 = player.y;
 
-        player.update(0.05, input());
+        player.update(0.015, input());
+        expect(player.speed).toBeGreaterThan(0);
+        expect(player.speed).toBeLessThan(WALK_SPEED * 0.5);
 
-        expect((player.y - y0) / 0.05).toBeCloseTo(WALK_SPEED, 3);
+        run(player, ["KeyW"], 1);
         expect(player.speed).toBeCloseTo(WALK_SPEED, 3);
         expect(player.localForward).toBeCloseTo(WALK_SPEED, 3);
+    });
+
+    it("slides to a stop and loses velocity against a wall", () => {
+        const wall = (x: number, y: number) => (y === 103 ? CollisionFlag.OBJECT : 0);
+        const player = new Player(fakeWorld({ flags: wall }), { x: 100, y: 100, plane: 0 });
+        run(player, ["KeyW"], 3);
+        run(player, [], 0.05);
+        expect(player.speed).toBeLessThan(0.5);
+        run(player, [], 2);
+        expect(player.speed).toBe(0);
+    });
+
+    it("sprinting drains stamina until it runs out, then falls back to running", () => {
+        const player = new Player(fakeWorld(), { x: 100, y: 100, plane: 0 });
+        run(player, ["KeyW", "ShiftLeft"], 2);
+        expect(player.sprinting).toBe(true);
+        expect(player.stamina.value).toBeLessThan(player.stamina.max);
+        run(player, ["KeyW", "ShiftLeft"], 8);
+        expect(player.sprinting).toBe(false);
+    });
+
+    it("crouching is slower and lowers the eyes", () => {
+        const player = new Player(fakeWorld(), { x: 100, y: 100, plane: 0 });
+        run(player, ["KeyW", "KeyC"], 2);
+        expect(player.speed).toBeLessThan(WALK_SPEED * 0.8);
+        expect(player.eyeHeight).toBeLessThan(1);
     });
 
     it("is stopped by a blocked tile", () => {
@@ -166,7 +193,7 @@ describe("Player against bodies", () => {
         const flyer = new Player(fakeWorld(), { x: 100, y: 100, plane: 0 }, { bodies: bodies([npc(100.5, 101)]) });
         const i = input(["KeyW"]);
         flyer.update(0.05, i);
-        i.pressed.add("KeyF");
+        i.pressed.add("KeyN");
         flyer.update(0.05, i);
         i.pressed.clear();
         expect(flyer.flying).toBe(true);

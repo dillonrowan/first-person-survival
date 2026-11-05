@@ -36,16 +36,32 @@ npm run dev
 Open http://localhost:5173 and click to play. To start somewhere else, add tile coordinates,
 for example `http://localhost:5173/?x=3213&y=3428` (Varrock square).
 
-| Key     | Action                                  |
-| ------- | --------------------------------------- |
-| W A S D | Move                                    |
-| Mouse   | Look                                    |
-| Shift   | Sprint (or fly faster)                  |
-| Space   | Jump                                    |
-| F       | Toggle flying; Space / C to rise / sink |
-| E / R   | First / second action on what you aim at |
-| Esc     | Release the mouse                       |
-| V       | Third-person camera (dev builds only)   |
+| Key        | Action                                                          |
+| ---------- | --------------------------------------------------------------- |
+| W A S D    | Move                                                            |
+| Mouse      | Look                                                            |
+| Left mouse | Attack: tap for quick strikes, hold to charge a power attack    |
+| F          | Kick: shoves an enemy back; into a wall or off a ledge it falls |
+| Wheel      | Switch weapon (sword, daggers, club, staff)                     |
+| Shift      | Sprint, costs stamina (or fly faster)                           |
+| Alt        | Walk slowly                                                     |
+| C          | Crouch (while flying: sink)                                     |
+| Space      | Jump                                                            |
+| N          | Toggle flying; Space / C to rise / sink                         |
+| E / R      | First / second action on what you aim at                        |
+| Esc        | Release the mouse                                               |
+| V          | Third-person camera (dev builds only)                           |
+
+A charged attack takes its direction from the movement keys held when you release it:
+strafe left or right for side slashes, back for a thrust, forward while looking up or jumping for
+an overhead. Charging while sprinting at full stamina gives a lunging rush; attacking while falling
+fast gives a plunging strike. Hits fill the adrenaline bar, and when it is full your next charged
+attack is a finishing blow. NPCs with an Attack option take damage, flinch, get knocked back and
+die. Once hit, an NPC fights: it runs or walks in, zig-zags while you look straight at it, then
+holds its ideal distance with short combat steps, and flees when badly hurt. It does not strike
+back yet. The numbers and their sources are in
+[docs/combat-movement-spec.md](docs/combat-movement-spec.md). Weapon art goes in
+`public/models/weapons/`, see [docs/weapon-models.md](docs/weapon-models.md).
 
 Turning flying off lands you on the highest floor below you, so you can fly onto a castle
 roof or into an upper floor and walk around there.

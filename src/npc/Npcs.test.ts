@@ -336,3 +336,121 @@ describe("Occupancy", () => {
         expect(occupancy.size).toBe(0);
     });
 });
+
+describe("NPC combat", () => {
+    async function oneNpc(flags?: (x: number, y: number) => number) {
+        const world = fakeWorld(flags);
+        const attackable = { ...manifest, appearances: [{ ...APPEARANCE, actions: ["Talk-to", "Attack"] }] };
+        const npcs = new Npcs(attackable, world, new THREE.Scene(), materials, async () => modelData(), () => 0.5);
+        world.load(50, 50);
+        await flush();
+        return { npcs, npc: npcs.all()[0] };
+    }
+
+    it("is attackable only with an Attack option and gets health from its combat level", async () => {
+        const { npc } = await oneNpc();
+        expect(npc.attackable).toBe(true);
+        expect(npc.combatant.maxHealth).toBeGreaterThan(0);
+    });
+
+    it("is knocked back, never into a wall, and settles on a free tile once it loses the player", async () => {
+        // A wall two tiles north of the spawn (3222, 3218).
+        const { npcs, npc } = await oneNpc((x, y) => (y === 3220 ? CollisionFlag.OBJECT : 0));
+        npc.combatant.hurt(1, "stagger");
+        npc.takeHit(0, 1, 8, 3222.5, 3217);
+        for (let i = 0; i < 200; i++) {
+            npcs.update(0.02);
+            expect(npc.body.y).toBeLessThanOrEqual(3220 - npc.body.radius + 1e-3);
+        }
+        expect(npc.knockback).toBeUndefined();
+        // No player to fight: after TimeUntilNPCLoosePlayer it gives up and returns to the grid.
+        expect(npc.inCombat).toBe(false);
+        expect(npc.tileY).toBe(3219);
+        expect(npcs.occupiedTileCount).toBe(1);
+    });
+
+    it("dies, sinks away and leaves the world's bodies and occupancy", async () => {
+        const { npcs, npc } = await oneNpc();
+        npc.combatant.hurt(1e6, "knockdown");
+        const found: unknown[] = [];
+        npcs.collectBodies(0, 3200, 3200, 3260, 3260, found as never[]);
+        expect(found).toHaveLength(0);
+        for (let i = 0; i < 150; i++) {
+            npcs.update(0.02);
+        }
+        expect(npc.gone).toBe(true);
+        expect(npc.group.visible).toBe(false);
+        expect(npcs.occupiedTileCount).toBe(0);
+    });
+});
+
+describe("NPC combat movement and kicks", () => {
+    async function oneNpc(flags?: (x: number, y: number) => number) {
+        const world = fakeWorld(flags);
+        const attackable = { ...manifest, appearances: [{ ...APPEARANCE, actions: ["Attack"] }] };
+        let seed = 1;
+        const random = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+        const npcs = new Npcs(attackable, world, new THREE.Scene(), materials, async () => modelData(), random);
+        world.load(50, 50);
+        await flush();
+        return { npcs, npc: npcs.all()[0] };
+    }
+    const playerAt = (x: number, y: number) => ({ x, y, z: 0, radius: 0.3, height: 1.4, plane: 0, owner: null });
+
+    it("runs in from afar, then holds its distance with short steps instead of walking into the player", async () => {
+        const { npcs, npc } = await oneNpc();
+        const player = playerAt(3222.5, 3230.5); // 12 tiles north
+        npc.takeHit(0, 1, 0, player.x, player.y);
+        let maxSpeed = 0;
+        for (let i = 0; i < 100; i++) {
+            npcs.update(0.02, player, Math.PI / 2); // the player looks west, not at it
+            maxSpeed = Math.max(maxSpeed, npc.moveSpeed);
+        }
+        expect(maxSpeed).toBeGreaterThan(3); // running: 165 u/s, about 3.4 tiles/s
+        for (let i = 0; i < 600; i++) {
+            npcs.update(0.02, player, Math.PI / 2);
+            const d = Math.hypot(npc.body.x - player.x, npc.body.y - player.y);
+            expect(d).toBeGreaterThanOrEqual(npc.body.radius + player.radius - 1e-3);
+        }
+        const d = Math.hypot(npc.body.x - player.x, npc.body.y - player.y);
+        expect(d).toBeLessThan(3.2); // inside the Yellow zone, plus hysteresis
+        expect(npc.inCombat).toBe(true);
+    });
+
+    it("is shoved back about as far as its long hit when kicked, and dodges more often with every kick", async () => {
+        const { npcs, npc } = await oneNpc();
+        npc.faceTowards(3222.5, 3240); // facing away from the kicker (south): cannot dodge
+        npc.rotation = npc.orientation;
+        const y0 = npc.body.y;
+        expect(npc.kick(0, 1, 3222.5, y0 - 1.5)).toBe("hit");
+        for (let i = 0; i < 100; i++) {
+            npcs.update(0.02);
+        }
+        expect(npc.body.y - y0).toBeGreaterThan(1.1); // long hit from behind: 64 u, about 1.3 tiles
+        expect(npc.body.y - y0).toBeLessThan(2.4);
+
+        // Facing the kicker, repeated kicks are dodged sooner or later (chance 0.2, 0.5, 0.8, 1).
+        let dodged = false;
+        for (let i = 0; i < 4 && !dodged; i++) {
+            npc.faceTowards(npc.body.x, npc.body.y - 2);
+            npc.rotation = npc.orientation;
+            npc.combatant.reset();
+            dodged = npc.kick(0, 1, npc.body.x, npc.body.y - 1.5) === "dodged";
+        }
+        expect(dodged).toBe(true);
+    });
+
+    it("is knocked down when a kick slams it into a wall", async () => {
+        // A blocked row one tile north of the spawn tile (3222, 3218).
+        const { npcs, npc } = await oneNpc((_x, y) => (y === 3219 ? CollisionFlag.OBJECT : 0));
+        npc.faceTowards(3222.5, 3240); // facing away: cannot dodge
+        npc.rotation = npc.orientation;
+        npc.kick(0, 1, 3222.5, npc.body.y - 1.5);
+        let down = false;
+        for (let i = 0; i < 50; i++) {
+            npcs.update(0.02);
+            down ||= npc.combatant.knockedDown;
+        }
+        expect(down).toBe(true);
+    });
+});

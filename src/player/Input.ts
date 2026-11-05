@@ -4,6 +4,7 @@ export class Input {
     private readonly pressed = new Set<string>();
     private lookX = 0;
     private lookY = 0;
+    private wheel = 0;
 
     locked = false;
     onLockChange?: (locked: boolean) => void;
@@ -17,11 +18,28 @@ export class Input {
                 this.pressed.add(e.code);
             }
             this.down.add(e.code);
-            if (e.code === "Space" || e.code === "Tab" || e.code.startsWith("Arrow")) {
+            if (e.code === "Space" || e.code === "Tab" || e.code.startsWith("Arrow") || e.code.startsWith("Alt")) {
                 e.preventDefault();
             }
         });
         window.addEventListener("keyup", (e) => this.down.delete(e.code));
+        window.addEventListener("mousedown", (e) => {
+            if (this.locked) {
+                this.pressed.add(`Mouse${e.button}`);
+                this.down.add(`Mouse${e.button}`);
+            }
+        });
+        window.addEventListener("mouseup", (e) => this.down.delete(`Mouse${e.button}`));
+        window.addEventListener("contextmenu", (e) => e.preventDefault());
+        window.addEventListener(
+            "wheel",
+            (e) => {
+                if (this.locked) {
+                    this.wheel += Math.sign(e.deltaY);
+                }
+            },
+            { passive: true },
+        );
         window.addEventListener("blur", () => this.down.clear());
         document.addEventListener("mousemove", (e) => {
             if (this.locked) {
@@ -62,6 +80,13 @@ export class Input {
         this.lookX = 0;
         this.lookY = 0;
         return look;
+    }
+
+    /** Wheel notches since the last call (positive = scrolled down). */
+    consumeWheel(): number {
+        const w = this.wheel;
+        this.wheel = 0;
+        return w;
     }
 
     endFrame(): void {

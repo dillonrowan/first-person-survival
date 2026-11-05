@@ -14,8 +14,17 @@ import {
     rotateTowards,
     stepOrientation,
 } from "./NpcMovement";
-import type { Body } from "../physics/Bodies";
+import { Body, computePush } from "../physics/Bodies";
+import { sweepAxis } from "../physics/Sweep";
+import { NpcCombatBrain } from "./NpcCombat";
+import type { Box } from "../physics/TileColliders";
+import { Combatant } from "../combat/Combatant";
+import { tuning } from "../combat/tuning";
+import { Knockback, findSnapTile, massForce, slideSpeedForDistance, stepKnockback } from "./NpcPhysics";
+import type { Reaction } from "../combat/Combatant";
 import type { SharedNpcModel } from "./NpcModels";
+import { NpcAttacker, StrikeEvent } from "./NpcAttacks";
+import { canHear, canSee, hearingDelay, sightDelay } from "./NpcSenses";
 
 /** Asks whether an NPC may move to a point (tiles); true means something is in the way. */
 export type MoveBlocker = (npc: Npc, x: number, y: number) => boolean;
@@ -25,7 +34,45 @@ export type NpcWorld = {
     collisionFlags(plane: number, tileX: number, tileY: number): number;
     groundHeight(plane: number, x: number, y: number): number;
     renderLevel(plane: number, x: number, y: number): number;
+    /** Used to drop knocked-back NPCs off upper floors; without it NPCs keep their plane. */
+    hasFloor?(plane: number, x: number, y: number): boolean;
 };
+
+/** Fall damage when knocked off the edge of a floor. [data ai.DamageOnTriggerFall] */
+const LEDGE_FALL_DAMAGE = 20;
+/** Lean of the hit reactions (radians) and how fast poses ease (per second). [design] */
+const LEAN = { flinch: 0.15, stagger: 0.3, push: 0.45, stun: 0.2 };
+const POSE_RATE = 10;
+const SINK_DEPTH = 1.5;
+/** Below this speed (tiles/s) a moving NPC plays its idle clip. */
+const MOVING_SPEED = 0.15;
+/** Sideways dodge distance (Dodge_left / Dodge_right move about 40 u). [data] */
+const units40 = 40 * (1.25 / 61.065);
+
+/** What an NPC sees of the player, and of the bodies around it. */
+export type CombatContext = {
+    player?: Body & {
+        yaw: number;
+        /** Crouching: NPCs use the stealth cone, range and delay (spec 16.7). */
+        stealth?: boolean;
+        /** Noise radius this update, tiles. */
+        presence?: number;
+        /** Seconds since the player last swung or shot (berserker trigger). */
+        sincePlayerAttack?: number;
+    };
+    /** Appends bodies near a box (other NPCs, the player). */
+    collect?: (plane: number, minX: number, minY: number, maxX: number, maxY: number, out: Body[]) => void;
+    /** True if no wall blocks the segment on that plane. Without it, sight is never blocked. */
+    lineOfSight?: (plane: number, x0: number, y0: number, x1: number, y1: number) => boolean;
+    /** An NPC strike's impact event: the player decides whether it lands. */
+    strike?: (npc: Npc, event: StrikeEvent) => void;
+};
+
+/** Which side of the NPC a hit came from. */
+export type HitSide = "front" | "side" | "back";
+
+/** Outcome of a kick on an NPC. */
+export type KickOutcome = "dodged" | "hit";
 
 /** Which tiles are covered by NPCs, so two NPCs never share a tile. */
 export class Occupancy {
@@ -92,6 +139,17 @@ export class Npc {
     orientation: number;
     /** Collision cylinder, kept in sync with the drawn position. */
     readonly body: Body<Npc>;
+    /** Current floor; starts at the spawn plane and changes when knocked off an edge. */
+    plane: number;
+    readonly combatant: Combatant;
+    /** Set while knocked back: the NPC moves freely instead of along the tile grid. */
+    knockback: Knockback | undefined;
+    /** True once a dead NPC has sunk away; it no longer takes part in the world. */
+    gone = false;
+    /** True once hurt: the NPC fights (moves freely, off the tile grid) until it loses the player. */
+    alerted = false;
+    /** Current speed of free movement in tiles/s, for animation. */
+    moveSpeed = 0;
 
     private readonly spawn: Tile;
     private readonly size: number;
@@ -106,6 +164,37 @@ export class Npc {
     private holdTicks = 0;
     private clip: NpcClip | undefined;
     private dirty = true;
+    private pitch = 0;
+    private roll = 0;
+    /** Lean direction of the current reaction: +1 back / -1 forward (pitch), ±1 sideways (roll). */
+    private leanPitch = 0;
+    private leanRoll = 0;
+    /** Pose while lying: -π/2 on the back, +π/2 on the front. */
+    private lyingPitch = -Math.PI / 2;
+    private reactionClock = 0;
+    private deadFor = 0;
+    private animCarry = 0;
+    private loseTimer = 0;
+    private kickDodgeChance = -1;
+    private sinceKick = Infinity;
+    private readonly brain: NpcCombatBrain;
+    /** Melee attacks on the player (spec 16.6). */
+    readonly attacker: NpcAttacker;
+    /** Set for one update when this NPC turned hostile, so allies can be called (spec 16.7). */
+    justAlerted = false;
+    /** Seconds until a noticed player is reacted to, or -1 when nothing is noticed. */
+    private noticeTimer = -1;
+    private noticeBySight = false;
+    /** Last place the player was seen or heard, and how long the NPC has been searching there. */
+    private lastSeen: { x: number; y: number } | undefined;
+    private searching = -1;
+    private surprisedFor = 0;
+    private sinceHit = Infinity;
+    private readonly nearby: Body[] = [];
+    private readonly push = { x: 0, y: 0 };
+    /** Plane of the tiles this NPC holds in the occupancy map, or -1 for none. */
+    private occupiedPlane: number;
+    private readonly boxes: Box[] = [];
 
     constructor(
         readonly appearance: NpcAppearanceInfo,
@@ -113,7 +202,7 @@ export class Npc {
         private readonly model: SharedNpcModel,
         materials: { opaque: THREE.Material; transparent: THREE.Material },
         private readonly world: NpcWorld,
-        random: () => number,
+        private readonly random: () => number,
     ) {
         this.size = Math.max(1, appearance.size);
         this.rotationSpeed = appearance.rotationSpeed ?? DEFAULT_ROTATION_SPEED;
@@ -123,6 +212,13 @@ export class Npc {
         this.fineX = info.x * RS_UNITS_PER_TILE + this.size * (RS_UNITS_PER_TILE / 2);
         this.fineY = info.y * RS_UNITS_PER_TILE + this.size * (RS_UNITS_PER_TILE / 2);
         this.rotation = this.orientation = info.orientation;
+        this.plane = this.occupiedPlane = info.plane;
+        this.combatant = new Combatant(
+            Math.max(tuning.npcMinHealth, appearance.combatLevel * tuning.npcHealthPerLevel),
+        );
+        this.group.rotation.order = "YXZ";
+        this.brain = new NpcCombatBrain(random);
+        this.attacker = new NpcAttacker(random);
         this.body = {
             x: this.fineX / RS_UNITS_PER_TILE,
             y: this.fineY / RS_UNITS_PER_TILE,
@@ -171,6 +267,447 @@ export class Npc {
         }
     }
 
+    /** True if the NPC offers an Attack option and is alive. */
+    get attackable(): boolean {
+        return !this.combatant.dead && (this.appearance.actions ?? []).some((a) => /^attack$/i.test(a));
+    }
+
+    /** True while the NPC is fighting (it has been attacked and still knows where the player is). */
+    get inCombat(): boolean {
+        return this.alerted;
+    }
+
+    /** Mass for kicks: 80 for a one-tile NPC, growing with its footprint. [design] */
+    get mass(): number {
+        return tuning.npcBaseMass * this.size * this.size;
+    }
+
+    /** Unit vector the NPC faces, in world tiles (orientation 0 faces south). */
+    private get forward(): { x: number; y: number } {
+        const a = (this.rotation * Math.PI) / 1024;
+        return { x: -Math.sin(a), y: -Math.cos(a) };
+    }
+
+    /** Cosine of the angle between where the NPC faces and the direction to (x, y). */
+    facingCos(x: number, y: number): number {
+        const f = this.forward;
+        const dx = x - this.body.x;
+        const dy = y - this.body.y;
+        const d = Math.hypot(dx, dy) || 1;
+        return (f.x * dx + f.y * dy) / d;
+    }
+
+    /** Which side a hit travelling along (dirX, dirY) strikes, relative to where the NPC faces. */
+    hitSide(dirX: number, dirY: number): HitSide {
+        const f = this.forward;
+        // The hit travels away from the attacker: a frontal hit travels against the facing.
+        const along = -(dirX * f.x + dirY * f.y);
+        return along > 0.5 ? "front" : along < -0.5 ? "back" : "side";
+    }
+
+    private startFreeMove(occupancy?: Occupancy): void {
+        if (occupancy) {
+            this.releaseOccupancy(occupancy);
+        }
+        this.serverPath = [];
+        this.steps.length = 0;
+    }
+
+    /** Slides the NPC along (dirX, dirY) far enough to travel `distance` tiles under friction. */
+    private slide(dirX: number, dirY: number, distance: number, kicked = false): void {
+        const speed = slideSpeedForDistance(distance);
+        const k = this.knockback ?? { x: this.body.x, y: this.body.y, vx: 0, vy: 0, plane: this.plane };
+        k.vx = dirX * speed;
+        k.vy = dirY * speed;
+        k.kicked = kicked || (k.kicked ?? false);
+        this.knockback = k;
+    }
+
+    /** Sets the lean of a reaction from the side the hit came from. */
+    private lean(dirX: number, dirY: number): void {
+        const f = this.forward;
+        const along = dirX * f.x + dirY * f.y; // > 0: pushed forward (hit from behind)
+        const left = dirX * -f.y + dirY * f.x; // > 0: pushed to the NPC's left
+        this.leanPitch = -along;
+        this.leanRoll = left;
+        this.lyingPitch = along > 0 ? Math.PI / 2 : -Math.PI / 2;
+        this.combatant.standUpTime = along > 0 ? tuning.standUpFront : tuning.standUpBack;
+        this.reactionClock = 0;
+    }
+
+    /**
+     * Reacts to a hit travelling along (dirX, dirY) from an attacker at (fromX, fromY). `push` is the
+     * damage result's push level (0 none, 1 medium, 2 long, 3 huge): the NPC slides back as far as
+     * its medium or long hit animation moves it (spec 5.3).
+     */
+    takeHit(dirX: number, dirY: number, push: number, fromX: number, fromY: number): void {
+        this.becomeAlerted(fromX, fromY);
+        this.sinceHit = 0;
+        if (this.combatant.incapacitated || push > 0) {
+            this.attacker.interrupt();
+        }
+        if (!this.combatant.dead) {
+            this.faceTowards(fromX, fromY);
+            this.rotation = this.orientation;
+        }
+        this.lean(dirX, dirY);
+        if (push > 0) {
+            const side = this.hitSide(dirX, dirY);
+            const table = push >= 2 ? tuning.longHitDistance : tuning.mediumHitDistance;
+            const distance = (table[side] * (push >= 3 ? 1.5 : 1)) / this.size;
+            this.slide(dirX, dirY, distance);
+        }
+    }
+
+    /**
+     * A kick from (fromX, fromY) along (dirX, dirY) (spec 7). An NPC facing the kicker may dodge it
+     * sideways; its chance starts at 0.2 and grows 0.3 with every kick. Otherwise it takes the
+     * kick's damage and is pushed back like a long hit, scaled by mass; slamming into a wall or
+     * going over an edge knocks it down.
+     */
+    kick(dirX: number, dirY: number, fromX: number, fromY: number): KickOutcome {
+        const c = this.combatant;
+        this.becomeAlerted(fromX, fromY);
+        if (this.sinceKick > tuning.kickDodgeReset || this.kickDodgeChance < 0) {
+            this.kickDodgeChance = tuning.kickDodgeInit;
+        }
+        this.sinceKick = 0;
+        const chance = this.kickDodgeChance;
+        this.kickDodgeChance = Math.min(1, this.kickDodgeChance + tuning.kickDodgeAdd);
+
+        const f = this.forward;
+        const tx = fromX - this.body.x;
+        const ty = fromY - this.body.y;
+        const d = Math.hypot(tx, ty) || 1;
+        const facing = (f.x * tx + f.y * ty) / d;
+        if (!c.incapacitated && facing > tuning.kickDodgeFacing && this.random() < chance) {
+            // Dodge_left / Dodge_right: about 40 u sideways.
+            const s = this.random() < 0.5 ? 1 : -1;
+            this.slide((-ty / d) * s, (tx / d) * s, units40);
+            this.faceTowards(fromX, fromY);
+            return "dodged";
+        }
+
+        c.hurt(tuning.kickDamage, "push" as Reaction);
+        this.attacker.interrupt();
+        this.lean(dirX, dirY);
+        const reference = massForce(tuning.npcBaseMass) / tuning.npcBaseMass;
+        const scale = Math.min(2, Math.max(0.2, massForce(this.mass) / this.mass / reference));
+        this.slide(dirX, dirY, tuning.longHitDistance[this.hitSide(dirX, dirY)] * scale, true);
+        return "hit";
+    }
+
+    /**
+     * Every frame: hit reactions, knockback, combat movement, settling back onto the tile grid
+     * and sinking away after death.
+     */
+    /**
+     * Turns hostile towards the player at (x, y): leaves the tile grid and fights (spec 16.7).
+     * Returns false if it already was.
+     */
+    becomeAlerted(x: number, y: number): boolean {
+        this.lastSeen = { x, y };
+        this.loseTimer = 0;
+        this.searching = -1;
+        this.noticeTimer = -1;
+        if (this.alerted) {
+            return false;
+        }
+        this.startFreeMove();
+        this.alerted = true;
+        this.justAlerted = true;
+        return true;
+    }
+
+    /** Eye height in tiles above the ground. */
+    private get eyeZ(): number {
+        return this.body.z + this.body.height * 0.9;
+    }
+
+    /** Sight and hearing while calm (spec 16.7): noticing starts a reaction delay, then the NPC fights. */
+    private perceive(dt: number, ctx: CombatContext): void {
+        const player = ctx.player;
+        if (!player || player.plane !== this.plane || !this.attackable || this.combatant.incapacitated) {
+            this.noticeTimer = -1;
+            return;
+        }
+        const x = this.body.x;
+        const y = this.body.y;
+        const d = Math.hypot(player.x - x, player.y - y);
+        if (d > tuning.sightRange + 1) {
+            this.noticeTimer = -1;
+            return;
+        }
+        const f = this.forward;
+        const sense = {
+            x,
+            y,
+            eyeZ: this.eyeZ,
+            facingX: f.x,
+            facingY: f.y,
+            alerted: false,
+            playerX: player.x,
+            playerY: player.y,
+            playerZ: player.z,
+            playerHeight: player.height,
+            stealth: player.stealth ?? false,
+            visibility: 1,
+            presence: player.presence ?? 0,
+            lineOfSight: ctx.lineOfSight?.(this.plane, x, y, player.x, player.y) ?? true,
+        };
+        const seen = canSee(sense);
+        const heard = !seen && canHear(sense, player.z - this.body.z);
+        if (this.noticeTimer < 0) {
+            if (seen) {
+                this.noticeTimer = sightDelay(d, sense.stealth);
+                this.noticeBySight = true;
+            } else if (heard) {
+                this.noticeTimer = hearingDelay(sense.presence);
+                this.noticeBySight = false;
+            }
+        }
+        if (this.noticeTimer < 0) {
+            return;
+        }
+        this.faceTowards(player.x, player.y);
+        this.noticeTimer -= dt;
+        if (this.noticeTimer > 0) {
+            return;
+        }
+        // Heard only: turn hostile only once it can also see the player; until then it faces the noise.
+        if (!seen && this.noticeBySight) {
+            this.noticeTimer = -1;
+            return;
+        }
+        this.becomeAlerted(player.x, player.y);
+        if (seen && d < tuning.surprisedDistance) {
+            // The "surprised" reaction: a step back, then the fight (mm_ai_dist_surprised).
+            this.surprisedFor = tuning.surprisedTime;
+            const back = d > 1e-6 ? { x: (x - player.x) / d, y: (y - player.y) / d } : { x: -f.x, y: -f.y };
+            this.slide(back.x, back.y, tuning.surprisedStep);
+        }
+    }
+
+    updateCombat(dt: number, occupancy: Occupancy, ctx: CombatContext = {}): void {
+        const c = this.combatant;
+        c.update(dt);
+        this.sinceKick += dt;
+        this.sinceHit += dt;
+        this.surprisedFor = Math.max(0, this.surprisedFor - dt);
+        this.reactionClock += dt;
+        if (!this.alerted && !c.dead && !this.knockback) {
+            this.perceive(dt, ctx);
+        }
+        if (c.dead && !this.gone) {
+            this.deadFor += dt;
+            if (this.deadFor >= tuning.deathSinkTime) {
+                this.gone = true;
+                this.group.visible = false;
+                this.releaseOccupancy(occupancy);
+            }
+        }
+        if (this.alerted || this.knockback) {
+            this.releaseOccupancy(occupancy);
+        }
+
+        this.moveSpeed = 0;
+        const k = this.knockback;
+        if (k) {
+            const planeBefore = k.plane;
+            const moving = stepKnockback(
+                k,
+                dt,
+                this.body.radius,
+                {
+                    flagsAt: (plane, x, y) => this.world.collisionFlags(plane, x, y),
+                    hasFloor: this.world.hasFloor?.bind(this.world),
+                },
+                this.boxes,
+            );
+            this.fineX = k.x * RS_UNITS_PER_TILE;
+            this.fineY = k.y * RS_UNITS_PER_TILE;
+            this.plane = k.plane;
+            if (!c.dead && k.plane < planeBefore) {
+                c.hurt(LEDGE_FALL_DAMAGE, "knockdown", false, tuning.knockdownFall);
+            } else if (!c.dead && k.kicked && (k.impact ?? 0) >= tuning.wallSlamSpeed) {
+                // Kicked into a wall: the game switches to a ragdoll and knocks the NPC down.
+                c.hurt(tuning.wallSlamDamage, "knockdown", false, tuning.knockdownKick);
+                k.vx = k.vy = 0;
+            }
+            if (!moving && !c.knockedDown) {
+                this.knockback = undefined;
+                if (!c.dead && !this.alerted) {
+                    this.settle(occupancy);
+                }
+            }
+        } else if (this.alerted && !c.dead) {
+            this.fight(dt, occupancy, ctx);
+        }
+
+        this.updatePose(dt);
+    }
+
+    /** Free movement while fighting: the combat brain picks a velocity, walls and bodies stop it. */
+    private fight(dt: number, occupancy: Occupancy, ctx: CombatContext): void {
+        const player = ctx.player;
+        const x = this.fineX / RS_UNITS_PER_TILE;
+        const y = this.fineY / RS_UNITS_PER_TILE;
+        // Spec 16.7: out of sight for 3 s → search the last known place for 10 s → calm again.
+        const samePlane = !!player && player.plane === this.plane;
+        const d = player ? Math.hypot(player.x - x, player.y - y) : Infinity;
+        const f = this.forward;
+        const sees =
+            samePlane &&
+            d <= tuning.loseDistance &&
+            canSee({
+                x,
+                y,
+                eyeZ: this.eyeZ,
+                facingX: f.x,
+                facingY: f.y,
+                alerted: true,
+                playerX: player!.x,
+                playerY: player!.y,
+                playerZ: player!.z,
+                playerHeight: player!.height,
+                stealth: player!.stealth ?? false,
+                visibility: 1,
+                presence: 0,
+                lineOfSight: ctx.lineOfSight?.(this.plane, x, y, player!.x, player!.y) ?? true,
+            });
+        if (sees) {
+            this.loseTimer = 0;
+            this.searching = -1;
+            this.lastSeen = { x: player!.x, y: player!.y };
+        } else {
+            this.loseTimer += dt;
+        }
+        if (this.loseTimer >= tuning.loseTime && this.searching < 0) {
+            this.searching = 0;
+            this.attacker.interrupt();
+        }
+        if (this.searching >= 0) {
+            this.searching += dt;
+            if (this.searching >= tuning.searchTime || !samePlane) {
+                this.alerted = false;
+                this.searching = -1;
+                this.settle(occupancy);
+                return;
+            }
+        }
+        if (!player || !samePlane || this.combatant.incapacitated || this.surprisedFor > 0) {
+            return;
+        }
+        // While searching, head for the last known position; otherwise for the player.
+        const target = this.searching >= 0 && this.lastSeen ? this.lastSeen : player;
+        const move = this.brain.update(dt, {
+            x,
+            y,
+            playerX: target.x,
+            playerY: target.y,
+            playerYaw: player.yaw,
+            healthFraction: this.combatant.healthFraction,
+        });
+        if (this.searching >= 0 && Math.hypot(target.x - x, target.y - y) < 0.5) {
+            move.vx = move.vy = 0;
+        }
+
+        // Strikes (spec 16.6): only while fighting in sight; the lunge replaces the combat step.
+        const gap = d - this.body.radius - player.radius;
+        const strikes = this.attacker.update(
+            dt,
+            gap,
+            player.sincePlayerAttack ?? 0,
+            sees && move.mode === "fight" && this.sinceHit >= 1,
+        );
+        for (const event of strikes) {
+            ctx.strike?.(this, event);
+        }
+        if (this.attacker.busy) {
+            const tx = d > 1e-6 ? (player.x - x) / d : f.x;
+            const ty = d > 1e-6 ? (player.y - y) / d : f.y;
+            const lunge = gap > 0.05 ? this.attacker.lungeSpeed : 0;
+            move.vx = tx * lunge;
+            move.vy = ty * lunge;
+            move.faceX = tx;
+            move.faceY = ty;
+        }
+        this.orientation = faceOrientation(move.faceX, move.faceY);
+
+        const flags = (plane: number, tx: number, ty: number) => this.world.collisionFlags(plane, tx, ty);
+        const r = this.body.radius;
+        let nx = sweepAxis(flags, this.plane, x, y, r, true, move.vx * dt, this.boxes);
+        let ny = sweepAxis(flags, this.plane, nx, y, r, false, move.vy * dt, this.boxes);
+        // Never walk off the edge of an upper floor on purpose.
+        if (this.plane > 0 && this.world.hasFloor && !this.world.hasFloor(this.plane, nx, ny)) {
+            nx = x;
+            ny = y;
+        }
+        // Keep out of the player and other NPCs.
+        if (ctx.collect) {
+            this.nearby.length = 0;
+            ctx.collect(this.plane, nx - r - 1, ny - r - 1, nx + r + 1, ny + r + 1, this.nearby);
+            const others = this.nearby.filter((b) => b !== this.body);
+            if (computePush(nx, ny, this.body.z, r, this.body.height, others, -move.vx, -move.vy, this.push)) {
+                nx = sweepAxis(flags, this.plane, nx, ny, r, true, this.push.x, this.boxes);
+                ny = sweepAxis(flags, this.plane, nx, ny, r, false, this.push.y, this.boxes);
+            }
+        }
+        this.moveSpeed = dt > 0 ? Math.hypot(nx - x, ny - y) / dt : 0;
+        this.fineX = nx * RS_UNITS_PER_TILE;
+        this.fineY = ny * RS_UNITS_PER_TILE;
+    }
+
+    /** Eases the body towards the pose of the current reaction. */
+    private updatePose(dt: number): void {
+        const c = this.combatant;
+        let pitch = 0;
+        let roll = 0;
+        if (c.dead || c.knockedDown) {
+            pitch = this.lyingPitch;
+        } else if (c.reaction === "standup") {
+            pitch = this.lyingPitch * Math.max(0, c.reactionTime / c.standUpTime);
+        } else if (c.reaction === "stun") {
+            pitch = Math.sin(this.reactionClock * 3) * LEAN.stun * 0.5;
+            roll = Math.sin(this.reactionClock * 2.1) * LEAN.stun;
+        } else if (c.reaction === "flinch" || c.reaction === "stagger" || c.reaction === "push") {
+            // Snap into the lean, then recover over the reaction.
+            const amount = LEAN[c.reaction] * Math.min(1, this.reactionClock * 12) * Math.max(0, 1 - this.reactionClock / (c.reactionTime + this.reactionClock));
+            pitch = this.leanPitch * amount;
+            roll = this.leanRoll * amount;
+        }
+        const t = Math.min(1, dt * POSE_RATE);
+        this.pitch += (pitch - this.pitch) * t;
+        this.roll += (roll - this.roll) * t;
+    }
+
+    /** Takes the nearest free tile after free movement and walks onto its centre. */
+    private settle(occupancy: Occupancy): void {
+        this.releaseOccupancy(occupancy);
+        const tile = findSnapTile(
+            this.fineX / RS_UNITS_PER_TILE,
+            this.fineY / RS_UNITS_PER_TILE,
+            this.size,
+            this.plane,
+            (plane, tx, ty) => this.world.collisionFlags(plane, tx, ty),
+            (plane, tx, ty, size) => occupancy.isFree(plane, tx, ty, size),
+        );
+        this.tileX = tile.x;
+        this.tileY = tile.y;
+        this.occupiedPlane = this.plane;
+        occupancy.add(this.plane, tile.x, tile.y, this.size);
+        this.steps.length = 0;
+        this.steps.push({ x: tile.x, y: tile.y });
+    }
+
+    /** Removes this NPC from the occupancy map (death, unload). Safe to call twice. */
+    releaseOccupancy(occupancy: Occupancy): void {
+        if (this.occupiedPlane >= 0) {
+            occupancy.remove(this.occupiedPlane, this.tileX, this.tileY, this.size);
+            this.occupiedPlane = -1;
+        }
+    }
+
     /** True if this NPC can wander (has a walk animation). */
     get canWalk(): boolean {
         return this.model.data.walk !== undefined;
@@ -181,6 +718,9 @@ export class Npc {
         occupancy: Occupancy,
         random: () => number,
     ): void {
+        if (this.gone || this.combatant.dead || this.knockback || this.alerted || this.combatant.incapacitated) {
+            return;
+        }
         if (this.holdTicks > 0) {
             this.holdTicks--;
             return;
@@ -188,7 +728,7 @@ export class Npc {
         if (this.stalled) {
             return;
         }
-        const plane = this.info.plane;
+        const plane = this.plane;
         const flags: FlagLookup = (x, y) => this.world.collisionFlags(plane, x, y);
 
         if (
@@ -244,11 +784,38 @@ export class Npc {
         );
     }
 
+    /** Client cycle while moving freely: turn, and play the walk clip at a speed-matched rate. */
+    private freeCycle(): void {
+        this.rotation = rotateTowards(this.rotation, this.orientation, this.rotationSpeed);
+        const walk = this.model.data.walk;
+        const moving = !this.knockback && this.moveSpeed > MOVING_SPEED && walk !== undefined;
+        const clip = moving ? walk : this.model.data.idle;
+        if (clip !== this.clip) {
+            this.clip = clip;
+            this.playback.frame = 0;
+            this.playback.cycle = 0;
+            this.animCarry = 0;
+            this.dirty = true;
+        }
+        const rate = moving ? Math.min(2.5, Math.max(0.4, this.moveSpeed / tuning.clipWalkSpeed)) : 1;
+        this.animCarry += rate;
+        const cycles = Math.floor(this.animCarry);
+        this.animCarry -= cycles;
+        if (this.clip && cycles > 0 && advanceClip(this.playback, this.clip, cycles)) {
+            this.dirty = true;
+        }
+    }
+
     /** Once per 20 ms client cycle: move towards queued steps, turn, animate. */
     clientCycle(blocker?: MoveBlocker): void {
         const half = this.size * (RS_UNITS_PER_TILE / 2);
         const wasWalking = this.walking;
-        const hasSteps = this.steps.length > 0;
+        if (this.alerted || this.knockback) {
+            this.freeCycle();
+            return;
+        }
+        const frozen = this.combatant.incapacitated;
+        const hasSteps = this.steps.length > 0 && !frozen;
         this.stalled = false;
 
         if (hasSteps) {
@@ -311,12 +878,16 @@ export class Npc {
     sync(): void {
         const x = this.fineX / RS_UNITS_PER_TILE;
         const y = this.fineY / RS_UNITS_PER_TILE;
-        const z = this.world.groundHeight(this.info.plane, x, y);
-        this.group.position.set(x, z, -y);
+        const ground = this.world.groundHeight(this.plane, x, y);
+        const sink = this.combatant.dead ? Math.min(1, this.deadFor / tuning.deathSinkTime) * SINK_DEPTH : 0;
+        this.group.position.set(x, ground - sink, -y);
         this.body.x = x;
         this.body.y = y;
-        this.body.z = z;
+        this.body.z = ground;
+        this.body.plane = this.plane;
         this.group.rotation.y = orientationToYaw(this.rotation);
+        this.group.rotation.x = this.pitch;
+        this.group.rotation.z = this.roll;
 
         if (this.dirty && this.clip) {
             for (const { positions, sources } of this.meshes) {
