@@ -1,16 +1,18 @@
 import * as THREE from "three";
 
-import { World } from "../world/World";
-import { CollisionFlag, LEVELS } from "../world/WorldFormat";
-import { Input } from "./Input";
+import { Body, BodySource, computePush } from "../physics/Bodies";
+import { BLOCKS_TILE, Box, FlagsAt, collectTileBoxes } from "../physics/TileColliders";
+import type { World } from "../world/World";
+import { LEVELS } from "../world/WorldFormat";
+import type { Input } from "./Input";
 
 // Distances are in tiles. An OSRS floor is 240 units (1.875 tiles) high.
-const EYE_HEIGHT = 1.25;
+export const EYE_HEIGHT = 1.25;
 /** Half the width of the player's square footprint. Doorways are one tile wide. */
-const RADIUS = 0.3;
-const WALL_HALF_THICKNESS = 0.08;
-const WALK_SPEED = 3.5;
-const SPRINT_SPEED = 6.5;
+export const PLAYER_RADIUS = 0.3;
+export const PLAYER_HEIGHT = 1.4;
+export const WALK_SPEED = 3.5;
+export const SPRINT_SPEED = 6.5;
 const FLY_SPEED = 12;
 const FLY_FAST_SPEED = 40;
 const GRAVITY = 18;
@@ -19,29 +21,24 @@ const JUMP_SPEED = 5.5;
 const STEP_DOWN = 0.35;
 const MOUSE_SENSITIVITY = 0.0022;
 const EPSILON = 1e-4;
+/** Longest distance moved per collision sub-step; keeps fast movement from tunnelling. */
+const MAX_SUBSTEP = 0.2;
+const MAX_PUSH_ITERATIONS = 3;
+/** Extra margin when looking for bodies, for pushes that move the player a bit further. */
+const BODY_QUERY_MARGIN = 0.5;
 
-const BLOCKS_TILE = CollisionFlag.OBJECT | CollisionFlag.FLOOR | CollisionFlag.FLOOR_DECORATION;
+const RADIUS = PLAYER_RADIUS;
 
-type Box = { minX: number; minY: number; maxX: number; maxY: number };
-
-const t = WALL_HALF_THICKNESS;
-/** Thin box per wall flag, as [flag, minX, minY, maxX, maxY] relative to the tile's SW corner. */
-const WALL_BOXES: [number, number, number, number, number][] = [
-    [CollisionFlag.WALL_WEST, -t, 0, t, 1],
-    [CollisionFlag.WALL_EAST, 1 - t, 0, 1 + t, 1],
-    [CollisionFlag.WALL_SOUTH, 0, -t, 1, t],
-    [CollisionFlag.WALL_NORTH, 0, 1 - t, 1, 1 + t],
-    // Corner pieces, which stop the player cutting diagonally past a wall's end.
-    [CollisionFlag.WALL_NORTH_WEST, -t, 1 - t, t, 1 + t],
-    [CollisionFlag.WALL_NORTH_EAST, 1 - t, 1 - t, 1 + t, 1 + t],
-    [CollisionFlag.WALL_SOUTH_EAST, 1 - t, -t, 1 + t, t],
-    [CollisionFlag.WALL_SOUTH_WEST, -t, -t, t, t],
-];
+/** The parts of World the player needs. */
+export type PlayerWorld = Pick<World, "isLoaded" | "hasFloor" | "groundHeight" | "collisionFlags">;
+/** The parts of Input the player reads. */
+export type PlayerInput = Pick<Input, "consumeLook" | "wasPressed" | "axis" | "isDown">;
 
 /**
  * First-person walker on the exported OSRS map. Position is in world tiles: x east, y north,
  * z = feet height. Collision uses the client's tile flags: blocked tiles are solid squares and
- * wall flags are thin boxes along tile edges.
+ * wall flags are thin boxes along tile edges. Other bodies (NPCs) are cylinders the player is
+ * pushed out of, so it slides around them.
  */
 export class Player {
     x: number;
@@ -52,19 +49,42 @@ export class Player {
     pitch = 0;
     flying = false;
 
+    /** Actual velocity of the last update in tiles per second, after collision. */
+    velocityX = 0;
+    velocityY = 0;
+    sprinting = false;
+
     private velocityZ = 0;
-    private grounded = false;
+    private onGround = false;
     private placed = false;
     private readonly boxes: Box[] = [];
+    private readonly nearby: Body[] = [];
+    private readonly push = { x: 0, y: 0 };
+    private readonly body: Body<Player>;
+    private readonly bodies?: BodySource;
+    private readonly flagsAt: FlagsAt;
+    private moveX = 0;
+    private moveY = 0;
 
     constructor(
-        private readonly world: World,
-        private readonly camera: THREE.PerspectiveCamera,
+        private readonly world: PlayerWorld,
         spawn: { x: number; y: number; plane: number },
+        options: { bodies?: BodySource } = {},
     ) {
         this.x = spawn.x + 0.5;
         this.y = spawn.y + 0.5;
         this.plane = spawn.plane;
+        this.bodies = options.bodies;
+        this.flagsAt = (plane, x, y) => world.collisionFlags(plane, x, y);
+        this.body = {
+            x: this.x,
+            y: this.y,
+            z: 0,
+            radius: RADIUS,
+            height: PLAYER_HEIGHT,
+            plane: spawn.plane,
+            owner: this,
+        };
     }
 
     /** False until the spawn region has loaded and the player is standing on it. */
@@ -72,7 +92,46 @@ export class Player {
         return this.placed;
     }
 
-    update(dt: number, input: Input): void {
+    get grounded(): boolean {
+        return this.onGround;
+    }
+
+    get speed(): number {
+        return Math.hypot(this.velocityX, this.velocityY);
+    }
+
+    /** Velocity along the facing direction: positive walking forward, negative backwards. */
+    get localForward(): number {
+        return this.velocityX * -Math.sin(this.yaw) + this.velocityY * Math.cos(this.yaw);
+    }
+
+    /** The player as a collision cylinder, or undefined while flying or not yet placed. */
+    footprint(): Body<Player> | undefined {
+        if (!this.placed || this.flying) {
+            return undefined;
+        }
+        const body = this.body;
+        body.x = this.x;
+        body.y = this.y;
+        body.z = this.z;
+        body.plane = this.plane;
+        return body;
+    }
+
+    /** Moves the player; waits for the target region to load if it has not yet. */
+    teleport(x: number, y: number, plane: number): void {
+        this.x = x;
+        this.y = y;
+        this.plane = plane;
+        this.velocityZ = 0;
+        this.onGround = false;
+        this.placed = false;
+        if (this.world.isLoaded(x, y)) {
+            this.placeOnWalkableTile();
+        }
+    }
+
+    update(dt: number, input: PlayerInput): void {
         const [lookX, lookY] = input.consumeLook();
         this.yaw -= lookX * MOUSE_SENSITIVITY;
         this.pitch = THREE.MathUtils.clamp(
@@ -82,8 +141,8 @@ export class Player {
         );
 
         if (!this.placed) {
+            this.velocityX = this.velocityY = 0;
             if (!this.world.isLoaded(this.x, this.y)) {
-                this.updateCamera();
                 return;
             }
             this.placeOnWalkableTile();
@@ -95,6 +154,8 @@ export class Player {
 
         const forward = input.axis("KeyW", "KeyS");
         const strafe = input.axis("KeyD", "KeyA");
+        const startX = this.x;
+        const startY = this.y;
         if (this.flying) {
             this.fly(dt, input, forward, strafe);
         } else {
@@ -110,11 +171,12 @@ export class Player {
             }
             this.walk(dt, input, moveX, moveY);
         }
-        this.updateCamera();
+        this.velocityX = dt > 0 ? (this.x - startX) / dt : 0;
+        this.velocityY = dt > 0 ? (this.y - startY) / dt : 0;
     }
 
     /** Free flight without collision, along the view direction (looking up and pressing W climbs). */
-    private fly(dt: number, input: Input, forward: number, strafe: number): void {
+    private fly(dt: number, input: PlayerInput, forward: number, strafe: number): void {
         const speed = (input.isDown("ShiftLeft", "ShiftRight") ? FLY_FAST_SPEED : FLY_SPEED) * dt;
         const sinYaw = Math.sin(this.yaw);
         const cosYaw = Math.cos(this.yaw);
@@ -126,26 +188,43 @@ export class Player {
         this.z += (forward * Math.sin(this.pitch) + up) * speed;
     }
 
-    private walk(dt: number, input: Input, moveX: number, moveY: number): void {
-        const speed = input.isDown("ShiftLeft", "ShiftRight") ? SPRINT_SPEED : WALK_SPEED;
+    private walk(dt: number, input: PlayerInput, moveX: number, moveY: number): void {
+        this.sprinting = input.isDown("ShiftLeft", "ShiftRight");
+        const speed = this.sprinting ? SPRINT_SPEED : WALK_SPEED;
         const dx = moveX * speed * dt;
         const dy = moveY * speed * dt;
-        // Sub-steps keep fast movement from tunnelling through thin walls.
-        const steps = Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) / 0.2));
+        this.moveX = moveX;
+        this.moveY = moveY;
+
+        this.nearby.length = 0;
+        this.bodies?.collectBodies(
+            this.plane,
+            this.x - RADIUS - BODY_QUERY_MARGIN - Math.abs(dx),
+            this.y - RADIUS - BODY_QUERY_MARGIN - Math.abs(dy),
+            this.x + RADIUS + BODY_QUERY_MARGIN + Math.abs(dx),
+            this.y + RADIUS + BODY_QUERY_MARGIN + Math.abs(dy),
+            this.nearby,
+        );
+
+        // Something may have moved or spawned into the player since the last frame.
+        this.resolveBodies();
+        // Sub-steps keep fast movement from tunnelling through thin walls and bodies.
+        const steps = Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) / MAX_SUBSTEP));
         for (let i = 0; i < steps; i++) {
             this.x = this.sweep(true, dx / steps);
             this.y = this.sweep(false, dy / steps);
+            this.resolveBodies();
         }
 
         // Walked off the edge of an upper floor: fall to the plane below.
         while (this.plane > 0 && !this.world.hasFloor(this.plane, this.x, this.y)) {
             this.plane--;
-            this.grounded = false;
+            this.onGround = false;
         }
 
-        if (this.grounded && input.wasPressed("Space")) {
+        if (this.onGround && input.wasPressed("Space")) {
             this.velocityZ = JUMP_SPEED;
-            this.grounded = false;
+            this.onGround = false;
         }
 
         const ground = this.world.groundHeight(this.plane, this.x, this.y);
@@ -154,19 +233,45 @@ export class Player {
         if (this.z <= ground) {
             this.z = ground;
             this.velocityZ = 0;
-            this.grounded = true;
-        } else if (this.grounded && this.velocityZ <= 0 && this.z - ground <= STEP_DOWN) {
+            this.onGround = true;
+        } else if (this.onGround && this.velocityZ <= 0 && this.z - ground <= STEP_DOWN) {
             this.z = ground;
             this.velocityZ = 0;
         } else {
-            this.grounded = false;
+            this.onGround = false;
+        }
+    }
+
+    /** Pushes the player out of overlapping bodies; walls always win over the push. */
+    private resolveBodies(): void {
+        if (this.nearby.length === 0) {
+            return;
+        }
+        for (let i = 0; i < MAX_PUSH_ITERATIONS; i++) {
+            if (
+                !computePush(
+                    this.x,
+                    this.y,
+                    this.z,
+                    RADIUS,
+                    PLAYER_HEIGHT,
+                    this.nearby,
+                    -this.moveX,
+                    -this.moveY,
+                    this.push,
+                )
+            ) {
+                return;
+            }
+            this.x = this.sweep(true, this.push.x);
+            this.y = this.sweep(false, this.push.y);
         }
     }
 
     private setFlying(flying: boolean): void {
         this.flying = flying;
         this.velocityZ = 0;
-        this.grounded = false;
+        this.onGround = false;
         if (!flying) {
             // Land on the highest floor that is below the player's feet.
             for (let plane = LEVELS - 1; plane >= 0; plane--) {
@@ -191,11 +296,14 @@ export class Player {
         const toX = alongX ? target : this.x;
         const toY = alongX ? this.y : target;
 
-        this.collectBoxes(
+        collectTileBoxes(
+            this.flagsAt,
+            this.plane,
             Math.min(this.x, toX) - RADIUS,
             Math.min(this.y, toY) - RADIUS,
             Math.max(this.x, toX) + RADIUS,
             Math.max(this.y, toY) + RADIUS,
+            this.boxes,
         );
 
         let resolved = target;
@@ -224,33 +332,7 @@ export class Player {
         return resolved;
     }
 
-    private collectBoxes(minX: number, minY: number, maxX: number, maxY: number): void {
-        this.boxes.length = 0;
-        for (let tx = Math.floor(minX) - 1; tx <= Math.floor(maxX) + 1; tx++) {
-            for (let ty = Math.floor(minY) - 1; ty <= Math.floor(maxY) + 1; ty++) {
-                const flags = this.world.collisionFlags(this.plane, tx, ty);
-                if (flags === 0) {
-                    continue;
-                }
-                if (flags & BLOCKS_TILE) {
-                    this.boxes.push({ minX: tx, minY: ty, maxX: tx + 1, maxY: ty + 1 });
-                    continue;
-                }
-                for (const [flag, x0, y0, x1, y1] of WALL_BOXES) {
-                    if (flags & flag) {
-                        this.boxes.push({
-                            minX: tx + x0,
-                            minY: ty + y0,
-                            maxX: tx + x1,
-                            maxY: ty + y1,
-                        });
-                    }
-                }
-            }
-        }
-    }
-
-    /** Moves the spawn point to the nearest tile that is not blocked. */
+    /** Moves the spawn point to the nearest tile that is not blocked and has a floor. */
     private placeOnWalkableTile(): void {
         const startX = Math.floor(this.x);
         const startY = Math.floor(this.y);
@@ -260,10 +342,12 @@ export class Player {
                     if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) {
                         continue;
                     }
-                    const flags = this.world.collisionFlags(this.plane, startX + dx, startY + dy);
-                    if ((flags & BLOCKS_TILE) === 0) {
-                        this.x = startX + dx + 0.5;
-                        this.y = startY + dy + 0.5;
+                    const tx = startX + dx;
+                    const ty = startY + dy;
+                    const flags = this.world.collisionFlags(this.plane, tx, ty);
+                    if ((flags & BLOCKS_TILE) === 0 && this.world.hasFloor(this.plane, tx, ty)) {
+                        this.x = tx + 0.5;
+                        this.y = ty + 0.5;
                         this.z = this.world.groundHeight(this.plane, this.x, this.y);
                         this.placed = true;
                         return;
@@ -273,10 +357,5 @@ export class Player {
         }
         this.z = this.world.groundHeight(this.plane, this.x, this.y);
         this.placed = true;
-    }
-
-    private updateCamera(): void {
-        this.camera.position.set(this.x, this.z + EYE_HEIGHT, -this.y);
-        this.camera.rotation.set(this.pitch, this.yaw, 0, "YXZ");
     }
 }

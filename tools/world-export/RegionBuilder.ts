@@ -9,7 +9,16 @@ import { SceneTileModel } from "./rs/scene/SceneTileModel";
 import { Entity } from "./rs/scene/entity/Entity";
 import { getIdFromTag } from "./rs/scene/entity/EntityTag";
 import { LocEntity } from "./rs/scene/entity/LocEntity";
-import { LEVELS, REGION_SIZE, RegionData } from "../../src/world/WorldFormat";
+import {
+    DoorMesh,
+    InteractiveLoc,
+    LEVELS,
+    REGION_SIZE,
+    RS_UNITS_PER_TILE,
+    RegionData,
+} from "../../src/world/WorldFormat";
+import { areGateLeaves, doorStates, gateLeafStates, isClimbable, placedDoorState } from "./Interactives";
+import { stripNameTags } from "./NpcSpawns";
 import { FaceColors, BRIGHTNESS } from "./FaceColors";
 import { MeshBuilder } from "./MeshBuilder";
 import { WorldLoaders } from "./WorldLoaders";
@@ -22,6 +31,9 @@ const BORDER_OFFSET = -BORDER_SIZE * 128;
 
 export { BRIGHTNESS };
 
+/** Used until a door's model has been measured, and for ladders, which have no mesh of their own. */
+const DEFAULT_INTERACTIVE_HEIGHT = 2;
+
 // Depth priority per kind of loc, added to each face's own priority (see the shader's bias).
 const PRIORITY_FLOOR_DECORATION = 3;
 const PRIORITY_WALL = 1;
@@ -29,6 +41,16 @@ const PRIORITY_WALL_DECORATION = 2;
 const PRIORITY_LOC = 1;
 
 export type RegionStats = { tiles: number; locs: number; triangles: number; buildMs: number };
+
+/** Doors and ladders found in a region's scene. */
+type FoundInteractives = {
+    interactives: InteractiveLoc[];
+    /** Every straight-wall door in the scene (also on the border), whose collision stays baked. */
+    doorWalls: Set<SceneLoc>;
+    /** Door wall -> index into doorBuilders, for the doors this region exports. */
+    doorByWall: Map<SceneLoc, number>;
+    doorBuilders: { opaque: MeshBuilder; transparent: MeshBuilder }[];
+};
 
 type PlacedEntity = {
     entity: Entity;
@@ -95,46 +117,83 @@ export class RegionBuilder {
             }
         }
 
+        const found = this.findInteractives(scene, mapX, mapY);
+
         let locs = 0;
         for (const p of placed) {
             const resolved = this.resolveModel(scene, p);
             if (resolved) {
-                this.addModel(
-                    { doubleSided: terrain, opaque, transparent },
-                    resolved.model,
-                    p,
-                    resolved.height,
-                );
+                const doorIndex = found.doorByWall.get(p.sceneLoc);
+                if (doorIndex !== undefined) {
+                    // A door gets its own meshes, so the game can swing it around its hinge.
+                    const door = found.doorBuilders[doorIndex];
+                    this.addModel(
+                        { doubleSided: door.opaque, opaque: door.opaque, transparent: door.transparent },
+                        resolved.model,
+                        p,
+                        resolved.height,
+                    );
+                    const interactive = found.interactives.find((i) => i.door?.mesh === doorIndex)!;
+                    interactive.height = Math.max(interactive.height, modelHeight(resolved.model));
+                } else {
+                    this.addModel(
+                        { doubleSided: terrain, opaque, transparent },
+                        resolved.model,
+                        p,
+                        resolved.height,
+                    );
+                }
                 locs++;
             }
         }
 
-        this.makeDoorsPassable(scene);
+        this.makeDoorsPassable(scene, found.doorWalls);
 
         const meshes = {
             terrain: terrain.build(),
             opaque: opaque.build(),
             transparent: transparent.build(),
         };
+        const doorMeshes: DoorMesh[] = found.doorBuilders.map((door) => ({
+            opaque: door.opaque.build(),
+            transparent: door.transparent.build(),
+        }));
         const triangles =
             (meshes.terrain.indices.length +
                 meshes.opaque.indices.length +
-                meshes.transparent.indices.length) /
+                meshes.transparent.indices.length +
+                doorMeshes.reduce(
+                    (sum, door) => sum + door.opaque.indices.length + door.transparent.indices.length,
+                    0,
+                )) /
             3;
 
         return {
-            region: { mapX, mapY, ...meshes, ...extractTerrainData(scene) },
+            region: {
+                mapX,
+                mapY,
+                ...meshes,
+                ...extractTerrainData(scene),
+                interactives: found.interactives,
+                doorMeshes,
+            },
             stats: { tiles, locs, triangles, buildMs: Math.round(performance.now() - start) },
         };
     }
 
-    // Nothing can open doors or gates in this demo, so their collision is removed instead.
-    private makeDoorsPassable(scene: Scene): void {
+    /**
+     * Doors the game cannot open keep no collision: diagonal and corner doors, which are not
+     * straight walls that can swing. Straight-wall doors are interactive and keep theirs.
+     */
+    private makeDoorsPassable(scene: Scene, interactiveDoors: Set<SceneLoc>): void {
         const { locTypeLoader, varManager } = this.loaders;
         for (let level = 0; level < LEVELS; level++) {
             for (let x = 1; x < SCENE_SIZE - 1; x++) {
                 for (let y = 1; y < SCENE_SIZE - 1; y++) {
                     const tile = scene.tiles[level][x][y];
+                    if (tile?.wall && interactiveDoors.has(tile.wall)) {
+                        continue;
+                    }
                     const doorTag = tile?.wall?.tag ?? findDiagonalWallTag(tile);
                     if (doorTag === undefined) {
                         continue;
@@ -174,6 +233,188 @@ export class RegionBuilder {
                 }
             }
         }
+    }
+
+    /**
+     * Finds the doors and ladders of the region. Doors are straight walls with an "Open" or
+     * "Close" action; ladders and stairs have a "Climb" action. Doors on the scene border are
+     * recorded as doors (so their collision stays) but exported by the neighbouring region.
+     */
+    private findInteractives(scene: Scene, mapX: number, mapY: number): FoundInteractives {
+        const { locTypeLoader, varManager } = this.loaders;
+        const found: FoundInteractives = {
+            interactives: [],
+            doorWalls: new Set(),
+            doorByWall: new Map(),
+            doorBuilders: [],
+        };
+        const shownType = (id: number) => {
+            const locType = locTypeLoader.load(id);
+            const shown = locType.transforms ? locType.transform(varManager, locTypeLoader) : locType;
+            return { locType, shown: shown ?? locType };
+        };
+
+        for (let level = 0; level < LEVELS; level++) {
+            for (let x = 1; x < SCENE_SIZE - 1; x++) {
+                for (let y = 1; y < SCENE_SIZE - 1; y++) {
+                    const tile = scene.tiles[level][x][y];
+                    if (!tile) {
+                        continue;
+                    }
+                    const inside =
+                        x >= BORDER_SIZE &&
+                        x < BORDER_SIZE + REGION_SIZE &&
+                        y >= BORDER_SIZE &&
+                        y < BORDER_SIZE + REGION_SIZE;
+                    const worldX = mapX * REGION_SIZE + x - BORDER_SIZE;
+                    const worldY = mapY * REGION_SIZE + y - BORDER_SIZE;
+
+                    const wall = tile.wall;
+                    if (wall) {
+                        const { locType, shown } = shownType(getIdFromTag(wall.tag));
+                        const state = placedDoorState(shown.actions);
+                        const flags = scene.getLocFlags(level, x, y, wall.tag);
+                        const straight = (flags & 0x3f) === LocModelType.WALL;
+                        // A closed door without collision is not worth swinging; an open one often has none.
+                        if (state && straight && (locType.clipType !== 0 || state === "open")) {
+                            found.doorWalls.add(wall);
+                            if (inside) {
+                                this.addDoor(found, scene, {
+                                    level,
+                                    x,
+                                    y,
+                                    worldX,
+                                    worldY,
+                                    wall,
+                                    id: getIdFromTag(wall.tag),
+                                    shown,
+                                    flags,
+                                    placedOpen: state === "open",
+                                    noCollision: locType.clipType === 0,
+                                });
+                            }
+                        }
+                    }
+
+                    if (!inside) {
+                        continue;
+                    }
+                    for (const loc of tile.locs) {
+                        if (loc.startX !== x || loc.startY !== y) {
+                            continue;
+                        }
+                        const id = getIdFromTag(loc.tag);
+                        const { locType, shown } = shownType(id);
+                        if (!isClimbable(shown.actions)) {
+                            continue;
+                        }
+                        const swap = loc.rotation === 1 || loc.rotation === 3;
+                        found.interactives.push({
+                            kind: "climb",
+                            id,
+                            name: stripNameTags(shown.name),
+                            actions: shown.actions.filter((action): action is string => !!action),
+                            plane: level,
+                            level,
+                            tileX: worldX,
+                            tileY: worldY,
+                            sizeX: swap ? locType.sizeY : locType.sizeX,
+                            sizeY: swap ? locType.sizeX : locType.sizeY,
+                            rotation: loc.rotation,
+                            height: DEFAULT_INTERACTIVE_HEIGHT,
+                        });
+                    }
+                }
+            }
+        }
+        this.pairGateLeaves(found.interactives);
+        return found;
+    }
+
+    /** Links the two leaves of each gate or double door and re-hinges them at their outer ends. */
+    private pairGateLeaves(interactives: InteractiveLoc[]): void {
+        const doors = interactives.filter((loc) => loc.door);
+        const at = new Map(doors.map((loc) => [`${loc.plane}:${loc.tileX}:${loc.tileY}`, loc]));
+        for (const low of doors) {
+            const alongY = (low.rotation & 1) === 0;
+            const high = at.get(
+                `${low.plane}:${low.tileX + (alongY ? 0 : 1)}:${low.tileY + (alongY ? 1 : 0)}`,
+            );
+            const leaf = (loc: InteractiveLoc) => ({
+                id: loc.id,
+                name: loc.name,
+                tileX: loc.tileX,
+                tileY: loc.tileY,
+                rotation: loc.rotation,
+                placedOpen: loc.door!.placedOpen,
+                plane: loc.plane,
+            });
+            if (!high || high.door!.partner !== undefined || !areGateLeaves(leaf(low), leaf(high))) {
+                continue;
+            }
+            for (const [loc, isHigh, other] of [[low, false, high], [high, true, low]] as const) {
+                const states = gateLeafStates(loc.tileX, loc.tileY, loc.rotation, isHigh);
+                const data = loc.door!;
+                loc.door = {
+                    ...states,
+                    flagsA: data.flagsA.length === 0 ? [] : states.flagsA,
+                    mesh: data.mesh,
+                    partner: interactives.indexOf(other),
+                };
+            }
+        }
+    }
+
+    private addDoor(
+        found: FoundInteractives,
+        scene: Scene,
+        door: {
+            level: number;
+            x: number;
+            y: number;
+            worldX: number;
+            worldY: number;
+            wall: SceneLoc;
+            id: number;
+            shown: { name: string; actions: (string | undefined)[] };
+            flags: number;
+            placedOpen: boolean;
+            noCollision: boolean;
+        },
+    ): void {
+        // Same level remapping SceneBuilder.decodeLocs applies under bridges.
+        let plane = door.level;
+        if ((scene.tileRenderFlags[1][door.x][door.y] & 0x2) === 2) {
+            plane--;
+        }
+        if (plane < 0) {
+            return;
+        }
+        const rotation = (door.flags >> 6) & 0x3;
+        const states = doorStates(door.worldX, door.worldY, rotation, door.placedOpen);
+        const mesh = found.doorBuilders.length;
+        found.doorBuilders.push({ opaque: new MeshBuilder(256), transparent: new MeshBuilder(64) });
+        found.doorByWall.set(door.wall, mesh);
+        found.interactives.push({
+            kind: "door",
+            id: door.id,
+            name: stripNameTags(door.shown.name),
+            actions: door.shown.actions.filter((action): action is string => !!action),
+            plane,
+            level: door.level,
+            tileX: door.worldX,
+            tileY: door.worldY,
+            sizeX: 1,
+            sizeY: 1,
+            rotation,
+            height: DEFAULT_INTERACTIVE_HEIGHT,
+            door: {
+                ...states,
+                // An open door that never blocked has no collision to take away when it is used.
+                flagsA: door.noCollision ? [] : states.flagsA,
+                mesh,
+            },
+        });
     }
 
     // Tile faces already carry their lit colors, uvs and texture ids.
@@ -445,6 +686,15 @@ function findDiagonalWallTag(tile: SceneTile | undefined): bigint | undefined {
         }
     }
     return undefined;
+}
+
+/** Height of a model above its origin in tiles (RS vertices have +y down). */
+function modelHeight(model: Model): number {
+    let top = 0;
+    for (let i = 0; i < model.verticesCount; i++) {
+        top = Math.max(top, -model.verticesY[i]);
+    }
+    return top / RS_UNITS_PER_TILE;
 }
 
 function isOpenable(actions: (string | undefined)[]): boolean {

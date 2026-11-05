@@ -6,7 +6,9 @@
 //   regions/X_Y.bin    one gzip-compressed region per 64x64-tile map square (see encodeRegion)
 //   npcs.json, npcs/*.bin   optional NPC spawns and baked models (see NpcFormat.ts)
 
-export const WORLD_FORMAT_VERSION = 1;
+export const WORLD_FORMAT_VERSION = 2;
+/** Region files of these versions can be read. Version 1 has no doors or ladders. */
+const READABLE_VERSIONS = [1, 2];
 
 /** Tiles per region (an OSRS map square). */
 export const REGION_SIZE = 64;
@@ -34,6 +36,57 @@ export type MeshData = {
     bounds: Float32Array;
 };
 
+/** One flag edit: `[tileX, tileY, mask]` in world tiles. */
+export type FlagEntry = [number, number, number];
+
+/** How a door swings and what it does to collision. */
+export type DoorData = {
+    /** True if the door stands open as placed (its action is "Close"). */
+    placedOpen: boolean;
+    /** World tile corner the door swings around. */
+    hinge: [number, number];
+    /** +1: counter-clockwise seen from above when switching state, -1: clockwise. */
+    swing: 1 | -1;
+    /** Rotation (edge) the door leaf lies on in its other state. */
+    rotationB: number;
+    /** Movement flags of the state as placed / of the other state. */
+    flagsA: FlagEntry[];
+    flagsB: FlagEntry[];
+    /** Index into RegionData.doorMeshes. */
+    mesh: number;
+    /**
+     * Index into RegionData.interactives of the other leaf of a double door or gate. Both leaves
+     * open and close together, each around its outer end.
+     */
+    partner?: number;
+};
+
+/** A door, gate, ladder or staircase the player can act on. */
+export type InteractiveLoc = {
+    kind: "door" | "climb";
+    /** Loc id in the cache. */
+    id: number;
+    name: string;
+    /** Menu options such as "Open" or "Climb-up". */
+    actions: string[];
+    /** Plane whose collision this belongs to (bridges are moved down a level). */
+    plane: number;
+    /** Height level the model is drawn on. */
+    level: number;
+    /** South-west tile in world tiles, and footprint size after rotation. */
+    tileX: number;
+    tileY: number;
+    sizeX: number;
+    sizeY: number;
+    rotation: number;
+    /** Height of the model above the ground, in tiles. */
+    height: number;
+    door?: DoorData;
+};
+
+/** Meshes of one door, in region-local RS units like the region's own meshes. */
+export type DoorMesh = { opaque: MeshData; transparent: MeshData };
+
 export type RegionData = {
     mapX: number;
     mapY: number;
@@ -52,6 +105,8 @@ export type RegionData = {
     floors: Uint8Array;
     /** OSRS collision flags, same indexing as renderFlags. Bridges are already moved down a level. */
     collision: Int32Array;
+    interactives: InteractiveLoc[];
+    doorMeshes: DoorMesh[];
 };
 
 export type TextureLayer = {
@@ -109,6 +164,9 @@ export const CollisionFlag = {
 //     i16[2 * vertexCount] uvs, u32[indexCount] indices
 //   i32[LEVELS * 65 * 65] heights, u8[LEVELS * 64 * 64] renderFlags, u8[LEVELS * 64 * 64] floors,
 //   i32[LEVELS * 64 * 64] collision
+// Version 2 appends:
+//   u32 jsonByteLength, UTF-8 JSON InteractiveLoc[] (padded to 4 bytes),
+//   u32 doorMeshCount, then per door an (opaque, transparent) mesh in the layout above
 const MAGIC = 0x57535046; // "FPSW"
 const HEIGHTS_LENGTH = LEVELS * (REGION_SIZE + 1) * (REGION_SIZE + 1);
 const TILES_LENGTH = LEVELS * REGION_SIZE * REGION_SIZE;
@@ -120,12 +178,18 @@ function meshByteLength(mesh: MeshData): number {
 
 export function encodeRegion(region: RegionData): Uint8Array {
     const meshes = [region.terrain, region.opaque, region.transparent];
+    const json = new TextEncoder().encode(JSON.stringify(region.interactives));
+    const doorMeshes = region.doorMeshes.flatMap((door) => [door.opaque, door.transparent]);
     const byteLength =
         16 +
         meshes.reduce((sum, mesh) => sum + meshByteLength(mesh), 0) +
         HEIGHTS_LENGTH * 4 +
         TILES_LENGTH * 2 +
-        TILES_LENGTH * 4;
+        TILES_LENGTH * 4 +
+        4 +
+        ((json.length + 3) & ~3) +
+        4 +
+        doorMeshes.reduce((sum, mesh) => sum + meshByteLength(mesh), 0);
 
     const bytes = new Uint8Array(byteLength);
     const view = new DataView(bytes.buffer);
@@ -134,14 +198,7 @@ export function encodeRegion(region: RegionData): Uint8Array {
         bytes.set(new Uint8Array(array.buffer, array.byteOffset, array.byteLength), offset);
         offset += array.byteLength;
     };
-
-    view.setUint32(0, MAGIC, true);
-    view.setUint32(4, WORLD_FORMAT_VERSION, true);
-    view.setInt32(8, region.mapX, true);
-    view.setInt32(12, region.mapY, true);
-    offset = 16;
-
-    for (const mesh of meshes) {
+    const writeMesh = (mesh: MeshData) => {
         view.setUint32(offset, mesh.positions.length / 4, true);
         view.setUint32(offset + 4, mesh.indices.length, true);
         offset += 8;
@@ -150,12 +207,28 @@ export function encodeRegion(region: RegionData): Uint8Array {
         writeArray(mesh.colors);
         writeArray(mesh.uvs);
         writeArray(mesh.indices);
-    }
+    };
+
+    view.setUint32(0, MAGIC, true);
+    view.setUint32(4, WORLD_FORMAT_VERSION, true);
+    view.setInt32(8, region.mapX, true);
+    view.setInt32(12, region.mapY, true);
+    offset = 16;
+
+    meshes.forEach(writeMesh);
 
     writeArray(region.heights);
     writeArray(region.renderFlags);
     writeArray(region.floors);
     writeArray(region.collision);
+
+    view.setUint32(offset, json.length, true);
+    offset += 4;
+    bytes.set(json, offset);
+    offset += (json.length + 3) & ~3;
+    view.setUint32(offset, region.doorMeshes.length, true);
+    offset += 4;
+    doorMeshes.forEach(writeMesh);
 
     return bytes;
 }
@@ -167,7 +240,7 @@ export function decodeRegion(buffer: ArrayBuffer): RegionData {
         throw new Error("Not a world region file");
     }
     const version = view.getUint32(4, true);
-    if (version !== WORLD_FORMAT_VERSION) {
+    if (!READABLE_VERSIONS.includes(version)) {
         throw new Error(`Unsupported region format ${version}, re-run npm run export-world`);
     }
     const mapX = view.getInt32(8, true);
@@ -202,6 +275,33 @@ export function decodeRegion(buffer: ArrayBuffer): RegionData {
     const floors = new Uint8Array(buffer, offset, TILES_LENGTH);
     offset += TILES_LENGTH;
     const collision = new Int32Array(buffer, offset, TILES_LENGTH);
+    offset += TILES_LENGTH * 4;
 
-    return { mapX, mapY, terrain, opaque, transparent, heights, renderFlags, floors, collision };
+    let interactives: InteractiveLoc[] = [];
+    const doorMeshes: DoorMesh[] = [];
+    if (version >= 2) {
+        const jsonLength = view.getUint32(offset, true);
+        offset += 4;
+        interactives = JSON.parse(new TextDecoder().decode(new Uint8Array(buffer, offset, jsonLength)));
+        offset += (jsonLength + 3) & ~3;
+        const doorCount = view.getUint32(offset, true);
+        offset += 4;
+        for (let i = 0; i < doorCount; i++) {
+            doorMeshes.push({ opaque: readMesh(), transparent: readMesh() });
+        }
+    }
+
+    return {
+        mapX,
+        mapY,
+        terrain,
+        opaque,
+        transparent,
+        heights,
+        renderFlags,
+        floors,
+        collision,
+        interactives,
+        doorMeshes,
+    };
 }

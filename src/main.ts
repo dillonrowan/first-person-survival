@@ -1,12 +1,20 @@
 import * as THREE from "three";
 
+import { ActionHandler, Interaction } from "./interaction/Interaction";
+import { climbDirection, planClimb } from "./interaction/climb";
+import { createNpcActionHandler, npcTargetSource } from "./interaction/targets";
+import { CollisionDebug } from "./physics/CollisionDebug";
 import { Npcs } from "./npc/Npcs";
+import { Avatar } from "./avatar/Avatar";
+import { loadAvatarAsset } from "./avatar/AvatarAsset";
+import { CameraRig } from "./player/CameraRig";
 import { Input } from "./player/Input";
 import { Player } from "./player/Player";
 import "./style.css";
 import { NpcManifest, decodeNpcModel } from "./world/NpcFormat";
+import { WorldInteractives } from "./world/Interactives";
 import { World } from "./world/World";
-import { REGION_SIZE, WorldManifest } from "./world/WorldFormat";
+import { InteractiveLoc, REGION_SIZE, WorldManifest } from "./world/WorldFormat";
 import { gunzip } from "./world/gunzip";
 import { createWorldMaterials } from "./world/WorldMaterials";
 import { loadWorldTextures } from "./world/WorldTextures";
@@ -22,6 +30,8 @@ const overlay = document.getElementById("overlay")!;
 const status = document.getElementById("status")!;
 const playButton = document.getElementById("play") as HTMLButtonElement;
 const hud = document.getElementById("hud")!;
+const promptElement = document.getElementById("prompt")!;
+const messageElement = document.getElementById("message")!;
 
 /** ?x=3222&y=3218&plane=0 starts somewhere else than the manifest's spawn. */
 function spawnFromUrl(fallback: WorldManifest["spawn"]): WorldManifest["spawn"] {
@@ -111,10 +121,58 @@ async function main(): Promise<void> {
           })
         : undefined;
     const input = new Input(canvas);
-    const player = new Player(world, camera, spawnFromUrl(manifest.spawn));
+    const player = new Player(world, spawnFromUrl(manifest.spawn), { bodies: npcs });
+    const cameraRig = new CameraRig(camera, import.meta.env.DEV);
+    // Only the character is lit by scene lights; the world shaders have their lighting baked in.
+    scene.add(new THREE.HemisphereLight(SKY_COLOR, 0x5a4a3a, 1.6));
+    const sun = new THREE.DirectionalLight(0xffffff, 1.8);
+    sun.position.set(-50, 10, 50); // the exporter's sun direction in three.js axes
+    scene.add(sun);
+    const avatar = new Avatar(await loadAvatarAsset(`${import.meta.env.BASE_URL}models/player.glb`));
+    scene.add(avatar.root);
+    let messageTimer: ReturnType<typeof setTimeout> | undefined;
+    const ui = {
+        setPrompt: (text: string) => (promptElement.textContent = text),
+        showMessage: (text: string) => {
+            messageElement.textContent = text;
+            clearTimeout(messageTimer);
+            messageTimer = setTimeout(() => (messageElement.textContent = ""), 2500);
+        },
+    };
+    const interactives = new WorldInteractives(world, scene, materials, {
+        bodies: npcs,
+        player: () => player.footprint(),
+    });
+    const handleWorldAction: ActionHandler = (target, action) => {
+        if (target.kind === "door") {
+            const door = target.ref as Parameters<WorldInteractives["toggle"]>[0];
+            if (!interactives.toggle(door)) {
+                ui.showMessage("Something is in the way.");
+            }
+        } else if (target.kind === "climb") {
+            const loc = target.ref as InteractiveLoc;
+            const from = { x: player.x, y: player.y };
+            const plan = planClimb(world, loc, climbDirection(action, world, loc, from), from);
+            if ("message" in plan) {
+                ui.showMessage(plan.message);
+            } else {
+                player.teleport(plan.x, plan.y, plan.plane);
+            }
+        }
+    };
+    const interaction = new Interaction(
+        (plane, x, y) => world.collisionFlags(plane, x, y),
+        [...(npcs ? [npcTargetSource(npcs)] : []), interactives.targetSource()],
+        ui,
+        createNpcActionHandler(player, ui, handleWorldAction),
+    );
+    const collisionDebug =
+        import.meta.env.DEV && npcs && new URLSearchParams(location.search).get("debug") === "collision"
+            ? new CollisionDebug(scene)
+            : undefined;
     if (import.meta.env.DEV) {
         // Handy from the devtools console, e.g. `game.player.x = 3165`.
-        Object.assign(window, { game: { renderer, scene, camera, world, player, npcs } });
+        Object.assign(window, { game: { renderer, scene, camera, world, player, npcs, cameraRig, avatar, interaction, interactives } });
     }
 
     const play = () => {
@@ -141,9 +199,17 @@ async function main(): Promise<void> {
         last = now;
 
         player.update(dt, input);
+        cameraRig.handleInput(input);
+        interaction.update(player, input);
         input.endFrame();
         world.update(player.x, player.y);
-        npcs?.update(dt);
+        interactives.update(dt);
+        npcs?.update(dt, player.footprint());
+        avatar.update(dt, player, cameraRig.mode);
+        cameraRig.update(player);
+        if (collisionDebug && npcs) {
+            collisionDebug.update(npcs, player.footprint(), player.plane, player.x, player.y);
+        }
         materials.setTime(now / 1000);
         renderer.render(scene, camera);
 

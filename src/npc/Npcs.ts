@@ -1,10 +1,11 @@
 import * as THREE from "three";
 
 import type { NpcManifest, NpcModelData, NpcSpawnInfo } from "../world/NpcFormat";
-import type { RegionListener } from "../world/WorldFormat";
+import { RS_UNITS_PER_TILE, type RegionListener } from "../world/WorldFormat";
 import { CLIENT_CYCLE_SECONDS } from "./NpcAnimation";
 import { SERVER_TICK_SECONDS } from "./NpcMovement";
 import { NpcModels, SharedNpcModel } from "./NpcModels";
+import type { Body, BodySource } from "../physics/Bodies";
 import { Npc, NpcWorld, Occupancy } from "./Npc";
 
 const MAX_CLIENT_CYCLES_PER_UPDATE = 50;
@@ -19,11 +20,13 @@ type RegionNpcs = {
 };
 
 /** Creates the NPCs of the regions the world has loaded, and runs their animation and wandering. */
-export class Npcs {
+export class Npcs implements BodySource<Npc> {
     private readonly spawnsByRegion = new Map<number, NpcSpawnInfo[]>();
     private readonly regions = new Map<number, RegionNpcs>();
     private readonly models: NpcModels;
     private readonly occupancy = new Occupancy();
+    private playerBody: Body | undefined;
+    private playerTiles: [number, number, number][] = [];
     private clientTime = 0;
     private serverTime = 0;
 
@@ -77,8 +80,71 @@ export class Npcs {
         return this.occupancy.size;
     }
 
-    /** Advances all NPCs by `dt` seconds. */
-    update(dt: number): void {
+    collectBodies(
+        plane: number,
+        minX: number,
+        minY: number,
+        maxX: number,
+        maxY: number,
+        out: Body<Npc>[],
+    ): void {
+        for (const region of this.regions.values()) {
+            for (const npc of region.npcs) {
+                const b = npc.body;
+                if (b.plane !== plane) {
+                    continue;
+                }
+                const dx = b.x - Math.min(Math.max(b.x, minX), maxX);
+                const dy = b.y - Math.min(Math.max(b.y, minY), maxY);
+                if (dx * dx + dy * dy < b.radius * b.radius) {
+                    out.push(b);
+                }
+            }
+        }
+    }
+
+    /** Whether the player's cylinder blocks an NPC from moving to (x, y) in tiles. */
+    private readonly blockedByPlayer = (npc: Npc, x: number, y: number): boolean => {
+        const player = this.playerBody;
+        if (!player || npc.info.plane !== player.plane) {
+            return false;
+        }
+        const b = npc.body;
+        if (!(b.z < player.z + player.height && player.z < b.z + b.height)) {
+            return false;
+        }
+        const reach = b.radius + player.radius;
+        const d1 = Math.hypot(x - player.x, y - player.y);
+        const d0 = Math.hypot(npc.fineX / RS_UNITS_PER_TILE - player.x, npc.fineY / RS_UNITS_PER_TILE - player.y);
+        // Only moving closer is blocked, so an NPC that overlaps the player can still separate.
+        return d1 < reach && d1 < d0;
+    };
+
+    /** Marks the tiles under the player as occupied, so NPCs do not plan steps onto them. */
+    private syncPlayerTiles(player: Body | undefined): void {
+        for (const [plane, x, y] of this.playerTiles) {
+            this.occupancy.remove(plane, x, y, 1);
+        }
+        this.playerTiles = [];
+        if (!player) {
+            return;
+        }
+        const x0 = Math.floor(player.x - player.radius);
+        const x1 = Math.floor(player.x + player.radius - 1e-6);
+        const y0 = Math.floor(player.y - player.radius);
+        const y1 = Math.floor(player.y + player.radius - 1e-6);
+        for (let x = x0; x <= x1; x++) {
+            for (let y = y0; y <= y1; y++) {
+                this.playerTiles.push([player.plane, x, y]);
+                this.occupancy.add(player.plane, x, y, 1);
+            }
+        }
+    }
+
+    /** Advances all NPCs by `dt` seconds. `player` is the player's collision body, if any. */
+    update(dt: number, player?: Body): void {
+        this.playerBody = player;
+        this.syncPlayerTiles(player);
         this.clientTime += dt;
         this.serverTime += dt;
         const cycles = Math.min(
@@ -99,7 +165,7 @@ export class Npcs {
                     npc.serverTick(this.occupancy, this.random);
                 }
                 for (let c = 0; c < cycles; c++) {
-                    npc.clientCycle();
+                    npc.clientCycle(this.blockedByPlayer);
                 }
                 npc.sync();
             }

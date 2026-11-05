@@ -17,6 +17,12 @@ export type NpcSpawnRecord = { id: number; name?: string; x: number; y: number; 
 /** An appearance to bake, with the sequences the exporter needs but the game does not. */
 export type NpcAppearanceTask = NpcAppearanceInfo & { idleSeqId: number; walkSeqId: number };
 
+/** The NPC's right-click options (Talk-to, Attack...), left out of the manifest when it has none. */
+function menuActions(actions: (string | undefined)[] | undefined): { actions?: string[] } {
+    const list = (actions ?? []).filter((action): action is string => !!action);
+    return list.length > 0 ? { actions: list } : {};
+}
+
 export type SkipReason = "outsideArea" | "nameMismatch" | "noModel" | "noIdle";
 
 export type NpcSelection = {
@@ -140,6 +146,7 @@ export function selectNpcs(
                 combatLevel: display.combatLevel,
                 rotationSpeed: base.rotationSpeed,
                 file: `${NPC_MODEL_DIR}/${npcModelFileName(base.id, display.id)}`,
+                ...menuActions(display.actions ?? base.actions),
                 idleSeqId,
                 walkSeqId,
             });
