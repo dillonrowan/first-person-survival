@@ -157,3 +157,8 @@ export function rotateTowards(rotation: number, target: number, speed: number): 
     }
     return next & 2047;
 }
+
+/** Client orientation that faces a direction given in tiles (dx east, dy north). */
+export function faceOrientation(dx: number, dy: number): number {
+    return Math.round((Math.atan2(-dx, -dy) * 1024) / Math.PI) & 2047;
+}

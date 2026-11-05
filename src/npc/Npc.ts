@@ -9,11 +9,16 @@ import {
     Tile,
     WANDER_CHANCE,
     canStep,
+    faceOrientation,
     findWanderPath,
     rotateTowards,
     stepOrientation,
 } from "./NpcMovement";
+import type { Body } from "../physics/Bodies";
 import type { SharedNpcModel } from "./NpcModels";
+
+/** Asks whether an NPC may move to a point (tiles); true means something is in the way. */
+export type MoveBlocker = (npc: Npc, x: number, y: number) => boolean;
 
 /** The parts of World an NPC needs. */
 export type NpcWorld = {
@@ -85,6 +90,8 @@ export class Npc {
     fineY: number;
     rotation: number;
     orientation: number;
+    /** Collision cylinder, kept in sync with the drawn position. */
+    readonly body: Body<Npc>;
 
     private readonly spawn: Tile;
     private readonly size: number;
@@ -93,7 +100,10 @@ export class Npc {
     private readonly steps: Tile[] = [];
     private serverPath: Tile[] = [];
     private readonly playback: ClipPlayback = { frame: 0, cycle: 0 };
-    private moving = false;
+    private walking = false;
+    /** True while the last client cycle was blocked by the player. */
+    private stalled = false;
+    private holdTicks = 0;
     private clip: NpcClip | undefined;
     private dirty = true;
 
@@ -113,6 +123,15 @@ export class Npc {
         this.fineX = info.x * RS_UNITS_PER_TILE + this.size * (RS_UNITS_PER_TILE / 2);
         this.fineY = info.y * RS_UNITS_PER_TILE + this.size * (RS_UNITS_PER_TILE / 2);
         this.rotation = this.orientation = info.orientation;
+        this.body = {
+            x: this.fineX / RS_UNITS_PER_TILE,
+            y: this.fineY / RS_UNITS_PER_TILE,
+            z: 0,
+            radius: this.size * 0.5 - 0.15,
+            height: model.height,
+            plane: info.plane,
+            owner: this,
+        };
 
         const level = world.renderLevel(info.plane, info.x, info.y);
         for (const shared of model.meshes) {
@@ -162,6 +181,13 @@ export class Npc {
         occupancy: Occupancy,
         random: () => number,
     ): void {
+        if (this.holdTicks > 0) {
+            this.holdTicks--;
+            return;
+        }
+        if (this.stalled) {
+            return;
+        }
         const plane = this.info.plane;
         const flags: FlagLookup = (x, y) => this.world.collisionFlags(plane, x, y);
 
@@ -204,13 +230,28 @@ export class Npc {
         occupancy.add(plane, this.tileX, this.tileY, this.size);
     }
 
-    /** Once per 20 ms client cycle: move towards queued steps, turn, animate. */
-    clientCycle(): void {
-        const half = this.size * (RS_UNITS_PER_TILE / 2);
-        const wasMoving = this.moving;
-        this.moving = this.steps.length > 0;
+    /** Stops wandering for a number of server ticks (an NPC that is being talked to). */
+    hold(ticks: number): void {
+        this.serverPath = [];
+        this.holdTicks = ticks;
+    }
 
-        if (this.moving) {
+    /** Turns to look at a point in world tiles. */
+    faceTowards(x: number, y: number): void {
+        this.orientation = faceOrientation(
+            x - this.fineX / RS_UNITS_PER_TILE,
+            y - this.fineY / RS_UNITS_PER_TILE,
+        );
+    }
+
+    /** Once per 20 ms client cycle: move towards queued steps, turn, animate. */
+    clientCycle(blocker?: MoveBlocker): void {
+        const half = this.size * (RS_UNITS_PER_TILE / 2);
+        const wasWalking = this.walking;
+        const hasSteps = this.steps.length > 0;
+        this.stalled = false;
+
+        if (hasSteps) {
             const next = this.steps[0];
             const nextX = next.x * RS_UNITS_PER_TILE + half;
             const nextY = next.y * RS_UNITS_PER_TILE + half;
@@ -219,6 +260,8 @@ export class Npc {
                 Math.sign(nextY - this.fineY),
             );
 
+            let newX = nextX;
+            let newY = nextY;
             if (Math.abs(nextX - this.fineX) <= 256 && Math.abs(nextY - this.fineY) <= 256) {
                 let speed = 4;
                 if (this.rotation !== this.orientation && this.rotationSpeed !== 0) {
@@ -230,23 +273,28 @@ export class Npc {
                 if (this.steps.length > 3) {
                     speed = 8;
                 }
-                this.fineX += Math.sign(nextX - this.fineX) * Math.min(speed, Math.abs(nextX - this.fineX));
-                this.fineY += Math.sign(nextY - this.fineY) * Math.min(speed, Math.abs(nextY - this.fineY));
-            } else {
-                // Too far behind (a long frame): catch up.
-                this.fineX = nextX;
-                this.fineY = nextY;
+                newX = this.fineX + Math.sign(nextX - this.fineX) * Math.min(speed, Math.abs(nextX - this.fineX));
+                newY = this.fineY + Math.sign(nextY - this.fineY) * Math.min(speed, Math.abs(nextY - this.fineY));
             }
-            if (this.fineX === nextX && this.fineY === nextY) {
-                this.steps.shift();
+            // else: too far behind (a long frame), catch up.
+
+            if (blocker?.(this, newX / RS_UNITS_PER_TILE, newY / RS_UNITS_PER_TILE)) {
+                this.stalled = true;
+            } else {
+                this.fineX = newX;
+                this.fineY = newY;
+                if (this.fineX === nextX && this.fineY === nextY) {
+                    this.steps.shift();
+                }
             }
         }
+        this.walking = hasSteps && !this.stalled;
 
         this.rotation = rotateTowards(this.rotation, this.orientation, this.rotationSpeed);
 
         const walk = this.model.data.walk;
-        const clip = this.moving && walk ? walk : this.model.data.idle;
-        if (clip !== this.clip || wasMoving !== this.moving) {
+        const clip = this.walking && walk ? walk : this.model.data.idle;
+        if (clip !== this.clip || wasWalking !== this.walking) {
             if (clip !== this.clip) {
                 this.playback.frame = 0;
                 this.playback.cycle = 0;
@@ -263,7 +311,11 @@ export class Npc {
     sync(): void {
         const x = this.fineX / RS_UNITS_PER_TILE;
         const y = this.fineY / RS_UNITS_PER_TILE;
-        this.group.position.set(x, this.world.groundHeight(this.info.plane, x, y), -y);
+        const z = this.world.groundHeight(this.info.plane, x, y);
+        this.group.position.set(x, z, -y);
+        this.body.x = x;
+        this.body.y = y;
+        this.body.z = z;
         this.group.rotation.y = orientationToYaw(this.rotation);
 
         if (this.dirty && this.clip) {

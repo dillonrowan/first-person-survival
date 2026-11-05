@@ -242,6 +242,86 @@ describe("Npcs", () => {
     });
 });
 
+const playerAt = (x: number, y: number) => ({
+    x,
+    y,
+    z: 0,
+    radius: 0.3,
+    height: 1.4,
+    plane: 0,
+    owner: null,
+});
+
+describe("Npcs and the player", () => {
+    it("never plans a step onto the tile the player stands on", async () => {
+        const { world, npcs } = setup({ random: () => 0 });
+        world.load(50, 50);
+        await flush();
+        const npc = npcs.all()[0];
+
+        // The NPC's first wander step would go to 3221, 3217.
+        npcs.update(0.6, playerAt(3221.5, 3217.5));
+
+        expect([npc.tileX, npc.tileY]).toEqual([3222, 3218]);
+    });
+
+    it("stalls mid-step while the player is in the way and resumes when they leave", async () => {
+        const { world, npcs } = setup({ random: () => 0 });
+        world.load(50, 50);
+        await flush();
+        const npc = npcs.all()[0];
+        npcs.update(0.6); // takes the step and is partway there
+        const before = npc.fineX;
+
+        npcs.update(0.1, playerAt(3221.5, 3217.5));
+        expect(npc.fineX).toBe(before);
+
+        npcs.update(0.1, undefined);
+        expect(npc.fineX).toBeLessThan(before);
+    });
+
+    it("does not count the player as an NPC tile once they are gone", async () => {
+        const { world, npcs } = setup({ random: () => 0.99 });
+        world.load(50, 50);
+        await flush();
+
+        npcs.update(0.1, playerAt(3230.5, 3230.5));
+        expect(npcs.occupiedTileCount).toBe(2);
+
+        npcs.update(0.1, undefined);
+        expect(npcs.occupiedTileCount).toBe(1);
+    });
+
+    it("reports the bodies of NPCs on a plane inside a box", async () => {
+        const { world, npcs } = setup();
+        world.load(50, 50);
+        await flush();
+        const out: unknown[] = [];
+
+        npcs.collectBodies(0, 3222, 3218, 3223, 3219, out as never[]);
+        expect(out).toHaveLength(1);
+
+        out.length = 0;
+        npcs.collectBodies(1, 3222, 3218, 3223, 3219, out as never[]);
+        npcs.collectBodies(0, 3230, 3230, 3231, 3231, out as never[]);
+        expect(out).toHaveLength(0);
+    });
+
+    it("turns to face a point and holds still while held", async () => {
+        const { world, npcs } = setup({ random: () => 0 });
+        world.load(50, 50);
+        await flush();
+        const npc = npcs.all()[0];
+
+        npc.hold(2);
+        npc.faceTowards(3222.5, 3230); // due north of the NPC
+        npcs.update(0.6);
+
+        expect([npc.tileX, npc.tileY]).toEqual([3222, 3218]);
+        expect(npc.orientation).toBe(1024);
+    });
+});
+
 describe("Occupancy", () => {
     it("tracks the tiles of NPCs of any size per plane", () => {
         const occupancy = new Occupancy();

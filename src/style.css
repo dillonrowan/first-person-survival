@@ -26,6 +26,26 @@ body {
     pointer-events: none;
 }
 
+#prompt,
+#message {
+    position: fixed;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #fff;
+    font: 14px/1.4 system-ui, sans-serif;
+    text-shadow: 0 1px 3px #000;
+    pointer-events: none;
+    text-align: center;
+}
+
+#prompt {
+    top: calc(50% + 24px);
+}
+
+#message {
+    bottom: 18%;
+}
+
 #hud {
     position: fixed;
     top: 8px;

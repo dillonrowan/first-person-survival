@@ -22,6 +22,8 @@ export type NpcAppearanceInfo = {
     rotationSpeed: number;
     /** Model file relative to public/world/. */
     file: string;
+    /** Menu options such as "Talk-to" and "Attack", in the cache's order. Absent in older exports. */
+    actions?: string[];
 };
 
 export type NpcSpawnInfo = {

@@ -1,8 +1,10 @@
 import * as THREE from "three";
 
+import { FlagEdit, PersistentEdits, applyFlagEdit } from "./CollisionEdits";
 import { gunzip } from "./gunzip";
 import { WorldMaterials } from "./WorldMaterials";
 import {
+    InteractiveLoc,
     LEVELS,
     MeshData,
     REGION_SIZE,
@@ -24,6 +26,12 @@ const CORNERS = REGION_SIZE + 1;
 /** Returned for tiles in regions that are missing or not loaded yet: fully blocked. */
 const BLOCKED = 0xffffff;
 
+/** GPU geometry of one door's meshes (either may be absent). */
+export type DoorGeometry = {
+    opaque?: THREE.BufferGeometry;
+    transparent?: THREE.BufferGeometry;
+};
+
 type LoadedRegion = {
     mapX: number;
     mapY: number;
@@ -32,6 +40,8 @@ type LoadedRegion = {
     renderFlags: Uint8Array;
     floors: Uint8Array;
     collision: Int32Array;
+    interactives: InteractiveLoc[];
+    doorGeometries: DoorGeometry[];
 };
 
 const regionKey = (mapX: number, mapY: number) => (mapX << 8) | mapY;
@@ -47,6 +57,7 @@ export class World {
     private readonly loading = new Set<number>();
     private readonly failed = new Set<number>();
     private readonly listeners: RegionListener[] = [];
+    private readonly edits = new PersistentEdits();
 
     constructor(
         private readonly baseUrl: string,
@@ -113,6 +124,45 @@ export class World {
                 this.unload(key, region);
             }
         }
+    }
+
+    /** Whether the exported world has a map square covering this tile (loaded or not). */
+    hasRegion(x: number, y: number): boolean {
+        return this.available.has(regionKey(Math.floor(x / REGION_SIZE), Math.floor(y / REGION_SIZE)));
+    }
+
+    /** Doors and ladders of a loaded map square, with the door geometries. */
+    regionInteractives(
+        mapX: number,
+        mapY: number,
+    ): { locs: InteractiveLoc[]; doorGeometries: DoorGeometry[] } | undefined {
+        const region = this.regions.get(regionKey(mapX, mapY));
+        return region && { locs: region.interactives, doorGeometries: region.doorGeometries };
+    }
+
+    /** Changes tile flags now, in the loaded squares. */
+    applyFlagEdits(edits: readonly FlagEdit[]): void {
+        for (const edit of edits) {
+            this.applyEdit(edit);
+        }
+    }
+
+    /**
+     * Keeps edits under `id` applied whenever the squares they touch are loaded again. Pass
+     * undefined to forget them; the caller undoes their effect on loaded squares itself.
+     */
+    setPersistentEdits(id: string, edits: FlagEdit[] | undefined): void {
+        this.edits.set(id, edits);
+    }
+
+    private applyEdit(edit: FlagEdit): void {
+        const region = this.getRegion(edit.tileX, edit.tileY);
+        if (!region) {
+            return;
+        }
+        const [lx, ly] = localTile(edit.tileX, edit.tileY);
+        const index = (edit.plane * REGION_SIZE + lx) * REGION_SIZE + ly;
+        region.collision[index] = applyFlagEdit(region.collision[index], edit);
     }
 
     isLoaded(x: number, y: number): boolean {
@@ -222,6 +272,12 @@ export class World {
                 }
             });
 
+            const doorGeometries: DoorGeometry[] = data.doorMeshes.map((door) => ({
+                opaque: door.opaque.indices.length > 0 ? createGeometry(door.opaque) : undefined,
+                transparent:
+                    door.transparent.indices.length > 0 ? createGeometry(door.transparent) : undefined,
+            }));
+
             // Copies, so the decompressed buffer can be freed once the GPU has the meshes.
             this.regions.set(key, {
                 mapX,
@@ -231,7 +287,13 @@ export class World {
                 renderFlags: data.renderFlags.slice(),
                 floors: data.floors.slice(),
                 collision: data.collision.slice(),
+                interactives: data.interactives,
+                doorGeometries,
             });
+            // Doors the player has used keep their collision after the square streams back in.
+            for (const edit of this.edits.forRegion(mapX, mapY)) {
+                this.applyEdit(edit);
+            }
             for (const listener of this.listeners) {
                 listener.loaded(mapX, mapY);
             }
@@ -252,6 +314,10 @@ export class World {
         this.regions.delete(key);
         for (const listener of this.listeners) {
             listener.unloaded(region.mapX, region.mapY);
+        }
+        for (const door of region.doorGeometries) {
+            door.opaque?.dispose();
+            door.transparent?.dispose();
         }
     }
 }

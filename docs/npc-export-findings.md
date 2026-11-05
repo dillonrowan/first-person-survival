@@ -124,8 +124,8 @@ NPCs: 12083 spawns, 3472 appearances (3111 can walk), 85 MiB; skipped 11694 outs
 
 - Skeletal animations (about 4 surface NPC types) show the base pose.
 - Per-frame alpha changes are not baked; faces keep their base alpha.
-- NPCs are visual only: the player walks through them, and there is no interaction, combat or
-  death animation (those are not in the cache).
+- NPCs are solid for the player (cylinder collision, see `src/physics/Bodies.ts`), but there is
+  no combat or death animation (those are not in the cache).
 - Wandering is client-side only and uses a simplified size-N footprint rule.
 - The spawn list is from 2023. Newer content has no spawns until the list is updated.
 - Ground items are still not exported.

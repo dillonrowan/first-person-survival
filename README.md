@@ -43,7 +43,9 @@ for example `http://localhost:5173/?x=3213&y=3428` (Varrock square).
 | Shift   | Sprint (or fly faster)                  |
 | Space   | Jump                                    |
 | F       | Toggle flying; Space / C to rise / sink |
+| E / R   | First / second action on what you aim at |
 | Esc     | Release the mouse                       |
+| V       | Third-person camera (dev builds only)   |
 
 Turning flying off lands you on the highest floor below you, so you can fly onto a castle
 roof or into an upper floor and walk around there.
@@ -126,9 +128,10 @@ longer match the cache are skipped and counted in the export log).
   vertex positions per frame; no RuneScape animation code runs in the browser.
 - In game, NPCs appear and disappear with their map square, loop their idle animation, and
   wander within 5 tiles of their spawn (walls and objects stop them), like rs-map-viewer.
-- NPCs are visual only: the player walks through them. NPCs with skeletal animations (a
-  handful) are shown in their base pose. Combat, interaction and death animations are not
-  supported.
+- NPCs are solid: the player is pushed out of their collision cylinder and slides around them,
+  and NPCs wait instead of walking into the player. NPCs with skeletal animations (a
+  handful) are shown in their base pose. Combat and death animations are not supported.
+  Dev builds can draw the collision circles with `?debug=collision`.
 - `npm run export-world -- --no-npcs` skips them.
 
 Runtime (`src/`): three.js, one raw shader (`WorldMaterials.ts`), region streaming around the
