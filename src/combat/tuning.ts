@@ -72,6 +72,16 @@ export const tuning = {
     ragdollMax: 8,
     /** Impulse along the killing blow on the body, kg·tiles/s. [data ai.force_damage_death 300; gh 0x222cb600] */
     deathForce: units(300),
+    /**
+     * A body flying into a standing NPC (spec 20.7): faster than this it knocks the NPC down.
+     * [gh 0x22341360: cvar mm_ragdoll_vel_to_damage 300 × 0.25; the game only pushes below 300 u/s]
+     */
+    ragdollHitSpeed: units(75),
+    /** Faster than this the hit also hurts: ragdollHitDamage × strengthScale, never lethal. [gh 0x22341360: 300 u/s, 10] */
+    ragdollHurtSpeed: units(300),
+    ragdollHitDamage: 10,
+    /** The same body knocks the same NPC down at most once in this many seconds. [gh 0x222aabb0: 2.0] */
+    ragdollHitRepeat: 2.0,
 
     // --- Player ---
     /** [source: CBasePlayer default] */

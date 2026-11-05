@@ -69,7 +69,8 @@ OSRS model's vertex labels and animation data, see section 20 of the spec) fall,
 rest on the floor and against walls; knocked-down NPCs then get up where they lie. Joints bend only
 as far, and only the way, the NPC's own idle and walk animations bend them (a knee never folds
 backwards), body parts collide with each other, and a body is still within about a second and a
-half. Corpses stay for 30 s, at most 8 at a time.
+half. A body flying into another NPC knocks it over too (it gets up again; a body never kills),
+and bodies on the ground push each other aside. Corpses stay for 30 s, at most 8 at a time.
 
 Crates, barrels, sacks, chairs, stools and pots are loose physics props, as in Dark Messiah: kick
 them, hit them, pick them up and throw them. Thrown props hurt and knock down NPCs, props break

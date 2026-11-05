@@ -26,6 +26,7 @@ import type { SharedNpcModel } from "./NpcModels";
 import { NpcAttacker, StrikeEvent } from "./NpcAttacks";
 import { canHear, canSee, hearingDelay, sightDelay } from "./NpcSenses";
 import { Ragdoll, RagdollWorld, singlePartSkeleton } from "./Ragdoll";
+import type { BodyHit } from "./BodyHits";
 
 /** Asks whether an NPC may move to a point (tiles); true means something is in the way. */
 export type MoveBlocker = (npc: Npc, x: number, y: number) => boolean;
@@ -382,6 +383,26 @@ export class Npc {
             const distance = (table[side] * (push >= 3 ? 1.5 : 1)) / this.size;
             this.slide(dirX, dirY, distance);
         }
+    }
+
+    /** True while the NPC blends from its ragdoll back into its animation. */
+    get gettingUp(): boolean {
+        return this.standingUp !== undefined;
+    }
+
+    /**
+     * Knocked over by another NPC's flying body coming from (fromX, fromY) (spec 20.7): the NPC
+     * falls onto a ragdoll of its own, moving on as the hit sent it, and gets up afterwards. The
+     * hit never kills: it leaves at least 1 health.
+     */
+    hitByBody(hit: BodyHit, fromX: number, fromY: number): void {
+        const c = this.combatant;
+        c.hurt(Math.min(hit.damage, Math.max(0, c.health - 1)), "knockdown", false, tuning.knockdownPhysics);
+        this.takeHit(hit.dirX, hit.dirY, 0, fromX, fromY);
+        const k = this.knockback ?? { x: this.body.x, y: this.body.y, vx: 0, vy: 0, plane: this.plane };
+        k.vx = hit.dirX * hit.speed;
+        k.vy = hit.dirY * hit.speed;
+        this.knockback = k;
     }
 
     /**

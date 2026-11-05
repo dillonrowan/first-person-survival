@@ -1078,7 +1078,7 @@ cvars, and Ghidra decompiles of `server.dll` (`[gh: address]`).
 | Parts colliding with each other | the guard's .phy names no `collisionrules`, so every pair of solids collides except each solid with the one it is jointed to (`RagdollSetupCollisions`) | `[gh: 0x223715a0, 0x22371ab0]` |
 | Limit | at most `g_ragdoll_maxcount` 8 ragdolls; client-side ragdolls do not collide with each other (`cl_ragdoll_collide` 0) | `[cvar]` |
 | Blending | an NPC getting up blends out of the ragdoll pose over `mm_ai_ragdoll_blending_time` 0.4 s | `[cvar]` |
-| Ragdoll hitting an NPC | above `mm_ragdoll_vel_to_damage` × 0.25 (75 u/s): 10 damage to the NPC it hits | `[gh: 0x22341360]` (not built here) |
+| Ragdoll hitting an NPC | a character's flying body: above `mm_ragdoll_vel_to_damage` × 0.25 (75 u/s) the hit counts; above 300 u/s it does 10 damage and is taken as a kick (knockdown), below it does none and pushes; the same body counts once per NPC in 2 s (20.7) | `[gh: 0x22341360, 0x222aabb0]` |
 
 As in the other sections, a 300 kg·u/s impulse moves a 90 kg body only 3 u/s: a killed NPC mostly
 collapses and keeps the motion it already had, as when a kick or a power attack slides it.
@@ -1210,8 +1210,9 @@ Havok deactivates bodies at rest. Here:
 
 - A body moving slower than 0.36 tiles/s (mean particle speed) keeps 80% of its velocity per
   substep, so its last wobble dies fast.
-- From 0.3 s after its root part first lies on the floor, its damping ramps over 0.5 s from 0.995
-  to 0.8 per substep, and 1.5 s after landing it is put to sleep.
+- From 0.3 s after its root part first lies on the floor (or the body first leans on a standing
+  NPC or another body, 20.7), its damping ramps over 0.5 s from 0.995 to 0.8 per substep, and
+  1.5 s after landing it is put to sleep.
 - A body slower than 0.12 tiles/s for 0.3 s sleeps sooner; any body sleeps 5 s after it was last
   disturbed.
 
@@ -1219,3 +1220,46 @@ Measured on the same shoves: asleep and still 0.5–2.0 s after the shove, fall 
 rat 1.2 s, man 1.3 s, guard 1.5 s, goblin 1.8 s; the earlier version needed up to 5 s). A body
 being simulated costs 1.2–2.7 ms a frame while awake; learning the limits takes 10–30 ms per model,
 once.
+
+### 20.7 Bodies knocking NPCs over `[gh: 0x22341360, 0x222aabb0; design]`
+
+What Dark Messiah does when another character's flying body hits an NPC (0x22341360, a handler
+in the NPC's vtable, building a `CTakeDamageInfo` for `CBaseEntity::TakeDamage` 0x223b9820):
+
+| Body speed | Damage | Damage info flags (+0x8c) | Reaction (`ComputeActionFromDamages` 0x222aabb0) |
+| --- | --- | --- | --- |
+| up to 75 u/s (`mm_ragdoll_vel_to_damage` 300 × 0.25) | none | no hit | none |
+| 75–300 u/s | 0 (damage multiplied by 0.0) | `0x40`, reaction level 2 | a push |
+| over 300 u/s | 10, type `0x40000` | `1` | handled as `Attack_Move_Kick` at level 3: the NPC is knocked down |
+
+The NPC also remembers which body hit it, and the same body counts again only after 2 s
+(`_DAT_22571c90`).
+
+Here (`BodyHits.ts`, `Npcs.collideBodies`):
+
+- **Contact.** Each frame every awake ragdoll's collision spheres (20.5) are tested against the
+  body cylinders of the standing NPCs on its floor; the speed that counts is the body's centre of
+  mass moving in along the contact, as Dark Messiah reads the striking character's velocity.
+- **Knockdown.** Faster than 75 u/s (1.5 tiles/s) the NPC is knocked down, as by a kick, for the
+  physics knockdown time (2 s), onto a ragdoll of its own, and then gets up. Dark Messiah only
+  pushes between 75 and 300 u/s, but bodies here rarely fly faster than 2–5 tiles/s (a long-hit
+  slide starts at about 3.8), so every counting hit knocks the NPC over [design].
+- **Momentum.** The two share their momentum along the contact as in an inelastic collision: the
+  NPC's ragdoll starts at their common speed, the striking body slows to it (equal masses: half
+  each).
+- **Damage.** Over 300 u/s, 10 × `strengthScale`; under it none. A body never kills: the hit
+  leaves at least 1 health [design].
+- **Who.** Only NPCs that can be attacked are knocked over; others stand their ground and the body
+  is stopped against them (moved out without gaining speed, its motion into them taken away), as
+  is a body too slow to knock anyone over. The NPC hit turns towards the body and becomes alert,
+  as with a thrown prop (19.6).
+- **Bodies on the ground.** Ragdolls keep out of each other: overlapping spheres of two bodies push
+  their parts apart, the lighter further, without adding speed, and stop their motion into each
+  other. A sleeping body stays as it lies unless struck faster than 0.3 tiles/s, which wakes it.
+
+Measured with real exports (a guard thrown at 4 tiles/s into a goblin, a man at 4 into a guard, a
+goblin at 3 into a man), rendered and checked in Blender: the body reaches its target at
+2–3 tiles/s, both go on at about half that, the target falls (its top drops from 1.1–1.5 to
+0.45–0.6 tiles above the floor) and both bodies are asleep within 2.5 s. The two meshes touch in at
+most 9 triangle pairs at any of the frames checked. A man drifting in at 1.2 tiles/s leaves the
+other standing.

@@ -65,6 +65,10 @@ const START_MARGIN = 0.05;
 /** Fraction of an overlap between two body parts undone per iteration, and the most per iteration, tiles. [design] */
 const COLLISION_STIFFNESS = 0.5;
 const MAX_COLLISION_PUSH = 0.01;
+/** Most two bodies (or a body and a standing NPC) are pushed apart in one frame, tiles. [design] */
+const MAX_BODY_PUSH = 0.05;
+/** A body pushed into a sleeping one faster than this (tiles/s) wakes it. [design] */
+const WAKE_BY_BODY_SPEED = 0.3;
 /** Two spheres the model itself puts closer than this fraction of their reach never collide. [design] */
 const MIN_CONTACT_FRACTION = 0.3;
 /**
@@ -299,6 +303,18 @@ export function buildSpheres(vertices: readonly number[], base: Float32Array): n
     return spheres;
 }
 
+/** A part's reach from its centroid: its farthest sphere surface, tiles. */
+function reachOf(part: { spheres: number[]; restOrigin: number[] }): number {
+    let r = 0;
+    for (let s = 0; s < part.spheres.length; s += 4) {
+        r = Math.max(
+            r,
+            Math.hypot(part.spheres[s] - part.restOrigin[0], part.spheres[s + 1] - part.restOrigin[1], part.spheres[s + 2] - part.restOrigin[2]) + part.spheres[s + 3],
+        );
+    }
+    return r;
+}
+
 /** Rotates point i of `p` by `angle` about the unit axis `k` through `o`. */
 function rotateAbout(p: Float32Array, i: number, o: ArrayLike<number>, k: Vec3, cos: number, sin: number): void {
     const vx = p[i] - o[0];
@@ -360,6 +376,11 @@ export class Ragdoll {
     private awakeFor = 0;
     /** Mean particle speed over the last frame, tiles/s. */
     private lastSpeed = Infinity;
+    /** Length of the last step, seconds: velocities are particle motion per substep of it. */
+    private lastDt = 1 / 60;
+    /** Each part's reach from its centroid to its farthest sphere surface, tiles. */
+    private readonly partReach: number[];
+    private readonly totalMass: number;
     /**
      * Set once the body slows below REST_SPEED, cleared when it speeds up past WAKE_SPEED or is
      * disturbed: the gap keeps it from flicking between the two.
@@ -367,6 +388,8 @@ export class Ragdoll {
     private resting = false;
     /** Seconds since the root part first lay on the floor (−1: not yet). */
     private landedFor = -1;
+    /** Set when the body was last held up by a standing NPC or another body (spec 20.7). */
+    private propped = false;
     /** 1 for each particle on (or just above) the floor at the last ground pass. */
     private onFloor: Uint8Array;
     /** 1 for each part with one of its own particles on the floor, per limit pass. */
@@ -588,6 +611,8 @@ export class Ragdoll {
             }
         }
         this.sphereWorld = new Float32Array(this.parts.reduce((n, part) => n + part.spheres.length, 0));
+        this.partReach = this.parts.map(reachOf);
+        this.totalMass = this.parts.reduce((m, part) => m + part.mass, 0);
 
         this.pos = Float32Array.from(points);
         this.prev = Float32Array.from(points);
@@ -781,17 +806,7 @@ export class Ragdoll {
      */
     private collidingSpheres(fitsPerPose: (PoseFit | undefined)[][]): SphereGroup[] {
         const groups: SphereGroup[] = [];
-        // Each part's reach from its centroid: its farthest sphere surface.
-        const bound = this.parts.map((part) => {
-            let r = 0;
-            for (let s = 0; s < part.spheres.length; s += 4) {
-                r = Math.max(
-                    r,
-                    Math.hypot(part.spheres[s] - part.restOrigin[0], part.spheres[s + 1] - part.restOrigin[1], part.spheres[s + 2] - part.restOrigin[2]) + part.spheres[s + 3],
-                );
-            }
-            return r;
-        });
+        const bound = this.parts.map(reachOf);
         const centre = (part: Part, fit: PoseFit, s: number): Vec3 => {
             const d = mul(fit.r, [part.spheres[s] - part.restOrigin[0], part.spheres[s + 1] - part.restOrigin[1], part.spheres[s + 2] - part.restOrigin[2]]);
             return [fit.c[0] + d[0], fit.c[1] + d[1], fit.c[2] + d[2]];
@@ -855,7 +870,7 @@ export class Ragdoll {
     }
 
     /** Sets every particle's velocity (tiles/s, three.js axes), e.g. the motion the NPC had. */
-    setVelocity(vx: number, vy: number, vz: number, dt = 1 / 60): void {
+    setVelocity(vx: number, vy: number, vz: number, dt = this.lastDt): void {
         const h = dt / SUBSTEPS;
         for (let i = 0; i < this.pos.length; i += 3) {
             this.prev[i] = this.pos[i] - vx * h;
@@ -866,7 +881,7 @@ export class Ragdoll {
     }
 
     /** Adds a velocity (tiles/s, three.js axes) to the whole body, e.g. a kick on a lying NPC. */
-    addVelocity(vx: number, vy: number, vz: number, dt = 1 / 60): void {
+    addVelocity(vx: number, vy: number, vz: number, dt = this.lastDt): void {
         const h = dt / SUBSTEPS;
         for (let i = 0; i < this.pos.length; i += 3) {
             this.prev[i] -= vx * h;
@@ -880,7 +895,7 @@ export class Ragdoll {
      * Adds an impulse (kg·tiles/s, three.js axes) to the root part's particles, like Source's death
      * force on the hit body.
      */
-    applyImpulse(jx: number, jy: number, jz: number, dt = 1 / 60): void {
+    applyImpulse(jx: number, jy: number, jz: number, dt = this.lastDt): void {
         const root = this.parts[0];
         const h = dt / SUBSTEPS;
         const dv = 1 / root.mass;
@@ -973,13 +988,17 @@ export class Ragdoll {
             moved += Math.hypot(p[i] - start[i], p[i + 1] - start[i + 1], p[i + 2] - start[i + 2]);
         }
         this.lastSpeed = moved / (p.length / 3) / dt;
+        this.lastDt = dt;
         this.resting = this.resting ? this.lastSpeed < WAKE_SPEED : this.lastSpeed < REST_SPEED;
         this.still = this.lastSpeed < SLEEP_SPEED ? this.still + dt : 0;
+        // Landed: the root part lies on the floor, or the body rests against a standing NPC or
+        // another body (it may never reach the floor).
         if (this.landedFor >= 0) {
             this.landedFor += dt;
-        } else if (this.touching(this.parts[0].set)) {
+        } else if (this.touching(this.parts[0].set) || this.propped) {
             this.landedFor = 0;
         }
+        this.propped = false;
         this.awakeFor += dt;
         if (this.still >= SLEEP_TIME || this.awakeFor >= MAX_AWAKE_TIME || this.landedFor >= LANDED_SLEEP) {
             this.asleep = true;
@@ -1188,20 +1207,10 @@ export class Ragdoll {
         spinOf(part.complement, (omega * ic) / (ic + ir));
     }
 
-    /**
-     * Keeps body parts out of each other (spec 20.5): two overlapping spheres of different parts
-     * push the parts apart, the lighter one further, and stop their motion into each other. The
-     * push moves previous positions too, so it adds no speed: only the stop changes velocities,
-     * and a stop can only take energy out.
-     */
-    private solveSelfCollision(): void {
-        if (this.spherePairs.length === 0) {
-            return;
-        }
+    /** Every collision sphere's centre where its part is now (local coordinates), from the parts' current rotations. */
+    private placeSpheres(): void {
         const p = this.pos;
-        const o = this.prev;
         const w = this.sphereWorld;
-        // Sphere centres where the parts are now.
         this.parts.forEach((part, i) => {
             const r = this.rotation[i];
             const c = part.c * 3;
@@ -1215,6 +1224,260 @@ export class Ragdoll {
                 w[base + s + 3] = part.spheres[s + 3];
             }
         });
+    }
+
+    /** Mean velocity of a part's particles, tiles per substep. */
+    private partVelocity(part: Part): Vec3 {
+        const p = this.pos;
+        const o = this.prev;
+        const v: Vec3 = [0, 0, 0];
+        for (const k of part.set) {
+            v[0] += p[k * 3] - o[k * 3];
+            v[1] += p[k * 3 + 1] - o[k * 3 + 1];
+            v[2] += p[k * 3 + 2] - o[k * 3 + 2];
+        }
+        return [v[0] / part.set.length, v[1] / part.set.length, v[2] / part.set.length];
+    }
+
+    /** Moves a part's particles by `move` without changing their speed, then changes their velocity by `dv` (tiles per substep). */
+    private shiftPart(part: Part, move: Vec3, dv: Vec3): void {
+        for (const k of part.set) {
+            for (let x = 0; x < 3; x++) {
+                this.pos[k * 3 + x] += move[x];
+                this.prev[k * 3 + x] += move[x] - dv[x];
+            }
+        }
+    }
+
+    /** The body's mass, kg. */
+    get mass(): number {
+        return this.totalMass;
+    }
+
+    /** Velocity of the body's centre of mass, tiles/s (three.js axes). */
+    velocity(): Vec3 {
+        const p = this.pos;
+        const o = this.prev;
+        const v: Vec3 = [0, 0, 0];
+        let total = 0;
+        for (let k = 0; k < p.length / 3; k++) {
+            const m = this.invMass[k] > 0 ? 1 / this.invMass[k] : 0;
+            total += m;
+            v[0] += m * (p[k * 3] - o[k * 3]);
+            v[1] += m * (p[k * 3 + 1] - o[k * 3 + 1]);
+            v[2] += m * (p[k * 3 + 2] - o[k * 3 + 2]);
+        }
+        const h = this.lastDt / SUBSTEPS;
+        return [v[0] / total / h, v[1] / total / h, v[2] / total / h];
+    }
+
+    /** A sphere around the whole body: centre (three.js world space) and radius, tiles. */
+    bounds(): { x: number; y: number; z: number; r: number } {
+        const [x, y, z] = this.rootPosition();
+        let r = 0;
+        this.parts.forEach((part, i) => {
+            const c = part.c * 3;
+            r = Math.max(r, Math.hypot(this.pos[c] + this.originX - x, this.pos[c + 1] - y, this.pos[c + 2] + this.originZ - z) + this.partReach[i]);
+        });
+        return { x, y, z, r };
+    }
+
+    /**
+     * Where the body touches an upright cylinder (a standing NPC: axis at three.js x, z, from
+     * `bottom` to `top`): the horizontal direction from the axis out to the touching parts (depth-
+     * weighted), how deep the deepest sphere is in, and how fast the body's centre of mass moves
+     * in along it (tiles/s; negative when moving away). Undefined when nothing touches.
+     */
+    touchCylinder(x: number, z: number, bottom: number, top: number, radius: number): { nx: number; nz: number; depth: number; closing: number } | undefined {
+        this.updateFrames();
+        this.placeSpheres();
+        const w = this.sphereWorld;
+        let nx = 0;
+        let nz = 0;
+        let depth = 0;
+        for (let s = 0; s < w.length; s += 4) {
+            const dx = w[s] + this.originX - x;
+            const dz = w[s + 2] + this.originZ - z;
+            const d = Math.hypot(dx, dz);
+            const r = w[s + 3];
+            const overlap = r + radius - d;
+            if (overlap <= 0 || w[s + 1] + r < bottom || w[s + 1] - r > top) {
+                continue;
+            }
+            const scale = d > 1e-6 ? overlap / d : 0;
+            nx += dx * scale;
+            nz += dz * scale;
+            depth = Math.max(depth, overlap);
+        }
+        if (depth === 0) {
+            return undefined;
+        }
+        const v = this.velocity();
+        let l = Math.hypot(nx, nz);
+        if (l < 1e-9) {
+            // Centred on the axis: out the way the body came from.
+            nx = -v[0];
+            nz = -v[2];
+            l = Math.hypot(nx, nz) || 1;
+        }
+        nx /= l;
+        nz /= l;
+        return { nx, nz, depth, closing: -(v[0] * nx + v[2] * nz) };
+    }
+
+    /**
+     * Pushes the body out of an upright cylinder that does not give way (a standing NPC it is not
+     * knocking down): each part inside is moved out sideways, without changing its speed, and its
+     * motion into the cylinder stops.
+     */
+    pushOutOfCylinder(x: number, z: number, bottom: number, top: number, radius: number): void {
+        if (this.asleep) {
+            // At rest against the NPC: it stays as it lies.
+            return;
+        }
+        this.updateFrames();
+        this.placeSpheres();
+        const w = this.sphereWorld;
+        let moved = false;
+        this.parts.forEach((part, i) => {
+            const first = this.sphereOffset[i];
+            let best = 0;
+            let n: Vec3 = [0, 0, 0];
+            for (let s = first; s < first + part.spheres.length; s += 4) {
+                const dx = w[s] + this.originX - x;
+                const dz = w[s + 2] + this.originZ - z;
+                const d = Math.hypot(dx, dz);
+                const r = w[s + 3];
+                const overlap = r + radius - d;
+                if (overlap > best && d > 1e-6 && w[s + 1] + r >= bottom && w[s + 1] - r <= top) {
+                    best = overlap;
+                    n = [dx / d, 0, dz / d];
+                }
+            }
+            if (best <= 0) {
+                return;
+            }
+            const push = Math.min(MAX_BODY_PUSH, best);
+            const v = this.partVelocity(part);
+            const into = Math.min(0, v[0] * n[0] + v[2] * n[2]);
+            this.shiftPart(part, [n[0] * push, 0, n[2] * push], [-n[0] * into, 0, -n[2] * into]);
+            moved = true;
+        });
+        if (moved) {
+            this.propped = true;
+        }
+    }
+
+    /** Adds a velocity (tiles/s, three.js axes) to the whole body, scaled for the last step's length. */
+    addSpeed(vx: number, vy: number, vz: number): void {
+        this.addVelocity(vx, vy, vz, this.lastDt);
+    }
+
+    /**
+     * Two bodies on the ground keep out of each other (spec 20.7): overlapping spheres of their
+     * parts push the parts apart, the lighter further, without adding speed, and their motion into
+     * each other stops. A sleeping body only gives way, and wakes, when it is really pushed.
+     */
+    static collide(a: Ragdoll, b: Ragdoll): void {
+        if ((a.asleep && b.asleep) || a.plane !== b.plane) {
+            return;
+        }
+        const ba = a.bounds();
+        const bb = b.bounds();
+        if (Math.hypot(ba.x - bb.x, ba.y - bb.y, ba.z - bb.z) >= ba.r + bb.r) {
+            return;
+        }
+        a.updateFrames();
+        a.placeSpheres();
+        b.updateFrames();
+        b.placeSpheres();
+        // b's local coordinates in a's.
+        const ox = b.originX - a.originX;
+        const oz = b.originZ - a.originZ;
+        const wa = a.sphereWorld;
+        const wb = b.sphereWorld;
+        let touched = false;
+        a.parts.forEach((pa, i) => {
+            const ca = pa.c * 3;
+            b.parts.forEach((pb, j) => {
+                const cb = pb.c * 3;
+                const reach = a.partReach[i] + b.partReach[j];
+                if ((a.pos[ca] - b.pos[cb] - ox) ** 2 + (a.pos[ca + 1] - b.pos[cb + 1]) ** 2 + (a.pos[ca + 2] - b.pos[cb + 2] - oz) ** 2 >= reach * reach) {
+                    return;
+                }
+                const fa = a.sphereOffset[i];
+                const fb = b.sphereOffset[j];
+                for (let s = fa; s < fa + pa.spheres.length; s += 4) {
+                    for (let t = fb; t < fb + pb.spheres.length; t += 4) {
+                        const dx = wb[t] + ox - wa[s];
+                        const dy = wb[t + 1] - wa[s + 1];
+                        const dz = wb[t + 2] + oz - wa[s + 2];
+                        const contact = wa[s + 3] + wb[t + 3];
+                        const d2 = dx * dx + dy * dy + dz * dz;
+                        if (d2 >= contact * contact) {
+                            continue;
+                        }
+                        const d = Math.sqrt(d2) || 1e-6;
+                        const n: Vec3 = d2 > 0 ? [dx / d, dy / d, dz / d] : [0, 1, 0];
+                        const va = a.partVelocity(pa);
+                        const vb = b.partVelocity(pb);
+                        const closing = Math.min(0, (vb[0] - va[0]) * n[0] + (vb[1] - va[1]) * n[1] + (vb[2] - va[2]) * n[2]);
+                        // A sleeping body stays put unless pushed hard; then it wakes and shares.
+                        const hard = -closing / (a.lastDt / SUBSTEPS) > WAKE_BY_BODY_SPEED;
+                        const aMoves = !a.asleep || hard;
+                        const bMoves = !b.asleep || hard;
+                        const shareA = !bMoves ? 1 : !aMoves ? 0 : pb.mass / (pa.mass + pb.mass);
+                        const push = Math.min(MAX_BODY_PUSH, contact - d);
+                        a.propped = b.propped = true;
+                        if (aMoves) {
+                            a.shiftPart(pa, [-n[0] * push * shareA, -n[1] * push * shareA, -n[2] * push * shareA], [n[0] * closing * shareA, n[1] * closing * shareA, n[2] * closing * shareA]);
+                        }
+                        if (bMoves) {
+                            const s2 = 1 - shareA;
+                            b.shiftPart(pb, [n[0] * push * s2, n[1] * push * s2, n[2] * push * s2], [-n[0] * closing * s2, -n[1] * closing * s2, -n[2] * closing * s2]);
+                        }
+                        if (hard) {
+                            touched = true;
+                        }
+                        // The spheres moved with their parts.
+                        for (let k = fa; k < fa + pa.spheres.length; k += 4) {
+                            wa[k] -= n[0] * push * shareA;
+                            wa[k + 1] -= n[1] * push * shareA;
+                            wa[k + 2] -= n[2] * push * shareA;
+                        }
+                        for (let k = fb; k < fb + pb.spheres.length; k += 4) {
+                            wb[k] += n[0] * push * (1 - shareA);
+                            wb[k + 1] += n[1] * push * (1 - shareA);
+                            wb[k + 2] += n[2] * push * (1 - shareA);
+                        }
+                    }
+                }
+            });
+        });
+        if (touched) {
+            if (a.asleep) {
+                a.wake();
+            }
+            if (b.asleep) {
+                b.wake();
+            }
+        }
+    }
+
+    /**
+     * Keeps body parts out of each other (spec 20.5): two overlapping spheres of different parts
+     * push the parts apart, the lighter one further, and stop their motion into each other. The
+     * push moves previous positions too, so it adds no speed: only the stop changes velocities,
+     * and a stop can only take energy out.
+     */
+    private solveSelfCollision(): void {
+        if (this.spherePairs.length === 0) {
+            return;
+        }
+        const p = this.pos;
+        const o = this.prev;
+        const w = this.sphereWorld;
+        this.placeSpheres();
         const velocity = (part: Part): Vec3 => {
             const v: Vec3 = [0, 0, 0];
             for (const k of part.set) {

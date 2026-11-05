@@ -9,6 +9,8 @@ import { Body, BodySource, segmentHitsBoxes2D } from "../physics/Bodies";
 import { Box, collectTileBoxes } from "../physics/TileColliders";
 import { tuning } from "../combat/tuning";
 import { CombatContext, Npc, NpcWorld, Occupancy } from "./Npc";
+import { strikeBody } from "./BodyHits";
+import { Ragdoll } from "./Ragdoll";
 
 const MAX_CLIENT_CYCLES_PER_UPDATE = 50;
 const MAX_SERVER_TICKS_PER_UPDATE = 5;
@@ -31,6 +33,9 @@ export class Npcs implements BodySource<Npc> {
     private playerTiles: [number, number, number][] = [];
     private clientTime = 0;
     private serverTime = 0;
+    /** Seconds simulated, and when each body last knocked each NPC down (spec 20.7). */
+    private time = 0;
+    private readonly bodyHits = new WeakMap<Npc, Map<Npc, number>>();
 
     constructor(
         private readonly manifest: NpcManifest,
@@ -191,6 +196,7 @@ export class Npcs implements BodySource<Npc> {
         this.syncPlayerTiles(player);
         this.clientTime += dt;
         this.serverTime += dt;
+        this.time += dt;
         const cycles = Math.min(
             Math.floor(this.clientTime / CLIENT_CYCLE_SECONDS),
             MAX_CLIENT_CYCLES_PER_UPDATE,
@@ -220,9 +226,50 @@ export class Npcs implements BodySource<Npc> {
                 npc.sync();
             }
         }
+        this.collideBodies();
         this.limitCorpses();
         if (player) {
             this.callForHelp(player);
+        }
+    }
+
+    /**
+     * Bodies meeting NPCs (spec 20.7): a moving ragdoll knocks over the standing NPCs it flies
+     * into (they fall onto ragdolls of their own and get up again), is stopped by those it does
+     * not, and bodies on the ground push each other apart instead of sinking into each other.
+     */
+    private collideBodies(): void {
+        const all = this.all();
+        const bodies = all.filter((npc) => npc.ragdoll && !npc.gone && !npc.gettingUp);
+        for (let i = 0; i < bodies.length; i++) {
+            const striker = bodies[i];
+            const ragdoll = striker.ragdoll!;
+            for (let j = i + 1; j < bodies.length; j++) {
+                Ragdoll.collide(ragdoll, bodies[j].ragdoll!);
+            }
+            if (ragdoll.asleep) {
+                continue;
+            }
+            const reach = ragdoll.bounds();
+            for (const target of all) {
+                const body = target.body;
+                const c = target.combatant;
+                if (target === striker || target.ragdoll || target.gone || c.dead || c.knockedDown || body.plane !== ragdoll.plane) {
+                    continue;
+                }
+                // Tile space (x, y) is three.js (x, −z).
+                if (Math.hypot(body.x - reach.x, body.y + reach.z) > reach.r + body.radius) {
+                    continue;
+                }
+                const hits = this.bodyHits.get(striker) ?? new Map<Npc, number>();
+                const again = this.time - (hits.get(target) ?? -Infinity) < tuning.ragdollHitRepeat;
+                const hit = strikeBody(ragdoll, body, target.mass, target.attackable && !again);
+                if (hit) {
+                    hits.set(target, this.time);
+                    this.bodyHits.set(striker, hits);
+                    target.hitByBody(hit, striker.body.x, striker.body.y);
+                }
+            }
         }
     }
 

@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { tuning } from "../combat/tuning";
 import type { NpcManifest, NpcModelData } from "../world/NpcFormat";
 import { CollisionFlag, RegionListener } from "../world/WorldFormat";
-import { Occupancy } from "./Npc";
+import { Npc, Occupancy } from "./Npc";
 import { Npcs } from "./Npcs";
 
 const APPEARANCE = {
@@ -405,6 +405,101 @@ describe("NPC combat", () => {
         }
         expect(npc.ragdoll).toBeUndefined();
         expect(npc.combatant.reaction).toBe("none");
+    });
+});
+
+describe("bodies knocking NPCs over (spec 20.7)", () => {
+    /** A standing box 0.6 × 1.5 × 0.3 tiles (RS units: +y down), idle and walk holding still. */
+    function boxModel(): NpcModelData {
+        const corners: number[] = [];
+        for (const z of [-19, 19]) {
+            for (const y of [0, -192]) {
+                for (const x of [-38, 38]) {
+                    corners.push(x, y, z);
+                }
+            }
+        }
+        const clip = () => ({ frameLengths: Uint16Array.from([2, 2]), frameStep: -1, positions: Int16Array.from([...corners, ...corners]) });
+        const faces = [0, 1, 3, 0, 3, 2, 4, 6, 7, 4, 7, 5, 0, 4, 5, 0, 5, 1, 2, 3, 7, 2, 7, 6, 0, 2, 6, 0, 6, 4, 1, 5, 7, 1, 7, 3];
+        return {
+            vertexCount: 8,
+            bounds: Float32Array.from([0, 0.75, 0, 0.9]),
+            opaque: {
+                positions: Int16Array.from(Array.from({ length: 8 }, (_, v) => [corners[v * 3], corners[v * 3 + 1], corners[v * 3 + 2], 0]).flat()),
+                colors: new Uint8Array(32).fill(255),
+                uvs: new Int16Array(16),
+                sources: Uint16Array.from({ length: 8 }, (_, v) => v),
+                indices: Uint32Array.from(faces),
+            },
+            transparent: {
+                positions: new Int16Array(0),
+                colors: new Uint8Array(0),
+                uvs: new Int16Array(0),
+                sources: new Uint16Array(0),
+                indices: new Uint32Array(0),
+            },
+            idle: clip(),
+            walk: clip(),
+        };
+    }
+
+    /** Two attackable box NPCs side by side, one tile apart along x; returns the west one first. */
+    async function twoNpcs() {
+        const world = fakeWorld();
+        const pair: NpcManifest = {
+            ...manifest,
+            appearances: [{ ...APPEARANCE, actions: ["Attack"] }],
+            spawns: [
+                { appearance: 0, x: 3222, y: 3218, plane: 0, orientation: 0 },
+                { appearance: 0, x: 3223, y: 3218, plane: 0, orientation: 0 },
+            ],
+        };
+        const npcs = new Npcs(pair, world, new THREE.Scene(), materials, async () => boxModel(), () => 0.5);
+        world.load(50, 50);
+        await flush();
+        const [west, east] = npcs.all().sort((a, b) => a.body.x - b.body.x);
+        return { npcs, west, east };
+    }
+
+    /**
+     * Kills the west NPC and throws its body east at `speed` tiles/s, a little upwards so it flies
+     * instead of tripping over its feet; returns once the east one is down (or after 2 s).
+     */
+    function fling(npcs: Npcs, west: Npc, east: Npc, speed: number): boolean {
+        west.combatant.hurt(1e6, "knockdown");
+        npcs.update(0.02);
+        west.ragdoll!.addVelocity(speed, 2, 0);
+        for (let t = 0; t < 2; t += 0.02) {
+            npcs.update(0.02);
+            if (east.combatant.knockedDown) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    it("knocks over the NPC a flying body hits, which falls onto its own ragdoll and gets up again", async () => {
+        const { npcs, west, east } = await twoNpcs();
+        const health = east.combatant.health;
+        expect(fling(npcs, west, east, 5)).toBe(true);
+        npcs.update(0.02);
+        expect(east.ragdoll).toBeDefined();
+        // Under 300 u/s: no damage, and it is not defeated.
+        expect(east.combatant.health).toBe(health);
+        for (let t = 0; t < tuning.knockdownPhysics + tuning.standUpBack + tuning.standUpFront + 0.5; t += 0.02) {
+            npcs.update(0.02);
+        }
+        expect(east.ragdoll).toBeUndefined();
+        expect(east.combatant.dead).toBe(false);
+        expect(east.combatant.reaction).toBe("none");
+    });
+
+    it("never kills: a fast body leaves even a nearly dead NPC standing up again", async () => {
+        const { npcs, west, east } = await twoNpcs();
+        east.combatant.health = 1;
+        expect(fling(npcs, west, east, 10)).toBe(true);
+        expect(east.combatant.health).toBe(1);
+        expect(east.combatant.dead).toBe(false);
     });
 });
 
