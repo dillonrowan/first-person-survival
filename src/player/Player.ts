@@ -61,6 +61,10 @@ export class Player {
     /** Current eye height above the feet; eases towards the standing or crouching height. */
     eyeHeight = EYE_HEIGHT;
     readonly stamina = new Stamina();
+    /** Called on touching down with the downward speed in tiles/s (fall damage, spec 19.8). */
+    onLanded?: (speed: number) => void;
+    /** Set when flying is switched off or the player teleports, so that drop does not hurt. */
+    private ignoreNextLanding = false;
 
     /** Simulated horizontal velocity, persisting between updates (Source-style acceleration). */
     private readonly vel: Vec2 = { x: 0, y: 0 };
@@ -117,6 +121,18 @@ export class Player {
         return Math.hypot(this.velocityX, this.velocityY);
     }
 
+    /**
+     * Velocity the player is trying to move at, tiles/s, before bodies stop it. Props the player
+     * walks into are shoved at this speed (spec 19.10).
+     */
+    get intentX(): number {
+        return this.vel.x;
+    }
+
+    get intentY(): number {
+        return this.vel.y;
+    }
+
     /** Velocity along the facing direction: positive walking forward, negative backwards. */
     get localForward(): number {
         return this.velocityX * -Math.sin(this.yaw) + this.velocityY * Math.cos(this.yaw);
@@ -144,6 +160,7 @@ export class Player {
         this.vel.x = this.vel.y = 0;
         this.onGround = false;
         this.placed = false;
+        this.ignoreNextLanding = true;
         if (this.world.isLoaded(x, y)) {
             this.placeOnWalkableTile();
         }
@@ -308,8 +325,16 @@ export class Player {
         this.velocityZ -= tuning.gravity * dt;
         this.z += this.velocityZ * dt;
         if (this.z <= ground) {
+            const landing = -this.velocityZ;
             this.z = ground;
             this.velocityZ = 0;
+            if (!this.onGround && landing > 0) {
+                if (this.ignoreNextLanding) {
+                    this.ignoreNextLanding = false;
+                } else {
+                    this.onLanded?.(landing);
+                }
+            }
             this.onGround = true;
         } else if (this.onGround && this.velocityZ <= 0 && this.z - ground <= STEP_DOWN) {
             this.z = ground;
@@ -349,6 +374,7 @@ export class Player {
         this.flying = flying;
         this.velocityZ = 0;
         this.onGround = false;
+        this.ignoreNextLanding = !flying;
         if (!flying) {
             // Land on the highest floor that is below the player's feet.
             for (let plane = LEVELS - 1; plane >= 0; plane--) {

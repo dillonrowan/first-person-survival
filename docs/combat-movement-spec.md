@@ -902,3 +902,158 @@ Sources: the player state handlers `[gh: 0x22446a40 sword idle, 0x224473c0 sword
 - Hit zones scale damage on NPCs (16.5, `hitboxes_modifier`): head ×3, chest ×0.5, stomach ×1,
   limbs ×1.25 `[data: npc_guard]`. Here the zone comes from where the ray meets the body's height:
   top 15% head, next 25% chest, next 15% stomach, the rest legs `[design]`.
+
+## 19. Physics: props, impacts and falls
+
+Sources: `mm_game_settings.txt`, `propdata.txt` (`[data]`), cvar defaults (`[cvar]`) and Ghidra 12.1.4
+decompiles of the same `server.dll` (`[gh: address]`). Masses are kg; impulses are kg·u/s, so an
+impulse J changes a body's speed by J / mass.
+
+### 19.1 Which objects are props `[design]`
+
+Dark Messiah's maps place physics props by hand. The OSRS cache has no such list, so the exporter
+turns one-tile, static locs with these names into props, gives each its own mesh and removes its
+tile collision (`tools/world-export/Props.ts`):
+
+| Name | Material | Mass kg |
+| --- | --- | --- |
+| Crate / Crates (stack) | wood | 40 / 100 |
+| Box, Boxes | wood | 20 |
+| Barrel / Barrels | wood | 60 / 150 |
+| Cask, Keg | wood | 40 |
+| Chair / Stool | wood | 12 / 6 |
+| Bucket / Basket | wood | 4 / 3 |
+| Sack, Sacks | cloth | 25 |
+| Pot, Jug, Vase, Urn / Pots | pottery | 5 / 12 |
+
+Material → propdata class `[data: propdata.txt]`:
+
+| Material | Class | Health | dmg.club | Gibs when broken |
+| --- | --- | --- | --- | --- |
+| wood | `Wooden.Medium` | 30 | 2.0 | 4 `WoodChunks` |
+| cloth | `Cloth.Medium` | 50 | 0.75 | none |
+| pottery | `Pottery.Small` | 5, damage table `glass` | 1.25 | none listed; we use 4 shards `[design]` |
+| metal | `Metal.Medium` | 0 = unbreakable | 1.0 | – |
+
+### 19.2 Force by mass `[gh: FUN_223ded60; data: mm_game_settings → all]`
+
+`F(m) = MinForce + (m − MinWeight) × (MaxForce − MinForce) / (MaxWeight − MinWeight)`, clamped to
+`[MinForce, MaxForce]` = `[1000, 7000]` for `m` in `[1, 100]` kg (settings offsets 0x508–0x514).
+Kicks, throws and our weapon hits scale it.
+
+### 19.3 Kicking a prop `[gh: 0x2242e8b0, 0x223b1500]`
+
+The kick trace (section 7) also hits props. The prop gets the impulse `view direction × impactcoeff
+(2) × F(m)`. A 40 kg crate gets 6,727 kg·u/s → 168 u/s (3.4 tiles/s); a 5 kg pot gets 2,606 →
+521 u/s. The kick costs `stamina_kick_all` (1), not the NPC cost.
+
+### 19.4 Picking up and throwing `[gh: 0x22467290 throw; data: player]`
+
+| Item | Value | Tag |
+| --- | --- | --- |
+| Reach | `PlayerTakeDist` 130 u (2.66 tiles) | `[data]` |
+| Heaviest liftable | `PlayerThrowMassClamp` 100 kg | `[data; use as lift limit inferred]` |
+| Held object follows at | `mm_player_take_interp_speed` 12 (1/s) | `[cvar; meaning inferred]` |
+| Throw impulse | `F(m) × mm_player_throwforce` (10); ragdolls ×1.5 instead | `[gh; cvar]` |
+| Throw direction | eye angles with pitch `+mm_throw_object_angle_minus` (20°); ragdolls −30° | `[gh; cvar]` |
+| Spin | random −10…10 per axis × `mm_player_throwforceangular` (2) | `[gh; cvar]` |
+
+Source pitch grows downward, so as decompiled the throw leaves 20° below the crosshair (ragdolls 30°
+above). A 40 kg crate leaves at 841 u/s (17 tiles/s); a 5 kg pot at 2,484 u/s.
+
+Telekinesis (not built yet) throws with `((m' − 0.5) × 0.2414 + 0.5) × player_throwforce` (1000),
+where `m'` is the mass clamped as the code does (above 15 kg it uses 0) `[gh: 0x224c5b70]`; its cvars
+are `MMTelekinesis_*` (max mass 250, pull force 4000, reach `PlayerTelekinesisDist` 850 u).
+
+### 19.5 Impact damage tables `[gh: FUN_2219ee90 → FUN_2219e920; tables at 0x22762c68–0x22762eb0]`
+
+Every physics collision computes damage for each body from a table chosen by name (`player`,
+`player_vehicle`, `npc`, `glass`; propdata's `damage_table` picks `glass`):
+
+1. No damage if the other body is lighter than `minMass`, or lighter than `smallMassMax` and slower
+   than `sqrt(smallMassMinSpeedSqr)`, or slower than `sqrt(minSpeedSqr)` and not spinning faster than
+   `sqrt(minRotSpeedSqr)`.
+2. `energy = (Δv_other² × m_other + Δv_self² × m_self) / m_self`, where Δv is each body's loss of
+   speed in the collision. Bodies at least `largeMassMin` heavy multiply their part by
+   `largeMassScale`, and by `largeMassFallingScale` when falling onto the target.
+3. Damage comes from a step lookup (Source's `ReadDamageTable`, not interpolated): walk the entries
+   until one's threshold is above `energy` and take the one before it. Spin adds the angular table's
+   entry. Bodies lighter than `smallMassMax` never do more than
+   `smallMassCap`.
+
+| Table | Linear: speed² threshold → damage | Angular | min speed / min mass / small mass ≤ / small cap / small min speed |
+| --- | --- | --- | --- |
+| `player` | 150² 5, 250² 10, 450² 20, 550² 50, 700² 100, 1000² 500 | 100² 10, 150² 20, 200² 50, 300² 500 | 24 / 2 / 5 / 5 / 36 |
+| `npc` | 25² 1, 75² 2, 100² 3, 150² 5, 250² 10, 350² 50, 500² 100, 1000² 500 | 100² 10, 150² 25, 200² 50, 250² 500 | 24 / 2 / 5 / 5 / 36; large mass 500 kg ×4, falling ×5 |
+| `glass` | 25² 10, 50² 20, 100² 50, 200² 75, 500² 100, 250² 500 | 50² 25, 100² 50, 200² 100, 250² 500 | 8 / 2 / 1 / 10 / 8 |
+
+Props use the `npc` table unless their propdata names `glass` `[inferred: the prop's call passes no
+name and Source's default for props is the NPC table]`. Examples: a 40 kg crate thrown into a wall
+(841 u/s) takes 100 and breaks; a kicked crate hitting a wall (168 u/s) takes 5; a crate dropped two
+tiles (≈340 u/s) takes 10.
+
+### 19.6 Props hitting NPCs `[gh: 0x22365530; data: ai]`
+
+- The prop's collision handler skips NPCs while the prop is slower than `PhysicsSpeedToDamageNPCs`
+  (70 u/s, 1.43 tiles/s) `[gh]`.
+- It tags the hit by the prop's mass: below `PhysicsWeightToDamageNPCsMedium` (10 kg) small, below
+  `PhysicsWeightToDamageNPCsBig` (50 kg) medium, otherwise big `[gh]`. A prop the player threw within
+  the last 0.6 s also gets the "thrown" flag `[gh]`.
+- Damage by tag: `PhysicsSmallDamages` 3, `PhysicsMediumDamages` 5, `PhysicsBigDamages` 8; thrown by
+  telekinesis 8 / 15 / 50, with adrenaline 100 / 200 / 300 `[data; mapping from the flags inferred]`.
+- Reaction by impact energy: below `PropDamageEnergySmall` (500) a small hit, below
+  `PropDamageEnergyMedium` (4000) a normal hit, else a knockdown for `KnockedDownTimePhysics` (2 s)
+  `[data comments]`. We take energy as ½·m·v² in joules with 1 u = 2.54 cm `[inferred]`: a kicked
+  crate (≈ 360 J) gives a small hit, a thrown one (≈ 9,000 J) a knockdown.
+- Props heavier than `PropMassCannotBeBlocked` (100 kg) cannot be parried `[gh]`.
+- `PhysicsWeightToCrushNPC` 200 kg with `PhysicsForceToCrushNPC` 500 crushes `[data]` (no prop here
+  is that heavy).
+- `mm_ai_can_push_props_physics 1`: walking NPCs shove props aside `[cvar]`.
+
+### 19.7 Props hitting the player
+
+The `player` table (19.5) with the player's mass 85 kg `[source: Source's player physics shadow]`,
+for props moving faster than `mm_player_damage_propphys_min_speed` (1 u/s) `[gh: 0x2240f520]`.
+
+### 19.8 Falling `[gh: FUN_221d5750 fall damage, FUN_223f3e70 landing, FUN_22173de0 apply]`
+
+| Item | Value |
+| --- | --- |
+| Safe landing speed | 526.5 u/s (constant at 0x225d5d34) |
+| Damage | `(v − 526.5) × 0.2525` (= 100 / (922.5 − 526.5)): stock Source, 100 at 922.5 u/s |
+| Scale | × `player_reduce_fall` 60% `[data: player_basic → skills; where it multiplies inferred]` |
+| Applied only if | at least `min_damage_to_activate_long_fall` (5) `[cvar; gh]` |
+| Landing view punch | above 303 u/s; ×0.85 above 263.25; none below 173 |
+
+With gravity 600 u/s², damage starts after a 231 u (4.7 tiles) drop; 100 raw damage (60 taken) needs
+709 u (14.5 tiles).
+
+### 19.9 Breaking `[data: propdata.txt]`
+
+- Weapon hits do their damage × the material's `dmg.club` (Dark Messiah melee is club-type
+  `[inferred]`).
+- At 0 health the prop breaks into `breakable_count` gibs, which fade after a few seconds `[design]`.
+- Metal props (health 0) never break.
+
+### 19.10 Simulation `[design]`
+
+Dark Messiah runs Havok (vphysics). Here a prop is an upright cylinder (radius and height from its
+model) that keeps a full 3D orientation for drawing:
+
+- **Motion.** Gravity 600 u/s². On the ground, Coulomb friction μ 0.6 slows sliding (Source's default
+  surface friction is 0.8 `[source]`; 0.6 lets kicked crates slide about a tile). Bounces keep 25% of
+  the impact speed.
+- **Collision.** Tile walls and blocked tiles (the same boxes the player uses), floors, NPC and
+  player cylinders, and other props (mass-weighted elastic exchange, restitution 0.25).
+- **Spin.** Impacts and throws spin the prop; when it comes to rest it settles on its nearest flat
+  side.
+- **Pushing.** Moving NPCs and the player shove props they walk into, matching their own speed along
+  the contact × min(1, pusher mass / (2 × prop mass)) (NPC 80 × size² kg, player 85 kg): the player
+  shoves a 40 kg crate at full speed and a 150 kg stack of barrels at under a third of it.
+- **Sleep.** A prop slower than 0.05 tiles/s on the ground for 0.5 s stops simulating until hit.
+
+### 19.11 Damage scale
+
+As with weapon damage (5.2, `strengthScale` 10), prop damage to NPCs is the data value × 10, so a
+thrown 40 kg crate does 50 to an NPC. Impact damage to props and to the player uses the data values
+unchanged (prop health and the player's 100 health are in the game's own units).

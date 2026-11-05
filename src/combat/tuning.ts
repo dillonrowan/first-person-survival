@@ -259,6 +259,60 @@ export const tuning = {
     bowAdrenaline: 2,
     arrowsStart: 30,
     arrowsMax: 99,
+
+    // --- 19 Physics props ---
+    /** Throw impulse = F(mass) × this. [cvar mm_player_throwforce; gh 0x22467290] */
+    throwForce: 10,
+    /** Throw direction: view pitch lowered by this (Source pitch grows downward). [cvar mm_throw_object_angle_minus] */
+    throwPitchDown: (20 * Math.PI) / 180,
+    /** Random spin per axis on a throw, × throwforceangular (2), degrees/s. [gh; cvar] */
+    throwSpin: 10 * 2,
+    /** Pick-up reach. [data player.PlayerTakeDist 130 u] */
+    takeReach: units(130),
+    /** Heaviest prop the player can lift. [data player.PlayerThrowMassClamp; use inferred] */
+    liftMassMax: 100,
+    /** Rate at which a held prop follows its hold point, 1/s. [cvar mm_player_take_interp_speed; meaning inferred] */
+    holdFollowRate: 12,
+    /** A held prop further than this from its hold point (stuck on a wall) is dropped. [design] */
+    holdDropDistance: 1.5,
+    /** Prop speed below which it does not damage NPCs. [data ai.PhysicsSpeedToDamageNPCs 70 u/s] */
+    propSpeedToDamageNpc: units(70),
+    /** Mass classes for NPC damage. [data ai.PhysicsWeightToDamageNPCsMedium / Big] */
+    propMediumMass: 10,
+    propBigMass: 50,
+    /** NPC damage per class (× strengthScale, spec 19.11). [data ai.PhysicsSmall/Medium/BigDamages] */
+    propDamageSmall: 3,
+    propDamageMedium: 5,
+    propDamageBig: 8,
+    /** Reaction by impact energy in joules (½mv², 1 u = 2.54 cm). [data ai.PropDamageEnergySmall / Medium; units inferred] */
+    propEnergySmall: 500,
+    propEnergyMedium: 4000,
+    /** [data ai.KnockedDownTimePhysics] */
+    knockdownPhysics: 2.0,
+    /** Seconds after a throw during which hits count as thrown by the player. [gh 0x22365530: 0.6] */
+    thrownWindow: 0.6,
+    /** Player mass for impacts and pushing. [source: player physics shadow 85 kg] */
+    playerMass: 85,
+    /** Coulomb friction while sliding on the ground, and bounce. [design, spec 19.10] */
+    propFriction: 0.6,
+    propRestitution: 0.25,
+    /** Pushers move a prop at their speed × min(1, pusher mass / (2 × prop mass)). [design] */
+    pushMassFactor: 2,
+    /** Sleep below this speed after this long on the ground. [design] */
+    propSleepSpeed: 0.05,
+    propSleepTime: 0.5,
+    /** Gibs fade after this many seconds. [design] */
+    gibLifetime: 4,
+
+    // --- 19.8 Falling [gh FUN_221d5750, FUN_22173de0] ---
+    /** Landing faster than this hurts. [gh constant 526.5 u/s] */
+    fallSafeSpeed: units(526.5),
+    /** Damage per u/s above the safe speed (100 / (922.5 − 526.5)). [gh 0.2525] */
+    fallDamagePerUnit: 100 / (922.5 - 526.5),
+    /** Fraction of fall damage taken. [data player_reduce_fall 60] */
+    fallDamageScale: 0.6,
+    /** Smaller fall damage is ignored. [cvar min_damage_to_activate_long_fall] */
+    fallMinDamage: 5,
 };
 
 export type Tuning = typeof tuning;

@@ -48,7 +48,8 @@ for example `http://localhost:5173/?x=3213&y=3428` (Varrock square).
 | C          | Crouch (while flying: sink)                                     |
 | Space      | Jump                                                            |
 | N          | Toggle flying; Space / C to rise / sink                         |
-| E / R      | First / second action on what you aim at                        |
+| E / R      | First / second action on what you aim at (E picks up a prop)    |
+| Left mouse | While carrying a prop: throw it (E drops it)                    |
 | Esc        | Release the mouse                                               |
 | V          | Third-person camera (dev builds only)                           |
 
@@ -62,6 +63,11 @@ holds its ideal distance with short combat steps, and flees when badly hurt. It 
 back yet. The numbers and their sources are in
 [docs/combat-movement-spec.md](docs/combat-movement-spec.md). Weapon art goes in
 `public/models/weapons/`, see [docs/weapon-models.md](docs/weapon-models.md).
+
+Crates, barrels, sacks, chairs, stools and pots are loose physics props, as in Dark Messiah: kick
+them, hit them, pick them up and throw them. Thrown props hurt and knock down NPCs, props break
+from hard impacts or weapon hits, and props falling on you hurt. Long falls hurt too (Source fall
+damage, 60% taken). The values and their sources are in section 19 of the spec.
 
 Turning flying off lands you on the highest floor below you, so you can fly onto a castle
 roof or into an upper floor and walk around there.
@@ -127,6 +133,9 @@ each map square into game files:
   front faces and back faces, so upper floors work as ceilings and roofs show from inside;
   the back-face pass gets extra depth bias so the bottoms of objects standing on an upper
   floor don't poke through the ceiling below.
+- One-tile locs named like crates, barrels, sacks, chairs, stools or pots
+  (`tools/world-export/Props.ts`) are exported as physics props: their own meshes, a mass and a
+  material, and no tile collision (the game's prop body replaces it).
 - Doors and gates (locs with an "Open" action) have their collision removed, since nothing
   can open them yet. Animated locs are shown in their base pose; varbit-dependent locs in
   their default state. Ground items are not exported.

@@ -32,7 +32,10 @@ export interface CombatTarget {
     readonly attackable: boolean;
     /** True once the target is fighting; hits on targets that are not get the unaware bonus. */
     readonly inCombat: boolean;
-    takeHit(dirX: number, dirY: number, push: number, fromX: number, fromY: number): void;
+    /** Stamina a kick on this target costs; NPCs cost stamina_kick_npc (spec 7). */
+    readonly kickCost?: number;
+    /** `hitPow` is the move's HitPow; physics props scale their push by it (spec 19). */
+    takeHit(dirX: number, dirY: number, push: number, fromX: number, fromY: number, hitPow?: number): void;
     /** A kick: the target may dodge it. */
     kick(dirX: number, dirY: number, fromX: number, fromY: number): "dodged" | "hit";
 }
@@ -296,7 +299,7 @@ export class PlayerCombat {
                     { unaware: !target.inCombat, hitbox: hitboxMultiplier(arcHit.height) },
                     this.random,
                 );
-                target.takeHit(arcHit.dirX, arcHit.dirY, result.push, player.x, player.y);
+                target.takeHit(arcHit.dirX, arcHit.dirY, result.push, player.x, player.y, hit.hitPow);
                 this.melee.addAdrenaline(hit.adrenaline);
                 const report = { target, result, move };
                 reports.push(report);
@@ -330,7 +333,7 @@ export class PlayerCombat {
                 { unaware: !target.inCombat, hitbox: hitboxMultiplier(height) },
                 this.random,
             );
-            target.takeHit(hit.dirX, hit.dirY, result.push, player.x, player.y);
+            target.takeHit(hit.dirX, hit.dirY, result.push, player.x, player.y, ARROW_HIT.hitPow);
             this.melee.addAdrenaline(ARROW_HIT.adrenaline);
             const report = { target, result, move: ARROW_MOVE };
             this.onHit?.(report);
@@ -350,7 +353,7 @@ export class PlayerCombat {
             this.onKick?.({ outcome: "miss" });
             return;
         }
-        player.stamina.spend(Math.min(player.stamina.value, tuning.kickStaminaNpc));
+        player.stamina.spend(Math.min(player.stamina.value, target.kickCost ?? tuning.kickStaminaNpc));
         const outcome = target.kick(trace.dirX, trace.dirY, player.x, player.y);
         this.onKick?.({ target, outcome });
     }

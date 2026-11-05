@@ -25,9 +25,11 @@ describe.skipIf(!hasCache)("Lumbridge doors and ladders from the cache", () => {
 
     it("finds doors with a mesh each, inside the region", () => {
         const doors = region.interactives.filter((i) => i.kind === "door");
+        const props = region.interactives.filter((i) => i.kind === "prop");
 
         expect(doors.length).toBeGreaterThan(3);
-        expect(region.doorMeshes).toHaveLength(doors.length);
+        // Doors and physics props each have one entry in doorMeshes.
+        expect(region.doorMeshes).toHaveLength(doors.length + props.length);
         for (const door of doors) {
             expect(door.tileX >> 6).toBe(50);
             expect(door.tileY >> 6).toBe(50);
@@ -50,6 +52,24 @@ describe.skipIf(!hasCache)("Lumbridge doors and ladders from the cache", () => {
                 const flags = region.collision[((x & 63) * REGION_SIZE + (y & 63))];
                 expect(flags & mask).toBe(mask);
             }
+        }
+    });
+
+    it("exports crates and barrels as physics props without tile collision (spec 19.1)", () => {
+        const props = region.interactives.filter((i) => i.kind === "prop");
+
+        expect(props.length).toBeGreaterThan(0);
+        expect(props.some((p) => /crate|barrel/i.test(p.name))).toBe(true);
+        for (const prop of props) {
+            const data = prop.prop!;
+            const mesh = region.doorMeshes[data.mesh];
+            expect(mesh.opaque.indices.length + mesh.transparent.indices.length).toBeGreaterThan(0);
+            expect(data.mass).toBeGreaterThan(0);
+            expect(data.radius).toBeGreaterThan(0);
+            expect(prop.height).toBeGreaterThan(0);
+            expect(prop.height).toBeLessThanOrEqual(2.5);
+            const flags = region.collision[(prop.plane * REGION_SIZE + (prop.tileX & 63)) * REGION_SIZE + (prop.tileY & 63)];
+            expect(flags & 0x100).toBe(0);
         }
     });
 

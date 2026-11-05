@@ -61,9 +61,27 @@ export type DoorData = {
     partner?: number;
 };
 
-/** A door, gate, ladder or staircase the player can act on. */
+/** Dark Messiah propdata material class of a physics prop (spec 19.1). */
+export type PropMaterial = "wood" | "cloth" | "pottery" | "metal";
+
+/** A loose object that physics moves: crates, barrels, sacks, chairs (spec 19). */
+export type PropData = {
+    /** Index into RegionData.doorMeshes, which holds the meshes of doors and props. */
+    mesh: number;
+    material: PropMaterial;
+    /** kg. */
+    mass: number;
+    /** Centre of the model's footprint in world tiles, and its ground height there. */
+    x: number;
+    y: number;
+    z: number;
+    /** Horizontal radius of the model in tiles (its collision cylinder). */
+    radius: number;
+};
+
+/** A door, gate, ladder, staircase or physics prop the player can act on. */
 export type InteractiveLoc = {
-    kind: "door" | "climb";
+    kind: "door" | "climb" | "prop";
     /** Loc id in the cache. */
     id: number;
     name: string;
@@ -82,9 +100,10 @@ export type InteractiveLoc = {
     /** Height of the model above the ground, in tiles. */
     height: number;
     door?: DoorData;
+    prop?: PropData;
 };
 
-/** Meshes of one door, in region-local RS units like the region's own meshes. */
+/** Meshes of one door or prop, in region-local RS units like the region's own meshes. */
 export type DoorMesh = { opaque: MeshData; transparent: MeshData };
 
 export type RegionData = {
@@ -106,6 +125,7 @@ export type RegionData = {
     /** OSRS collision flags, same indexing as renderFlags. Bridges are already moved down a level. */
     collision: Int32Array;
     interactives: InteractiveLoc[];
+    /** Meshes of the doors and physics props, indexed by DoorData.mesh and PropData.mesh. */
     doorMeshes: DoorMesh[];
 };
 

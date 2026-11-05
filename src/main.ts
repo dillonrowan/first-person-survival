@@ -22,6 +22,8 @@ import { CombatHud } from "./ui/CombatHud";
 import "./style.css";
 import { NpcManifest, decodeNpcModel } from "./world/NpcFormat";
 import { WorldInteractives } from "./world/Interactives";
+import { PropInstance, WorldProps } from "./world/Props";
+import { fallDamage } from "./physics/ImpactDamage";
 import { World } from "./world/World";
 import { InteractiveLoc, REGION_SIZE, WorldManifest } from "./world/WorldFormat";
 import { gunzip } from "./world/gunzip";
@@ -132,7 +134,26 @@ async function main(): Promise<void> {
           })
         : undefined;
     const input = new Input(canvas);
-    const player = new Player(world, spawnFromUrl(manifest.spawn), { bodies: npcs });
+    // Physics props (spec 19): crates, barrels and sacks exported as loose objects.
+    const props = new WorldProps(
+        {
+            flagsAt: (plane, x, y) => world.collisionFlags(plane, x, y),
+            groundHeight: (plane, x, y) => world.groundHeight(plane, x, y),
+            hasFloor: (plane, x, y) => world.hasFloor(plane, x, y),
+            addRegionListener: (listener) => world.addRegionListener(listener),
+            regionInteractives: (mapX, mapY) => world.regionInteractives(mapX, mapY),
+        },
+        scene,
+        materials,
+    );
+    /** NPCs and props: what the player cannot walk through and what combat can hit. */
+    const solidBodies: BodySource<CombatTarget> = {
+        collectBodies: (plane, minX, minY, maxX, maxY, out) => {
+            npcs?.collectBodies(plane, minX, minY, maxX, maxY, out as never[]);
+            props.collectBodies(plane, minX, minY, maxX, maxY, out);
+        },
+    };
+    const player = new Player(world, spawnFromUrl(manifest.spawn), { bodies: solidBodies });
     const baseFov = camera.fov;
     const cameraRig = new CameraRig(camera, import.meta.env.DEV);
     // Only the character is lit by scene lights; the world shaders have their lighting baked in.
@@ -142,8 +163,7 @@ async function main(): Promise<void> {
     scene.add(sun);
     const avatar = new Avatar(await loadAvatarAsset(`${import.meta.env.BASE_URL}models/player.glb`));
     scene.add(avatar.root);
-    const noBodies: BodySource<CombatTarget> = { collectBodies: () => {} };
-    const combat = new PlayerCombat(npcs ?? noBodies, (plane, x, y) => world.collisionFlags(plane, x, y));
+    const combat = new PlayerCombat(solidBodies, (plane, x, y) => world.collisionFlags(plane, x, y));
     const weaponView = new WeaponView(
         camera,
         import.meta.env.BASE_URL,
@@ -157,6 +177,14 @@ async function main(): Promise<void> {
             combatHud.showDamage();
         } else if (outcome === "parried") {
             ui.showMessage("Parried!");
+        }
+    };
+    // Fall damage (spec 19.8).
+    player.onLanded = (speed) => {
+        const damage = fallDamage(speed);
+        if (damage > 0 && !combat.combatant.dead) {
+            combat.combatant.hurt(damage, "flinch");
+            combatHud.showDamage();
         }
     };
     const arrowView = new ArrowView(scene);
@@ -210,6 +238,8 @@ async function main(): Promise<void> {
             if (!interactives.toggle(door)) {
                 ui.showMessage("Something is in the way.");
             }
+        } else if (target.kind === "prop") {
+            props.pickUp(target.ref as PropInstance);
         } else if (target.kind === "climb") {
             const loc = target.ref as InteractiveLoc;
             const from = { x: player.x, y: player.y };
@@ -223,7 +253,7 @@ async function main(): Promise<void> {
     };
     const interaction = new Interaction(
         (plane, x, y) => world.collisionFlags(plane, x, y),
-        [...(npcs ? [npcTargetSource(npcs)] : []), interactives.targetSource()],
+        [...(npcs ? [npcTargetSource(npcs)] : []), interactives.targetSource(), props.targetSource()],
         ui,
         createNpcActionHandler(player, ui, handleWorldAction),
     );
@@ -234,7 +264,7 @@ async function main(): Promise<void> {
     if (import.meta.env.DEV) {
         // Handy from the devtools console, e.g. `game.player.x = 3165`.
         Object.assign(window, {
-            game: { renderer, scene, camera, world, player, npcs, cameraRig, avatar, interaction, interactives, combat, tuning },
+            game: { renderer, scene, camera, world, player, npcs, props, cameraRig, avatar, interaction, interactives, combat, tuning },
         });
     }
 
@@ -263,11 +293,27 @@ async function main(): Promise<void> {
 
         player.update(dt, input);
         const fighting = input.locked && player.ready && !player.flying;
-        combat.switchWeapon(input.consumeWheel());
+        // Carrying a prop (spec 19.4): left mouse throws it, E drops it; no fighting meanwhile.
+        let propHandled = false;
+        if (props.held) {
+            if (!fighting || combat.combatant.dead) {
+                props.drop();
+            } else if (input.wasPressed("Mouse0")) {
+                props.throwHeld(player.yaw, player.pitch);
+                combat.sinceAttack = 0;
+                propHandled = true;
+            } else if (input.wasPressed("KeyE")) {
+                props.drop();
+                propHandled = true;
+            }
+        }
+        const carrying = props.held !== undefined || propHandled;
+        const wheel = input.consumeWheel();
+        combat.switchWeapon(carrying ? 0 : wheel);
         combat.update(dt, player, {
-            attackDown: fighting && input.isDown("Mouse0"),
-            blockDown: fighting && input.isDown("Mouse2"),
-            kickPressed: fighting && input.wasPressed("KeyF"),
+            attackDown: fighting && !carrying && input.isDown("Mouse0"),
+            blockDown: fighting && !carrying && input.isDown("Mouse2"),
+            kickPressed: fighting && !carrying && input.wasPressed("KeyF"),
             forward: input.axis("KeyW", "KeyS"),
             strafe: input.axis("KeyD", "KeyA"),
         });
@@ -291,7 +337,11 @@ async function main(): Promise<void> {
             camera.updateProjectionMatrix();
         }
         cameraRig.handleInput(input);
-        interaction.update(player, input);
+        if (carrying) {
+            interaction.showPrompt(props.held ? `[LMB] Throw ${props.held.loc.name}   [E] Drop` : "");
+        } else {
+            interaction.update(player, input);
+        }
         input.endFrame();
         world.update(player.x, player.y);
         interactives.update(dt);
@@ -301,6 +351,23 @@ async function main(): Promise<void> {
             presence: presenceFor({ ...player, speed: player.speed }),
             sincePlayerAttack: combat.sinceAttack,
             strike,
+        });
+        const playerBody = alive ? player.footprint() : undefined;
+        props.update(dt, {
+            player: playerBody && {
+                body: playerBody,
+                intentX: player.intentX,
+                intentY: player.intentY,
+                eyeZ: player.z + player.eyeHeight,
+                yaw: player.yaw,
+                pitch: player.pitch,
+            },
+            npcs: npcs?.all() ?? [],
+            onNpcHit: (_npc, _damage, reaction) => combatHud.showHit(reaction !== "flinch"),
+            onPlayerHit: (damage) => {
+                combat.combatant.hurt(damage, "flinch");
+                combatHud.showDamage();
+            },
         });
         arrowView.update(combat.arrows);
         avatar.update(dt, player, cameraRig.mode);
@@ -344,7 +411,8 @@ async function main(): Promise<void> {
             `${Math.floor(tileX / REGION_SIZE)},${Math.floor(tileY / REGION_SIZE)}\n` +
             `regions ${world.loadedCount} loaded` +
             (world.pendingCount > 0 ? `, ${world.pendingCount} loading` : "") +
-            (npcs ? ` · npcs ${npcs.count}` : "");
+            (npcs ? ` · npcs ${npcs.count}` : "") +
+            ` · props ${props.count}`;
     });
 }
 
