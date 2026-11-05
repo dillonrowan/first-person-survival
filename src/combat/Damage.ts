@@ -10,7 +10,26 @@ export type DamageContext = {
     unaware?: boolean;
     /** Difficulty multiplier on this damage. */
     difficulty?: number;
+    /** Hit-zone multiplier (hitboxes_modifier: head 3, chest 0.5, stomach 1, limbs 1.25). */
+    hitbox?: number;
 };
+
+/**
+ * Hit zone from where a hit lands on a body, 0 (feet) to 1 (top) (spec 18.3): the guard's
+ * hitboxes_modifier [data], mapped onto height bands [design].
+ */
+export function hitboxMultiplier(height: number): number {
+    if (height >= 0.85) {
+        return 3; // head
+    }
+    if (height >= 0.6) {
+        return 0.5; // chest
+    }
+    if (height >= 0.45) {
+        return 1; // stomach
+    }
+    return 1.25; // legs
+}
 
 export type DamageResult = {
     amount: number;
@@ -34,7 +53,8 @@ export function damageAmount(weapon: WeaponDef, hit: HitEvent, ctx: DamageContex
         tuning.strengthScale *
         (1 - armour * (1 - weapon.piercing)) *
         (ctx.unaware ? tuning.unawareMultiplier : 1) *
-        (ctx.difficulty ?? 1)
+        (ctx.difficulty ?? 1) *
+        (ctx.hitbox ?? 1)
     );
 }
 

@@ -1,8 +1,9 @@
 import type { Body, BodySource } from "../physics/Bodies";
 import type { FlagsAt } from "../physics/TileColliders";
 import { Combatant } from "./Combatant";
-import { DamageResult, applyHit } from "./Damage";
-import { sweepArc } from "./HitDetection";
+import { DamageResult, applyHit, hitboxMultiplier } from "./Damage";
+import { raySign, traceRay } from "./SwingRay";
+import { rayFor, timelineFor } from "./moves";
 import { KickController, traceKick } from "./Kick";
 import { MeleeController, MeleeInput } from "./MeleeController";
 import type { MoveDef } from "./moves";
@@ -264,15 +265,20 @@ export class PlayerCombat {
             y: player.y,
             eyeZ: player.z + player.eyeHeight,
             yaw: player.yaw,
+            pitch: player.pitch,
             plane: player.plane,
         };
+        const timeline = swing?.timeline ?? timelineFor(move, this.weapon.speed);
         for (const slice of events.active) {
             const hit = move.hits[slice.hitIndex];
             const seen = this.hitThisSwing[slice.hitIndex] ?? new Set();
-            for (const arcHit of sweepArc(
+            // The attack ray (spec 17.2): lines from the eye sweeping the move's 90° fan.
+            const ray = rayFor(timeline, slice.hitIndex);
+            for (const arcHit of traceRay(
                 attacker,
                 this.weapon.reach,
-                hit.impact,
+                ray,
+                raySign(ray, hit.impact),
                 slice.from,
                 slice.to,
                 this.bodies,
@@ -287,7 +293,7 @@ export class PlayerCombat {
                     target.combatant,
                     this.weapon,
                     hit,
-                    { unaware: !target.inCombat },
+                    { unaware: !target.inCombat, hitbox: hitboxMultiplier(arcHit.height) },
                     this.random,
                 );
                 target.takeHit(arcHit.dirX, arcHit.dirY, result.push, player.x, player.y);
@@ -315,7 +321,15 @@ export class PlayerCombat {
             if (!target.attackable) {
                 continue;
             }
-            const result = applyHit(target.combatant, this.bowWeapon, ARROW_HIT, { unaware: !target.inCombat }, this.random);
+            const b = hit.body;
+            const height = b.height > 0 ? (hit.arrow.z - b.z) / b.height : 0.5;
+            const result = applyHit(
+                target.combatant,
+                this.bowWeapon,
+                ARROW_HIT,
+                { unaware: !target.inCombat, hitbox: hitboxMultiplier(height) },
+                this.random,
+            );
             target.takeHit(hit.dirX, hit.dirY, result.push, player.x, player.y);
             this.melee.addAdrenaline(ARROW_HIT.adrenaline);
             const report = { target, result, move: ARROW_MOVE };

@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest";
 import type { Body, BodySource } from "../physics/Bodies";
 import { CollisionFlag } from "../world/WorldFormat";
 import { Combatant } from "./Combatant";
-import { applyHit, damageAmount, reactionFor } from "./Damage";
-import { sweepArc, sweptAngles } from "./HitDetection";
-import { MOVE_SETS } from "./moves";
+import { applyHit, damageAmount, hitboxMultiplier, reactionFor } from "./Damage";
+import { rayDirection, traceRay, viewToWorld } from "./SwingRay";
+import { MOVE_SETS, Ray } from "./moves";
 import { tuning } from "./tuning";
 import { WEAPONS, weaponById } from "./weapons";
 
@@ -23,45 +23,94 @@ const source = (list: Body<string>[]): BodySource<string> => ({
     collectBodies: (_p, _a, _b, _c, _d, out) => out.push(...list),
 });
 
-// Player at (100.5, 100.5) facing north (yaw 0), eyes at 1.25.
-const attacker = { x: 100.5, y: 100.5, eyeZ: 1.25, yaw: 0, plane: 0 };
+// Player at (100.5, 100.5) facing north (yaw 0, level), eyes at 1.25.
+const attacker = { x: 100.5, y: 100.5, eyeZ: 1.25, yaw: 0, pitch: 0, plane: 0 };
 const sword = weaponById("sword");
-const sideways = { x: 0, y: 1, z: 0 };
+const flat: Ray = { on: 0, off: 0.1, roll: 0, vertical: false, sweep: 90 };
 const noWalls = () => 0;
 
-describe("sweepArc", () => {
+describe("attack ray (spec 17.2)", () => {
+    it("fans 90° across the crosshair: impact +Y sweeps from right to left", () => {
+        const start = rayDirection(flat, 1, 0);
+        const mid = rayDirection(flat, 1, 0.5);
+        const end = rayDirection(flat, 1, 1);
+        expect(start.x).toBeCloseTo(Math.SQRT1_2); // 45° right
+        expect(mid).toEqual({ x: -0, y: 0, z: 1 });
+        expect(end.x).toBeCloseTo(-Math.SQRT1_2); // 45° left
+        expect(rayDirection(flat, -1, 0).x).toBeCloseTo(-Math.SQRT1_2); // impact −Y: left to right
+    });
+
+    it("rolls the fan: 90° sweeps bottom to top, a vertical ray chops top to bottom", () => {
+        const rolled = { ...flat, roll: 90 };
+        expect(rayDirection(rolled, 1, 0).y).toBeCloseTo(-Math.SQRT1_2);
+        expect(rayDirection(rolled, 1, 1).y).toBeCloseTo(Math.SQRT1_2);
+        const chop = { ...flat, vertical: true };
+        expect(rayDirection(chop, 1, 0).y).toBeCloseTo(Math.SQRT1_2);
+        expect(rayDirection(chop, 1, 1).y).toBeCloseTo(-Math.SQRT1_2);
+    });
+
+    it("turns with the view", () => {
+        const east = viewToWorld({ x: 0, y: 0, z: 1 }, -Math.PI / 2, 0);
+        expect(east.x).toBeCloseTo(1);
+        expect(east.y).toBeCloseTo(0);
+        const up = viewToWorld({ x: 0, y: 0, z: 1 }, 0, Math.PI / 4);
+        expect(up.z).toBeCloseTo(Math.SQRT1_2);
+    });
+
     it("hits a target in front within reach, once per swing", () => {
         const b = target(100.5, 102);
         const seen = new Set<Body<string>>();
-        expect(sweepArc(attacker, sword.reach, sideways, 0, 1, source([b]), noWalls, seen)).toHaveLength(1);
-        expect(sweepArc(attacker, sword.reach, sideways, 0, 1, source([b]), noWalls, seen)).toHaveLength(0);
+        expect(traceRay(attacker, sword.reach, flat, 1, 0, 1, source([b]), noWalls, seen)).toHaveLength(1);
+        expect(traceRay(attacker, sword.reach, flat, 1, 0, 1, source([b]), noWalls, seen)).toHaveLength(0);
     });
 
     it("misses targets out of reach or behind", () => {
-        const far = target(100.5, 100.5 + sword.reach + tuning.searchHull + 0.4);
+        const far = target(100.5, 100.5 + sword.reach + 0.4);
         const behind = target(100.5, 99.5);
-        expect(sweepArc(attacker, sword.reach, sideways, 0, 1, source([far, behind]), noWalls, new Set())).toHaveLength(0);
+        expect(traceRay(attacker, sword.reach, flat, 1, 0, 1, source([far, behind]), noWalls, new Set())).toHaveLength(0);
     });
 
-    it("only hits what the current slice of the arc covers", () => {
-        // 45° to the right. A sideways swing towards +y (left) starts on the right.
-        const right = target(100.5 + 1.06, 100.5 + 1.06);
-        expect(sweepArc(attacker, sword.reach, sideways, 0, 0.2, source([right]), noWalls, new Set())).toHaveLength(1);
-        expect(sweepArc(attacker, sword.reach, sideways, 0.8, 1, source([right]), noWalls, new Set())).toHaveLength(0);
+    it("only hits what the current slice of the fan covers", () => {
+        // 40° to the right: an impact +Y sweep passes it early, not late.
+        const right = target(100.5 + Math.sin(0.7) * 1.5, 100.5 + Math.cos(0.7) * 1.5, 0.2);
+        expect(traceRay(attacker, sword.reach, flat, 1, 0, 0.2, source([right]), noWalls, new Set())).toHaveLength(1);
+        expect(traceRay(attacker, sword.reach, flat, 1, 0.8, 1, source([right]), noWalls, new Set())).toHaveLength(0);
     });
 
     it("never hits through a wall", () => {
         const b = target(100.5, 102.6); // within reach, but past the wall on the edge at y = 102
         const wall = (_p: number, x: number, y: number) => (x === 100 && y === 101 ? CollisionFlag.WALL_NORTH : 0);
-        expect(sweepArc(attacker, sword.reach, sideways, 0, 1, source([b]), wall, new Set())).toHaveLength(0);
+        expect(traceRay(attacker, sword.reach, flat, 1, 0, 1, source([b]), wall, new Set())).toHaveLength(0);
     });
 
-    it("sweeps sideways swings across the side arc and keeps thrusts narrow", () => {
-        expect(sweptAngles(sideways, 0, 1)).toEqual([-tuning.sideArc, tuning.sideArc]);
-        const [a, b] = sweptAngles({ x: 0, y: -1, z: 0 }, 0, 0.5);
-        expect(a).toBeCloseTo(0, 9);
-        expect(b).toBeCloseTo(tuning.sideArc, 9); // travels from the left towards the right
-        expect(sweptAngles({ x: 1, y: 0, z: 0 }, 0.3, 0.4)).toEqual([-tuning.thrustArc, tuning.thrustArc]);
+    it("a thrust traces only the centre line", () => {
+        const thrust: Ray = { ...flat, sweep: 0 };
+        const side = target(100.5 + 1.2, 101.5, 0.2);
+        expect(traceRay(attacker, sword.reach, thrust, 1, 0, 1, source([side]), noWalls, new Set())).toHaveLength(0);
+        expect(traceRay(attacker, sword.reach, thrust, 1, 0, 1, source([target(100.5, 102)]), noWalls, new Set())).toHaveLength(1);
+    });
+
+    it("gives each sword move the game's ray: quick A rolls −10°, power R +45°, power T is a thrust", () => {
+        expect(MOVE_SETS.sword.quick[0].time?.rays[0].roll).toBe(-10);
+        expect(MOVE_SETS.sword.power.R.time?.rays[0].roll).toBe(45);
+        expect(MOVE_SETS.sword.power.T.time?.rays[0].sweep).toBe(0);
+        expect(MOVE_SETS.sword.fall.time?.rays[0].vertical).toBe(true);
+    });
+});
+
+describe("hit zones (spec 18.3)", () => {
+    it("use the guard's hitbox multipliers by height", () => {
+        expect(hitboxMultiplier(0.92)).toBe(3);
+        expect(hitboxMultiplier(0.7)).toBe(0.5);
+        expect(hitboxMultiplier(0.5)).toBe(1);
+        expect(hitboxMultiplier(0.2)).toBe(1.25);
+        const quick = MOVE_SETS.sword.quick[0].hits[0];
+        expect(damageAmount(sword, quick, { hitbox: 3 })).toBeCloseTo(3 * damageAmount(sword, quick));
+    });
+
+    it("scale quick strikes with weapon speed but not the rush", () => {
+        expect(MOVE_SETS.sword.quick[0].changeSpeed).toBe(true);
+        expect(MOVE_SETS.sword.rush.changeSpeed).toBeFalsy();
     });
 });
 

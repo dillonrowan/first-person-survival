@@ -22,21 +22,15 @@ export const tuning = {
     powerActive: 0.16,
     powerRecovery: 0.42,
 
-    // --- 3.2 / 3.3 Special-attack triggers ---
-    /** Pitch above which a forward power attack is the overhead (T) variant. [design] */
-    overheadPitch: (30 * Math.PI) / 180,
+    // --- 3.3 Special-attack triggers ---
     /** Fall speed that turns an attack into the falling attack. [cvar mm_player_speed_to_active_fall 125] */
     fallAttackSpeed: units(125),
     /** Pitch below which a power attack on a knocked-down target becomes a trample. [design] */
     tramplePitch: (-30 * Math.PI) / 180,
 
-    // --- 4 Hit detection ---
-    /** Half-width of a sideways swing's arc. [design] */
+    // --- 4 / 17.2 Hit detection: the attack ray's 90° fan (see SwingRay) ---
+    /** Width of the cone in which a knocked-down target counts as aimed at, for trample. [design] */
     sideArc: (60 * Math.PI) / 180,
-    /** Half-width of a thrust (impact direction X). [design] */
-    thrustArc: (15 * Math.PI) / 180,
-    /** Extra reach for the body hull. [cvar player_search_hull 10 u] */
-    searchHull: units(10),
 
     // --- 5 Damage ---
     /** Scales WDmg × HitPow into health points. [design] */

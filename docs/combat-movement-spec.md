@@ -163,21 +163,11 @@ Behaviour (E-STAM, E-STATE):
 - **Walk/run blend.** `mm_player_mintime_to_walkrun 0.2` s `[cvar]` is read by the attack state
   `[inferred]`.
 
-### 3.2 Power-attack direction `[inferred]`
+### 3.2 Power-attack direction (superseded by 17.1)
 
-The direction keys held when the charge is released pick the variant (`first_basic.qct` has
-`_L`, `_R`, `_B`, `_T`, and a default with no suffix). The data's impact directions identify which
-is which:
-
-| Variant | Keys | Impact direction |
-| --- | --- | --- |
-| default | none / forward | sideways, Y +1 |
-| L | strafe left | Y −1 |
-| R | strafe right | Y +1 |
-| B ("bottom") | back | X +1 (thrust) |
-| T ("top") | forward while looking up / jumping | X +1 (overhead) |
-
-Our mapping for T: forward + charge while airborne or pitched up more than 30° `[design]`.
+The movement keys held **when the charge starts** pick the variant: left → L, else right → R,
+else forward → T, else back → B, else the default `[gh: 0x22449a50 sword, 0x2243f720 daggers,
+0x22444c80 staff]`.
 
 ### 3.3 Special attacks
 
@@ -682,7 +672,7 @@ Seconds from the start of the layer (wind-up = until the ray starts; active = ra
 | Sword quick-chain end (no follow-up) | 0.500 | – | – |
 | Sword power wind-up (`bigslash_*_in`) | 0.500 (B, T: 0.667) | – | – |
 | Sword power release default / L / R / B / T | 1.067 / 0.800 / 1.033 / 1.267 / 1.000 | 0.133 / 0.033 / 0.200 / 0.033 / 0.033 | 0.233 / 0.200 / 0.433 / 0.267 / 0.167 |
-| Sword rush (24 fps) | 1.958 | 0.083, 0.938 | 0.333, 1.125 |
+| Sword rush (24 fps) | 1.958 | 0.166, 0.958 | 0.333, 1.124 |
 | Sword falling attack | 1.000 | 0.100 | 0.267 |
 | Sword huge (24 fps) | 2.083 | 0.292, 0.833 | 0.458, 1.000 |
 | Daggers quick A–E | 0.233 / 0.267 / 0.333 / 0.233 / 0.733 | 0.067 / 0.100 / 0.067 / 0.133 / 0.267 | 0.200 / 0.233 / 0.200 / 0.233 / 0.400 |
@@ -691,7 +681,7 @@ Seconds from the start of the layer (wind-up = until the ray starts; active = ra
 | Staff power release (27 fps) | 2.778 | 0.407, 1.409 | 0.556, 1.556 |
 
 `speed_attack` divides these times. Where a layer has no end-ray event the active window ends at
-the impact event 2102 `[inferred]`.
+the impact event 2102 `[inferred]`. Section 17 replaces this table with per-ray data.
 
 ### 16.4 Bow
 
@@ -809,3 +799,106 @@ Event 2152 (weapon swoosh) comes 0.15–0.25 s before the impact; that is the vi
 - Player block: hold right mouse. A hit from inside the weapon's parry cone (6) is parried
   (no damage) unless the attack breaks parries.
 - Death: after 4 s (`mm_player_death_fadeout_duration`) the player respawns with full health.
+
+## 17. Directional swings
+
+### 17.1 Choosing the direction `[gh: 0x22449a50 sword, 0x2243f720 daggers, 0x22444c80 staff]`
+
+- The power-attack variant is fixed **when the wind-up (`layer_bigslash_*_in`) starts**: on the
+  press from idle, or when a hold during a quick strike passes the charge threshold (18.1). It reads the movement buttons held at that moment:
+  `IN_MOVELEFT` → **L**, else `IN_MOVERIGHT` → **R**, else `IN_FORWARD` → **T**, else `IN_BACK` →
+  **B**, else the default. Pitch and being airborne play no part.
+- The variant then idles (`*_idle`) until release, which plays the matching `*_out`.
+- Pressing a direction during the default wind-up switches variant only with
+  `mm_alternate_player_combat 1` (off in the shipped game; that mode aims at the nearest enemy
+  instead) `[gh: 0x22434450]`.
+- Rush (megasprinting) and the vertical/falling attack (airborne) override the variant as before.
+
+### 17.2 The attack ray `[gh: 0x223d9040 event 2186/2198, 0x222ba1a0 setup, 0x223b39b0 per-tick trace]`
+
+Between the start-ray event (2186 horizontal, 2198 vertical) and the end-ray event (2190), every
+tick the game traces **one line from the eye**, `rangeattack` long (sword 100 u), in this direction:
+
+```
+t      = (now − rayStart) / rayDuration                     (0 → 1)
+angle  = (t − 0.5) × 90° × sign                             (mm_activate_trample_angle 90)
+sign   = +1 if the move's impact direction is positive on the swept axis, else −1
+         (horizontal: impact Y; vertical: impact X)
+dir    = eyeAngles(pitch, yaw, roll = event option) ∘ local(yaw = angle)    for 2186
+         eyeAngles(pitch, yaw, roll = event option) ∘ local(pitch = angle)  for 2198
+```
+
+So every swing is a 90° fan centred on the crosshair. The event option rolls the fan's plane:
+0 is a flat right↔left slash, 90 is vertical, ±45 diagonal, 180 mirrors it. Impact Y +1 sweeps
+from the player's right to their left; a vertical sweep with impact X +1 goes top to bottom. The
+first entity the line touches is hit (mask 0x46004003). Moves without a start-ray event (sword B
+and T thrusts, dagger C) hit at their impact event 2102 `[inferred: a centre trace]`.
+
+### 17.3 Ray table `[mdl: first_animations_*.mdl]`
+
+Seconds from the start of the layer; roll in degrees; V = vertical (2198); "thrust" = impact event
+only.
+
+| Move | Total | Rays (start–end, roll) |
+| --- | --- | --- |
+| Sword quick A / B / C / D / E | 0.300 / 0.400 / 0.400 / 0.400 / 0.367 | 0.100–0.233 −10 / 0.200–0.333 0 / 0.200–0.333 25 / 0.167–0.300 −25 / 0.200–0.333 −10 |
+| Sword power default / L / R | 1.067 / 0.800 / 1.033 | 0.133–0.233 −45 / 0.033–0.200 0 / 0.200–0.433 45 |
+| Sword power B / T | 1.267 / 1.000 | thrust 0.233 / thrust 0.167 |
+| Sword rush (24 fps) | 1.958 | 0.166–0.333 0; 0.958–1.124 45 |
+| Sword falling | 1.000 | 0.100–0.267 V |
+| Sword huge (24 fps) | 2.083 | 0.292–0.458 135; 0.833–1.000 −45 |
+| Daggers quick A / B / C / D / E | 0.233 / 0.267 / 0.333 / 0.233 / 0.733 | 0.067–0.200 0 / 0.100–0.233 0 / thrust 0.200 / 0.133–0.233 180 / 0.267–0.400 90 |
+| Daggers power default, L, R | 1.333 | 0.167–0.300 0; 0.700–0.833 90 |
+| Daggers power B / T | 0.967 / 0.833 | thrust 0.133; 0.267–0.400 −135 / thrust 0.133; 0.300–0.433 135 |
+| Daggers rush | 1.767 | 0.868–0.967 0; 1.101–1.200 0 |
+| Staff quick A / B / C / D | 0.467 / 1.000 / 1.000 / 1.433 | 0.267–0.467 180 / 0.800–0.967 90 / 0.733–0.867 180 / 0.933–1.033 75 |
+| Staff power default (27 fps) | 2.778 | 0.407–0.556 −60; 1.409–1.556 120 |
+| Staff power L, R (27 fps) | 2.593 | 0.371–0.555 0; 0.962–1.260 0 |
+| Staff power B / T | 1.967 / 2.500 | 0.366–0.533 80; thrust 1.166 / 0.368–0.500 −60; 1.268–1.400 90 |
+| Staff rush | 1.667 | 0.067–0.267 0; thrust 1.133 |
+| Staff falling | 1.200 | 0.100–0.267 V |
+
+Staff A and C have no end-ray event; their rays end at the layer end and the impact event
+respectively `[inferred]`. Trample layers carry no ray events `[design: vertical 0.6–0.9 s]`.
+
+## 18. Normal (quick) attacks
+
+Sources: the player state handlers `[gh: 0x22446a40 sword idle, 0x224473c0 sword power,
+0x22446e20 sword quick strikes, 0x2243f180 daggers, 0x22443fa0 staff, 0x22431f90 press time]`,
+`first_basic.qct` and `first_animations_*.mdl`. This replaces the tap/hold description in 3.1.
+
+### 18.1 Press, release and hold
+
+- **A press from idle starts the power wind-up at once** (`layer_bigslash_*_in`, direction per 17.1).
+- **Releasing before the wind-up layer finishes turns it into a quick strike** (state 0xf7). The
+  wind-up lengths are therefore the tap/hold boundary from idle: sword 0.500 s (B and T 0.667 s),
+  daggers 0.500 s, staff 1.542 s `[mdl]`.
+- Holding until the wind-up finishes charges the power attack; releasing then plays it (or the rush
+  while megasprinting).
+- **During a quick strike**, a press is buffered at any point of the strike; the next strike starts
+  when the current one ends. There is no 60% gate here.
+- **Holding during a quick strike** for `mm_player_mintime_to_bigslash` (400 × frametime × 0.06 ≈
+  0.36 s; daggers 0.18 s) from the press cancels into the wind-up, direction from the keys held
+  then. Releasing during that wind-up starts a new chain at A.
+
+### 18.2 Combo order and endings
+
+| Weapon | Order | "End" layer after the chain stops | Otherwise |
+| --- | --- | --- | --- |
+| Sword | A B C D E, then B C D E B … (A only opens a chain) | after A or E: 0.500 s | straight to idle |
+| Daggers | A B C D E A … | after A–D: 0.500 s each | after E: idle |
+| Staff | A B C D A … | after A–C: 0.333 s each | after D: idle |
+
+- A chain stops when a strike ends with nothing buffered; the next chain begins at A.
+- **While an end layer plays**, presses before 60% of it (`mm_player_cycle_fastattack_end` 0.6) are
+  ignored; later presses start a new chain at A straight away, without a wind-up.
+- Past B the chain needs the "chained slash" skill; with all skills unlocked here it always
+  continues `[design]`.
+
+### 18.3 Speed and damage
+
+- `speed_attack` (`change_speed 1` in `first_basic.qct`) scales the quick strikes and the power
+  releases only; wind-ups, rush, falling, trample and huge attacks keep their own speed `[data]`.
+- Hit zones scale damage on NPCs (16.5, `hitboxes_modifier`): head ×3, chest ×0.5, stomach ×1,
+  limbs ×1.25 `[data: npc_guard]`. Here the zone comes from where the ray meets the body's height:
+  top 15% head, next 25% chest, next 15% stomach, the rest legs `[design]`.

@@ -23,10 +23,15 @@ export type MoveKind = "quick" | "power" | "rush" | "fall" | "trample" | "huge";
 export type PowerDirection = "default" | "L" | "R" | "B" | "T";
 
 /**
- * When a move's hit tracing runs, from its first-person animation (spec 16.3): total length,
- * attack ray on and off, in seconds from the start of the layer.
+ * One attack ray (docs/combat-movement-spec.md 17.2): between `on` and `off` (seconds from the
+ * start of the layer) a line from the eye sweeps `sweep` degrees across the view, centred on the
+ * crosshair, in a plane rolled by `roll` degrees. Horizontal rays turn about the view's (rolled) up
+ * axis, vertical ones about its right axis. A thrust has sweep 0: a single centre trace.
  */
-export type MoveTime = { total: number; on: number; off: number };
+export type Ray = { on: number; off: number; roll: number; vertical: boolean; sweep: number };
+
+/** A move's first-person layer: its length and its rays, one per hit (spec 17.3). */
+export type MoveTime = { total: number; rays: Ray[] };
 
 export type MoveDef = {
     id: string;
@@ -35,45 +40,147 @@ export type MoveDef = {
     /** Forward lunge on the attacker when the swing starts, tiles per second (pushplayercoeff). */
     lunge: number;
     time?: MoveTime;
+    /** The weapon's speed_attack scales this move (change_speed 1: quick strikes, power releases). */
+    changeSpeed?: boolean;
 };
 
-/** Seconds of each phase, already divided by the weapon's speed. */
-export type Timeline = { windup: number; active: number; recovery: number };
+/**
+ * How a weapon family's quick strikes chain and end (spec 18.2) and how long its power wind-up
+ * takes (the tap/hold boundary from idle, 18.1).
+ */
+export type ComboRules = {
+    /** Index of the strike after strike `i`. */
+    next: (i: number) => number;
+    /** Length of the "end" layer played when the chain stops after strike `i`; none: straight to idle. */
+    endAfter: Partial<Record<number, number>>;
+    /** layer_bigslash_*_in length per direction. */
+    windup: Record<PowerDirection, number>;
+    /** Hold during a quick strike that cancels into the wind-up (mm_player_mintime_to_bigslash). */
+    holdToCharge: number;
+};
+
+const sameWindup = (s: number): Record<PowerDirection, number> => ({ default: s, L: s, R: s, B: s, T: s });
+
+export const COMBOS: Record<WeaponFamily, ComboRules> = {
+    sword: {
+        next: (i) => (i < 4 ? i + 1 : 1),
+        endAfter: { 0: 0.5, 4: 0.5 },
+        windup: { default: 0.5, L: 0.5, R: 0.5, B: 0.667, T: 0.667 },
+        holdToCharge: tuning.chargeThreshold,
+    },
+    daggers: {
+        next: (i) => (i + 1) % 5,
+        endAfter: { 0: 0.5, 1: 0.5, 2: 0.5, 3: 0.5 },
+        windup: sameWindup(0.5),
+        holdToCharge: tuning.chargeThresholdDaggers,
+    },
+    staff: {
+        next: (i) => (i + 1) % 4,
+        endAfter: { 0: 0.333, 1: 0.333, 2: 0.333 },
+        windup: sameWindup(1.542),
+        holdToCharge: tuning.chargeThreshold,
+    },
+    bow: {
+        next: () => 0,
+        endAfter: {},
+        windup: sameWindup(0.5),
+        holdToCharge: tuning.chargeThreshold,
+    },
+};
+
+/** Seconds, already divided by the weapon's speed. `rays` holds each hit's ray in those seconds. */
+export type Timeline = { windup: number; active: number; recovery: number; rays: Ray[] };
+
+/** The ray of hit `index` (moves with more hits than rays reuse the last ray). */
+export function rayFor(timeline: Timeline, index: number): Ray {
+    return timeline.rays[Math.min(index, timeline.rays.length - 1)];
+}
 
 export function timelineFor(move: MoveDef, weaponSpeed: number): Timeline {
-    const s = 1 / weaponSpeed;
+    const s = move.time && !move.changeSpeed ? 1 : 1 / weaponSpeed;
     if (move.time) {
-        const { total, on, off } = move.time;
-        return { windup: on * s, active: (off - on) * s, recovery: (total - off) * s };
+        const rays = move.time.rays.map((r) => ({ ...r, on: r.on * s, off: r.off * s }));
+        const on = Math.min(...rays.map((r) => r.on));
+        const off = Math.max(...rays.map((r) => r.off));
+        return { windup: on, active: off - on, recovery: move.time.total * s - off, rays };
     }
     const quick = move.kind === "quick";
+    const windup = (quick ? tuning.quickWindup : tuning.powerWindup) * s;
+    const active = (quick ? tuning.quickActive : tuning.powerActive) * s * Math.max(1, move.hits.length * 0.75);
+    const slot = active / move.hits.length;
     return {
-        windup: (quick ? tuning.quickWindup : tuning.powerWindup) * s,
-        active: (quick ? tuning.quickActive : tuning.powerActive) * s * Math.max(1, move.hits.length * 0.75),
+        windup,
+        active,
         recovery: (quick ? tuning.quickRecovery : tuning.powerRecovery) * s,
+        rays: move.hits.map((_, i) => ({ on: windup + i * slot, off: windup + (i + 1) * slot, roll: 0, vertical: false, sweep: SWEEP })),
     };
 }
 
-const t = (total: number, on: number, off: number): MoveTime => ({ total, on, off });
-/** Timelines from first_animations_*.mdl (spec 16.3). */
+/** Width of every attack ray's fan. [cvar mm_activate_trample_angle 90] */
+const SWEEP = 90;
+/** A thrust (impact event, no ray) traces for one server tick either side of the event. [design] */
+const THRUST_HALF = 0.015;
+
+const ray = (on: number, off: number, roll = 0): Ray => ({ on, off, roll, vertical: false, sweep: SWEEP });
+const vray = (on: number, off: number, roll = 0): Ray => ({ on, off, roll, vertical: true, sweep: SWEEP });
+const thrust = (at: number): Ray => ({ on: at - THRUST_HALF, off: at + THRUST_HALF, roll: 0, vertical: false, sweep: 0 });
+const t = (total: number, ...rays: Ray[]): MoveTime => ({ total, rays });
+
+/** Rays from the first-person animations' 2186/2198/2190/2102 events (spec 17.3). */
 const TIMES = {
-    swordQuick: [t(0.3, 0.1, 0.233), t(0.4, 0.2, 0.333), t(0.4, 0.2, 0.333), t(0.4, 0.167, 0.3), t(0.367, 0.2, 0.333)],
+    swordQuick: [
+        t(0.3, ray(0.1, 0.233, -10)),
+        t(0.4, ray(0.2, 0.333)),
+        t(0.4, ray(0.2, 0.333, 25)),
+        t(0.4, ray(0.167, 0.3, -25)),
+        t(0.367, ray(0.2, 0.333, -10)),
+    ],
     swordPower: {
-        default: t(1.067, 0.133, 0.233),
-        L: t(0.8, 0.033, 0.2),
-        R: t(1.033, 0.2, 0.433),
-        B: t(1.267, 0.033, 0.267),
-        T: t(1, 0.033, 0.167),
+        default: t(1.067, ray(0.133, 0.233, -45)),
+        L: t(0.8, ray(0.033, 0.2)),
+        R: t(1.033, ray(0.2, 0.433, 45)),
+        B: t(1.267, thrust(0.233)),
+        T: t(1, thrust(0.167)),
     } as Record<PowerDirection, MoveTime>,
-    rush: t(1.958, 0.083, 1.125),
-    fall: t(1, 0.1, 0.267),
-    huge: t(2.083, 0.292, 1),
-    /** layer_combo_*_trample is 1.875 s with no ray events. [design: ray 0.6–0.9 s] */
-    trample: t(1.875, 0.6, 0.9),
-    daggersQuick: [t(0.233, 0.067, 0.2), t(0.267, 0.1, 0.233), t(0.333, 0.067, 0.2), t(0.233, 0.133, 0.233), t(0.733, 0.267, 0.4)],
-    daggersPower: t(1.333, 0.167, 0.833),
-    staffQuick: [t(0.467, 0.267, 0.467), t(1, 0.8, 0.967), t(1, 0.733, 0.867), t(1.433, 0.933, 1.033)],
-    staffPower: t(2.778, 0.407, 1.556),
+    swordRush: t(1.958, ray(0.166, 0.333), ray(0.958, 1.124, 45)),
+    fall: t(1, vray(0.1, 0.267)),
+    swordHuge: t(2.083, ray(0.292, 0.458, 135), ray(0.833, 1, -45)),
+    /** layer_combo_*_trample has no ray events. [design: vertical ray 0.6–0.9 s] */
+    trample: t(1.875, vray(0.6, 0.9)),
+    daggersQuick: [
+        t(0.233, ray(0.067, 0.2)),
+        t(0.267, ray(0.1, 0.233)),
+        t(0.333, thrust(0.2)),
+        t(0.233, ray(0.133, 0.233, 180)),
+        t(0.733, ray(0.267, 0.4, 90)),
+    ],
+    daggersPower: {
+        default: t(1.333, ray(0.167, 0.3), ray(0.7, 0.833, 90)),
+        L: t(1.333, ray(0.167, 0.3), ray(0.7, 0.833, 90)),
+        R: t(1.333, ray(0.167, 0.3), ray(0.7, 0.833, 90)),
+        B: t(0.967, thrust(0.133), ray(0.267, 0.4, -135)),
+        T: t(0.833, thrust(0.133), ray(0.3, 0.433, 135)),
+    } as Record<PowerDirection, MoveTime>,
+    daggersRush: t(1.767, ray(0.868, 0.967), ray(1.101, 1.2)),
+    /** layer_combo_daggers_huge: impact events only (2102, then 2139). */
+    daggersHuge: t(1.367, thrust(0.3), thrust(0.767)),
+    staffQuick: [
+        t(0.467, ray(0.267, 0.467, 180)),
+        t(1, ray(0.8, 0.967, 90)),
+        t(1, ray(0.733, 0.867, 180)),
+        t(1.433, ray(0.933, 1.033, 75)),
+    ],
+    staffPower: {
+        default: t(2.778, ray(0.407, 0.556, -60), ray(1.409, 1.556, 120)),
+        L: t(2.593, ray(0.371, 0.555), ray(0.962, 1.26)),
+        R: t(2.593, ray(0.371, 0.555), ray(0.962, 1.26)),
+        B: t(1.967, ray(0.366, 0.533, 80), thrust(1.166)),
+        T: t(2.5, ray(0.368, 0.5, -60), ray(1.268, 1.4, 90)),
+    } as Record<PowerDirection, MoveTime>,
+    staffRush: t(1.667, ray(0.067, 0.267), thrust(1.133)),
+    staffFall: t(1.2, vray(0.1, 0.267)),
+    /** layer_combo_staff_huge: impact events 2102 and 2139. */
+    staffHuge: t(2.333, thrust(0.166), thrust(0.389)),
 };
 
 const timed = (move: MoveDef, time: MoveTime): MoveDef => ({ ...move, time });
@@ -146,16 +253,26 @@ const quickMoves = (events: HitEvent[]): MoveDef[] =>
     events.map((h, i) => ({ id: `quick_${"ABCDE"[i]}`, kind: "quick", hits: [h], lunge: 0 }));
 
 /** Adds the animation timelines (spec 16.3) to a family's moves. */
-function withTimes(set: MoveSet, quick: MoveTime[], power: (dir: PowerDirection) => MoveTime): MoveSet {
+function withTimes(
+    set: MoveSet,
+    times: {
+        quick: MoveTime[];
+        power: Record<PowerDirection, MoveTime>;
+        rush: MoveTime;
+        fall: MoveTime;
+        huge: MoveTime;
+    },
+): MoveSet {
+    // Quick strikes and power releases scale with speed_attack; the combos do not (spec 18.3).
     return {
-        quick: set.quick.map((m, i) => timed(m, quick[i % quick.length])),
+        quick: set.quick.map((m, i) => ({ ...timed(m, times.quick[i % times.quick.length]), changeSpeed: true })),
         power: Object.fromEntries(
-            Object.entries(set.power).map(([dir, m]) => [dir, timed(m, power(dir as PowerDirection))]),
+            Object.entries(set.power).map(([dir, m]) => [dir, { ...timed(m, times.power[dir as PowerDirection]), changeSpeed: true }]),
         ) as Record<PowerDirection, MoveDef>,
-        rush: timed(set.rush, TIMES.rush),
-        fall: timed(set.fall, TIMES.fall),
+        rush: timed(set.rush, times.rush),
+        fall: timed(set.fall, times.fall),
         trample: timed(set.trample, TIMES.trample),
-        huge: timed(set.huge, TIMES.huge),
+        huge: timed(set.huge, times.huge),
     };
 }
 
@@ -251,8 +368,26 @@ const BASE_SETS: Record<Exclude<WeaponFamily, "bow">, MoveSet> = {
     },
 };
 
-MOVE_SETS.sword = withTimes(BASE_SETS.sword, TIMES.swordQuick, (dir) => TIMES.swordPower[dir]);
-MOVE_SETS.daggers = withTimes(BASE_SETS.daggers, TIMES.daggersQuick, () => TIMES.daggersPower);
-MOVE_SETS.staff = withTimes(BASE_SETS.staff, TIMES.staffQuick, () => TIMES.staffPower);
+MOVE_SETS.sword = withTimes(BASE_SETS.sword, {
+    quick: TIMES.swordQuick,
+    power: TIMES.swordPower,
+    rush: TIMES.swordRush,
+    fall: TIMES.fall,
+    huge: TIMES.swordHuge,
+});
+MOVE_SETS.daggers = withTimes(BASE_SETS.daggers, {
+    quick: TIMES.daggersQuick,
+    power: TIMES.daggersPower,
+    rush: TIMES.daggersRush,
+    fall: TIMES.fall,
+    huge: TIMES.daggersHuge,
+});
+MOVE_SETS.staff = withTimes(BASE_SETS.staff, {
+    quick: TIMES.staffQuick,
+    power: TIMES.staffPower,
+    rush: TIMES.staffRush,
+    fall: TIMES.staffFall,
+    huge: TIMES.staffHuge,
+});
 // The bow's melee is the kick; its "moves" reuse the sword set so melee code stays total. [design]
 MOVE_SETS.bow = MOVE_SETS.sword;
