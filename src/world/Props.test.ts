@@ -107,6 +107,19 @@ describe("world props (spec 19)", () => {
         expect(props.count).toBe(0);
     });
 
+    it("does not hurt an NPC that walks into a prop", () => {
+        // A heavy stack barely moves, so an NPC catching up on its path (3.1 tiles/s) meets it
+        // faster than PhysicsSpeedToDamageNPCs; only the prop's own speed may count.
+        const props = setup([crate(3200.5, 3201.1, 150)]);
+        const npc = npcAt(3200.5, 3200.3);
+        for (let i = 0; i < 120; i++) {
+            npc.body.y += 3.1 / 60;
+            props.update(1 / 60, { npcs: [npc] });
+        }
+        expect(npc.combatant.health).toBe(200);
+        expect(npc.hits).toEqual([]);
+    });
+
     it("shoves a crate the player walks into, slower for heavier props", () => {
         const props = setup([crate(3200.5, 3201.1, 40, 1), crate(3210.5, 3211.1, 150, 2)]);
         const [light, heavy] = props.all();

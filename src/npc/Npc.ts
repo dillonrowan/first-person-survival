@@ -25,6 +25,7 @@ import type { Reaction } from "../combat/Combatant";
 import type { SharedNpcModel } from "./NpcModels";
 import { NpcAttacker, StrikeEvent } from "./NpcAttacks";
 import { canHear, canSee, hearingDelay, sightDelay } from "./NpcSenses";
+import { Ragdoll, RagdollWorld, singlePartSkeleton } from "./Ragdoll";
 
 /** Asks whether an NPC may move to a point (tiles); true means something is in the way. */
 export type MoveBlocker = (npc: Npc, x: number, y: number) => boolean;
@@ -43,7 +44,6 @@ const LEDGE_FALL_DAMAGE = 20;
 /** Lean of the hit reactions (radians) and how fast poses ease (per second). [design] */
 const LEAN = { flinch: 0.15, stagger: 0.3, push: 0.45, stun: 0.2 };
 const POSE_RATE = 10;
-const SINK_DEPTH = 1.5;
 /** Below this speed (tiles/s) a moving NPC plays its idle clip. */
 const MOVING_SPEED = 0.15;
 /** Sideways dodge distance (Dodge_left / Dodge_right move about 40 u). [data] */
@@ -150,6 +150,25 @@ export class Npc {
     alerted = false;
     /** Current speed of free movement in tiles/s, for animation. */
     moveSpeed = 0;
+    /** The body's ragdoll while knocked down or dead (spec 20). */
+    ragdoll: Ragdoll | undefined;
+    /** Seconds since death. */
+    deadFor = 0;
+    /** Ragdoll origin the meshes are drawn relative to (three.js world space). */
+    private readonly ragdollAnchor = new THREE.Vector3();
+    /** World position of every model vertex, from the ragdoll. */
+    private ragdollPositions?: Float32Array;
+    /** Blending from the ragdoll back into the animation after a knockdown: seconds so far. */
+    private standingUp: { t: number; from: Float32Array } | undefined;
+    private ragdollDrawn = false;
+    /** Direction of the last hit taken, world tiles. */
+    private lastHitX = 0;
+    private lastHitY = 0;
+    /** Position at the last update, for the velocity a ragdoll starts with. */
+    private lastX = Number.NaN;
+    private lastY = Number.NaN;
+    private velocityX = 0;
+    private velocityY = 0;
 
     private readonly spawn: Tile;
     private readonly size: number;
@@ -172,7 +191,6 @@ export class Npc {
     /** Pose while lying: -π/2 on the back, +π/2 on the front. */
     private lyingPitch = -Math.PI / 2;
     private reactionClock = 0;
-    private deadFor = 0;
     private animCarry = 0;
     private loseTimer = 0;
     private kickDodgeChance = -1;
@@ -316,6 +334,11 @@ export class Npc {
     /** Slides the NPC along (dirX, dirY) far enough to travel `distance` tiles under friction. */
     private slide(dirX: number, dirY: number, distance: number, kicked = false): void {
         const speed = slideSpeedForDistance(distance);
+        if (this.ragdoll) {
+            // A body on the ground is shoved as a whole instead.
+            this.ragdoll.addVelocity(dirX * speed, 0, -dirY * speed);
+            return;
+        }
         const k = this.knockback ?? { x: this.body.x, y: this.body.y, vx: 0, vy: 0, plane: this.plane };
         k.vx = dirX * speed;
         k.vy = dirY * speed;
@@ -325,6 +348,8 @@ export class Npc {
 
     /** Sets the lean of a reaction from the side the hit came from. */
     private lean(dirX: number, dirY: number): void {
+        this.lastHitX = dirX;
+        this.lastHitY = dirY;
         const f = this.forward;
         const along = dirX * f.x + dirY * f.y; // > 0: pushed forward (hit from behind)
         const left = dirX * -f.y + dirY * f.x; // > 0: pushed to the NPC's left
@@ -495,19 +520,35 @@ export class Npc {
         this.sinceHit += dt;
         this.surprisedFor = Math.max(0, this.surprisedFor - dt);
         this.reactionClock += dt;
-        if (!this.alerted && !c.dead && !this.knockback) {
+        if (!this.alerted && !c.dead && !this.knockback && !this.ragdoll) {
             this.perceive(dt, ctx);
         }
+        const x = this.fineX / RS_UNITS_PER_TILE;
+        const y = this.fineY / RS_UNITS_PER_TILE;
+        if (dt > 0 && !Number.isNaN(this.lastX)) {
+            this.velocityX = (x - this.lastX) / dt;
+            this.velocityY = (y - this.lastY) / dt;
+        }
+        this.lastX = x;
+        this.lastY = y;
         if (c.dead && !this.gone) {
             this.deadFor += dt;
-            if (this.deadFor >= tuning.deathSinkTime) {
-                this.gone = true;
-                this.group.visible = false;
-                this.releaseOccupancy(occupancy);
+            if (this.deadFor >= tuning.corpseTime) {
+                this.removeCorpse(occupancy);
             }
         }
-        if (this.alerted || this.knockback) {
+        if (this.alerted || this.knockback || this.ragdoll) {
             this.releaseOccupancy(occupancy);
+        }
+
+        // Knocked down or dead: the body is a ragdoll (spec 20).
+        if ((c.dead || c.knockedDown) && !this.ragdoll && !this.gone) {
+            this.startRagdoll();
+        }
+        if (this.ragdoll) {
+            this.updateRagdoll(dt, occupancy);
+            this.updatePose(dt);
+            return;
         }
 
         this.moveSpeed = 0;
@@ -679,6 +720,183 @@ export class Npc {
         const t = Math.min(1, dt * POSE_RATE);
         this.pitch += (pitch - this.pitch) * t;
         this.roll += (roll - this.roll) * t;
+    }
+
+    /** Physics world of the ragdoll. */
+    private readonly ragdollWorld: RagdollWorld = {
+        flagsAt: (plane, x, y) => this.world.collisionFlags(plane, x, y),
+        groundHeight: (plane, x, y) => this.world.groundHeight(plane, x, y),
+        hasFloor: (plane, x, y) => this.world.hasFloor?.(plane, x, y) ?? true,
+    };
+
+    /** Base-pose position of every model vertex: model space in three.js axes, tiles. */
+    private basePositions(): Float32Array {
+        const out = new Float32Array(this.model.data.vertexCount * 3);
+        for (const shared of this.model.meshes) {
+            const { positions, sources } = shared.source;
+            for (let i = 0; i < sources.length; i++) {
+                const v = sources[i];
+                out[v * 3] = positions[i * 4] / RS_UNITS_PER_TILE;
+                out[v * 3 + 1] = -positions[i * 4 + 1] / RS_UNITS_PER_TILE;
+                out[v * 3 + 2] = -positions[i * 4 + 2] / RS_UNITS_PER_TILE;
+            }
+        }
+        return out;
+    }
+
+    /**
+     * World position (three.js) of every model vertex in the current animation frame, placed at
+     * (px, py, pz) turned by `yaw` (or, without a position, where the group is drawn now).
+     */
+    private animatedWorldPositions(base: Float32Array, out: Float32Array, place?: { x: number; y: number; z: number; yaw: number }): void {
+        const count = this.model.data.vertexCount;
+        const frame = this.clip ? this.clip.positions : undefined;
+        const offset = this.clip ? this.playback.frame * count * 3 : 0;
+        let e: ArrayLike<number>;
+        if (place) {
+            const cos = Math.cos(place.yaw);
+            const sin = Math.sin(place.yaw);
+            e = [cos, 0, -sin, 0, 0, 1, 0, 0, sin, 0, cos, 0, place.x, place.y, place.z, 1];
+        } else {
+            this.group.updateMatrix();
+            e = this.group.matrix.elements;
+        }
+        for (let v = 0; v < count; v++) {
+            const x = frame ? frame[offset + v * 3] / RS_UNITS_PER_TILE : base[v * 3];
+            const y = frame ? -frame[offset + v * 3 + 1] / RS_UNITS_PER_TILE : base[v * 3 + 1];
+            const z = frame ? -frame[offset + v * 3 + 2] / RS_UNITS_PER_TILE : base[v * 3 + 2];
+            out[v * 3] = e[0] * x + e[4] * y + e[8] * z + e[12];
+            out[v * 3 + 1] = e[1] * x + e[5] * y + e[9] * z + e[13];
+            out[v * 3 + 2] = e[2] * x + e[6] * y + e[10] * z + e[14];
+        }
+    }
+
+    /**
+     * Knocked down or killed: the body becomes a ragdoll from its current pose, moving as the NPC
+     * moved (mm_ragdollanimation_coeffvelocity 1) plus, on death, force_damage_death along the
+     * killing blow (spec 20.1).
+     */
+    private startRagdoll(): void {
+        const data = this.model.data;
+        const base = this.basePositions();
+        const current = new Float32Array(data.vertexCount * 3);
+        this.animatedWorldPositions(base, current);
+        const skeleton = data.skeleton ?? singlePartSkeleton(base, data.vertexCount);
+        const ragdoll = new Ragdoll(skeleton, base, current, this.mass, this.plane, [data.idle, data.walk]);
+        ragdoll.settleOnFloor(this.ragdollWorld);
+        const k = this.knockback;
+        const vx = k ? k.vx : this.velocityX;
+        const vy = k ? k.vy : this.velocityY;
+        ragdoll.setVelocity(vx, 0, -vy);
+        if (this.combatant.dead) {
+            ragdoll.applyImpulse(this.lastHitX * tuning.deathForce, 0, -this.lastHitY * tuning.deathForce);
+        }
+        this.knockback = undefined;
+        this.ragdoll = ragdoll;
+        this.ragdollPositions = new Float32Array(data.vertexCount * 3);
+        const [ax, ay, az] = ragdoll.rootPosition();
+        this.ragdollAnchor.set(Math.round(ax), Math.round(ay), Math.round(az));
+        this.ragdollDrawn = false;
+        this.standingUp = undefined;
+        this.pitch = this.roll = 0;
+        for (const { mesh } of this.meshes) {
+            // The vertices leave the model's culling sphere.
+            mesh.frustumCulled = false;
+        }
+    }
+
+    /** Steps the ragdoll; when a knockdown ends, the NPC gets up where its body lies. */
+    private updateRagdoll(dt: number, occupancy: Occupancy): void {
+        const ragdoll = this.ragdoll!;
+        const c = this.combatant;
+        if (this.standingUp) {
+            this.standingUp.t += dt;
+            if (c.dead) {
+                this.standingUp = undefined;
+                ragdoll.wake();
+            } else if (c.reaction !== "standup") {
+                this.endRagdoll(occupancy);
+            }
+            return;
+        }
+        ragdoll.step(dt, this.ragdollWorld);
+        const [rx, , rz] = ragdoll.rootPosition();
+        this.fineX = rx * RS_UNITS_PER_TILE;
+        this.fineY = -rz * RS_UNITS_PER_TILE;
+        this.plane = ragdoll.plane;
+        if (!c.dead && !c.knockedDown) {
+            // Stand up where the body lies, facing where its root part faces.
+            const yaw = ragdoll.rootYaw();
+            if (yaw !== undefined) {
+                this.rotation = this.orientation = ((Math.round((-yaw * 1024) / Math.PI) % 2048) + 2048) % 2048;
+            }
+            ragdoll.computeWorld(this.ragdollWorld, this.ragdollPositions!);
+            this.standingUp = { t: 0, from: Float32Array.from(this.ragdollPositions!) };
+            if (c.reaction !== "standup") {
+                this.endRagdoll(occupancy);
+            }
+        }
+    }
+
+    private endRagdoll(occupancy: Occupancy): void {
+        this.ragdoll = undefined;
+        this.standingUp = undefined;
+        this.knockback = undefined;
+        this.dirty = true;
+        for (const { mesh } of this.meshes) {
+            mesh.frustumCulled = true;
+        }
+        if (!this.alerted) {
+            this.settle(occupancy);
+        }
+    }
+
+    /** Removes a corpse from the world (after corpseTime, or to keep at most ragdollMax). */
+    removeCorpse(occupancy: Occupancy): void {
+        this.gone = true;
+        this.group.visible = false;
+        this.ragdoll = undefined;
+        this.releaseOccupancy(occupancy);
+    }
+
+    /** Draws the ragdoll (or the blend from it into the animation while standing up). */
+    private drawRagdoll(): void {
+        const ragdoll = this.ragdoll!;
+        const positions = this.ragdollPositions!;
+        if (ragdoll.asleep && this.ragdollDrawn && !this.standingUp) {
+            return;
+        }
+        if (this.standingUp) {
+            const x = this.fineX / RS_UNITS_PER_TILE;
+            const y = this.fineY / RS_UNITS_PER_TILE;
+            const target = new Float32Array(positions.length);
+            this.animatedWorldPositions(this.basePositions(), target, {
+                x,
+                y: this.world.groundHeight(this.plane, x, y),
+                z: -y,
+                yaw: orientationToYaw(this.rotation),
+            });
+            const a = Math.min(1, this.standingUp.t / Math.max(0.01, this.combatant.standUpTime));
+            const s = a * a * (3 - 2 * a);
+            const from = this.standingUp.from;
+            for (let i = 0; i < positions.length; i++) {
+                positions[i] = from[i] + (target[i] - from[i]) * s;
+            }
+        } else {
+            ragdoll.computeWorld(this.ragdollWorld, positions);
+        }
+        const a = this.ragdollAnchor;
+        for (const { positions: attribute, sources } of this.meshes) {
+            const array = attribute.array as Int16Array;
+            for (let i = 0; i < sources.length; i++) {
+                const v = sources[i] * 3;
+                array[i * 4] = Math.round((positions[v] - a.x) * RS_UNITS_PER_TILE);
+                array[i * 4 + 1] = Math.round(-(positions[v + 1] - a.y) * RS_UNITS_PER_TILE);
+                array[i * 4 + 2] = Math.round(-(positions[v + 2] - a.z) * RS_UNITS_PER_TILE);
+            }
+            attribute.needsUpdate = true;
+        }
+        this.ragdollDrawn = true;
     }
 
     /** Takes the nearest free tile after free movement and walks onto its centre. */
@@ -879,12 +1097,19 @@ export class Npc {
         const x = this.fineX / RS_UNITS_PER_TILE;
         const y = this.fineY / RS_UNITS_PER_TILE;
         const ground = this.world.groundHeight(this.plane, x, y);
-        const sink = this.combatant.dead ? Math.min(1, this.deadFor / tuning.deathSinkTime) * SINK_DEPTH : 0;
-        this.group.position.set(x, ground - sink, -y);
         this.body.x = x;
         this.body.y = y;
         this.body.z = ground;
         this.body.plane = this.plane;
+        if (this.ragdoll) {
+            // Vertices are written in world space relative to the anchor.
+            this.group.position.copy(this.ragdollAnchor);
+            this.group.rotation.set(0, 0, 0);
+            this.drawRagdoll();
+            this.dirty = true;
+            return;
+        }
+        this.group.position.set(x, ground, -y);
         this.group.rotation.y = orientationToYaw(this.rotation);
         this.group.rotation.x = this.pitch;
         this.group.rotation.z = this.roll;

@@ -557,8 +557,10 @@ export class WorldProps implements BodySource<CombatTarget> {
         }
         const nx = dx / d;
         const ny = dy / d;
-        const closing = (b.vx - npcVx) * nx + (b.vy - npcVy) * ny;
-        const speed = Math.hypot(b.vx - npcVx, b.vy - npcVy, b.vz);
+        // The prop's own speed and direction count, not the NPC's (gh 0x22365530 reads the prop's
+        // velocity): an NPC walking into a prop does not hurt itself.
+        const closing = b.vx * nx + b.vy * ny;
+        const speed = b.speed;
         if (closing <= 0 || speed < tuning.propSpeedToDamageNpc) {
             return;
         }

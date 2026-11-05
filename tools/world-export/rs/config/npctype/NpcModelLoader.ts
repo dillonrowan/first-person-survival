@@ -1,6 +1,7 @@
 import { Model } from "../../model/Model";
 import { ModelData } from "../../model/ModelData";
 import { ModelLoader } from "../../model/ModelLoader";
+import type { SeqBase } from "../../model/seq/SeqBase";
 import { SeqFrameLoader } from "../../model/seq/SeqFrameLoader";
 import { TextureLoader } from "../../texture/TextureLoader";
 import { SeqType } from "../seqtype/SeqType";
@@ -88,6 +89,18 @@ export class NpcModelLoader {
         }
 
         return model;
+    }
+
+    /** The frame base of a (non-skeletal) animation: its labelled transform groups. */
+    getFrameBase(seqId: number): SeqBase | undefined {
+        if (seqId === -1) {
+            return undefined;
+        }
+        const seqType = this.seqTypeLoader.load(seqId);
+        if (!seqType || seqType.isSkeletalSeq() || !seqType.frameIds || seqType.frameIds.length === 0) {
+            return undefined;
+        }
+        return this.seqFrameLoader.load(seqType.frameIds[0])?.base;
     }
 
     transformNpcModel(model: Model, seqType: SeqType, frame: number): Model {

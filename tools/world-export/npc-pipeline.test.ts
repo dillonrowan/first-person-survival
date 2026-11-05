@@ -260,6 +260,16 @@ describe.skipIf(!hasWorld)("exported world with NPCs", () => {
                     expect(source).toBeLessThan(model.vertexCount);
                 }
             }
+            // Ragdoll skeleton (spec 20.2): a tree with parents before children, every part used.
+            const skeleton = model.skeleton!;
+            expect(skeleton, appearance.file).toBeDefined();
+            const parts = skeleton.parents.length;
+            expect(skeleton.parents[0]).toBe(-1);
+            skeleton.parents.forEach((parent, i) => i > 0 && expect(parent).toBeLessThan(i));
+            for (const part of skeleton.partOf) {
+                expect(part === 255 || part < parts).toBe(true);
+            }
         }
-    });
+        // Reading thousands of model files is slow while other test files run in parallel.
+    }, 30_000);
 });

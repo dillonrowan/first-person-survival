@@ -220,8 +220,28 @@ export class Npcs implements BodySource<Npc> {
                 npc.sync();
             }
         }
+        this.limitCorpses();
         if (player) {
             this.callForHelp(player);
+        }
+    }
+
+    /** At most ragdollMax corpses lie around; the oldest go first (cvar g_ragdoll_maxcount). */
+    private limitCorpses(): void {
+        const corpses: Npc[] = [];
+        for (const region of this.regions.values()) {
+            for (const npc of region.npcs) {
+                if (npc.combatant.dead && !npc.gone) {
+                    corpses.push(npc);
+                }
+            }
+        }
+        if (corpses.length <= tuning.ragdollMax) {
+            return;
+        }
+        corpses.sort((a, b) => b.deadFor - a.deadFor);
+        for (const npc of corpses.slice(0, corpses.length - tuning.ragdollMax)) {
+            npc.removeCorpse(this.occupancy);
         }
     }
 

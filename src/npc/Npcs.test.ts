@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 
+import { tuning } from "../combat/tuning";
 import type { NpcManifest, NpcModelData } from "../world/NpcFormat";
 import { CollisionFlag, RegionListener } from "../world/WorldFormat";
 import { Occupancy } from "./Npc";
@@ -369,7 +370,7 @@ describe("NPC combat", () => {
         expect(npcs.occupiedTileCount).toBe(1);
     });
 
-    it("dies, sinks away and leaves the world's bodies and occupancy", async () => {
+    it("dies into a ragdoll that lies on the floor, then is removed after corpseTime", async () => {
         const { npcs, npc } = await oneNpc();
         npc.combatant.hurt(1e6, "knockdown");
         const found: unknown[] = [];
@@ -378,9 +379,32 @@ describe("NPC combat", () => {
         for (let i = 0; i < 150; i++) {
             npcs.update(0.02);
         }
+        expect(npc.ragdoll).toBeDefined();
+        expect(npc.gone).toBe(false);
+        expect(npcs.occupiedTileCount).toBe(0);
+        // No drawn vertex is below the floor (height 0): RS units are +y down.
+        const mesh = npc.group.children[0] as THREE.Mesh;
+        const positions = mesh.geometry.getAttribute("a_position").array as Int16Array;
+        for (let i = 0; i < positions.length; i += 4) {
+            expect(npc.group.position.y - positions[i + 1] / 128).toBeGreaterThanOrEqual(-0.01);
+        }
+        for (let t = 0; t < tuning.corpseTime; t += 0.5) {
+            npcs.update(0.5);
+        }
         expect(npc.gone).toBe(true);
         expect(npc.group.visible).toBe(false);
-        expect(npcs.occupiedTileCount).toBe(0);
+    });
+
+    it("gets up from a knockdown ragdoll and returns to its animation", async () => {
+        const { npcs, npc } = await oneNpc();
+        npc.combatant.hurt(1, "knockdown");
+        npcs.update(0.02);
+        expect(npc.ragdoll).toBeDefined();
+        for (let t = 0; t < tuning.knockdownDuration + tuning.standUpBack + tuning.standUpFront; t += 0.02) {
+            npcs.update(0.02);
+        }
+        expect(npc.ragdoll).toBeUndefined();
+        expect(npc.combatant.reaction).toBe("none");
     });
 });
 

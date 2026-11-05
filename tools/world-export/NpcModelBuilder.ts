@@ -1,6 +1,7 @@
 import { NpcClip, NpcMeshData, NpcModelData } from "../../src/world/NpcFormat";
 import { RS_UNITS_PER_TILE } from "../../src/world/WorldFormat";
 import { FaceColors } from "./FaceColors";
+import { FrameBase, buildSkeleton } from "./NpcSkeleton";
 import { quantizeUv } from "./MeshBuilder";
 import { NpcAppearanceTask } from "./NpcSpawns";
 import { NpcType } from "./rs/config/npctype/NpcType";
@@ -15,6 +16,8 @@ const PRIORITY_NPC = 1;
 export type NpcModelSource = {
     /** A lit model of the NPC, animated to `frame` of `seqId` (-1 for the base pose). */
     getModel(type: NpcType, seqId: number, frame: number): Model | undefined;
+    /** The frame base (labelled transform groups) of an animation, for the ragdoll skeleton. */
+    getFrameBase?(seqId: number): FrameBase | undefined;
 };
 
 class NpcMeshBuilder {
@@ -106,6 +109,19 @@ export class NpcModelBuilder {
         const walk =
             task.walkSeqId !== -1 ? this.bakeClip(display, base, task.walkSeqId) : undefined;
 
+        // The walk usually moves more limbs than the idle, so its frame base splits more parts.
+        const frameBase =
+            (task.walkSeqId !== -1 ? this.models.getFrameBase?.(task.walkSeqId) : undefined) ??
+            this.models.getFrameBase?.(task.idleSeqId);
+        const skeleton = buildSkeleton(
+            base.vertexLabels,
+            base.verticesX,
+            base.verticesY,
+            base.verticesZ,
+            base.verticesCount,
+            frameBase,
+        );
+
         return {
             vertexCount: base.verticesCount,
             bounds: computeBounds(base, [idle, walk]),
@@ -113,6 +129,7 @@ export class NpcModelBuilder {
             transparent: transparent.build(),
             idle,
             walk,
+            skeleton,
         };
     }
 

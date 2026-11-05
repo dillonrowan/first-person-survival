@@ -64,6 +64,13 @@ back yet. The numbers and their sources are in
 [docs/combat-movement-spec.md](docs/combat-movement-spec.md). Weapon art goes in
 `public/models/weapons/`, see [docs/weapon-models.md](docs/weapon-models.md).
 
+Knocked-down and killed NPCs become ragdolls, as in Dark Messiah: their body parts (found from the
+OSRS model's vertex labels and animation data, see section 20 of the spec) fall, tumble and come to
+rest on the floor and against walls; knocked-down NPCs then get up where they lie. Joints bend only
+as far, and only the way, the NPC's own idle and walk animations bend them (a knee never folds
+backwards), body parts collide with each other, and a body is still within about a second and a
+half. Corpses stay for 30 s, at most 8 at a time.
+
 Crates, barrels, sacks, chairs, stools and pots are loose physics props, as in Dark Messiah: kick
 them, hit them, pick them up and throw them. Thrown props hurt and knock down NPCs, props break
 from hard impacts or weapon hits, and props falling on you hurt. Long falls hurt too (Source fall
@@ -153,9 +160,13 @@ longer match the cache are skipped and counted in the export log).
   vertex positions per frame; no RuneScape animation code runs in the browser.
 - In game, NPCs appear and disappear with their map square, loop their idle animation, and
   wander within 5 tiles of their spawn (walls and objects stop them), like rs-map-viewer.
+- Each NPC file also carries a ragdoll skeleton (`tools/world-export/NpcSkeleton.ts`): the model's
+  labelled vertex groups that animate together become rigid parts, joined where the animation's
+  frame base rotates them.
 - NPCs are solid: the player is pushed out of their collision cylinder and slides around them,
   and NPCs wait instead of walking into the player. NPCs with skeletal animations (a
-  handful) are shown in their base pose. Combat and death animations are not supported.
+  handful) are shown in their base pose. Combat animations are not baked; deaths and knockdowns
+  are ragdolls.
   Dev builds can draw the collision circles with `?debug=collision`.
 - `npm run export-world -- --no-npcs` skips them.
 

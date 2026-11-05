@@ -66,8 +66,12 @@ export const tuning = {
     npcMinHealth: 20,
     /** Seconds an NPC stays in combat mode (not wandering) after being hit. [design] */
     npcCombatMemory: 10,
-    /** Seconds a dead NPC takes to sink away. [design] */
-    deathSinkTime: 2,
+    /** Seconds a corpse (ragdoll) stays before it is removed. [design] */
+    corpseTime: 30,
+    /** Most corpses at once; the oldest goes first. [cvar g_ragdoll_maxcount 8] */
+    ragdollMax: 8,
+    /** Impulse along the killing blow on the body, kg·tiles/s. [data ai.force_damage_death 300; gh 0x222cb600] */
+    deathForce: units(300),
 
     // --- Player ---
     /** [source: CBasePlayer default] */

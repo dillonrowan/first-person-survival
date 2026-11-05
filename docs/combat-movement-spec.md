@@ -496,8 +496,10 @@ The orc moves further: about 50 u for a medium hit and 90 u for a long one.
   that level.
 
 **Death** `[gh: 0x222cb600]`:
-- The body becomes a ragdoll thrown along the hit by `force_damage_death` (6000).
-- An impaled NPC uses 150 instead; a beheading uses `force_damage_cut` (250).
+- The body becomes a ragdoll thrown along the hit by `force_damage_death`: 300 in the shipped
+  `mm_game_settings.txt` (6000 is only the parser's fallback). See section 20.
+- An impaled NPC uses `force_damage_impale` (150) instead; a beheading uses `force_damage_cut`
+  (250).
 
 **Stun** `[gh: 0x222aabb0]`:
 - Stun needs `round(nbhittostun × weapon factor)` hits within `delaytostun` seconds, plus a roll
@@ -518,10 +520,10 @@ The orc moves further: about 50 u for a medium hit and 90 u for a long one.
   of the Source friction in 2.1.
 - **Pose.**
   - The NPC leans away from the hit.
-  - When knocked down it lies on its back if hit from the front, or on its front if hit from behind.
-  - It then stands up over the stand-up animation's length.
-- **What is not copied.** OSRS NPCs have no hit animations, and their animations are baked with no
-  bones. The poses are therefore procedural whole-body motion, not ragdolls or clips.
+  - Knocked down or killed, it becomes a ragdoll (section 20) and, after a knockdown, gets up over
+    the stand-up animation's length (51 f from the front, 46 f from the back).
+- **What is not copied.** OSRS NPCs have no hit animations, so small and medium hits are a
+  procedural lean, not clips.
 
 ### 15.2 The kick
 
@@ -1057,3 +1059,163 @@ model) that keeps a full 3D orientation for drawing:
 As with weapon damage (5.2, `strengthScale` 10), prop damage to NPCs is the data value × 10, so a
 thrown 40 kg crate does 50 to an NPC. Impact damage to props and to the player uses the data values
 unchanged (prop health and the player's 100 health are in the game's own units).
+
+## 20. Ragdolls
+
+Sources: the guard's collision model `npc_guard.phy` (`[data: phy]`), `mm_game_settings.txt`,
+cvars, and Ghidra decompiles of `server.dll` (`[gh: address]`).
+
+### 20.1 What Dark Messiah does
+
+| Item | Value | Tag |
+| --- | --- | --- |
+| When | killed; knocked down (big hit, kick into a wall, fall, prop hit); then `StandUp_front` / `StandUp_back` | `[gh: 0x222aabb0, 0x222c2410]` |
+| Death push | normalized hit direction × `force_damage_death` 300 (impaled 150, beheaded 250), an impulse on the body | `[gh: 0x222cb600; data ai]` |
+| Starting motion | the animation's current velocity × `mm_ragdollanimation_coeffvelocity` 1 | `[cvar; meaning inferred]` |
+| Body | 15 rigid bodies: pelvis, spine, head, upper/lower arms, hands, thighs, shins, ankles; 90 kg in total, mass ∝ volume (pelvis 19 kg, spine 26, head 5, thigh 7.3, shin 5.5) | `[data: phy]` |
+| Damping | linear 0, angular 1.5; every solid's inertia ×10 (`inertia 10`), so limbs turn sluggishly and a body stops rolling soon after it lands | `[data: phy]` |
+| Joint limits (degrees, x / y / z) | hip ±40 / −20…35 / −50…30; knee 0 / −10…100 / 0 (a hinge); ankle −20…35 / ±20 / ±20; spine −35…40 / ±25 / ±25; shoulder ±40 / −85…60 / −40…90; elbow 0 / −100…20 / 0 (a hinge); wrist ±40 / 0 / −30…50; neck ±60 / −25…35 / ±30 | `[data: phy]` |
+| Parts colliding with each other | the guard's .phy names no `collisionrules`, so every pair of solids collides except each solid with the one it is jointed to (`RagdollSetupCollisions`) | `[gh: 0x223715a0, 0x22371ab0]` |
+| Limit | at most `g_ragdoll_maxcount` 8 ragdolls; client-side ragdolls do not collide with each other (`cl_ragdoll_collide` 0) | `[cvar]` |
+| Blending | an NPC getting up blends out of the ragdoll pose over `mm_ai_ragdoll_blending_time` 0.4 s | `[cvar]` |
+| Ragdoll hitting an NPC | above `mm_ragdoll_vel_to_damage` × 0.25 (75 u/s): 10 damage to the NPC it hits | `[gh: 0x22341360]` (not built here) |
+
+As in the other sections, a 300 kg·u/s impulse moves a 90 kg body only 3 u/s: a killed NPC mostly
+collapses and keeps the motion it already had, as when a kick or a power attack slides it.
+
+### 20.2 OSRS bodies as ragdolls `[design on OSRS data]`
+
+OSRS models have no bones, but every vertex has a label, and each animation's frame base lists
+transform groups: an ORIGIN sets a pivot (the centroid of its labels' vertices) and the ROTATE
+after it turns its labels around that pivot. The exporter (`tools/world-export/NpcSkeleton.ts`)
+turns that into a skeleton per NPC:
+
+- Labels turned by exactly the same set of ROTATE groups move together: one rigid part.
+- A part whose set contains another part's set hangs from it (the largest such subset is the
+  parent); the ROTATE group by which they differ is their joint, at its ORIGIN's centroid.
+- Parts under 4 vertices fold into their parent; a tiny root hands over to its largest child; at
+  most 32 parts.
+- The walk animation's frame base is used (it moves more limbs than the idle).
+
+Lumbridge's NPCs get 15–32 parts each (a man 15: pelvis, torso, head, upper arms, forearms, hands,
+thighs, shins, feet; a goblin 23; a cow 29; a giant spider 32). NPCs without labels or animations
+fall as one rigid body.
+
+### 20.3 Simulation `[design]`
+
+- **Parts at run time.** Parts whose joint sits within 0.06 tiles of their own centroid, and parts
+  under 8 vertices, ride rigidly on their parent (their children keep their own joints). They only
+  spin in place on their joint, which shows little and never settles. A man ends up with 10 parts,
+  a guard 11, a goblin 15, a cow 15.
+- **Particles.** Verlet particles, per part: its centroid, its farthest vertex and one off that line
+  (at least 0.08 tiles off, so thin parts keep a stable frame), plus a collision hull of its
+  extreme vertices along each of its frame's axes; and one per joint, shared by the two parts it
+  joins (a ball joint). All particles of a part are held at their distances, so the part stays
+  rigid. 2 substeps, 8 iterations a frame. Positions are kept relative to a whole-tile origin near
+  the body: at map coordinates (around 3200) single floats only resolve 1/4000 tile, noise that
+  kept small bodies such as a goblin's twitching.
+- **Mass.** The NPC's mass (80 × size² kg; the guard's ragdoll is 90) shared out by the volume of
+  each part's box, like the .phy masses.
+- **Damping.** Each part's spin (its particles' motion relative to their mean) decays at 1.5 per
+  second, the .phy's `rotdamping`; linear motion is barely damped (0.995 a substep).
+- **Joints.** Bend and twist limits learned from the NPC's own animations, held at all times
+  (20.4).
+- **Body parts.** Collide with each other as in Dark Messiah (20.5).
+- **Collision.** Particles stay above the floor of their plane (radius 0.04 tiles). Touching it
+  stops their fall (Verlet would otherwise turn the push out of the floor into a bounce); sliding
+  loses 35% a substep, and a contact sliding slower than 0.6 tiles/s stays where it was at the
+  start of the substep (static friction, by position, so small pushes cannot make a body creep).
+  Tile walls and blocked tiles stop particles. Before the first step the whole body is lifted,
+  without motion, until no particle is in the floor. Drawn vertices still below the floor between
+  hull particles (a few hundredths of a tile) are lifted in the drawing only. A body off the edge
+  of an upper floor drops to the plane below.
+- **Motion.** The ragdoll starts from the pose being drawn, moving at the NPC's velocity (its
+  knockback slide or its walk), and on death gets `force_damage_death` along the last hit. Kicks
+  and hits on a body already on the ground shove the whole body.
+- **Sleep.** See 20.6.
+- **Getting up.** When the knockdown ends, the NPC stands where its root part lies (facing where
+  that part faces, if it is not lying flat) and blends from the ragdoll pose into its idle animation
+  over the stand-up time.
+- **Corpses.** A dead body stays for 30 s, and at most 8 lie around at once (oldest first).
+
+### 20.4 Joint limits learned from the animations `[design on OSRS data]`
+
+Dark Messiah's .phy gives every joint its own per-axis limits (20.1): knees and elbows are hinges
+that fold one way only. OSRS models carry no such data, but their idle and walk frames show how
+each joint really moves, so each joint's limits are learned from them (`RagdollLimits.ts`):
+
+- **Samples.** In every idle and walk frame, each part's rotation from the base pose is the best
+  fit over all its vertices (Müller et al. 2016, which also copes with flat and thin parts). A part
+  that does not move rigidly in a frame (best-fit misfit over 2% of its size², a merged label
+  moving on its own) gives no sample there. A sample is the child's direction from the joint, in
+  its parent's frame, and its twist about its own axis (swing-twist decomposition).
+- **Bend box.** The directions' mean and main spread axis give two bend angles. A joint the
+  animations do not move (less than 6°) gets Dark Messiah's stiff joints: ±30° and ±20°, twist ±25°.
+  A joint whose rest pose sits at one end of its range is a hinge: 10° the wrong way, and on to 100°
+  (or 25° past the animations) the right way, like the knee's −10…100°. Other joints get 25° past
+  what the animations reach each way. Sideways bends get 15° past the animations, at least ±30°
+  around rest. The box is centred on its range (at most ±85°), then widened to hold every sample,
+  the rest pose (with 5° to spare) and the pose the body starts in.
+- **Twist.** The shortest arc of the circle holding every sample's twist (twists near ±180° are
+  neighbours), 20° wider each way; limited only for parts with a frame of their own.
+- **Holding them.** A joint past its box or twist is turned back by half the excess per pass (at most
+  0.08 rad, every other iteration), about the joint: the limb and everything hanging from it one
+  way, the rest of the body the other, shared by their inertia about the joint. A side lying on the
+  floor stays put and the other side turns alone. Turning whole sides keeps every part rigid, so a
+  limit never fights the distance constraints. Positions and previous positions turn together (a
+  turn adds no speed, so a body lying on the floor is not flicked into the air); then the two
+  sides' spin carrying the joint further out is removed, keeping their angular momentum. A limit
+  can only take energy out of the body.
+- **Learned once per model.** Every NPC of a model gets a copy of the same limits, widened for its
+  own starting pose.
+
+Measured on real exports (rat, goblin, guard, man; 12 shoves each, 3–7 tiles/s in six directions):
+in the poses the bodies come to rest in, 0 to 6 of the roughly 120–170 joints per NPC are more than
+15° past their limits, all of them limbs forced there by the floor on landing.
+
+### 20.5 Body parts colliding `[gh: 0x223715a0; design]`
+
+As in Dark Messiah when a model names no collision rules, every part collides with every other part
+except its parent and its children.
+
+- **Shapes.** Each part is a chain of up to 5 spheres along its longest axis, one per slice about
+  1.6 thicknesses long, each reaching 75% of its slice's vertices.
+- **Pairs.** Two spheres collide at the sum of their radii, or as close as the model itself brings
+  them in its base pose or animations (an arm hanging against the body, legs passing in the walk),
+  whichever is less. Spheres the model puts deeper than 30% of that inside each other (armour
+  over a body) never collide.
+- **Response.** Overlapping spheres push their parts apart (half the overlap per iteration, at most
+  0.01 tiles), the lighter part further, moving previous positions too, so the push adds no speed.
+  The parts' approach along the contact is then removed by mass (an inelastic stop). At rest, two
+  parts both lying on the floor are left as they lie: they cannot sink into each other, and pushing
+  them apart would only fight the floor's grip.
+
+Measured in Blender (each fallen pose's part meshes checked triangle by triangle against each
+other; jointed pairs and pairs touching at rest are not counted), per fallen pose:
+
+| NPC | Before: part pairs / triangle pairs | Now (mean of 12) | Poses with none |
+| --- | --- | --- | --- |
+| Giant rat | 13 / 207 | 0.8 / 4 | 7 of 12 |
+| Goblin | 20 / 540 | 2.7 / 40 | 3 of 12 |
+| Guard | 11 / 315 | 2.8 / 42 | 3 of 12 |
+| Man | 6 / 182 | 2.2 / 26 | 0 of 12 |
+
+What is left is mostly legs crossing and forearms against the torso, which the walk brings that
+close.
+
+### 20.6 Settling `[data: phy; design]`
+
+Dark Messiah's bodies (inertia ×10, angular damping 1.5) stop rolling soon after they land, and
+Havok deactivates bodies at rest. Here:
+
+- A body moving slower than 0.36 tiles/s (mean particle speed) keeps 80% of its velocity per
+  substep, so its last wobble dies fast.
+- From 0.3 s after its root part first lies on the floor, its damping ramps over 0.5 s from 0.995
+  to 0.8 per substep, and 1.5 s after landing it is put to sleep.
+- A body slower than 0.12 tiles/s for 0.3 s sleeps sooner; any body sleeps 5 s after it was last
+  disturbed.
+
+Measured on the same shoves: asleep and still 0.5–2.0 s after the shove, fall included (medians:
+rat 1.2 s, man 1.3 s, guard 1.5 s, goblin 1.8 s; the earlier version needed up to 5 s). A body
+being simulated costs 1.2–2.7 ms a frame while awake; learning the limits takes 10–30 ms per model,
+once.
