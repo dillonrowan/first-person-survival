@@ -222,6 +222,43 @@ describe("damage", () => {
 });
 
 describe("Combatant", () => {
+    it("with unlimited health still reacts to hits but never loses health", () => {
+        const c = new Combatant(100);
+        c.unlimitedHealth = true;
+        c.hurt(1e6, "stagger");
+        expect(c.health).toBe(100);
+        expect(c.dead).toBe(false);
+        expect(c.reaction).toBe("stagger");
+    });
+
+    it("gives the player unlimited health while tuning.playerUnlimitedHealth is on", () => {
+        const combat = new PlayerCombat(source([]) as never, noWalls);
+        const player = {
+            ...attacker,
+            z: 0,
+            eyeHeight: 1.25,
+            sprinting: false,
+            grounded: true,
+            verticalSpeed: 0,
+            stamina: { value: 10, spend: () => true },
+            applyImpulse: () => {},
+        };
+        const strike = { fromX: 100.5, fromY: 101.5, gap: 0, range: 1, hitPow: 100, breaksParry: false, push: false };
+        const before = tuning.playerUnlimitedHealth;
+        try {
+            tuning.playerUnlimitedHealth = true;
+            combat.update(0.01, player, { attackDown: false, forward: 0, strafe: 0 });
+            expect(combat.receiveStrike(player, strike, true).outcome).toBe("hit");
+            expect(combat.combatant.healthFraction).toBe(1);
+            tuning.playerUnlimitedHealth = false;
+            combat.update(0.01, player, { attackDown: false, forward: 0, strafe: 0 });
+            combat.receiveStrike(player, strike, true);
+            expect(combat.combatant.dead).toBe(true);
+        } finally {
+            tuning.playerUnlimitedHealth = before;
+        }
+    });
+
     it("counts reactions down, keeps the stronger one, and stands up after a knockdown", () => {
         const c = new Combatant(100);
         c.hurt(1, "knockdown");

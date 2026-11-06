@@ -107,6 +107,8 @@ export const tuning = {
     // --- Player ---
     /** [source: CBasePlayer default] */
     playerMaxHealth: 100,
+    /** The player takes hits (reactions, feedback) but never loses health. [design: testing] */
+    playerUnlimitedHealth: true,
 
     // --- 7 Kick (player_animations.mdl attack_kick_*, 24 fps, 21 frames) ---
     /** Whole kick animation. [data: 21 frames at 24 fps] */

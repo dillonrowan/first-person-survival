@@ -180,6 +180,8 @@ export class PlayerCombat {
     }
 
     update(dt: number, player: CombatPlayer, input: CombatInput): HitReport[] {
+        // Read every update so it can be switched live (window.game.tuning).
+        this.combatant.unlimitedHealth = tuning.playerUnlimitedHealth;
         this.combatant.update(dt);
         this.sinceAttack += dt;
         const reports: HitReport[] = [];
