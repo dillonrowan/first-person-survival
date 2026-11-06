@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-import { DM_CLIPS, DmClip, DmClipSet } from "./DmKeyframes";
+import { DM_CLIPS, DmClip } from "./DmKeyframes";
 import type { KickController } from "./Kick";
 import type { MeleeController } from "./MeleeController";
 import type { MoveDef, PowerDirection } from "./moves";
@@ -27,6 +27,48 @@ const BOW_DRAWN = euler(0.02, -0.08, -0.55, 0, 0, 0.15);
 /** Crossfade between animation layers, and the slower settle back to the idle pose. */
 const BLEND = 0.1;
 const BLEND_TO_IDLE = 0.25;
+/** Visual freeze of the blade when a strike lands, seconds at full strength. [design] */
+const HITSTOP = 0.07;
+/** Camera shake on impact, radians at full strength, and how fast it dies out (1/s). [design] */
+const IMPACT_SHAKE = 0.012;
+const SHAKE_DECAY = 14;
+/** Tremble of the blade while a charged power attack is held, tiles. [design] */
+const CHARGE_TREMBLE = 0.004;
+
+/** Camera rotation offsets (radians) the swing adds on top of the player's view. */
+export type ViewOffset = { pitch: number; yaw: number; roll: number };
+
+/**
+ * The Dark Messiah quick strike each game quick strike plays (A cuts left to right, B right to
+ * left, moves.ts), and that clip's own contact window as fractions of it (the first-person
+ * animations' ray events). The pairs chain: each ends where the other starts.
+ */
+const QUICK_CLIPS: Record<keyof typeof DM_CLIPS, Record<"A" | "B", { clip: number; on: number; off: number }>> = {
+    sword: { A: { clip: 1, on: 0.2 / 0.4, off: 0.333 / 0.4 }, B: { clip: 4, on: 0.2 / 0.367, off: 0.333 / 0.367 } },
+    daggers: { A: { clip: 1, on: 0.1 / 0.267, off: 0.233 / 0.267 }, B: { clip: 0, on: 0.067 / 0.233, off: 0.2 / 0.233 } },
+    staff: { A: { clip: 2, on: 0.733, off: 0.867 }, B: { clip: 1, on: 0.8, off: 0.967 } },
+};
+
+/** Fastest a quick strike's run-up and recovery play (×), so they keep their natural speed. [design] */
+const QUICK_PLAY_RATE = 1.3;
+
+/**
+ * Time in the clip (seconds, of `length`) at `t` seconds into the game's swing: the clip's contact
+ * window [on, off] (fractions of it) plays exactly during the swing's hit window, and the run-up
+ * and recovery around it play at about their natural speed, starting partway into the clip's
+ * wind-up when the game's is shorter (a long staff wind-up would otherwise race).
+ */
+function warp(t: number, swing: { on: number; off: number }, clip: { on: number; off: number }, length: number): number {
+    const contactOn = clip.on * length;
+    const contactOff = clip.off * length;
+    if (t <= swing.on) {
+        return Math.max(contactOn * (1 - t / Math.max(1e-6, swing.on)), contactOn - (swing.on - t) * QUICK_PLAY_RATE);
+    }
+    if (t <= swing.off) {
+        return contactOn + ((t - swing.on) / Math.max(1e-6, swing.off - swing.on)) * (contactOff - contactOn);
+    }
+    return Math.min(length, contactOff + (t - swing.off) * QUICK_PLAY_RATE);
+}
 
 /** Placeholder boot for the first-person kick. */
 function createBoot(): THREE.Group {
@@ -46,13 +88,8 @@ function createBoot(): THREE.Group {
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const smooth = (t: number) => t * t * (3 - 2 * t);
-/** Accelerating from rest: the last stretch of a wind-up, speeding into the strike. */
-const easeIn = (t: number) => t * t;
-/** Decelerating to rest: a follow-through bleeding off the strike's speed. */
-const easeOut = (t: number) => 1 - (1 - t) * (1 - t);
-const clamp01 = (t: number) => Math.min(1, Math.max(0, t));
-function lerpPose(a: Pose, b: Pose, t: number, ease: (t: number) => number = smooth): Pose {
-    const s = ease(clamp01(t));
+function lerpPose(a: Pose, b: Pose, t: number): Pose {
+    const s = smooth(Math.min(1, Math.max(0, t)));
     return { pos: a.pos.clone().lerp(b.pos, s), quat: a.quat.clone().slerp(b.quat, s) };
 }
 
@@ -79,18 +116,27 @@ function sample(clip: DmClip, time: number, loop = false): Pose {
 
 const powerDir = (move: MoveDef): PowerDirection => (move.id.split("_")[1] as PowerDirection | undefined) ?? "default";
 
-/** The clip one swing plays, and the quick-strike index it belongs to (-1 otherwise). */
-function swingClip(clips: DmClipSet, move: MoveDef): [DmClip, number] {
-    switch (move.kind) {
-        case "quick": {
-            const index = "ABCDE".indexOf(move.id.slice(-1));
-            return [clips.quick[index], index];
-        }
-        case "power":
-            return [clips.power[powerDir(move)], -1];
-        default:
-            return [clips[move.kind], -1];
+/**
+ * The clip one swing plays at `elapsed` seconds into its timeline: quick strikes play their
+ * paired Dark Messiah strike warped onto the hit window, the rest their own layer end to end.
+ * Also the Dark Messiah quick strike index (-1 otherwise), for its end layer.
+ */
+function swingClip(
+    family: keyof typeof DM_CLIPS,
+    swing: NonNullable<MeleeController["swing"]>,
+    elapsed: number,
+): { clip: DmClip; time: number; quick: number } {
+    const clips = DM_CLIPS[family];
+    const { move, timeline } = swing;
+    const total = Math.max(1e-6, timeline.windup + timeline.active + timeline.recovery);
+    if (move.kind === "quick") {
+        const pair = QUICK_CLIPS[family][move.id.endsWith("B") ? "B" : "A"];
+        const clip = clips.quick[pair.clip];
+        const window = { on: timeline.windup, off: timeline.windup + timeline.active };
+        return { clip, time: warp(Math.min(elapsed, total), window, pair, clipLength(clip)), quick: pair.clip };
     }
+    const clip = move.kind === "power" ? clips.power[powerDir(move)] : clips[move.kind];
+    return { clip, time: (Math.min(elapsed, total) / total) * clipLength(clip), quick: -1 };
 }
 
 /** What the weapon is playing this frame: a clip at a time, under a key that changes with the layer. */
@@ -178,7 +224,6 @@ export class WeaponView {
     }
 
     update(
-        dt: number,
         melee: MeleeController,
         mode: "first" | "third",
         visible: boolean,
@@ -218,7 +263,7 @@ export class WeaponView {
         let pose =
             weapon.family === "bow"
                 ? lerpPose(BOW_REST, BOW_DRAWN, extra.bowDraw ?? 0)
-                : this.animate(dt, DM_CLIPS[weapon.family], melee, extra.blocking ?? false);
+                : this.animate(dt, weapon.family, melee, extra.blocking ?? false);
         if (kick?.active) {
             pose = lerpPose(pose, KICK_ASIDE, Math.min(1, (kick.elapsed ?? 0) / 0.1));
         }
@@ -246,9 +291,9 @@ export class WeaponView {
     }
 
     /** Plays Dark Messiah's first-person layer for the melee state, crossfading when the layer changes. */
-    private animate(dt: number, clips: DmClipSet, melee: MeleeController, blocking: boolean): Pose {
+    private animate(dt: number, family: keyof typeof DM_CLIPS, melee: MeleeController, blocking: boolean): Pose {
         this.layerTime += dt;
-        const layer = this.layer(clips, melee, blocking);
+        const layer = this.layer(family, melee, blocking);
         if (layer.key !== this.layerKey) {
             this.layerKey = layer.key;
             this.layerTime = 0;
@@ -274,7 +319,8 @@ export class WeaponView {
         return pose;
     }
 
-    private layer(clips: DmClipSet, melee: MeleeController, blocking: boolean): Layer {
+    private layer(family: keyof typeof DM_CLIPS, melee: MeleeController, blocking: boolean): Layer {
+        const clips = DM_CLIPS[family];
         if (blocking) {
             const enter = clipLength(clips.parryIn);
             return this.layerKey === "parry" && this.layerTime >= enter
@@ -284,14 +330,16 @@ export class WeaponView {
         const swing = melee.swing;
         if (swing) {
             if (swing !== this.swingRef) {
+                // A new swing: any stall from the last one is dropped.
                 this.swingRef = swing;
                 this.swingCount++;
+                this.lag = this.freeze = 0;
             }
-            const [clip, quick] = swingClip(clips, swing.move);
+            // The drawn swing runs `lag` behind the real one, so a landed blow stalls the blade
+            // (hit tracing is unaffected).
+            const { clip, time, quick } = swingClip(family, swing, Math.max(0, swing.elapsed - this.lag));
             this.lastQuick = quick;
-            const { windup, active, recovery } = swing.timeline;
-            const progress = swing.elapsed / Math.max(1e-6, windup + active + recovery);
-            return { key: `swing${this.swingCount}`, clip, time: progress * clipLength(clip) };
+            return { key: `swing${this.swingCount}`, clip, time };
         }
         const charging = melee.chargedMove;
         if (charging) {

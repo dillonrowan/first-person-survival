@@ -35,8 +35,9 @@ export interface CombatTarget {
     /** Stamina a kick on this target costs; NPCs cost stamina_kick_npc (spec 7). */
     readonly kickCost?: number;
     /**
-     * `hitPow` is the move's HitPow; physics props scale their push by it (spec 19). `height` is
-     * where the hit struck the body, 0 (feet) to 1 (top).
+     * A hit driving the target along (dirX, dirY). `hitPow` is the move's HitPow: physics props
+     * scale their push by it (spec 19), NPCs their shove and how far a killing blow throws them.
+     * `height` is where the hit struck the body, 0 (feet) to 1 (top).
      */
     takeHit(dirX: number, dirY: number, push: number, fromX: number, fromY: number, hitPow?: number, height?: number): void;
     /** A kick: the target may dodge it. */
@@ -307,7 +308,9 @@ export class PlayerCombat {
                     { unaware: !target.inCombat, hitbox: hitboxMultiplier(arcHit.height) },
                     this.random,
                 );
-                target.takeHit(arcHit.dirX, arcHit.dirY, result.push, player.x, player.y, hit.hitPow, arcHit.height);
+                // Driven the way the blade was moving, not only away from the player.
+                const push = pushDirection(arcHit);
+                target.takeHit(push.x, push.y, result.push, player.x, player.y, hit.hitPow, arcHit.height);
                 this.melee.addAdrenaline(hit.adrenaline);
                 const report = { target, result, move };
                 reports.push(report);

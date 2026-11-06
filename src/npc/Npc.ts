@@ -394,11 +394,12 @@ export class Npc {
 
     /**
      * Reacts to a hit travelling along (dirX, dirY) from an attacker at (fromX, fromY). `push` is the
-     * damage result's push level (0 none, 1 medium, 2 long, 3 huge): the NPC slides back as far as
-     * its medium or long hit animation moves it (spec 5.3). `height` is where the hit struck, 0
-     * (feet) to 1 (top of the head).
+     * damage result's push level (0 none, 1 medium, 2 long, 3 huge): the NPC slides as far as its
+     * medium or long hit animation moves it (spec 5.3); a hit too light to push still shoves it a
+     * little along (dirX, dirY), by `hitPow`. `height` is where the hit struck, 0 (feet) to 1 (top
+     * of the head).
      */
-    takeHit(dirX: number, dirY: number, push: number, fromX: number, fromY: number, _hitPow?: number, height = 0.5): void {
+    takeHit(dirX: number, dirY: number, push: number, fromX: number, fromY: number, hitPow = 1, height = 0.5): void {
         this.hitHeight = height;
         this.becomeAlerted(fromX, fromY);
         this.sinceHit = 0;
