@@ -114,6 +114,86 @@ describe("MeleeController", () => {
         expect(started).toEqual(["quick_A", "quick_B", "quick_A"]);
     });
 
+    describe("never loses a click", () => {
+        /** One update in which the button went down and came up again (a tap between frames). */
+        const tap = (melee: MeleeController) => melee.update(DT, input({ attackPressed: true })).started?.id;
+
+        it("strikes on a tap shorter than one update", () => {
+            const melee = new MeleeController(weaponById("sword"));
+            expect(tap(melee)).toBe("quick_A");
+        });
+
+        it("queues taps shorter than one update during a strike", () => {
+            const melee = new MeleeController(weaponById("sword"));
+            tap(melee);
+            tap(melee);
+            tap(melee);
+            expect(runOut(melee)).toEqual(["quick_B", "quick_A"]);
+        });
+
+        it("queues up to three clicks during one strike, each one more strike", () => {
+            const melee = new MeleeController(weaponById("staff"));
+            const started = [...pressFor(melee, 0.03)];
+            for (let i = 0; i < 3; i++) {
+                melee.update(DT, input({ attackDown: true }));
+                melee.update(DT, input());
+            }
+            started.push(...runOut(melee));
+            expect(started).toEqual(["quick_A", "quick_B", "quick_A", "quick_B"]);
+        });
+
+        it("follows a power attack with the strikes clicked during it, before its recovery ends", () => {
+            const melee = new MeleeController(weaponById("sword"));
+            const started = pressFor(melee, 0.6);
+            expect(started).toEqual(["power"]);
+            const length = melee.swing!.timeline;
+            melee.update(DT, input({ attackDown: true }));
+            melee.update(DT, input());
+            let at = 2 * DT;
+            let next: string | undefined;
+            while (!next && at < 3) {
+                next = melee.update(DT, input()).started?.id;
+                at += DT;
+            }
+            expect(next).toBe("quick_A");
+            expect(at).toBeLessThan(length.windup + length.active + length.recovery);
+        });
+
+        it("counts a release and press in the same update during the wind-up as two clicks", () => {
+            const melee = new MeleeController(weaponById("sword"));
+            melee.update(DT, input({ attackDown: true }));
+            expect(melee.phase).toBe("windup");
+            // Up and down again between updates: the button reads down, but it was pressed anew.
+            expect(melee.update(DT, input({ attackDown: true, attackPressed: true })).started?.id).toBe("quick_A");
+            melee.update(DT, input());
+            expect(runOut(melee)).toEqual(["quick_B"]);
+        });
+
+        it("keeps clicks queued before a press that is held into a wind-up and released as a strike", () => {
+            const melee = new MeleeController(weaponById("sword"));
+            const started = [...pressFor(melee, 0.03)];
+            // A click, then a press held past the charge threshold, released before it charges.
+            melee.update(DT, input({ attackDown: true }));
+            melee.update(DT, input());
+            started.push(...pressFor(melee, tuning.chargeThreshold + 0.05));
+            started.push(...runOut(melee));
+            // Three presses, three strikes.
+            expect(started).toHaveLength(3);
+            expect(started.every((id) => id.startsWith("quick"))).toBe(true);
+        });
+
+        it("spends earlier clicks on a charge that completes, adding no strike after the power attack", () => {
+            const melee = new MeleeController(weaponById("sword"));
+            pressFor(melee, 0.03);
+            melee.update(DT, input({ attackDown: true }));
+            melee.update(DT, input());
+            const started = [...pressFor(melee, 1.2)];
+            started.push(...runOut(melee));
+            expect(started.filter((id) => id.startsWith("power"))).toHaveLength(1);
+            expect(started.at(-1)).toMatch(/^power/);
+        });
+    });
+
     it("swings lighter weapons faster: daggers, shortsword, longsword, club, staff", () => {
         const times = ["daggers", "shortsword", "sword", "club", "staff"].map((id) => {
             const w = weaponById(id);

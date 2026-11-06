@@ -17,8 +17,8 @@ export const tuning = {
     quickChainReset: 1,
     /** A queued strike cuts into the current one once this fraction of its recovery has played. [design] */
     quickRecoveryCut: 0.4,
-    /** Clicks a quick strike can queue ahead; each becomes one more strike. [design] */
-    quickQueue: 2,
+    /** Clicks an attack can queue ahead; each becomes one more quick strike. [design] */
+    quickQueue: 3,
 
     // --- Move timelines (no animation data shipped with the spec) [design] ---
     quickWindup: 0.12,

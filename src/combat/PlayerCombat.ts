@@ -61,6 +61,8 @@ export type CombatPlayer = {
 
 export type CombatInput = {
     attackDown: boolean;
+    /** True in the update the attack button went down, even if it already came up again. */
+    attackPressed?: boolean;
     /** Right mouse: parry stance (spec 6, 16.8). */
     blockDown?: boolean;
     /** True in the update the kick key went down. */
@@ -240,6 +242,7 @@ export class PlayerCombat {
         }
         const meleeInput: MeleeInput = {
             attackDown: input.attackDown && !this.combatant.incapacitated,
+            attackPressed: !!input.attackPressed && !this.combatant.incapacitated,
             forward: input.forward,
             strafe: input.strafe,
             pitch: player.pitch,

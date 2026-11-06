@@ -317,7 +317,9 @@ async function main(): Promise<void> {
         const wheel = input.consumeWheel();
         combat.switchWeapon(carrying ? 0 : wheel);
         combat.update(dt, player, {
-            attackDown: fighting && !carrying && input.isDown("Mouse0"),
+            // A tap that went down and up between frames still counts as down for this one.
+            attackDown: fighting && !carrying && (input.isDown("Mouse0") || input.wasPressed("Mouse0")),
+            attackPressed: fighting && !carrying && input.wasPressed("Mouse0"),
             blockDown: fighting && !carrying && input.isDown("Mouse2"),
             kickPressed: fighting && !carrying && input.wasPressed("KeyF"),
             forward: input.axis("KeyW", "KeyS"),
