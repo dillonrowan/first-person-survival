@@ -90,8 +90,8 @@ describe("attack ray (spec 17.2)", () => {
         expect(traceRay(attacker, sword.reach, thrust, 1, 0, 1, source([target(100.5, 102)]), noWalls, new Set())).toHaveLength(1);
     });
 
-    it("gives each sword move the game's ray: quick A rolls −10°, power R +45°, power T is a thrust", () => {
-        expect(MOVE_SETS.sword.quick[0].time?.rays[0].roll).toBe(-10);
+    it("gives each sword move its ray: quick A rolls +10°, power R +45°, power T is a thrust", () => {
+        expect(MOVE_SETS.sword.quick[0].time?.rays[0].roll).toBe(10);
         expect(MOVE_SETS.sword.power.R.time?.rays[0].roll).toBe(45);
         expect(MOVE_SETS.sword.power.T.time?.rays[0].sweep).toBe(0);
         expect(MOVE_SETS.sword.fall.time?.rays[0].vertical).toBe(true);
@@ -185,7 +185,7 @@ describe("Combatant", () => {
 describe("move and weapon tables", () => {
     it("give every family a full move set", () => {
         for (const set of Object.values(MOVE_SETS)) {
-            expect(set.quick.length).toBeGreaterThanOrEqual(4);
+            expect(set.quick.length).toBe(2);
             for (const dir of ["default", "L", "R", "B", "T"] as const) {
                 expect(set.power[dir].hits.length).toBeGreaterThan(0);
             }
@@ -196,6 +196,7 @@ describe("move and weapon tables", () => {
         for (const w of WEAPONS) {
             expect(w.reach).toBeGreaterThan(1);
             expect(w.parryCos).toBeGreaterThan(0);
+            expect(w.weight).toBeGreaterThan(0);
         }
     });
 });

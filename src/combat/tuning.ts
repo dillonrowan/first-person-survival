@@ -13,6 +13,12 @@ export const tuning = {
     chargeThresholdDaggers: 0.18,
     /** A press buffers the next quick strike once the current one passes this fraction. [cvar 0.6] */
     chainWindowStart: 0.6,
+    /** Quick strikes keep alternating sides until the weapon has rested this long; then A again. [design] */
+    quickChainReset: 1,
+    /** A queued strike cuts into the current one once this fraction of its recovery has played. [design] */
+    quickRecoveryCut: 0.4,
+    /** Clicks a quick strike can queue ahead; each becomes one more strike. [design] */
+    quickQueue: 2,
 
     // --- Move timelines (no animation data shipped with the spec) [design] ---
     quickWindup: 0.12,

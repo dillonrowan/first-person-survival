@@ -171,7 +171,13 @@ async function main(): Promise<void> {
     );
     const combatHud = new CombatHud(document.body);
     combat.groundHeight = (plane, x, y) => world.groundHeight(plane, x, y);
-    combat.onHit = ({ result }) => combatHud.showHit(result.reaction !== "none" && result.reaction !== "flinch");
+    combat.onHit = ({ result, move }) => {
+        combatHud.showHit(result.reaction !== "none" && result.reaction !== "flinch");
+        if (combat.melee.swing?.move === move) {
+            // A melee blow (not an arrow): power and finishing strikes land heavier.
+            weaponView.impact(move.kind === "quick" ? 0.6 : 1);
+        }
+    };
     combat.onStruck = ({ outcome }) => {
         if (outcome === "hit") {
             combatHud.showDamage();
@@ -372,6 +378,7 @@ async function main(): Promise<void> {
         arrowView.update(combat.arrows);
         avatar.update(dt, player, cameraRig.mode);
         weaponView.update(combat.melee, cameraRig.mode, player.ready && !player.flying, combat.kick, {
+            dt,
             bowDraw: combat.bow.drawProgress,
             blocking: combat.blocking,
         });
@@ -382,7 +389,7 @@ async function main(): Promise<void> {
             charge: combat.weapon.family === "bow" ? combat.bow.drawProgress : combat.melee.chargeProgress,
             weaponName: combat.weapon.family === "bow" ? `${combat.weapon.name} (${combat.bow.arrows})` : combat.weapon.name,
         });
-        cameraRig.update(player);
+        cameraRig.update(player, weaponView.viewOffset);
         if (collisionDebug && npcs) {
             collisionDebug.update(npcs, player.footprint(), player.plane, player.x, player.y);
         }

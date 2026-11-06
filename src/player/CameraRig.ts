@@ -26,11 +26,12 @@ export class CameraRig {
         }
     }
 
-    update(target: CameraTarget): void {
+    /** `offset` (radians, first person only) is added to the view: swing follow and impact shake. */
+    update(target: CameraTarget, offset?: { pitch: number; yaw: number; roll: number }): void {
         this.eye.set(target.x, target.z + (target.eyeHeight ?? EYE_HEIGHT), -target.y);
         if (this.mode === "first") {
             this.camera.position.copy(this.eye);
-            this.camera.rotation.set(target.pitch, target.yaw, 0, "YXZ");
+            this.camera.rotation.set(target.pitch + (offset?.pitch ?? 0), target.yaw + (offset?.yaw ?? 0), offset?.roll ?? 0, "YXZ");
             return;
         }
         const cosPitch = Math.cos(target.pitch);

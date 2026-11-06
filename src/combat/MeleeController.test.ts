@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { MeleeController, MeleeInput, powerDirection } from "./MeleeController";
+import { MOVE_SETS, timelineFor } from "./moves";
 import { tuning } from "./tuning";
-import { weaponById } from "./weapons";
+import { swingTime, weaponById } from "./weapons";
 
 const DT = 0.015;
 
@@ -80,32 +81,48 @@ describe("MeleeController", () => {
         expect(runOut(melee)).toEqual(["quick_B"]);
     });
 
-    it("chains the sword A B C D E, then loops B C D E", () => {
-        const melee = new MeleeController(weaponById("sword"));
-        const order: string[] = [...pressFor(melee, 0.03)];
-        for (let i = 0; i < 6; i++) {
-            melee.update(DT, input({ attackDown: true }));
-            while (melee.swing) {
-                const e = melee.update(DT, input());
-                if (e.started) order.push(e.started.id);
-                if (e.started) break;
+    it("alternates left-to-right (A) and right-to-left (B) strikes, click after click", () => {
+        for (const id of ["sword", "daggers", "staff"]) {
+            const melee = new MeleeController(weaponById(id));
+            const order: string[] = [];
+            for (let i = 0; i < 5; i++) {
+                order.push(...pressFor(melee, 0.03));
+                order.push(...runOut(melee, 0.3));
             }
+            expect(order).toEqual(["quick_A", "quick_B", "quick_A", "quick_B", "quick_A"]);
+            expect(MOVE_SETS[weaponById(id).family].quick.map((m) => m.hits[0].impact.y)).toEqual([-1, 1]);
         }
-        expect(order).toEqual(["quick_A", "quick_B", "quick_C", "quick_D", "quick_E", "quick_B", "quick_C"]);
     });
 
-    it("plays the end layer after A, ignoring presses in its first 60%, then opens a new chain at A", () => {
+    it("goes straight back to idle after a strike, ready for the next click", () => {
         const melee = new MeleeController(weaponById("sword"));
         pressFor(melee, 0.03);
         while (melee.swing) melee.update(DT, input());
-        expect(melee.phase).toBe("end");
-        // 0.1 s into the 0.5 s end layer: ignored.
-        melee.update(0.1, input({ attackDown: true }));
-        melee.update(DT, input());
-        expect(melee.phase).toBe("end");
-        melee.update(0.25, input());
-        const e = melee.update(DT, input({ attackDown: true }));
-        expect(e.started?.id).toBe("quick_A");
+        expect(melee.phase).toBe("idle");
+        expect(pressFor(melee, 0.03)).toEqual(["quick_B"]);
+    });
+
+    it("swings once per click: queued clicks cut into the recovery of the strike before", () => {
+        const melee = new MeleeController(weaponById("daggers"));
+        const started: string[] = [...pressFor(melee, 0.015)];
+        // Two more clicks straight away.
+        for (let i = 0; i < 2; i++) {
+            melee.update(DT, input({ attackDown: true }));
+            melee.update(DT, input());
+        }
+        started.push(...runOut(melee, 1));
+        expect(started).toEqual(["quick_A", "quick_B", "quick_A"]);
+    });
+
+    it("swings lighter weapons faster: daggers, shortsword, longsword, club, staff", () => {
+        const times = ["daggers", "shortsword", "sword", "club", "staff"].map((id) => {
+            const w = weaponById(id);
+            const tl = timelineFor(MOVE_SETS[w.family].quick[0], w.speed);
+            return tl.windup + tl.active + tl.recovery;
+        });
+        for (let i = 1; i < times.length; i++) expect(times[i]).toBeGreaterThan(times[i - 1]);
+        expect(times[0]).toBeCloseTo(swingTime(weaponById("daggers").weight), 9);
+        expect(times[0]).toBeLessThan(0.3);
     });
 
     it("cancels a quick strike into the wind-up when held for the charge threshold", () => {

@@ -22,10 +22,12 @@ export function createPlaceholderWeapon(weapon: WeaponDef): THREE.Group {
     };
 
     switch (weapon.id) {
+        // Blades are thin in X and wide in Z, so the edge (Z) leads the swing; guards lie in the
+        // blade's plane, across it.
         case "daggers":
             add(new THREE.BoxGeometry(0.03, 0.12, 0.03), leather, 0);
-            add(new THREE.BoxGeometry(0.12, 0.02, 0.035), brass, 0.07);
-            add(new THREE.BoxGeometry(0.04, 0.26, 0.008), steel, 0.21);
+            add(new THREE.BoxGeometry(0.035, 0.02, 0.12), brass, 0.07);
+            add(new THREE.BoxGeometry(0.008, 0.26, 0.04), steel, 0.21).name = "blade";
             break;
         case "club":
             add(new THREE.CylinderGeometry(0.02, 0.025, 0.16, 8), leather, 0);
@@ -51,12 +53,14 @@ export function createPlaceholderWeapon(weapon: WeaponDef): THREE.Group {
             add(new THREE.CylinderGeometry(0.03, 0.03, 0.05, 8), brass, 0.8);
             add(new THREE.CylinderGeometry(0.03, 0.03, 0.05, 8), brass, -0.5);
             break;
-        default:
+        default: {
+            const blade = weapon.id === "shortsword" ? 0.44 : 0.62;
             add(new THREE.CylinderGeometry(0.02, 0.02, 0.16, 8), leather, 0);
             add(new THREE.SphereGeometry(0.03, 8, 6), brass, -0.1);
-            add(new THREE.BoxGeometry(0.2, 0.025, 0.04), brass, 0.09);
-            add(new THREE.BoxGeometry(0.05, 0.62, 0.01), steel, 0.41);
+            add(new THREE.BoxGeometry(0.04, 0.025, 0.2), brass, 0.09);
+            add(new THREE.BoxGeometry(0.01, blade, 0.05), steel, 0.1 + blade / 2).name = "blade";
             break;
+        }
     }
     return group;
 }
