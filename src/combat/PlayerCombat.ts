@@ -2,7 +2,7 @@ import type { Body, BodySource } from "../physics/Bodies";
 import type { FlagsAt } from "../physics/TileColliders";
 import { Combatant } from "./Combatant";
 import { DamageResult, applyHit, hitboxMultiplier } from "./Damage";
-import { raySign, traceRay } from "./SwingRay";
+import { pushDirection, raySign, traceRay } from "./SwingRay";
 import { rayFor, timelineFor } from "./moves";
 import { KickController, traceKick } from "./Kick";
 import { MeleeController, MeleeInput } from "./MeleeController";
@@ -34,7 +34,10 @@ export interface CombatTarget {
     readonly inCombat: boolean;
     /** Stamina a kick on this target costs; NPCs cost stamina_kick_npc (spec 7). */
     readonly kickCost?: number;
-    /** `hitPow` is the move's HitPow; physics props scale their push by it (spec 19). */
+    /**
+     * A hit driving the target along (dirX, dirY). `hitPow` is the move's HitPow: physics props
+     * scale their push by it (spec 19), NPCs their shove and how far a killing blow throws them.
+     */
     takeHit(dirX: number, dirY: number, push: number, fromX: number, fromY: number, hitPow?: number): void;
     /** A kick: the target may dodge it. */
     kick(dirX: number, dirY: number, fromX: number, fromY: number): "dodged" | "hit";
@@ -302,7 +305,9 @@ export class PlayerCombat {
                     { unaware: !target.inCombat, hitbox: hitboxMultiplier(arcHit.height) },
                     this.random,
                 );
-                target.takeHit(arcHit.dirX, arcHit.dirY, result.push, player.x, player.y, hit.hitPow);
+                // Driven the way the blade was moving, not only away from the player.
+                const push = pushDirection(arcHit);
+                target.takeHit(push.x, push.y, result.push, player.x, player.y, hit.hitPow);
                 this.melee.addAdrenaline(hit.adrenaline);
                 const report = { target, result, move };
                 reports.push(report);

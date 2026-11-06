@@ -4,7 +4,8 @@ import type { Body, BodySource } from "../physics/Bodies";
 import { CollisionFlag } from "../world/WorldFormat";
 import { Combatant } from "./Combatant";
 import { applyHit, damageAmount, hitboxMultiplier, reactionFor } from "./Damage";
-import { rayDirection, traceRay, viewToWorld } from "./SwingRay";
+import { PlayerCombat, type CombatTarget } from "./PlayerCombat";
+import { pushDirection, rayDirection, sweepDirection, traceRay, viewToWorld } from "./SwingRay";
 import { MOVE_SETS, Ray } from "./moves";
 import { tuning } from "./tuning";
 import { WEAPONS, weaponById } from "./weapons";
@@ -95,6 +96,71 @@ describe("attack ray (spec 17.2)", () => {
         expect(MOVE_SETS.sword.power.R.time?.rays[0].roll).toBe(45);
         expect(MOVE_SETS.sword.power.T.time?.rays[0].sweep).toBe(0);
         expect(MOVE_SETS.sword.fall.time?.rays[0].vertical).toBe(true);
+    });
+});
+
+describe("which way a hit drives its target", () => {
+    it("knows which way the blade moves across the ground", () => {
+        // Facing north: right to left is west (−x), left to right east (+x).
+        const rightToLeft = sweepDirection(flat, 1, 0.5, 0, 0)!;
+        expect(rightToLeft.x).toBeCloseTo(-1);
+        expect(rightToLeft.y).toBeCloseTo(0);
+        expect(sweepDirection(flat, -1, 0.5, 0, 0)!.x).toBeCloseTo(1);
+        // Facing east, left to right is south.
+        expect(sweepDirection(flat, -1, 0.5, -Math.PI / 2, 0)!.y).toBeCloseTo(-1);
+        // A thrust and a straight-down chop have no sideways direction.
+        expect(sweepDirection({ ...flat, sweep: 0 }, 1, 0.5, 0, 0)).toBeUndefined();
+        expect(sweepDirection({ ...flat, vertical: true }, 1, 0.5, 0, 0)).toBeUndefined();
+    });
+
+    it("reports the blade's direction with each hit", () => {
+        // Left to right, struck where the arc first touches the target: moving east (and a little
+        // forward, as the arc still curves there).
+        const [hit] = traceRay(attacker, sword.reach, flat, -1, 0, 1, source([target(100.5, 101.5)]), noWalls, new Set());
+        expect(hit.swingX).toBeGreaterThan(0.9);
+        expect(Math.abs(hit.swingY!)).toBeLessThan(0.45);
+    });
+
+    it("drives mostly along the swing, partly away from the attacker; thrusts straight away", () => {
+        const ahead = { dirX: 0, dirY: 1 };
+        const swept = pushDirection({ ...ahead, swingX: 1, swingY: 0 });
+        expect(Math.hypot(swept.x, swept.y)).toBeCloseTo(1);
+        expect(swept.x).toBeGreaterThan(0.85);
+        expect(swept.y).toBeGreaterThan(0.25);
+        expect(pushDirection(ahead)).toEqual({ x: 0, y: 1 });
+    });
+
+    it("pushes a struck NPC the way each quick strike swings: A to the right, B to the left", () => {
+        const pushes: number[] = [];
+        const dummy: CombatTarget = {
+            combatant: new Combatant(10_000),
+            attackable: true,
+            inCombat: true,
+            takeHit: (dirX) => pushes.push(dirX),
+            kick: () => "hit",
+        };
+        const body: Body<CombatTarget> = { x: 100.5, y: 101.3, z: 0, radius: 0.35, height: 1.7, plane: 0, owner: dummy };
+        const combat = new PlayerCombat({ collectBodies: (_p, _a, _b, _c, _d, out) => out.push(body) }, noWalls, () => 0.99);
+        const player = {
+            ...attacker,
+            z: 0,
+            eyeHeight: 1.25,
+            sprinting: false,
+            grounded: true,
+            verticalSpeed: 0,
+            stamina: { value: 10, spend: () => true },
+            applyImpulse: () => {},
+        };
+        // Two clicks, 0.8 s apart.
+        for (let click = 0; click < 2; click++) {
+            for (let t = 0; t < 0.8; t += 0.01) {
+                combat.update(0.01, player, { attackDown: t < 0.03, forward: 0, strafe: 0 });
+            }
+        }
+        // Struck a little left (A) or right (B) of centre, where the arc also carries forward.
+        expect(pushes).toHaveLength(2);
+        expect(pushes[0]).toBeGreaterThan(0.6);
+        expect(pushes[1]).toBeLessThan(-0.6);
     });
 });
 

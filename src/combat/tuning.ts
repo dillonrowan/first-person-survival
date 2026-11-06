@@ -79,6 +79,21 @@ export const tuning = {
     /** Impulse along the killing blow on the body, kg·tiles/s. [data ai.force_damage_death 300; gh 0x222cb600] */
     deathForce: units(300),
     /**
+     * A killing blow also launches the whole body along the hit (tiles/s): this much, plus
+     * deathLaunchPerPow per unit of the hit's HitPow (counted up to deathLaunchMaxPow), with
+     * deathLaunchLift of that speed upwards so it leaves the ground. Scaled by
+     * sqrt(npcBaseMass / mass) within deathLaunchMassScale. [design]
+     */
+    deathLaunchSpeed: 2.5,
+    deathLaunchPerPow: 1.5,
+    deathLaunchMaxPow: 3,
+    deathLaunchLift: 0.4,
+    deathLaunchMassScale: [0.5, 1.4] as [number, number],
+    /** How much a melee hit drives along the blade's travel rather than away from the attacker. [design] */
+    swingPushWeight: 0.7,
+    /** A hit too light to push still shoves the target this far per HitPow along the swing. [design] */
+    hitNudge: units(16),
+    /**
      * A body flying into a standing NPC (spec 20.7): faster than this it knocks the NPC down.
      * [gh 0x22341360: cvar mm_ragdoll_vel_to_damage 300 × 0.25; the game only pushes below 300 u/s]
      */
@@ -111,7 +126,7 @@ export const tuning = {
     /** [data player.stamina_kick_npc / stamina_kick_all] */
     kickStaminaNpc: 3,
     kickStaminaOther: 1,
-    /** [data player.kick_damage] */
+    /** [data player.kick_damage] Not applied: kicks knock NPCs down without hurting them. [design] */
     kickDamage: 1,
     /** Kick impactcoeff. [data player_basic.qct attack_kick_*] */
     kickImpactCoeff: 2,
@@ -129,7 +144,9 @@ export const tuning = {
     kickDodgeReset: 10,
     /** The NPC must face the kicker this squarely to dodge. [gh FUN_222a8810: dot > 0.8] */
     kickDodgeFacing: 0.8,
-    /** Knocked-down time after a kick slams an NPC into a wall. [data ai.KnockedDownTimeKick] */
+    /** Upward speed a kicked NPC's ragdoll starts with, so it is sent off instead of dragging its feet (tiles/s). [design] */
+    kickLift: 1.2,
+    /** Knocked-down time after a kick (every kick that lands knocks down). [data ai.KnockedDownTimeKick] */
     knockdownKick: 2.0,
     /** After a fall off a ledge. [data ai.KnockedDownTimeFall] */
     knockdownFall: 0.5,

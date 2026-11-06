@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import { CollisionFlag } from "../world/WorldFormat";
-import { Knockback, findSnapTile, stepKnockback } from "./NpcPhysics";
+import { tuning } from "../combat/tuning";
+import { Knockback, deathLaunch, findSnapTile, stepKnockback } from "./NpcPhysics";
 
 const RADIUS = 0.35;
 
@@ -44,5 +45,34 @@ describe("NPC knockback", () => {
         expect(tile).not.toEqual({ x: 100, y: 101 });
         expect(tile).not.toEqual({ x: 101, y: 101 });
         expect(Math.hypot(tile.x + 0.5 - 100.5, tile.y + 0.5 - 101.4)).toBeLessThan(1.2);
+    });
+});
+
+describe("death launch", () => {
+    const speed = (l: { vx: number; vy: number }) => Math.hypot(l.vx, l.vy);
+    const quick = 0.7;
+    const power = 1.5;
+
+    it("throws the body along the killing blow, with some lift", () => {
+        const l = deathLaunch(0.6, -0.8, quick, tuning.npcBaseMass);
+        expect(l.vx / speed(l)).toBeCloseTo(0.6);
+        expect(l.vy / speed(l)).toBeCloseTo(-0.8);
+        expect(speed(l)).toBeGreaterThan(3);
+        expect(l.up).toBeGreaterThan(1);
+    });
+
+    it("throws harder blows further, up to a limit", () => {
+        const base = tuning.npcBaseMass;
+        expect(speed(deathLaunch(1, 0, power, base))).toBeGreaterThan(speed(deathLaunch(1, 0, quick, base)));
+        expect(speed(deathLaunch(1, 0, 30, base))).toBeCloseTo(speed(deathLaunch(1, 0, tuning.deathLaunchMaxPow, base)));
+    });
+
+    it("throws heavier bodies less far, within limits", () => {
+        const light = speed(deathLaunch(1, 0, quick, 20));
+        const normal = speed(deathLaunch(1, 0, quick, tuning.npcBaseMass));
+        const heavy = speed(deathLaunch(1, 0, quick, 2000));
+        expect(light).toBeGreaterThan(normal);
+        expect(heavy).toBeLessThan(normal);
+        expect(heavy).toBeCloseTo(normal * tuning.deathLaunchMassScale[0]);
     });
 });

@@ -2,6 +2,7 @@ import { Body, BodySource, segmentHitsBoxes2D } from "../physics/Bodies";
 import { Box, FlagsAt, collectTileBoxes } from "../physics/TileColliders";
 import { segmentCircle } from "./Bow";
 import type { HitEvent, Ray } from "./moves";
+import { tuning } from "./tuning";
 
 /** A direction in view space: x right, y up, z forward. */
 export type ViewDir = { x: number; y: number; z: number };
@@ -58,7 +59,48 @@ export type RayHit<T> = {
     distance: number;
     /** Where on the body's height the line struck, 0 = feet, 1 = top of the head. */
     height: number;
+    /**
+     * Which way the blade was moving across the ground where it struck (unit, world tiles), or
+     * undefined for a thrust or a chop that moves mostly up or down.
+     */
+    swingX?: number;
+    swingY?: number;
 };
+
+/**
+ * Horizontal direction (world tiles, unit) the ray sweeps at progress `t`, or undefined when it
+ * hardly moves sideways: a thrust, or a vertical chop seen from above.
+ */
+export function sweepDirection(ray: Ray, sign: number, t: number, yaw: number, pitch: number): { x: number; y: number } | undefined {
+    if (ray.sweep === 0) {
+        return undefined;
+    }
+    const ahead = viewToWorld(rayDirection(ray, sign, t + 0.01), yaw, pitch);
+    const behind = viewToWorld(rayDirection(ray, sign, t - 0.01), yaw, pitch);
+    const dx = ahead.x - behind.x;
+    const dy = ahead.y - behind.y;
+    const along = Math.hypot(dx, dy);
+    // Less than half the blade's motion is sideways: no clear direction across the ground.
+    if (along < 0.5 * Math.hypot(dx, dy, ahead.z - behind.z)) {
+        return undefined;
+    }
+    return { x: dx / along, y: dy / along };
+}
+
+/**
+ * Which way a hit drives its target (unit, world tiles): mostly the way the blade was moving,
+ * partly away from the attacker (tuning.swingPushWeight). Thrusts drive straight away.
+ */
+export function pushDirection(hit: Pick<RayHit<unknown>, "dirX" | "dirY" | "swingX" | "swingY">): { x: number; y: number } {
+    if (hit.swingX === undefined || hit.swingY === undefined) {
+        return { x: hit.dirX, y: hit.dirY };
+    }
+    const w = tuning.swingPushWeight;
+    const x = hit.dirX * (1 - w) + hit.swingX * w;
+    const y = hit.dirY * (1 - w) + hit.swingY * w;
+    const length = Math.hypot(x, y);
+    return length > 1e-6 ? { x: x / length, y: y / length } : { x: hit.dirX, y: hit.dirY };
+}
 
 /** Largest angle between two traced lines in one update, degrees. [design: finer than a tick] */
 const STEP_DEG = 4;
@@ -123,12 +165,15 @@ export function traceRay<T>(
         const dx = best.body.x - attacker.x;
         const dy = best.body.y - attacker.y;
         const dist = Math.hypot(dx, dy);
+        const swing = sweepDirection(ray, sign, t, attacker.yaw, attacker.pitch);
         hits.push({
             body: best.body,
             dirX: dist > 1e-6 ? dx / dist : d.x,
             dirY: dist > 1e-6 ? dy / dist : d.y,
             distance: dist,
             height: best.body.height > 0 ? (best.z - best.body.z) / best.body.height : 0.5,
+            swingX: swing?.x,
+            swingY: swing?.y,
         });
     }
     return hits;
