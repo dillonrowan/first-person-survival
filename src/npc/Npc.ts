@@ -27,6 +27,7 @@ import { NpcAttacker, StrikeEvent } from "./NpcAttacks";
 import { canHear, canSee, hearingDelay, sightDelay } from "./NpcSenses";
 import { Ragdoll, RagdollWorld, singlePartSkeleton } from "./Ragdoll";
 import type { BodyHit } from "./BodyHits";
+import { HitKind, HitReactions, bodyRig, movePoint } from "./HitPose";
 
 /** Asks whether an NPC may move to a point (tiles); true means something is in the way. */
 export type MoveBlocker = (npc: Npc, x: number, y: number) => boolean;
@@ -214,6 +215,11 @@ export class Npc {
     /** Plane of the tiles this NPC holds in the occupancy map, or -1 for none. */
     private occupiedPlane: number;
     private readonly boxes: Box[] = [];
+    /** Hit reactions drawn over the animation (absent for models without a skeleton). */
+    private readonly reactions: HitReactions | undefined;
+    private readonly partMotion: { q: Float32Array; t: Float32Array } | undefined;
+    /** Where on the body (0 feet .. 1 head) the hit being taken struck. */
+    private hitHeight = 0.5;
 
     constructor(
         readonly appearance: NpcAppearanceInfo,
@@ -277,6 +283,9 @@ export class Npc {
             this.group.add(mesh);
             this.meshes.push({ mesh, positions, sources: shared.source.sources });
         }
+        const rig = bodyRig(model.data, () => this.basePositions());
+        this.reactions = rig && new HitReactions(rig, random);
+        this.partMotion = rig && { q: new Float32Array(rig.partCount * 4), t: new Float32Array(rig.partCount * 3) };
 
         this.clip = model.data.idle;
         if (this.clip && this.clip.frameLengths.length > 0) {
@@ -359,14 +368,22 @@ export class Npc {
         this.lyingPitch = along > 0 ? Math.PI / 2 : -Math.PI / 2;
         this.combatant.standUpTime = along > 0 ? tuning.standUpFront : tuning.standUpBack;
         this.reactionClock = 0;
+        const c = this.combatant;
+        if (this.reactions && !c.dead && !c.knockedDown && c.reaction !== "standup") {
+            // Every blow shows; the size follows the reaction the damage started (or kept).
+            const kind: HitKind = c.reaction === "stagger" || c.reaction === "push" || c.reaction === "stun" ? c.reaction : "flinch";
+            this.reactions.hit(kind, along, left, this.hitHeight);
+        }
     }
 
     /**
      * Reacts to a hit travelling along (dirX, dirY) from an attacker at (fromX, fromY). `push` is the
      * damage result's push level (0 none, 1 medium, 2 long, 3 huge): the NPC slides back as far as
-     * its medium or long hit animation moves it (spec 5.3).
+     * its medium or long hit animation moves it (spec 5.3). `height` is where the hit struck, 0
+     * (feet) to 1 (top of the head).
      */
-    takeHit(dirX: number, dirY: number, push: number, fromX: number, fromY: number): void {
+    takeHit(dirX: number, dirY: number, push: number, fromX: number, fromY: number, _hitPow?: number, height = 0.5): void {
+        this.hitHeight = height;
         this.becomeAlerted(fromX, fromY);
         this.sinceHit = 0;
         if (this.combatant.incapacitated || push > 0) {
@@ -436,6 +453,7 @@ export class Npc {
 
         c.hurt(tuning.kickDamage, "push" as Reaction);
         this.attacker.interrupt();
+        this.hitHeight = 0.55;
         this.lean(dirX, dirY);
         const reference = massForce(tuning.npcBaseMass) / tuning.npcBaseMass;
         const scale = Math.min(2, Math.max(0.2, massForce(this.mass) / this.mass / reference));
@@ -537,6 +555,10 @@ export class Npc {
     updateCombat(dt: number, occupancy: Occupancy, ctx: CombatContext = {}): void {
         const c = this.combatant;
         c.update(dt);
+        if (this.reactions && !this.ragdoll) {
+            this.reactions.setStunned(c.reaction === "stun");
+            this.reactions.update(dt);
+        }
         this.sinceKick += dt;
         this.sinceHit += dt;
         this.surprisedFor = Math.max(0, this.surprisedFor - dt);
@@ -729,10 +751,11 @@ export class Npc {
             pitch = this.lyingPitch;
         } else if (c.reaction === "standup") {
             pitch = this.lyingPitch * Math.max(0, c.reactionTime / c.standUpTime);
-        } else if (c.reaction === "stun") {
+        } else if (c.reaction === "stun" && !this.reactions?.humanoid) {
             pitch = Math.sin(this.reactionClock * 3) * LEAN.stun * 0.5;
             roll = Math.sin(this.reactionClock * 2.1) * LEAN.stun;
-        } else if (c.reaction === "flinch" || c.reaction === "stagger" || c.reaction === "push") {
+        } else if (!this.reactions && (c.reaction === "flinch" || c.reaction === "stagger" || c.reaction === "push")) {
+            // Bodies without parts can only lean as a whole.
             // Snap into the lean, then recover over the reaction.
             const amount = LEAN[c.reaction] * Math.min(1, this.reactionClock * 12) * Math.max(0, 1 - this.reactionClock / (c.reactionTime + this.reactionClock));
             pitch = this.leanPitch * amount;
@@ -769,10 +792,11 @@ export class Npc {
      * World position (three.js) of every model vertex in the current animation frame, placed at
      * (px, py, pz) turned by `yaw` (or, without a position, where the group is drawn now).
      */
-    private animatedWorldPositions(base: Float32Array, out: Float32Array, place?: { x: number; y: number; z: number; yaw: number }): void {
+    private animatedWorldPositions(base: Float32Array, out: Float32Array, place?: { x: number; y: number; z: number; yaw: number }, posed = false): void {
         const count = this.model.data.vertexCount;
         const frame = this.clip ? this.clip.positions : undefined;
         const offset = this.clip ? this.playback.frame * count * 3 : 0;
+        const motion = posed && this.reactions?.active ? this.reactionMotion() : undefined;
         let e: ArrayLike<number>;
         if (place) {
             const cos = Math.cos(place.yaw);
@@ -783,9 +807,12 @@ export class Npc {
             e = this.group.matrix.elements;
         }
         for (let v = 0; v < count; v++) {
-            const x = frame ? frame[offset + v * 3] / RS_UNITS_PER_TILE : base[v * 3];
-            const y = frame ? -frame[offset + v * 3 + 1] / RS_UNITS_PER_TILE : base[v * 3 + 1];
-            const z = frame ? -frame[offset + v * 3 + 2] / RS_UNITS_PER_TILE : base[v * 3 + 2];
+            let x = frame ? frame[offset + v * 3] / RS_UNITS_PER_TILE : base[v * 3];
+            let y = frame ? -frame[offset + v * 3 + 1] / RS_UNITS_PER_TILE : base[v * 3 + 1];
+            let z = frame ? -frame[offset + v * 3 + 2] / RS_UNITS_PER_TILE : base[v * 3 + 2];
+            if (motion) {
+                [x, y, z] = movePoint(motion.q, motion.t, this.reactions!.rig.partOf[v], [x, y, z]);
+            }
             out[v * 3] = e[0] * x + e[4] * y + e[8] * z + e[12];
             out[v * 3 + 1] = e[1] * x + e[5] * y + e[9] * z + e[13];
             out[v * 3 + 2] = e[2] * x + e[6] * y + e[10] * z + e[14];
@@ -801,7 +828,9 @@ export class Npc {
         const data = this.model.data;
         const base = this.basePositions();
         const current = new Float32Array(data.vertexCount * 3);
-        this.animatedWorldPositions(base, current);
+        // The body falls from the pose the hit threw it into.
+        this.animatedWorldPositions(base, current, undefined, true);
+        this.reactions?.clear();
         const skeleton = data.skeleton ?? singlePartSkeleton(base, data.vertexCount);
         const ragdoll = new Ragdoll(skeleton, base, current, this.mass, this.plane, [data.idle, data.walk], [data.opaque, data.transparent]);
         ragdoll.settleOnFloor(this.ragdollWorld);
@@ -1135,19 +1164,36 @@ export class Npc {
         this.group.rotation.x = this.pitch;
         this.group.rotation.z = this.roll;
 
-        if (this.dirty && this.clip) {
+        const reacting = this.reactions?.active ?? false;
+        if ((this.dirty || reacting) && this.clip) {
+            const motion = reacting ? this.reactionMotion() : undefined;
+            const partOf = this.reactions?.rig.partOf;
             for (const { positions, sources } of this.meshes) {
-                writeFramePositions(
-                    positions.array as Int16Array,
-                    sources,
-                    this.clip.positions,
-                    this.playback.frame,
-                    this.model.data.vertexCount,
-                );
+                const array = positions.array as Int16Array;
+                writeFramePositions(array, sources, this.clip.positions, this.playback.frame, this.model.data.vertexCount);
+                if (motion && partOf) {
+                    for (let i = 0; i < sources.length; i++) {
+                        const o = i * 4;
+                        const [x, y, z] = movePoint(motion.q, motion.t, partOf[sources[i]], [
+                            array[o] / RS_UNITS_PER_TILE,
+                            -array[o + 1] / RS_UNITS_PER_TILE,
+                            -array[o + 2] / RS_UNITS_PER_TILE,
+                        ]);
+                        array[o] = Math.round(x * RS_UNITS_PER_TILE);
+                        array[o + 1] = Math.round(-y * RS_UNITS_PER_TILE);
+                        array[o + 2] = Math.round(-z * RS_UNITS_PER_TILE);
+                    }
+                }
                 positions.needsUpdate = true;
             }
         }
         this.dirty = false;
+    }
+
+    /** Each body part's motion for the hit reaction now, about its joints in the drawn frame. */
+    private reactionMotion(): { q: Float32Array; t: Float32Array } {
+        this.reactions!.motion(this.clip, this.playback.frame, this.partMotion!);
+        return this.partMotion!;
     }
 
     dispose(): void {

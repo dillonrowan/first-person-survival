@@ -14,6 +14,7 @@ import { loadAvatarAsset } from "./avatar/AvatarAsset";
 import { CameraRig } from "./player/CameraRig";
 import { Input } from "./player/Input";
 import { Player } from "./player/Player";
+import { HitFeel, impactStrength } from "./combat/HitFeel";
 import { CombatTarget, PlayerCombat } from "./combat/PlayerCombat";
 import { tuning } from "./combat/tuning";
 import { WeaponView } from "./combat/WeaponView";
@@ -171,7 +172,13 @@ async function main(): Promise<void> {
     );
     const combatHud = new CombatHud(document.body);
     combat.groundHeight = (plane, x, y) => world.groundHeight(plane, x, y);
-    combat.onHit = ({ result }) => combatHud.showHit(result.reaction !== "none" && result.reaction !== "flinch");
+    const hitFeel = new HitFeel();
+    combat.onHit = ({ result, move }) => {
+        combatHud.showHit(result.reaction !== "none" && result.reaction !== "flinch");
+        if (move.id !== "arrow") {
+            hitFeel.impact(impactStrength(result));
+        }
+    };
     combat.onStruck = ({ outcome }) => {
         if (outcome === "hit") {
             combatHud.showDamage();
@@ -215,6 +222,7 @@ async function main(): Promise<void> {
     combat.onKick = ({ outcome }) => {
         if (outcome === "hit") {
             combatHud.showHit(true);
+            hitFeel.impact(0.85);
         } else if (outcome === "dodged") {
             ui.showMessage("Dodged!");
         }
@@ -290,6 +298,9 @@ async function main(): Promise<void> {
     renderer.setAnimationLoop((now) => {
         const dt = Math.min((now - last) / 1000, 0.05);
         last = now;
+        // A landed blow briefly holds the swing and the struck bodies; the player still moves.
+        const fightDt = hitFeel.worldDt(dt);
+        hitFeel.update(dt);
 
         player.update(dt, input);
         const fighting = input.locked && player.ready && !player.flying;
@@ -310,7 +321,7 @@ async function main(): Promise<void> {
         const carrying = props.held !== undefined || propHandled;
         const wheel = input.consumeWheel();
         combat.switchWeapon(carrying ? 0 : wheel);
-        combat.update(dt, player, {
+        combat.update(fightDt, player, {
             attackDown: fighting && !carrying && input.isDown("Mouse0"),
             blockDown: fighting && !carrying && input.isDown("Mouse2"),
             kickPressed: fighting && !carrying && input.wasPressed("KeyF"),
@@ -346,7 +357,7 @@ async function main(): Promise<void> {
         world.update(player.x, player.y);
         interactives.update(dt);
         const alive = !combat.combatant.dead;
-        npcs?.update(dt, alive ? player.footprint() : undefined, player.yaw, {
+        npcs?.update(fightDt, alive ? player.footprint() : undefined, player.yaw, {
             stealth: player.crouching,
             presence: presenceFor({ ...player, speed: player.speed }),
             sincePlayerAttack: combat.sinceAttack,
@@ -371,7 +382,7 @@ async function main(): Promise<void> {
         });
         arrowView.update(combat.arrows);
         avatar.update(dt, player, cameraRig.mode);
-        weaponView.update(dt, combat.melee, cameraRig.mode, player.ready && !player.flying, combat.kick, {
+        weaponView.update(fightDt, combat.melee, cameraRig.mode, player.ready && !player.flying, combat.kick, {
             bowDraw: combat.bow.drawProgress,
             blocking: combat.blocking,
         });
@@ -383,6 +394,9 @@ async function main(): Promise<void> {
             weaponName: combat.weapon.family === "bow" ? `${combat.weapon.name} (${combat.bow.arrows})` : combat.weapon.name,
         });
         cameraRig.update(player);
+        if (cameraRig.mode === "first") {
+            hitFeel.apply(camera);
+        }
         if (collisionDebug && npcs) {
             collisionDebug.update(npcs, player.footprint(), player.plane, player.x, player.y);
         }
