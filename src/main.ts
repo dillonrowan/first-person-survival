@@ -371,7 +371,7 @@ async function main(): Promise<void> {
         });
         arrowView.update(combat.arrows);
         avatar.update(dt, player, cameraRig.mode);
-        weaponView.update(combat.melee, cameraRig.mode, player.ready && !player.flying, combat.kick, {
+        weaponView.update(dt, combat.melee, cameraRig.mode, player.ready && !player.flying, combat.kick, {
             bowDraw: combat.bow.drawProgress,
             blocking: combat.blocking,
         });

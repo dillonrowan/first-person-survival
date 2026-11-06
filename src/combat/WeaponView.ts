@@ -1,12 +1,12 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
+import { DM_CLIPS, DmClip, DmClipSet } from "./DmKeyframes";
 import type { KickController } from "./Kick";
 import type { MeleeController } from "./MeleeController";
-import { MoveDef, Ray, Timeline, rayFor, timelineFor } from "./moves";
-import { ViewDir, rayDirection, raySign } from "./SwingRay";
-import { tuning } from "./tuning";
+import type { MoveDef, PowerDirection } from "./moves";
 import { createPlaceholderWeapon } from "./PlaceholderWeapons";
+import { tuning } from "./tuning";
 import type { WeaponDef } from "./weapons";
 
 /** Position (camera space, tiles) and orientation of the held weapon. */
@@ -20,22 +20,15 @@ function euler(px: number, py: number, pz: number, rx: number, ry: number, rz: n
     };
 }
 
-const REST = euler(0.24, -0.3, -0.42, -0.95, 0, -0.25);
-const CHARGE = euler(0.32, -0.05, -0.25, 0.2, -0.5, -0.6);
-/** Distance of the grip from the eye along the attack ray while it sweeps. [design] */
-const SWING_RADIUS = 0.45;
-/** Pulled back along the ray while winding up or before a thrust. [design] */
-const WINDUP_RADIUS = 0.22;
-/** The weapon sits a little below the eye so the blade stays in view. [design] */
-const GRIP_DROP = -0.12;
 const KICK_ASIDE = euler(0.42, -0.45, -0.35, -0.6, -0.3, -0.6);
-/** Blade held across the view in the parry stance. [design] */
-const PARRY = euler(0.05, -0.12, -0.4, -0.2, 0, -1.45);
-/** Bow held low, then raised and drawn in front of the eye. [design] */
 const BOW_REST = euler(0.2, -0.35, -0.5, -0.3, 0.3, 0.4);
 const BOW_DRAWN = euler(0.02, -0.08, -0.55, 0, 0, 0.15);
 
-/** Placeholder boot for the first-person kick: shin, foot and sole, toes pointing -Z. */
+/** Crossfade between animation layers, and the slower settle back to the idle pose. */
+const BLEND = 0.1;
+const BLEND_TO_IDLE = 0.25;
+
+/** Placeholder boot for the first-person kick. */
 function createBoot(): THREE.Group {
     const boot = new THREE.Group();
     const leather = new THREE.MeshStandardMaterial({ color: 0x3b2618, roughness: 0.9 });
@@ -50,6 +43,7 @@ function createBoot(): THREE.Group {
     boot.name = "kick_boot";
     return boot;
 }
+
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const smooth = (t: number) => t * t * (3 - 2 * t);
 function lerpPose(a: Pose, b: Pose, t: number): Pose {
@@ -57,49 +51,46 @@ function lerpPose(a: Pose, b: Pose, t: number): Pose {
     return { pos: a.pos.clone().lerp(b.pos, s), quat: a.quat.clone().slerp(b.quat, s) };
 }
 
-/** View-space ray direction (x right, y up, z forward) to camera space (−Z forward). */
-const toCamera = (d: ViewDir) => new THREE.Vector3(d.x, d.y, -d.z);
+const clipLength = (clip: DmClip) => (clip.frames - 1) / clip.fps;
 
-/** Where the hand sits (camera space) when the arm is not extended. [design] */
-const HAND = new THREE.Vector3(0.14, -0.3, -0.05);
-/** The blade aims at this far point on the attack ray. [design] */
-const AIM_DISTANCE = 1.1;
+/** The clip's pose at `time` seconds, held at the ends or looped. */
+function sample(clip: DmClip, time: number, loop = false): Pose {
+    const last = clip.frames - 1;
+    let f = time * clip.fps;
+    f = loop && last > 0 ? ((f % last) + last) % last : Math.min(last, Math.max(0, f));
+    const i = Math.min(Math.floor(f), Math.max(0, last - 1));
+    const j = Math.min(i + 1, last);
+    const k = f - i;
+    const d = clip.data;
+    const a = i * 7;
+    const b = j * 7;
+    const pos = new THREE.Vector3(d[a], d[a + 1], d[a + 2]).lerp(new THREE.Vector3(d[b], d[b + 1], d[b + 2]), k);
+    const quat = new THREE.Quaternion(d[a + 3], d[a + 4], d[a + 5], d[a + 6]).slerp(
+        new THREE.Quaternion(d[b + 3], d[b + 4], d[b + 5], d[b + 6]),
+        k,
+    );
+    return { pos, quat };
+}
 
-/**
- * The blade on the attack ray (spec 17.2) at progress `t`: the hand moves `radius` out along the
- * ray from its rest spot, and the blade (+Y) points from the hand at the ray's far point, edge (+Z)
- * facing the way the fan sweeps. The drawn tip therefore follows the lines the hit test traces,
- * while the blade stays visible instead of end-on. A thrust's edge faces down.
- */
-function rayPose(ray: Ray, sign: number, t: number, radius = SWING_RADIUS): Pose {
-    const dir = toCamera(rayDirection(ray, sign, t));
-    const hand = HAND.clone().addScaledVector(dir, radius);
-    hand.y += GRIP_DROP + 0.12;
-    const blade = dir.clone().multiplyScalar(AIM_DISTANCE).sub(hand).normalize();
-    const ahead = toCamera(rayDirection(ray, sign, Math.min(1, t + 0.02)));
-    const behind = toCamera(rayDirection(ray, sign, Math.max(0, t - 0.02)));
-    let edge = ahead.sub(behind);
-    edge.addScaledVector(blade, -edge.dot(blade));
-    if (ray.sweep === 0 || edge.lengthSq() < 1e-8) {
-        edge = new THREE.Vector3(0, -1, 0).addScaledVector(blade, blade.y);
+const powerDir = (move: MoveDef): PowerDirection => (move.id.split("_")[1] as PowerDirection | undefined) ?? "default";
+
+/** The clip one swing plays, and the quick-strike index it belongs to (-1 otherwise). */
+function swingClip(clips: DmClipSet, move: MoveDef): [DmClip, number] {
+    switch (move.kind) {
+        case "quick": {
+            const index = "ABCDE".indexOf(move.id.slice(-1));
+            return [clips.quick[index], index];
+        }
+        case "power":
+            return [clips.power[powerDir(move)], -1];
+        default:
+            return [clips[move.kind], -1];
     }
-    edge.normalize();
-    const side = new THREE.Vector3().crossVectors(blade, edge);
-    const quat = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(side, blade, edge));
-    return { pos: hand, quat };
 }
 
-/** Wind-up: the blade drawn back to where its first ray starts (a thrust: drawn straight back). */
-function windupPose(move: MoveDef, timeline: Timeline): Pose {
-    const ray = rayFor(timeline, 0);
-    return rayPose(ray, raySign(ray, move.hits[0].impact), 0, WINDUP_RADIUS);
-}
+/** What the weapon is playing this frame: a clip at a time, under a key that changes with the layer. */
+type Layer = { key: string; clip: DmClip; time: number; loop?: boolean };
 
-/**
- * The weapon in the player's hand. In first person it hangs off the camera and is posed from the
- * melee timeline; in third person it sits in the avatar's right-hand socket. A glTF at
- * models/weapons/<id>.glb replaces the placeholder when it exists.
- */
 export class WeaponView {
     private readonly holder = new THREE.Group();
     private readonly models = new Map<string, THREE.Object3D>();
@@ -107,6 +98,18 @@ export class WeaponView {
     private current: THREE.Object3D | undefined;
     private currentId = "";
     private readonly boot = createBoot();
+
+    private pose: Pose | undefined;
+    private layerKey = "";
+    /** Seconds since the current layer started. */
+    private layerTime = 0;
+    private blendFrom: Pose | undefined;
+    private blendTime = 0;
+    private blendLength = BLEND;
+    private swingRef: unknown;
+    private swingCount = 0;
+    /** The quick strike that last played, to pick the combo end layer. */
+    private lastQuick = -1;
 
     constructor(
         private readonly camera: THREE.Camera,
@@ -138,7 +141,6 @@ export class WeaponView {
         void (async () => {
             const response = await fetch(url);
             const type = response.headers.get("content-type") ?? "";
-            // Vite answers missing files with index.html, so check the type as well.
             if (!response.ok || type.includes("text/html")) {
                 return;
             }
@@ -158,6 +160,7 @@ export class WeaponView {
     }
 
     update(
+        dt: number,
         melee: MeleeController,
         mode: "first" | "third",
         visible: boolean,
@@ -181,7 +184,6 @@ export class WeaponView {
             parent.add(this.holder);
         }
         if (!firstPerson) {
-            // The avatar has no attack clips: hold the weapon still in the hand.
             this.holder.position.set(0, 0, 0);
             this.holder.rotation.set(Math.PI / 2, 0, 0);
             return;
@@ -189,18 +191,78 @@ export class WeaponView {
         let pose =
             weapon.family === "bow"
                 ? lerpPose(BOW_REST, BOW_DRAWN, extra.bowDraw ?? 0)
-                : extra.blocking
-                  ? PARRY
-                  : this.pose(melee);
+                : this.animate(dt, DM_CLIPS[weapon.family], melee, extra.blocking ?? false);
         if (kick?.active) {
-            // Pull the weapon aside while kicking.
             pose = lerpPose(pose, KICK_ASIDE, Math.min(1, (kick.elapsed ?? 0) / 0.1));
         }
         this.holder.position.copy(pose.pos);
         this.holder.quaternion.copy(pose.quat);
     }
 
-    /** The boot rises from below into a forward stamp at the hit event, then drops away. */
+    /** Plays Dark Messiah's first-person layer for the melee state, crossfading when the layer changes. */
+    private animate(dt: number, clips: DmClipSet, melee: MeleeController, blocking: boolean): Pose {
+        this.layerTime += dt;
+        const layer = this.layer(clips, melee, blocking);
+        if (layer.key !== this.layerKey) {
+            this.layerKey = layer.key;
+            this.layerTime = 0;
+            if (this.pose) {
+                this.blendFrom = this.pose;
+                this.blendTime = 0;
+                this.blendLength = layer.key === "idle" ? BLEND_TO_IDLE : BLEND;
+            }
+            if (layer.key.startsWith("charged") || layer.key === "end" || layer.key === "parry") {
+                layer.time = 0;
+            }
+        }
+        let pose = sample(layer.clip, layer.time, layer.loop);
+        if (this.blendFrom) {
+            this.blendTime += dt;
+            if (this.blendTime >= this.blendLength) {
+                this.blendFrom = undefined;
+            } else {
+                pose = lerpPose(this.blendFrom, pose, this.blendTime / this.blendLength);
+            }
+        }
+        this.pose = pose;
+        return pose;
+    }
+
+    private layer(clips: DmClipSet, melee: MeleeController, blocking: boolean): Layer {
+        if (blocking) {
+            const enter = clipLength(clips.parryIn);
+            return this.layerKey === "parry" && this.layerTime >= enter
+                ? { key: "parry", clip: clips.parry, time: this.layerTime - enter, loop: true }
+                : { key: "parry", clip: clips.parryIn, time: this.layerKey === "parry" ? this.layerTime : 0 };
+        }
+        const swing = melee.swing;
+        if (swing) {
+            if (swing !== this.swingRef) {
+                this.swingRef = swing;
+                this.swingCount++;
+            }
+            const [clip, quick] = swingClip(clips, swing.move);
+            this.lastQuick = quick;
+            const { windup, active, recovery } = swing.timeline;
+            const progress = swing.elapsed / Math.max(1e-6, windup + active + recovery);
+            return { key: `swing${this.swingCount}`, clip, time: progress * clipLength(clip) };
+        }
+        const charging = melee.chargedMove;
+        if (charging) {
+            const dir = powerDir(charging);
+            if (melee.phase === "charged") {
+                return { key: `charged_${dir}`, clip: clips.charged[dir], time: this.layerTime, loop: true };
+            }
+            const clip = clips.windup[dir];
+            return { key: `windup_${dir}`, clip, time: melee.chargeProgress * clipLength(clip) };
+        }
+        const end = melee.phase === "end" ? clips.end[this.lastQuick] : undefined;
+        if (end) {
+            return { key: "end", clip: end, time: this.layerTime };
+        }
+        return { key: "idle", clip: clips.idle, time: 0 };
+    }
+
     private updateBoot(kick: KickController | undefined): void {
         if (!kick?.active || kick.elapsed === undefined) {
             this.boot.visible = false;
@@ -215,62 +277,4 @@ export class WeaponView {
         this.boot.position.set(0.12, lerp(-1.1, lowY, s), lerp(-0.2, -0.85, s));
         this.boot.rotation.set(lerp(0.6, -0.15, s), 0, 0);
     }
-
-    /**
-     * The weapon follows the move's attack rays (spec 17): from rest (or the charged wind-up) to the
-     * start of each ray, along the ray's fan while it traces, then back to rest.
-     */
-    private pose(melee: MeleeController): Pose {
-        const swing = melee.swing;
-        if (!swing) {
-            const charged = melee.chargedMove;
-            if (charged) {
-                // The variant is locked: hold the blade drawn back where its swing will start.
-                this.windupFrom = this.windupFrom ?? this.lastPose ?? CHARGE;
-                this.windupTime = Math.min(1, (this.windupTime ?? 0) + 1 / 12);
-                return (this.lastPose = lerpPose(this.windupFrom, windupPose(charged, timelineFor(charged, melee.weapon.speed)), this.windupTime));
-            }
-            this.windupFrom = this.windupTime = undefined;
-            return (this.lastPose = melee.chargeProgress > 0 ? lerpPose(REST, CHARGE, melee.chargeProgress) : REST);
-        }
-        this.windupFrom = this.windupTime = undefined;
-        if (swing !== this.swingRef) {
-            // A new swing starts from wherever the weapon was (rest, or a charged wind-up).
-            this.swingRef = swing;
-            this.swingStart = this.lastPose ?? REST;
-        }
-        this.lastPose = this.swingPose(swing);
-        return this.lastPose;
-    }
-
-    private swingPose(swing: NonNullable<MeleeController["swing"]>): Pose {
-        const { move, timeline, elapsed: t } = swing;
-        let before = this.swingStart ?? REST;
-        let beforeTime = 0;
-        for (let i = 0; i < move.hits.length; i++) {
-            const ray = rayFor(timeline, i);
-            const sign = raySign(ray, move.hits[i].impact);
-            const thrust = ray.sweep === 0;
-            const start = rayPose(ray, sign, 0, thrust ? WINDUP_RADIUS : SWING_RADIUS);
-            if (t < ray.on) {
-                return lerpPose(before, start, (t - beforeTime) / Math.max(1e-6, ray.on - beforeTime));
-            }
-            if (t <= ray.off) {
-                const p = (t - ray.on) / Math.max(1e-6, ray.off - ray.on);
-                return thrust
-                    ? lerpPose(start, rayPose(ray, sign, 0, SWING_RADIUS + 0.25), p)
-                    : rayPose(ray, sign, p);
-            }
-            before = thrust ? rayPose(ray, sign, 0, SWING_RADIUS + 0.25) : rayPose(ray, sign, 1);
-            beforeTime = ray.off;
-        }
-        const end = timeline.windup + timeline.active + timeline.recovery;
-        return lerpPose(before, REST, (t - beforeTime) / Math.max(1e-6, end - beforeTime));
-    }
-
-    private lastPose: Pose | undefined;
-    private swingRef: unknown;
-    private swingStart: Pose | undefined;
-    private windupFrom: Pose | undefined;
-    private windupTime: number | undefined;
 }
