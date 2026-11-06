@@ -235,8 +235,9 @@ export class Npcs implements BodySource<Npc> {
 
     /**
      * Bodies meeting NPCs (spec 20.7): a moving ragdoll knocks over the standing NPCs it flies
-     * into (they fall onto ragdolls of their own and get up again), is stopped by those it does
-     * not, and bodies on the ground push each other apart instead of sinking into each other.
+     * into (they fall onto ragdolls of their own and get up again; harmlessly when a kick sent it
+     * flying), is stopped by those it does not, and bodies on the ground push each other apart
+     * instead of sinking into each other.
      */
     private collideBodies(): void {
         const all = this.all();
@@ -267,7 +268,7 @@ export class Npcs implements BodySource<Npc> {
                 if (hit) {
                     hits.set(target, this.time);
                     this.bodyHits.set(striker, hits);
-                    target.hitByBody(hit, striker.body.x, striker.body.y);
+                    target.hitByBody(hit, striker.body.x, striker.body.y, striker.kickedDown);
                 }
             }
         }

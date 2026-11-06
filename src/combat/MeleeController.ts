@@ -5,6 +5,11 @@ import type { WeaponDef } from "./weapons";
 /** What the melee state machine reads each update. */
 export type MeleeInput = {
     attackDown: boolean;
+    /**
+     * True in the update the button went down, even if it also came up (or came up and went down
+     * again) since the last update. Without it, presses are read from `attackDown` changing.
+     */
+    attackPressed?: boolean;
     /** -1..1, forward positive. */
     forward: number;
     /** -1..1, right positive. */
@@ -41,10 +46,11 @@ export type MeleePhase = "idle" | "windup" | "charged" | "swing" | "end";
  * The player's melee input as Dark Messiah's state machine runs it (docs/combat-movement-spec.md
  * 18): a press from idle starts the power wind-up at once (direction from the movement keys,
  * 17.1); releasing before the wind-up layer ends makes it a quick strike, holding past it charges
- * the power attack. Quick strikes chain in each weapon's order; a press at any time during a strike
- * queues the next one, and holding during a strike cancels into the wind-up. A chain that stops
- * may play an "end" layer, during whose first 60% presses are ignored. Plus rush, falling,
- * trample and adrenaline "huge" attacks.
+ * the power attack. Quick strikes alternate left-to-right and right-to-left [design]; each press
+ * during a strike queues one more, which cuts into the strike's recovery, and holding during a
+ * strike cancels into the wind-up. How fast strikes swing comes from the weapon's weight. A chain
+ * that stops may play an "end" layer (none of the current families has one), during whose first
+ * 60% presses are ignored. Plus rush, falling, trample and adrenaline "huge" attacks.
  */
 export class MeleeController {
     adrenaline = 0;
@@ -59,10 +65,13 @@ export class MeleeController {
     private windupLength = 0;
     private endTime = 0;
     private endLength = 0;
-    private buffered = false;
+    /** Presses waiting to become quick strikes (up to tuning.quickQueue). */
+    private queued = 0;
     private wasDown = false;
     /** Index of the last quick strike in the current chain, or -1 before the first. */
     private comboIndex = -1;
+    /** Seconds since a quick strike was last swinging; past quickChainReset the next opens with A. */
+    private sinceQuick = Infinity;
     private decayTimer = 0;
 
     constructor(public weapon: WeaponDef) {}
@@ -109,15 +118,16 @@ export class MeleeController {
         this.phase = "idle";
         this.pressHeld = undefined;
         this.lockedDirection = undefined;
-        this.buffered = false;
+        this.queued = 0;
         this.comboIndex = -1;
     }
 
     update(dt: number, input: MeleeInput): MeleeEvents {
         const events: MeleeEvents = { active: [] };
-        const pressed = input.attackDown && !this.wasDown;
+        const pressed = !!input.attackPressed || (input.attackDown && !this.wasDown);
         this.wasDown = input.attackDown;
         this.pressHeld = input.attackDown ? (pressed ? 0 : (this.pressHeld ?? 0) + dt) : undefined;
+        this.sinceQuick += dt;
         this.decayAdrenaline(dt);
 
         switch (this.phase) {
@@ -129,28 +139,35 @@ export class MeleeController {
                 if (this.holdingToCharge()) {
                     this.startWindup(input);
                 } else if (pressed && this.endTime >= tuning.chainWindowStart * this.endLength) {
-                    // mm_player_cycle_fastattack_end: a new chain at A, without a wind-up.
-                    this.comboIndex = -1;
+                    // mm_player_cycle_fastattack_end: the next strike, without a wind-up.
                     this.startQuick(events);
                 } else if (this.endTime >= this.endLength) {
                     this.phase = "idle";
                 }
                 break;
             case "windup":
-                if (!input.attackDown) {
-                    // Released before the wind-up layer ended: a quick strike opening a chain.
-                    this.comboIndex = -1;
+                // A press here means the button came up and went down again since the last update.
+                if (!input.attackDown || pressed) {
+                    // Released before the wind-up layer ended: a quick strike, the other way from the last.
                     this.startQuick(events);
+                    if (pressed) {
+                        this.queue();
+                    }
                 } else {
                     this.windupTime += dt;
                     if (this.windupTime >= this.windupLength) {
+                        // Clicks from before the charge are spent on it.
                         this.phase = "charged";
+                        this.queued = 0;
                     }
                 }
                 break;
             case "charged":
-                if (!input.attackDown) {
+                if (!input.attackDown || pressed) {
                     this.start(this.chooseCharged(input), events);
+                    if (pressed) {
+                        this.queue();
+                    }
                 }
                 break;
             case "idle":
@@ -158,37 +175,50 @@ export class MeleeController {
                     this.start(this.moves.fall, events);
                 } else if (input.attackDown) {
                     this.startWindup(input);
+                } else if (pressed) {
+                    // Pressed and released since the last update: a whole click.
+                    this.startQuick(events);
                 }
                 break;
         }
         return events;
     }
 
-    /** A strike or power attack in progress; quick strikes queue the next press or cancel into a wind-up. */
+    /**
+     * A strike or attack in progress. Every press during it queues one quick strike (one strike per
+     * click, after power attacks too), which cuts into the attack's recovery; holding during a
+     * quick strike cancels it into a wind-up instead.
+     */
     private updateSwing(dt: number, input: MeleeInput, pressed: boolean, events: MeleeEvents): void {
         const quick = this.swing!.move.kind === "quick";
         this.advanceSwing(dt, events);
-        if (this.swing) {
-            if (quick) {
-                this.buffered ||= pressed;
-                if (this.holdingToCharge()) {
-                    this.swing = undefined;
-                    this.startWindup(input);
-                }
+        if (pressed) {
+            this.queue();
+        }
+        if (quick) {
+            this.sinceQuick = 0;
+            if (this.swing && this.holdingToCharge()) {
+                // The held press becomes the wind-up rather than a queued strike.
+                this.queued = Math.max(0, this.queued - 1);
+                this.swing = undefined;
+                this.startWindup(input);
+                return;
             }
+        }
+        if (this.queued > 0 && (!this.swing || this.pastRecoveryCut(this.swing))) {
+            this.queued--;
+            this.startQuick(events);
             return;
         }
-        // The swing ended this update.
+        if (this.swing) {
+            return;
+        }
         if (!quick) {
             this.phase = "idle";
             return;
         }
-        if (this.buffered) {
-            this.startQuick(events);
-            return;
-        }
+        // The strike ended with nothing queued.
         const end = this.combo.endAfter[this.comboIndex];
-        this.comboIndex = -1;
         if (end) {
             this.phase = "end";
             this.endTime = 0;
@@ -208,8 +238,11 @@ export class MeleeController {
         this.lockedDirection = powerDirection(input);
         this.windupTime = 0;
         this.windupLength = this.combo.windup[this.lockedDirection];
-        this.buffered = false;
-        this.comboIndex = -1;
+    }
+
+    /** One more click waiting to become a quick strike. */
+    private queue(): void {
+        this.queued = Math.min(tuning.quickQueue, this.queued + 1);
     }
 
     /** Which power move a released charge becomes. */
@@ -228,9 +261,15 @@ export class MeleeController {
         return set.power[this.lockedDirection ?? powerDirection(input)];
     }
 
-    /** The next quick strike in the weapon's combo order (spec 18.2); a new chain opens with A. */
+    /**
+     * The next quick strike in the weapon's combo order (spec 18.2): the other side from the last
+     * one. A chain opens with A (left to right) after a power attack or once the weapon has rested.
+     */
     private startQuick(events: MeleeEvents): void {
         const quick = this.moves.quick;
+        if (this.sinceQuick > tuning.quickChainReset) {
+            this.comboIndex = -1;
+        }
         this.comboIndex = this.comboIndex < 0 ? 0 : this.combo.next(this.comboIndex) % quick.length;
         this.start(quick[this.comboIndex], events);
     }
@@ -238,9 +277,19 @@ export class MeleeController {
     private start(move: MoveDef, events: MeleeEvents): void {
         this.swing = { move, timeline: timelineFor(move, this.weapon.speed), elapsed: 0 };
         this.phase = "swing";
-        this.buffered = false;
         this.lockedDirection = undefined;
+        if (move.kind === "quick") {
+            this.sinceQuick = 0;
+        } else {
+            this.comboIndex = -1;
+        }
         events.started = move;
+    }
+
+    /** Hit windows done and enough of the recovery played for a queued strike to cut in. */
+    private pastRecoveryCut(swing: SwingState): boolean {
+        const t = swing.timeline;
+        return swing.elapsed >= t.windup + t.active + tuning.quickRecoveryCut * t.recovery;
     }
 
     private total(t: Timeline): number {

@@ -27,8 +27,7 @@ import { NpcCombatBrain } from "./NpcCombat";
 import type { Box } from "../physics/TileColliders";
 import { Combatant } from "../combat/Combatant";
 import { tuning } from "../combat/tuning";
-import { Knockback, findSnapTile, massForce, slideSpeedForDistance, stepKnockback } from "./NpcPhysics";
-import type { Reaction } from "../combat/Combatant";
+import { Knockback, deathLaunch, findSnapTile, massForce, slideSpeedForDistance, stepKnockback } from "./NpcPhysics";
 import type { SharedNpcModel } from "./NpcModels";
 import { NpcAttacker, StrikeEvent, attacksFromClips } from "./NpcAttacks";
 import { canHear, canSee, hearingDelay, sightDelay } from "./NpcSenses";
@@ -173,6 +172,15 @@ export class Npc {
     /** Direction of the last hit taken, world tiles. */
     private lastHitX = 0;
     private lastHitY = 0;
+    /** HitPow of the last hit taken: a killing blow's sets how far the body is thrown. */
+    private lastHitPow = 1;
+    /**
+     * Knocked down by a kick, or by a body a kick sent flying, and not yet up: the body knocks
+     * over the NPCs it flies into without hurting them.
+     */
+    kickedDown = false;
+    /** Kicked since the last ragdoll started: the next one gets kickLift. */
+    private kickLaunch = false;
     /** Position at the last update, for the velocity a ragdoll starts with. */
     private lastX = Number.NaN;
     private lastY = Number.NaN;
@@ -394,6 +402,10 @@ export class Npc {
         this.hitHeight = height;
         this.becomeAlerted(fromX, fromY);
         this.sinceHit = 0;
+        this.lastHitPow = hitPow;
+        if (this.combatant.dead) {
+            this.kickedDown = false;
+        }
         if (this.combatant.incapacitated || push > 0) {
             this.attacker.interrupt();
         }
@@ -407,6 +419,9 @@ export class Npc {
             const table = push >= 2 ? tuning.longHitDistance : tuning.mediumHitDistance;
             const distance = (table[side] * (push >= 3 ? 1.5 : 1)) / this.size;
             this.slide(dirX, dirY, distance);
+        } else if (!this.combatant.dead) {
+            // Killing blows are thrown by deathLaunch instead.
+            this.slide(dirX, dirY, (tuning.hitNudge * Math.min(2, hitPow)) / this.size);
         }
     }
 
@@ -418,12 +433,15 @@ export class Npc {
     /**
      * Knocked over by another NPC's flying body coming from (fromX, fromY) (spec 20.7): the NPC
      * falls onto a ragdoll of its own, moving on as the hit sent it, and gets up afterwards. The
-     * hit never kills: it leaves at least 1 health.
+     * hit never kills: it leaves at least 1 health. A body sent flying by a kick (`kicked`) does
+     * no damage at all, and this NPC's body then passes that on to any it knocks over in turn.
      */
-    hitByBody(hit: BodyHit, fromX: number, fromY: number): void {
+    hitByBody(hit: BodyHit, fromX: number, fromY: number, kicked = false): void {
         const c = this.combatant;
-        c.hurt(Math.min(hit.damage, Math.max(0, c.health - 1)), "knockdown", false, tuning.knockdownPhysics);
+        const damage = kicked ? 0 : Math.min(hit.damage, Math.max(0, c.health - 1));
+        c.hurt(damage, "knockdown", false, tuning.knockdownPhysics);
         this.takeHit(hit.dirX, hit.dirY, 0, fromX, fromY);
+        this.kickedDown = kicked;
         const k = this.knockback ?? { x: this.body.x, y: this.body.y, vx: 0, vy: 0, plane: this.plane };
         k.vx = hit.dirX * hit.speed;
         k.vy = hit.dirY * hit.speed;
@@ -432,9 +450,10 @@ export class Npc {
 
     /**
      * A kick from (fromX, fromY) along (dirX, dirY) (spec 7). An NPC facing the kicker may dodge it
-     * sideways; its chance starts at 0.2 and grows 0.3 with every kick. Otherwise it takes the
-     * kick's damage and is pushed back like a long hit, scaled by mass; slamming into a wall or
-     * going over an edge knocks it down.
+     * sideways; its chance starts at 0.2 and grows 0.3 with every kick. Otherwise it is knocked
+     * down onto its ragdoll without damage [design], sent off as far as a long hit would push it
+     * (scaled by mass), and gets up after knockdownKick. Its flying body knocks over the NPCs it
+     * meets, harmlessly too.
      */
     kick(dirX: number, dirY: number, fromX: number, fromY: number): KickOutcome {
         const c = this.combatant;
@@ -459,10 +478,14 @@ export class Npc {
             return "dodged";
         }
 
-        c.hurt(tuning.kickDamage, "push" as Reaction);
+        c.hurt(0, "knockdown", false, tuning.knockdownKick);
         this.attacker.interrupt();
         this.hitHeight = 0.55;
         this.lean(dirX, dirY);
+        this.lastHitPow = 1;
+        this.kickedDown = true;
+        // A body already on the ground is shoved by the slide below instead.
+        this.kickLaunch = !this.ragdoll;
         const reference = massForce(tuning.npcBaseMass) / tuning.npcBaseMass;
         const scale = Math.min(2, Math.max(0.2, massForce(this.mass) / this.mass / reference));
         this.slide(dirX, dirY, tuning.longHitDistance[this.hitSide(dirX, dirY)] * scale, true);
@@ -835,7 +858,8 @@ export class Npc {
     /**
      * Knocked down or killed: the body becomes a ragdoll from its current pose, moving as the NPC
      * moved (mm_ragdollanimation_coeffvelocity 1) plus, on death, force_damage_death along the
-     * killing blow (spec 20.1).
+     * killing blow (spec 20.1) and a launch along it sized by the blow (deathLaunch). The ragdoll
+     * itself is untouched: only the velocity it starts with changes.
      */
     private startRagdoll(): void {
         const data = this.model.data;
@@ -850,9 +874,12 @@ export class Npc {
         const k = this.knockback;
         const vx = k ? k.vx : this.velocityX;
         const vy = k ? k.vy : this.velocityY;
-        ragdoll.setVelocity(vx, 0, -vy);
+        ragdoll.setVelocity(vx, this.kickLaunch ? tuning.kickLift : 0, -vy);
+        this.kickLaunch = false;
         if (this.combatant.dead) {
             ragdoll.applyImpulse(this.lastHitX * tuning.deathForce, 0, -this.lastHitY * tuning.deathForce);
+            const launch = deathLaunch(this.lastHitX, this.lastHitY, this.lastHitPow, this.mass);
+            ragdoll.addVelocity(launch.vx, launch.up, -launch.vy);
         }
         this.knockback = undefined;
         this.ragdoll = ragdoll;
@@ -905,6 +932,7 @@ export class Npc {
         this.ragdoll = undefined;
         this.standingUp = undefined;
         this.knockback = undefined;
+        this.kickedDown = false;
         this.dirty = true;
         for (const { mesh } of this.meshes) {
             mesh.frustumCulled = true;

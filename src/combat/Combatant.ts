@@ -18,6 +18,8 @@ export class Combatant {
     sinceHurt = Infinity;
     /** Seconds the stand-up after a knockdown takes. */
     standUpTime = tuning.standUpFront;
+    /** Hits still cause reactions but take no health. */
+    unlimitedHealth = false;
 
     constructor(public maxHealth: number) {
         this.health = maxHealth;
@@ -43,7 +45,9 @@ export class Combatant {
 
     /** Applies damage and starts a reaction; a weaker reaction never cuts a stronger one short. */
     hurt(amount: number, reaction: Reaction, stunned = false, knockdownTime = tuning.knockdownDuration): void {
-        this.health = Math.max(0, this.health - amount);
+        if (!this.unlimitedHealth) {
+            this.health = Math.max(0, this.health - amount);
+        }
         this.sinceHurt = 0;
         if (reaction === "knockdown") {
             this.knockDown(knockdownTime);

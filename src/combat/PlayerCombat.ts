@@ -2,7 +2,7 @@ import type { Body, BodySource } from "../physics/Bodies";
 import type { FlagsAt } from "../physics/TileColliders";
 import { Combatant } from "./Combatant";
 import { DamageResult, applyHit, hitboxMultiplier } from "./Damage";
-import { raySign, traceRay } from "./SwingRay";
+import { pushDirection, raySign, traceRay } from "./SwingRay";
 import { rayFor, timelineFor } from "./moves";
 import { KickController, traceKick } from "./Kick";
 import { MeleeController, MeleeInput } from "./MeleeController";
@@ -64,6 +64,8 @@ export type CombatPlayer = {
 
 export type CombatInput = {
     attackDown: boolean;
+    /** True in the update the attack button went down, even if it already came up again. */
+    attackPressed?: boolean;
     /** Right mouse: parry stance (spec 6, 16.8). */
     blockDown?: boolean;
     /** True in the update the kick key went down. */
@@ -178,6 +180,8 @@ export class PlayerCombat {
     }
 
     update(dt: number, player: CombatPlayer, input: CombatInput): HitReport[] {
+        // Read every update so it can be switched live (window.game.tuning).
+        this.combatant.unlimitedHealth = tuning.playerUnlimitedHealth;
         this.combatant.update(dt);
         this.sinceAttack += dt;
         const reports: HitReport[] = [];
@@ -243,6 +247,7 @@ export class PlayerCombat {
         }
         const meleeInput: MeleeInput = {
             attackDown: input.attackDown && !this.combatant.incapacitated,
+            attackPressed: !!input.attackPressed && !this.combatant.incapacitated,
             forward: input.forward,
             strafe: input.strafe,
             pitch: player.pitch,

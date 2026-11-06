@@ -501,6 +501,41 @@ describe("bodies knocking NPCs over (spec 20.7)", () => {
         expect(east.combatant.health).toBe(1);
         expect(east.combatant.dead).toBe(false);
     });
+
+    it("hurts with a fast corpse: only kicked bodies are harmless", async () => {
+        const { npcs, west, east } = await twoNpcs();
+        const health = east.combatant.health;
+        expect(fling(npcs, west, east, 10)).toBe(true);
+        expect(east.combatant.health).toBeLessThan(health);
+        expect(east.kickedDown).toBe(false);
+    });
+
+    it("knocks over, unhurt, the NPC a kicked NPC flies into; both get up again", async () => {
+        const { npcs, west, east } = await twoNpcs();
+        const health = [west.combatant.health, east.combatant.health];
+        // Kicked from the west, towards the east NPC (random 0.5 never dodges).
+        expect(west.kick(1, 0, west.body.x - 1.5, west.body.y)).toBe("hit");
+        let hit = false;
+        for (let t = 0; t < 2 && !hit; t += 0.02) {
+            npcs.update(0.02);
+            hit = east.combatant.knockedDown;
+        }
+        expect(hit).toBe(true);
+        npcs.update(0.02);
+        expect(east.ragdoll).toBeDefined();
+        // Passed on: the east NPC's body would knock others over harmlessly too.
+        expect(east.kickedDown).toBe(true);
+        expect([west.combatant.health, east.combatant.health]).toEqual(health);
+        for (let t = 0; t < tuning.knockdownPhysics + tuning.standUpBack + tuning.standUpFront + 0.5; t += 0.02) {
+            npcs.update(0.02);
+        }
+        for (const npc of [west, east]) {
+            expect(npc.ragdoll).toBeUndefined();
+            expect(npc.combatant.dead).toBe(false);
+            expect(npc.kickedDown).toBe(false);
+        }
+        expect([west.combatant.health, east.combatant.health]).toEqual(health);
+    });
 });
 
 describe("NPC combat movement and kicks", () => {
@@ -536,17 +571,32 @@ describe("NPC combat movement and kicks", () => {
         expect(npc.inCombat).toBe(true);
     });
 
-    it("is shoved back about as far as its long hit when kicked, and dodges more often with every kick", async () => {
+    it("is knocked down onto its ragdoll by a kick, unhurt, sent about as far as its long hit, and gets up", async () => {
         const { npcs, npc } = await oneNpc();
         npc.faceTowards(3222.5, 3240); // facing away from the kicker (south): cannot dodge
         npc.rotation = npc.orientation;
+        const health = npc.combatant.health;
         const y0 = npc.body.y;
         expect(npc.kick(0, 1, 3222.5, y0 - 1.5)).toBe("hit");
+        expect(npc.combatant.knockedDown).toBe(true);
+        npcs.update(0.02);
+        expect(npc.ragdoll).toBeDefined();
         for (let i = 0; i < 100; i++) {
             npcs.update(0.02);
         }
+        expect(npc.combatant.health).toBe(health);
         expect(npc.body.y - y0).toBeGreaterThan(1.1); // long hit from behind: 64 u, about 1.3 tiles
         expect(npc.body.y - y0).toBeLessThan(2.4);
+        for (let t = 0; t < tuning.knockdownKick + tuning.standUpBack + tuning.standUpFront; t += 0.02) {
+            npcs.update(0.02);
+        }
+        expect(npc.ragdoll).toBeUndefined();
+        expect(npc.combatant.dead).toBe(false);
+        expect(npc.kickedDown).toBe(false);
+    });
+
+    it("dodges kicks more often with every kick", async () => {
+        const { npc } = await oneNpc();
 
         // Facing the kicker, repeated kicks are dodged sooner or later (chance 0.2, 0.5, 0.8, 1).
         let dodged = false;
@@ -559,17 +609,20 @@ describe("NPC combat movement and kicks", () => {
         expect(dodged).toBe(true);
     });
 
-    it("is knocked down when a kick slams it into a wall", async () => {
+    it("is stopped by a wall when a kick sends it into one, unhurt", async () => {
         // A blocked row one tile north of the spawn tile (3222, 3218).
         const { npcs, npc } = await oneNpc((_x, y) => (y === 3219 ? CollisionFlag.OBJECT : 0));
         npc.faceTowards(3222.5, 3240); // facing away: cannot dodge
         npc.rotation = npc.orientation;
+        const health = npc.combatant.health;
         npc.kick(0, 1, 3222.5, npc.body.y - 1.5);
-        let down = false;
-        for (let i = 0; i < 50; i++) {
+        let furthest = -Infinity;
+        for (let i = 0; i < 75; i++) {
             npcs.update(0.02);
-            down ||= npc.combatant.knockedDown;
+            expect(npc.combatant.knockedDown).toBe(true);
+            furthest = Math.max(furthest, npc.body.y);
         }
-        expect(down).toBe(true);
+        expect(npc.combatant.health).toBe(health);
+        expect(furthest).toBeLessThan(3219);
     });
 });

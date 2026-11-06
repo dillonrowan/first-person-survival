@@ -46,8 +46,13 @@ function createBoot(): THREE.Group {
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const smooth = (t: number) => t * t * (3 - 2 * t);
-function lerpPose(a: Pose, b: Pose, t: number): Pose {
-    const s = smooth(Math.min(1, Math.max(0, t)));
+/** Accelerating from rest: the last stretch of a wind-up, speeding into the strike. */
+const easeIn = (t: number) => t * t;
+/** Decelerating to rest: a follow-through bleeding off the strike's speed. */
+const easeOut = (t: number) => 1 - (1 - t) * (1 - t);
+const clamp01 = (t: number) => Math.min(1, Math.max(0, t));
+function lerpPose(a: Pose, b: Pose, t: number, ease: (t: number) => number = smooth): Pose {
+    const s = ease(clamp01(t));
     return { pos: a.pos.clone().lerp(b.pos, s), quat: a.quat.clone().slerp(b.quat, s) };
 }
 
@@ -98,6 +103,13 @@ export class WeaponView {
     private current: THREE.Object3D | undefined;
     private currentId = "";
     private readonly boot = createBoot();
+    /** Added to the first-person camera's rotation: the view following the swing and shaking on impact. */
+    readonly viewOffset: ViewOffset = { pitch: 0, yaw: 0, roll: 0 };
+    /** Seconds the drawn swing runs behind the real one (hit-stop); it catches up at double speed. */
+    private lag = 0;
+    private freeze = 0;
+    private shake = 0;
+    private clock = 0;
 
     private pose: Pose | undefined;
     private layerKey = "";
@@ -159,14 +171,29 @@ export class WeaponView {
         this.holder.add(model);
     }
 
+    /** A melee strike landed: the blade stalls in the target for a moment and the view jolts. 0..1. */
+    impact(strength: number): void {
+        this.freeze = Math.max(this.freeze, HITSTOP * strength);
+        this.shake = Math.max(this.shake, strength);
+    }
+
     update(
         dt: number,
         melee: MeleeController,
         mode: "first" | "third",
         visible: boolean,
         kick?: KickController,
-        extra: { bowDraw?: number; blocking?: boolean } = {},
+        extra: { dt?: number; bowDraw?: number; blocking?: boolean } = {},
     ): void {
+        const dt = extra.dt ?? 0;
+        this.clock += dt;
+        if (this.freeze > 0) {
+            this.freeze = Math.max(0, this.freeze - dt);
+            this.lag += dt;
+        } else {
+            this.lag = Math.max(0, this.lag - dt);
+        }
+        this.viewOffset.pitch = this.viewOffset.yaw = this.viewOffset.roll = 0;
         this.updateBoot(mode === "first" && visible ? kick : undefined);
         const weapon = melee.weapon;
         if (weapon.id !== this.currentId) {
@@ -197,6 +224,25 @@ export class WeaponView {
         }
         this.holder.position.copy(pose.pos);
         this.holder.quaternion.copy(pose.quat);
+        if (this.freeze > 0) {
+            // Stuck in the target: a fine judder rather than a dead stop.
+            this.holder.position.x += Math.sin(this.clock * 190) * 0.004;
+            this.holder.position.y += Math.cos(this.clock * 170) * 0.004;
+        } else if (melee.isCharging) {
+            // Muscles straining against the held power attack.
+            this.holder.position.x += Math.sin(this.clock * 31) * CHARGE_TREMBLE;
+            this.holder.position.y += Math.sin(this.clock * 23 + 1) * CHARGE_TREMBLE;
+        }
+        // Impact jolt: a quick decaying shudder of the view.
+        if (this.shake > 1e-3) {
+            const a = this.shake * IMPACT_SHAKE;
+            this.viewOffset.pitch += Math.sin(this.clock * 70) * a;
+            this.viewOffset.yaw += Math.cos(this.clock * 55) * a * 0.6;
+            this.viewOffset.roll += Math.sin(this.clock * 45) * a * 0.5;
+            this.shake *= Math.exp(-SHAKE_DECAY * dt);
+        } else {
+            this.shake = 0;
+        }
     }
 
     /** Plays Dark Messiah's first-person layer for the melee state, crossfading when the layer changes. */

@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { CollisionFlag } from "../world/WorldFormat";
 import type { NpcClip, NpcSkeleton } from "../world/NpcFormat";
+import { tuning } from "../combat/tuning";
+import { deathLaunch } from "./NpcPhysics";
 import { Ragdoll, RagdollWorld, foldPivotlessParts, singlePartSkeleton } from "./Ragdoll";
 
 const flat: RagdollWorld = { flagsAt: () => 0, groundHeight: () => 0 };
@@ -409,5 +411,32 @@ describe("ragdoll (spec 20)", () => {
         for (let v = 0; v < count; v++) {
             expect(out[v * 3 + 1]).toBeGreaterThanOrEqual(-1e-4);
         }
+    });
+
+    it("is thrown well along a killing blow by the death launch, further by a harder one", () => {
+        const { base, skeleton } = figure();
+        /** Killed by a blow towards +x (three.js), as Npc.startRagdoll starts the body; tiles moved. */
+        const thrown = (hitPow: number | undefined) => {
+            const ragdoll = new Ragdoll(skeleton, base, placed(base, 100.5, 0, -100.5), tuning.npcBaseMass, 0);
+            ragdoll.settleOnFloor(flat);
+            ragdoll.setVelocity(0, 0, 0);
+            ragdoll.applyImpulse(tuning.deathForce, 0, 0);
+            if (hitPow !== undefined) {
+                const launch = deathLaunch(1, 0, hitPow, tuning.npcBaseMass);
+                ragdoll.addVelocity(launch.vx, launch.up, -launch.vy);
+            }
+            const [x0, , z0] = ragdoll.rootPosition();
+            run(ragdoll, flat, 4);
+            expect(ragdoll.asleep).toBe(true);
+            const [x1, , z1] = ragdoll.rootPosition();
+            expect(Math.abs(z1 - z0)).toBeLessThan(0.3);
+            return x1 - x0;
+        };
+        // The death impulse alone hardly moves a body; the launch throws it.
+        expect(thrown(undefined)).toBeLessThan(0.2);
+        const quick = thrown(0.7);
+        const power = thrown(1.5);
+        expect(quick).toBeGreaterThan(1.5);
+        expect(power).toBeGreaterThan(quick + 0.3);
     });
 });

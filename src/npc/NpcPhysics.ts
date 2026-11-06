@@ -47,6 +47,20 @@ export function massForce(mass: number): number {
     return f0 + ((mass - w0) * (f1 - f0)) / (w1 - w0);
 }
 
+/**
+ * Velocity (world tiles/s; `up` positive) a killing blow along (dirX, dirY) with `hitPow` gives a
+ * body of `mass` kg as it becomes a ragdoll: harder blows throw it further, heavier bodies less
+ * far, and a little lift gets it off the ground instead of dragging on it.
+ */
+export function deathLaunch(dirX: number, dirY: number, hitPow: number, mass: number): { vx: number; vy: number; up: number } {
+    const { deathLaunchSpeed, deathLaunchPerPow, deathLaunchMaxPow, deathLaunchLift, deathLaunchMassScale } = tuning;
+    const [least, most] = deathLaunchMassScale;
+    const massScale = Math.min(most, Math.max(least, Math.sqrt(tuning.npcBaseMass / Math.max(1, mass))));
+    const speed = (deathLaunchSpeed + deathLaunchPerPow * Math.min(Math.max(0, hitPow), deathLaunchMaxPow)) * massScale;
+    const length = Math.hypot(dirX, dirY) || 1;
+    return { vx: (dirX / length) * speed, vy: (dirY / length) * speed, up: speed * deathLaunchLift };
+}
+
 /** Below this speed (tiles/s) a knockback is over. */
 export const KNOCKBACK_REST_SPEED = 0.05;
 const MAX_SUBSTEP = 0.2;

@@ -4,7 +4,8 @@ import type { Body, BodySource } from "../physics/Bodies";
 import { CollisionFlag } from "../world/WorldFormat";
 import { Combatant } from "./Combatant";
 import { applyHit, damageAmount, hitboxMultiplier, reactionFor } from "./Damage";
-import { rayDirection, traceRay, viewToWorld } from "./SwingRay";
+import { PlayerCombat, type CombatTarget } from "./PlayerCombat";
+import { pushDirection, rayDirection, sweepDirection, traceRay, viewToWorld } from "./SwingRay";
 import { MOVE_SETS, Ray } from "./moves";
 import { tuning } from "./tuning";
 import { WEAPONS, weaponById } from "./weapons";
@@ -90,11 +91,76 @@ describe("attack ray (spec 17.2)", () => {
         expect(traceRay(attacker, sword.reach, thrust, 1, 0, 1, source([target(100.5, 102)]), noWalls, new Set())).toHaveLength(1);
     });
 
-    it("gives each sword move the game's ray: quick A rolls −10°, power R +45°, power T is a thrust", () => {
-        expect(MOVE_SETS.sword.quick[0].time?.rays[0].roll).toBe(-10);
+    it("gives each sword move its ray: quick A rolls +10°, power R +45°, power T is a thrust", () => {
+        expect(MOVE_SETS.sword.quick[0].time?.rays[0].roll).toBe(10);
         expect(MOVE_SETS.sword.power.R.time?.rays[0].roll).toBe(45);
         expect(MOVE_SETS.sword.power.T.time?.rays[0].sweep).toBe(0);
         expect(MOVE_SETS.sword.fall.time?.rays[0].vertical).toBe(true);
+    });
+});
+
+describe("which way a hit drives its target", () => {
+    it("knows which way the blade moves across the ground", () => {
+        // Facing north: right to left is west (−x), left to right east (+x).
+        const rightToLeft = sweepDirection(flat, 1, 0.5, 0, 0)!;
+        expect(rightToLeft.x).toBeCloseTo(-1);
+        expect(rightToLeft.y).toBeCloseTo(0);
+        expect(sweepDirection(flat, -1, 0.5, 0, 0)!.x).toBeCloseTo(1);
+        // Facing east, left to right is south.
+        expect(sweepDirection(flat, -1, 0.5, -Math.PI / 2, 0)!.y).toBeCloseTo(-1);
+        // A thrust and a straight-down chop have no sideways direction.
+        expect(sweepDirection({ ...flat, sweep: 0 }, 1, 0.5, 0, 0)).toBeUndefined();
+        expect(sweepDirection({ ...flat, vertical: true }, 1, 0.5, 0, 0)).toBeUndefined();
+    });
+
+    it("reports the blade's direction with each hit", () => {
+        // Left to right, struck where the arc first touches the target: moving east (and a little
+        // forward, as the arc still curves there).
+        const [hit] = traceRay(attacker, sword.reach, flat, -1, 0, 1, source([target(100.5, 101.5)]), noWalls, new Set());
+        expect(hit.swingX).toBeGreaterThan(0.9);
+        expect(Math.abs(hit.swingY!)).toBeLessThan(0.45);
+    });
+
+    it("drives mostly along the swing, partly away from the attacker; thrusts straight away", () => {
+        const ahead = { dirX: 0, dirY: 1 };
+        const swept = pushDirection({ ...ahead, swingX: 1, swingY: 0 });
+        expect(Math.hypot(swept.x, swept.y)).toBeCloseTo(1);
+        expect(swept.x).toBeGreaterThan(0.85);
+        expect(swept.y).toBeGreaterThan(0.25);
+        expect(pushDirection(ahead)).toEqual({ x: 0, y: 1 });
+    });
+
+    it("pushes a struck NPC the way each quick strike swings: A to the right, B to the left", () => {
+        const pushes: number[] = [];
+        const dummy: CombatTarget = {
+            combatant: new Combatant(10_000),
+            attackable: true,
+            inCombat: true,
+            takeHit: (dirX) => pushes.push(dirX),
+            kick: () => "hit",
+        };
+        const body: Body<CombatTarget> = { x: 100.5, y: 101.3, z: 0, radius: 0.35, height: 1.7, plane: 0, owner: dummy };
+        const combat = new PlayerCombat({ collectBodies: (_p, _a, _b, _c, _d, out) => out.push(body) }, noWalls, () => 0.99);
+        const player = {
+            ...attacker,
+            z: 0,
+            eyeHeight: 1.25,
+            sprinting: false,
+            grounded: true,
+            verticalSpeed: 0,
+            stamina: { value: 10, spend: () => true },
+            applyImpulse: () => {},
+        };
+        // Two clicks, 0.8 s apart.
+        for (let click = 0; click < 2; click++) {
+            for (let t = 0; t < 0.8; t += 0.01) {
+                combat.update(0.01, player, { attackDown: t < 0.03, forward: 0, strafe: 0 });
+            }
+        }
+        // Struck a little left (A) or right (B) of centre, where the arc also carries forward.
+        expect(pushes).toHaveLength(2);
+        expect(pushes[0]).toBeGreaterThan(0.6);
+        expect(pushes[1]).toBeLessThan(-0.6);
     });
 });
 
@@ -156,6 +222,43 @@ describe("damage", () => {
 });
 
 describe("Combatant", () => {
+    it("with unlimited health still reacts to hits but never loses health", () => {
+        const c = new Combatant(100);
+        c.unlimitedHealth = true;
+        c.hurt(1e6, "stagger");
+        expect(c.health).toBe(100);
+        expect(c.dead).toBe(false);
+        expect(c.reaction).toBe("stagger");
+    });
+
+    it("gives the player unlimited health while tuning.playerUnlimitedHealth is on", () => {
+        const combat = new PlayerCombat(source([]) as never, noWalls);
+        const player = {
+            ...attacker,
+            z: 0,
+            eyeHeight: 1.25,
+            sprinting: false,
+            grounded: true,
+            verticalSpeed: 0,
+            stamina: { value: 10, spend: () => true },
+            applyImpulse: () => {},
+        };
+        const strike = { fromX: 100.5, fromY: 101.5, gap: 0, range: 1, hitPow: 100, breaksParry: false, push: false };
+        const before = tuning.playerUnlimitedHealth;
+        try {
+            tuning.playerUnlimitedHealth = true;
+            combat.update(0.01, player, { attackDown: false, forward: 0, strafe: 0 });
+            expect(combat.receiveStrike(player, strike, true).outcome).toBe("hit");
+            expect(combat.combatant.healthFraction).toBe(1);
+            tuning.playerUnlimitedHealth = false;
+            combat.update(0.01, player, { attackDown: false, forward: 0, strafe: 0 });
+            combat.receiveStrike(player, strike, true);
+            expect(combat.combatant.dead).toBe(true);
+        } finally {
+            tuning.playerUnlimitedHealth = before;
+        }
+    });
+
     it("counts reactions down, keeps the stronger one, and stands up after a knockdown", () => {
         const c = new Combatant(100);
         c.hurt(1, "knockdown");
@@ -185,7 +288,7 @@ describe("Combatant", () => {
 describe("move and weapon tables", () => {
     it("give every family a full move set", () => {
         for (const set of Object.values(MOVE_SETS)) {
-            expect(set.quick.length).toBeGreaterThanOrEqual(4);
+            expect(set.quick.length).toBe(2);
             for (const dir of ["default", "L", "R", "B", "T"] as const) {
                 expect(set.power[dir].hits.length).toBeGreaterThan(0);
             }
@@ -196,6 +299,7 @@ describe("move and weapon tables", () => {
         for (const w of WEAPONS) {
             expect(w.reach).toBeGreaterThan(1);
             expect(w.parryCos).toBeGreaterThan(0);
+            expect(w.weight).toBeGreaterThan(0);
         }
     });
 });

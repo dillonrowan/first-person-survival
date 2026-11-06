@@ -16,26 +16,48 @@ export type WeaponDef = {
     piercing: number;
     /** Parry cone: cos of the half-angle (parry_cos; larger is narrower, spec 6). */
     parryCos: number;
-    /** Animation-rate multiplier (speed_attack); timelines are divided by it. */
+    /** Weight in kilograms; sets how fast the weapon swings (`speed`). [design] */
+    weight: number;
+    /** Animation-rate multiplier (speed_attack); timelines are divided by it. From `weight`. */
     speed: number;
     /** Stun chance multiplier (stunmultiplicator). */
     stunMultiplier: number;
 };
 
+/** Seconds one quick strike takes with a weapon of `weight` kg: heavier swings slower. [design] */
+export const swingTime = (weight: number) => 0.18 + 0.15 * weight;
+
+/** Length of the quick strike timelines in moves.ts at speed 1. */
+const QUICK_STRIKE_TIME = 0.4;
+
+/** `weight` and the swing speed it gives. */
+const weighing = (weight: number) => ({ weight, speed: QUICK_STRIKE_TIME / swingTime(weight) });
+
 /**
  * Generic weapon classes with values from the spec's per-weapon table (13). The names are ours;
- * the numbers are the example weapons' entity_data.
+ * the numbers are the example weapons' entity_data, except speed, which comes from the weight.
  */
 export const WEAPONS: readonly WeaponDef[] = [
     {
         id: "sword",
-        name: "Sword",
+        name: "Longsword",
         family: "sword",
         damage: 3,
         reach: units(100),
         piercing: 0.1,
         parryCos: 0.5,
-        speed: 1,
+        ...weighing(1.5),
+        stunMultiplier: 1,
+    },
+    {
+        id: "shortsword",
+        name: "Shortsword",
+        family: "sword",
+        damage: 2.5,
+        reach: units(90),
+        piercing: 0.2,
+        parryCos: 0.5,
+        ...weighing(1),
         stunMultiplier: 1,
     },
     {
@@ -46,7 +68,7 @@ export const WEAPONS: readonly WeaponDef[] = [
         reach: units(80),
         piercing: 0.5,
         parryCos: 0.2,
-        speed: 1.1,
+        ...weighing(0.4),
         stunMultiplier: 1,
     },
     {
@@ -57,7 +79,7 @@ export const WEAPONS: readonly WeaponDef[] = [
         reach: units(100),
         piercing: 0.2,
         parryCos: 0.5,
-        speed: 1,
+        ...weighing(2),
         stunMultiplier: 1,
     },
     {
@@ -68,7 +90,7 @@ export const WEAPONS: readonly WeaponDef[] = [
         reach: units(110),
         piercing: 0.5,
         parryCos: 0.7,
-        speed: 1.1,
+        ...weighing(2.2),
         stunMultiplier: 1,
     },
     {
@@ -80,7 +102,7 @@ export const WEAPONS: readonly WeaponDef[] = [
         reach: units(80),
         piercing: 0.3,
         parryCos: 2,
-        speed: 1,
+        ...weighing(0.8),
         stunMultiplier: 1,
     },
 ];
