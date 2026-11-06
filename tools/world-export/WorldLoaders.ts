@@ -44,13 +44,16 @@ export type WorldLoaders = {
     npcModelLoader: NpcModelLoader;
     varManager: VarManager;
     sceneBuilder: SceneBuilder;
+    /** A sound effect's encoded instruments (cache index 4, one archive per effect), if it exists. */
+    soundEffectData(id: number): Int8Array | undefined;
 };
 
-// Only these indices are needed to build the map, so the others are never decoded.
+// Only these indices are needed to build the map and its sounds, so the others are never decoded.
 const REQUIRED_INDICES = [
     IndexType.DAT2.animations,
     IndexType.DAT2.skeletons,
     IndexType.DAT2.configs,
+    IndexType.DAT2.soundEffects,
     IndexType.DAT2.maps,
     IndexType.DAT2.models,
     IndexType.DAT2.sprites,
@@ -154,8 +157,17 @@ export function createWorldLoaders(files: CacheFiles): WorldLoaders {
         files.xteas,
     );
 
+    const soundIndex = cacheSystem.getIndex(IndexType.DAT2.soundEffects);
+    const soundEffectData = (id: number): Int8Array | undefined => {
+        if (!soundIndex.getArchiveReference(id)) {
+            return undefined;
+        }
+        return soundIndex.getArchive(id).getFile(0)?.data;
+    };
+
     return {
         info,
+        soundEffectData,
         locTypeLoader,
         textureLoader,
         locModelLoader,
