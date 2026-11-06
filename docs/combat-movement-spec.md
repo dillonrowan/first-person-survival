@@ -1111,7 +1111,9 @@ fall as one rigid body.
   (at least 0.08 tiles off, so thin parts keep a stable frame), plus a collision hull of its
   extreme vertices along each of its frame's axes; and one per joint, shared by the two parts it
   joins (a ball joint). All particles of a part are held at their distances, so the part stays
-  rigid. 2 substeps, 8 iterations a frame. Positions are kept relative to a whole-tile origin near
+  rigid. A part starts where it is drawn by its best-fit motion over its own vertices (not those
+  of the small parts folded into it), and all its particles are placed by that one motion, so it
+  starts rigid (20.8). 2 substeps, 8 iterations a frame. Positions are kept relative to a whole-tile origin near
   the body: at map coordinates (around 3200) single floats only resolve 1/4000 tile, noise that
   kept small bodies such as a goblin's twitching.
 - **Mass.** The NPC's mass (80 × size² kg; the guard's ragdoll is 90) shared out by the volume of
@@ -1263,3 +1265,38 @@ goblin at 3 into a man), rendered and checked in Blender: the body reaches its t
 0.45–0.6 tiles above the floor) and both bodies are asleep within 2.5 s. The two meshes touch in at
 most 9 triangle pairs at any of the frames checked. A man drifting in at 1.2 tiles/s leaves the
 other standing.
+
+### 20.8 Keeping the skin together `[design]`
+
+The skeleton OSRS animations imply need not follow the body. A giant rat's chest (with its neck,
+head and front legs) hangs from its tail-and-back part, whose small tail segments are folded into
+it (20.3): the chest's joint limits, learned relative to a tail that wags in the walk, are huge, and
+nothing joins the chest to the hips although the skin does. Dead, the rat folded its front half
+back over its hips and the skin between them stretched across the body (mesh edges 1.27 tiles
+longer than in the base pose, against at most 0.17 in its own animations). Two things fix it:
+
+- **Ligaments.** Wherever mesh edges join two parts (jointed or not), up to 3 of those edges,
+  spread along the seam, become ligaments: each end is a point carried by its part (a weighted sum
+  of 4 of its particles), and the ends may not part further than the edge is long in the base pose
+  or any idle or walk frame (the real animated vertices) plus 0.05 tiles. A ligament only pulls
+  when stretched past that. It is not widened for the pose the body starts in: where a folded
+  segment bends in that pose (a rat's tail curling in its idle), the part after it (the tail tip)
+  starts torn off its seam, and the ligament pulls it back.
+- **Fitting parts to their own vertices.** A part's motion, both at the start of the ragdoll and in
+  each animation frame its limits are learned from, is fitted to its own vertices only; the folded
+  segments curl on their own. Fitted to all of them, or to the frame through its farthest vertex
+  (the tail tip), the rat's back started wrenched off its chest.
+
+Measured on real exports (12 deaths each, from 3 walk and 3 idle frames, hit from the side and the
+front), the worst mesh edge stretch in the pose a body comes to rest in:
+
+| NPC | Before | Now | Its own animations |
+| --- | --- | --- | --- |
+| Giant rat | 1.27 | 0.18 | 0.17 |
+| Goblin | 0.44 | 0.19 | 0.13 |
+| Cow | 0.44 | 0.24 | 0.19 |
+| Guard, man, giant spider | about 0.1 | about 0.1 | |
+
+Bodies still come to rest within 0.5–1.9 s. In the game, 10 giant rats killed mid-idle from
+different sides came to rest within 0.75–1.4 s with no edge more than 0.19 tiles longer than in
+the base pose.

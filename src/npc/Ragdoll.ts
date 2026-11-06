@@ -65,6 +65,8 @@ const START_MARGIN = 0.05;
 /** Fraction of an overlap between two body parts undone per iteration, and the most per iteration, tiles. [design] */
 const COLLISION_STIFFNESS = 0.5;
 const MAX_COLLISION_PUSH = 0.01;
+/** How much further than the animations ever do a seam may part (spec 20.8), tiles. [design] */
+const LIGAMENT_SLACK = 0.05;
 /** Most two bodies (or a body and a standing NPC) are pushed apart in one frame, tiles. [design] */
 const MAX_BODY_PUSH = 0.05;
 /** A body pushed into a sleeping one faster than this (tiles/s) wakes it. [design] */
@@ -126,8 +128,11 @@ type Part = {
     pivot: Vec3;
     /** True when a real vertex lies far enough off the part's axis to measure its twist. */
     frameReliable: boolean;
-    /** The part's own particles: its frame points and hull, not the joints it shares. */
+    /** The part's own particles: its frame points and hull, not the joints it shares; and where each is in the base pose. */
     own: number[];
+    ownRest: Vec3[];
+    /** The vertices its motion in an animation frame is fitted to (its own, not folded-in parts'). */
+    fitVertices: number[];
     /**
      * Every particle of the part and the parts hanging from it except its joint with its parent
      * (what turns with it when the joint bends), every other particle but that joint, and which
@@ -149,8 +154,142 @@ type SphereGroup = { a: number; b: number; reach: number; pairs: number[] };
 /** A part's best-fit motion in an animation frame: rotation from the base pose, and centroid. */
 type PoseFit = { r: number[]; c: number[] };
 
-/** Joint limits and colliding sphere pairs learned from each model's animations, by its skeleton. */
-const learnedByModel = new WeakMap<NpcSkeleton, { limits: (JointLimit | undefined)[]; groups: SphereGroup[] }>();
+/** Joint limits, colliding sphere pairs and ligament lengths learned from each model's animations, by its skeleton. */
+const learnedByModel = new WeakMap<NpcSkeleton, { limits: (JointLimit | undefined)[]; groups: SphereGroup[]; ligaments: number[] }>();
+
+/** A mesh of the model: triangles (3 indices each) over mesh vertices, and each one's model vertex. */
+export type SkinMesh = { indices: ArrayLike<number>; sources: ArrayLike<number> };
+
+/** A ligament across a seam (spec 20.8): a mesh edge from vertex u of part a to vertex w of part b. */
+type SeamEdge = { a: number; b: number; u: number; w: number };
+
+/** Most ligaments per seam, and the least distance between two of them, tiles. [design] */
+const LIGAMENTS_PER_SEAM = 3;
+const MIN_LIGAMENT_SPACING = 0.05;
+
+/**
+ * The model's seams, where mesh edges join two parts, as up to LIGAMENTS_PER_SEAM of their edges
+ * spread along each seam (farthest-point sampling of the edges' midpoints in the base pose).
+ */
+function findSeams(skin: readonly SkinMesh[], partOf: Uint8Array, base: Float32Array): SeamEdge[] {
+    const part = (v: number) => (partOf[v] === 255 || partOf[v] === undefined ? 0 : partOf[v]);
+    const bySeam = new Map<number, SeamEdge[]>();
+    const seen = new Set<string>();
+    for (const mesh of skin) {
+        for (let t = 0; t + 2 < mesh.indices.length; t += 3) {
+            for (let e = 0; e < 3; e++) {
+                const v1 = mesh.sources[mesh.indices[t + e]];
+                const v2 = mesh.sources[mesh.indices[t + ((e + 1) % 3)]];
+                const p1 = part(v1);
+                const p2 = part(v2);
+                if (p1 === p2) {
+                    continue;
+                }
+                const edge = p1 < p2 ? { a: p1, b: p2, u: v1, w: v2 } : { a: p2, b: p1, u: v2, w: v1 };
+                const key = `${edge.u},${edge.w}`;
+                if (seen.has(key)) {
+                    continue;
+                }
+                seen.add(key);
+                const list = bySeam.get(edge.a * 256 + edge.b) ?? [];
+                list.push(edge);
+                bySeam.set(edge.a * 256 + edge.b, list);
+            }
+        }
+    }
+    const mid = (e: SeamEdge): Vec3 => [0, 1, 2].map((k) => (base[e.u * 3 + k] + base[e.w * 3 + k]) / 2) as Vec3;
+    const chosen: SeamEdge[] = [];
+    for (const edges of bySeam.values()) {
+        const mids = edges.map(mid);
+        const centre = mids.reduce<Vec3>((s, m) => [s[0] + m[0] / mids.length, s[1] + m[1] / mids.length, s[2] + m[2] / mids.length], [0, 0, 0]);
+        // Start at the edge farthest from the seam's middle, then keep taking the one farthest from those taken.
+        const gap = mids.map((m) => Math.hypot(m[0] - centre[0], m[1] - centre[1], m[2] - centre[2]));
+        const picked: number[] = [];
+        for (let n = 0; n < LIGAMENTS_PER_SEAM; n++) {
+            let best = -1;
+            gap.forEach((g, i) => {
+                if (!picked.includes(i) && (best < 0 || g > gap[best])) {
+                    best = i;
+                }
+            });
+            if (best < 0 || (picked.length > 0 && gap[best] < MIN_LIGAMENT_SPACING)) {
+                break;
+            }
+            picked.push(best);
+            mids.forEach((m, i) => {
+                gap[i] = picked.length === 1 ? Math.hypot(m[0] - mids[best][0], m[1] - mids[best][1], m[2] - mids[best][2]) : Math.min(gap[i], Math.hypot(m[0] - mids[best][0], m[1] - mids[best][1], m[2] - mids[best][2]));
+            });
+        }
+        chosen.push(...picked.map((i) => edges[i]));
+    }
+    return chosen;
+}
+
+function centroidOf(vertices: readonly number[], positions: ArrayLike<number>): Vec3 {
+    const c: Vec3 = [0, 0, 0];
+    for (const v of vertices) {
+        c[0] += positions[v * 3] / vertices.length;
+        c[1] += positions[v * 3 + 1] / vertices.length;
+        c[2] += positions[v * 3 + 2] / vertices.length;
+    }
+    return c;
+}
+
+/**
+ * How far each ligament's ends may part: the longest its mesh edge is in the base pose or any
+ * animation frame (the vertices where the animation really puts them: a part's best-fit motion
+ * would misplace the edge when the part does not move rigidly, as a rat's tail does), plus
+ * LIGAMENT_SLACK.
+ */
+function ligamentLengths(seams: SeamEdge[], base: Float32Array, poses: readonly Float32Array[]): number[] {
+    return seams.map(({ u, w }) => {
+        let longest = 0;
+        for (const p of [base, ...poses]) {
+            longest = Math.max(longest, Math.hypot(p[u * 3] - p[w * 3], p[u * 3 + 1] - p[w * 3 + 1], p[u * 3 + 2] - p[w * 3 + 2]));
+        }
+        return longest + LIGAMENT_SLACK;
+    });
+}
+
+/**
+ * A point carried rigidly by a part, as a weighted sum of four of its particles (affine
+ * coordinates against its centroid, frame points and the hull particle farthest off their plane).
+ */
+function embed(part: { own: number[]; ownRest: Vec3[] }, x: Vec3): { particles: number[]; weights: number[] } {
+    const [c, e1, e2] = part.ownRest;
+    const u = [e1[0] - c[0], e1[1] - c[1], e1[2] - c[2]];
+    const v = [e2[0] - c[0], e2[1] - c[1], e2[2] - c[2]];
+    const n = cross(u, v);
+    let q = -1;
+    let off = 0;
+    part.ownRest.forEach((r, i) => {
+        const d = Math.abs(((r[0] - c[0]) * n[0] + (r[1] - c[1]) * n[1] + (r[2] - c[2]) * n[2]) / (Math.hypot(n[0], n[1], n[2]) || 1));
+        if (i >= 3 && d > off) {
+            off = d;
+            q = i;
+        }
+    });
+    const d = [x[0] - c[0], x[1] - c[1], x[2] - c[2]];
+    if (q >= 0 && off > 0.02) {
+        const w = [part.ownRest[q][0] - c[0], part.ownRest[q][1] - c[1], part.ownRest[q][2] - c[2]];
+        // Solve d = αu + βv + γw (Cramer's rule).
+        const det = dot(u, cross3(v, w));
+        const alpha = dot(d, cross3(v, w)) / det;
+        const beta = dot(u, cross3(d, w)) / det;
+        const gamma = dot(u, cross3(v, d)) / det;
+        return { particles: [part.own[0], part.own[1], part.own[2], part.own[q]], weights: [1 - alpha - beta - gamma, alpha, beta, gamma] };
+    }
+    // A flat part: the point's place in the frame's plane.
+    const uu = dot(u, u);
+    const uv = dot(u, v);
+    const vv = dot(v, v);
+    const det = uu * vv - uv * uv || 1;
+    const du = dot(d, u);
+    const dv = dot(d, v);
+    const alpha = (du * vv - dv * uv) / det;
+    const beta = (dv * uu - du * uv) / det;
+    return { particles: [part.own[0], part.own[1], part.own[2], part.own[0]], weights: [1 - alpha - beta, alpha, beta, 0] };
+}
 
 const sub = (a: ArrayLike<number>, i: number, b: ArrayLike<number>, j: number): [number, number, number] => [
     a[i * 3] - b[j * 3],
@@ -197,6 +336,31 @@ const MIN_RAGDOLL_PART_VERTICES = 8;
  */
 export function foldPivotlessParts(skeleton: NpcSkeleton, base: Float32Array): NpcSkeleton {
     const count = skeleton.parents.length;
+    const owner = foldOwners(skeleton, base);
+    const kept = [...owner.keys()].filter((p) => owner[p] === p);
+    if (kept.length === count) {
+        return skeleton;
+    }
+    const index = new Map(kept.map((p, i) => [p, i]));
+    return {
+        partOf: skeleton.partOf.map((p) => (p === 255 ? 255 : index.get(owner[p])!)),
+        parents: Int8Array.from(kept.map((p) => (skeleton.parents[p] < 0 ? -1 : index.get(owner[skeleton.parents[p]])!))),
+        pivots: Int16Array.from(kept.flatMap((p) => [skeleton.pivots[p * 3], skeleton.pivots[p * 3 + 1], skeleton.pivots[p * 3 + 2]])),
+    };
+}
+
+/**
+ * True for each vertex whose own exported part survives folding: the vertices that move with the
+ * part's own joint in the animations, not with a folded child of their own (a tail segment).
+ */
+function nativeVertices(skeleton: NpcSkeleton, base: Float32Array): Uint8Array {
+    const owner = foldOwners(skeleton, base);
+    return skeleton.partOf.map((p) => (p === 255 || owner[p] === p ? 1 : 0));
+}
+
+/** Each exported part's surviving owner: itself, or the nearest ancestor that survives folding. */
+function foldOwners(skeleton: NpcSkeleton, base: Float32Array): Int32Array {
+    const count = skeleton.parents.length;
     const sums = new Float64Array(count * 4);
     for (let v = 0; v < skeleton.partOf.length; v++) {
         const p = skeleton.partOf[v] === 255 ? 0 : skeleton.partOf[v];
@@ -218,16 +382,7 @@ export function foldPivotlessParts(skeleton: NpcSkeleton, base: Float32Array): N
             owner[p] = owner[skeleton.parents[p]];
         }
     }
-    const kept = [...owner.keys()].filter((p) => owner[p] === p);
-    if (kept.length === count) {
-        return skeleton;
-    }
-    const index = new Map(kept.map((p, i) => [p, i]));
-    return {
-        partOf: skeleton.partOf.map((p) => (p === 255 ? 255 : index.get(owner[p])!)),
-        parents: Int8Array.from(kept.map((p) => (skeleton.parents[p] < 0 ? -1 : index.get(owner[skeleton.parents[p]])!))),
-        pivots: Int16Array.from(kept.flatMap((p) => [skeleton.pivots[p * 3], skeleton.pivots[p * 3 + 1], skeleton.pivots[p * 3 + 2]])),
-    };
+    return owner;
 }
 
 /** Most collision spheres per part, and their smallest and largest radius, tiles. [design] */
@@ -380,6 +535,13 @@ export class Ragdoll {
     private lastDt = 1 / 60;
     /** Each part's reach from its centroid to its farthest sphere surface, tiles. */
     private readonly partReach: number[];
+    /**
+     * Ligaments across the skin's seams (spec 20.8): each end a weighted sum of 4 particles of its
+     * part (8 particles and weights per ligament), and the most the ends may part, tiles.
+     */
+    private readonly ligamentParticles: Uint16Array;
+    private readonly ligamentWeights: Float32Array;
+    private readonly ligamentMax: Float32Array;
     private readonly totalMass: number;
     /**
      * Set once the body slows below REST_SPEED, cleared when it speeds up past WAKE_SPEED or is
@@ -422,6 +584,8 @@ export class Ragdoll {
         public plane: number,
         /** The NPC's baked animations (idle, walk): the joint limits are learned from them. */
         clips: readonly (NpcClip | undefined)[] = [],
+        /** The model's meshes: where their skin joins two parts, a ligament holds them together. */
+        skin: readonly SkinMesh[] = [],
     ) {
         const skeleton = foldPivotlessParts(exported, base);
         const partCount = skeleton.parents.length;
@@ -430,6 +594,14 @@ export class Ragdoll {
             const p = skeleton.partOf[v];
             vertexLists[p === 255 ? 0 : p].push(v);
         }
+        const seams = findSeams(skin, skeleton.partOf, base);
+        // The vertices a part's motion is fitted to: its own, not those of the small parts folded
+        // into it (a rat's tail segments curl on their own in the walk). All of them if too few.
+        const native = nativeVertices(exported, base);
+        const fitLists = vertexLists.map((vs) => {
+            const own = vs.filter((v) => native[v] === 1);
+            return own.length >= 4 ? own : vs;
+        });
         // Particles live relative to a local origin near the body: at map coordinates (thousands of
         // tiles) single floats only resolve steps of 1/4000 tile, noise that the joint frames of a
         // small body (a goblin's hand) cannot take.
@@ -505,18 +677,33 @@ export class Ragdoll {
                 [current[e1 * 3] - cc[0], current[e1 * 3 + 1] - cc[1], current[e1 * 3 + 2] - cc[2]],
                 [current[e2 * 3] - cc[0], current[e2 * 3 + 1] - cc[1], current[e2 * 3 + 2] - cc[2]],
             );
-            const r: number[] = new Array(9);
-            rotationBetween(currentBasis, restBasis, r);
+            const guess: number[] = new Array(9);
+            rotationBetween(currentBasis, restBasis, guess);
+            // The part's motion from the base pose to the drawn pose: the best fit over its own
+            // vertices, not the frame through three of them. A part that bends in its animation (a
+            // rat's back with its tail folded in) would otherwise be turned to follow whichever
+            // vertex is farthest out, the tail tip, and start wrenched off its neighbours.
+            const fit = fitLists[p].length > 0 ? fitLists[p] : vs;
+            const fb = centroidOf(fit, base);
+            const fc = centroidOf(fit, current);
+            const r = fitRotation(
+                fit.flatMap((v) => [base[v * 3] - fb[0], base[v * 3 + 1] - fb[1], base[v * 3 + 2] - fb[2]]),
+                fit.flatMap((v) => [current[v * 3] - fc[0], current[v * 3 + 1] - fc[1], current[v * 3 + 2] - fc[2]]),
+                guess,
+            ).r;
             const toCurrent = (b: number[]): [number, number, number] => {
-                const d = [b[0] - cb[0], b[1] - cb[1], b[2] - cb[2]];
+                const d = [b[0] - fb[0], b[1] - fb[1], b[2] - fb[2]];
                 return [
-                    cc[0] + r[0] * d[0] + r[1] * d[1] + r[2] * d[2],
-                    cc[1] + r[3] * d[0] + r[4] * d[1] + r[5] * d[2],
-                    cc[2] + r[6] * d[0] + r[7] * d[1] + r[8] * d[2],
+                    fc[0] + r[0] * d[0] + r[1] * d[1] + r[2] * d[2],
+                    fc[1] + r[3] * d[0] + r[4] * d[1] + r[5] * d[2],
+                    fc[2] + r[6] * d[0] + r[7] * d[1] + r[8] * d[2],
                 ];
             };
-            const c = add(cc[0], cc[1], cc[2]);
-            const pe1 = add(current[e1 * 3], current[e1 * 3 + 1], current[e1 * 3 + 2]);
+            // Every particle of the part is placed by that one rigid motion, so the part starts rigid.
+            const cAt = toCurrent(cb);
+            const c = add(cAt[0], cAt[1], cAt[2]);
+            const pe1At = toCurrent([base[e1 * 3], base[e1 * 3 + 1], base[e1 * 3 + 2]]);
+            const pe1 = add(pe1At[0], pe1At[1], pe1At[2]);
             // A thin part (a horn, a finger, a blade) has no vertex far enough off its axis to give a
             // stable frame; it gets a point a fixed distance off the axis instead.
             const e2Base = [base[e2 * 3], base[e2 * 3 + 1], base[e2 * 3 + 2]];
@@ -540,6 +727,7 @@ export class Ragdoll {
             // Collision hull: the part's extreme vertices along each axis of its frame, so the
             // floor and walls touch the body where its surface is, not only at its frame points.
             const hull: number[] = [];
+            const hullRest: Vec3[] = [];
             const used = new Set<number>([e1, e2]);
             for (let axisIndex = 0; axisIndex < 3; axisIndex++) {
                 const ax = [restFrameBasis[axisIndex], restFrameBasis[3 + axisIndex], restFrameBasis[6 + axisIndex]];
@@ -561,7 +749,9 @@ export class Ragdoll {
                 for (const v of [lo, hi]) {
                     if (!used.has(v)) {
                         used.add(v);
-                        hull.push(add(current[v * 3], current[v * 3 + 1], current[v * 3 + 2]));
+                        const at = toCurrent([base[v * 3], base[v * 3 + 1], base[v * 3 + 2]]);
+                        hull.push(add(at[0], at[1], at[2]));
+                        hullRest.push([base[v * 3], base[v * 3 + 1], base[v * 3 + 2]]);
                     }
                 }
             }
@@ -585,6 +775,8 @@ export class Ragdoll {
                 pivot: pv,
                 frameReliable: best > MIN_FRAME_OFFSET * MIN_FRAME_OFFSET,
                 own: [c, pe1, pe2, ...hull],
+                ownRest: [[cb[0], cb[1], cb[2]], [base[e1 * 3], base[e1 * 3 + 1], base[e1 * 3 + 2]], [e2Point[0], e2Point[1], e2Point[2]], ...hullRest],
+                fitVertices: fit,
                 subtree: [],
                 complement: [],
                 subtreeParts: new Uint8Array(0),
@@ -600,14 +792,21 @@ export class Ragdoll {
         }
         // What is learned from the animations is the same for every NPC of a model: learn it once.
         const learned = clips.some(Boolean) ? learnedByModel.get(exported) : undefined;
-        if (learned) {
+        let ligaments: number[];
+        if (learned && learned.ligaments.length === seams.length) {
             learned.limits.forEach((limit, i) => (this.parts[i].limit = limit && { ...limit }));
             this.spherePairs = learned.groups;
+            ligaments = learned.ligaments;
         } else {
-            const fits = this.learnLimits(clips);
+            const { fits, poses } = this.learnLimits(clips);
             this.spherePairs = this.collidingSpheres(fits);
+            ligaments = ligamentLengths(seams, base, poses);
             if (clips.some(Boolean)) {
-                learnedByModel.set(exported, { limits: this.parts.map((part) => part.limit && { ...part.limit }), groups: this.spherePairs });
+                learnedByModel.set(exported, {
+                    limits: this.parts.map((part) => part.limit && { ...part.limit }),
+                    groups: this.spherePairs,
+                    ligaments,
+                });
             }
         }
         this.sphereWorld = new Float32Array(this.parts.reduce((n, part) => n + part.spheres.length, 0));
@@ -616,6 +815,22 @@ export class Ragdoll {
 
         this.pos = Float32Array.from(points);
         this.prev = Float32Array.from(points);
+        // Ligaments: each end a point carried by its part; as long as the animations ever stretch
+        // the edge. Not widened for the pose the body starts in: where a part folded into its
+        // parent bends in that pose (a rat's tail segment curling), the parts after it start
+        // torn off, and the ligament is what pulls them back.
+        this.ligamentParticles = new Uint16Array(seams.length * 8);
+        this.ligamentWeights = new Float32Array(seams.length * 8);
+        seams.forEach((edge, k) => {
+            const ends = [embed(this.parts[edge.a], [base[edge.u * 3], base[edge.u * 3 + 1], base[edge.u * 3 + 2]]), embed(this.parts[edge.b], [base[edge.w * 3], base[edge.w * 3 + 1], base[edge.w * 3 + 2]])];
+            ends.forEach((end, side) => {
+                for (let i = 0; i < 4; i++) {
+                    this.ligamentParticles[k * 8 + side * 4 + i] = end.particles[i];
+                    this.ligamentWeights[k * 8 + side * 4 + i] = end.weights[i];
+                }
+            });
+        });
+        this.ligamentMax = Float32Array.from(ligaments);
         this.onFloor = new Uint8Array(points.length / 3);
         this.partDown = new Uint8Array(this.parts.length);
         this.substepStart = Float32Array.from(points);
@@ -715,7 +930,7 @@ export class Ragdoll {
      * Learns every joint's bend and twist limits from the animations (spec 20.4): in each frame,
      * where the child points and how far it is twisted in its parent's frame.
      */
-    private learnLimits(clips: readonly (NpcClip | undefined)[]): (PoseFit | undefined)[][] {
+    private learnLimits(clips: readonly (NpcClip | undefined)[]): { fits: (PoseFit | undefined)[][]; poses: Float32Array[] } {
         const count = this.base.length / 3;
         const poses: Float32Array[] = [];
         for (const clip of clips) {
@@ -749,10 +964,12 @@ export class Ragdoll {
             return { c, basis };
         };
         const restFrames = this.parts.map((part) => (part.vertices.length > 0 ? frameOf(part, this.base) : undefined));
-        // Each part's vertices relative to its base-pose centroid.
+        // Each part's own vertices (those its motion is fitted to) relative to their base-pose centroid.
+        const fitRest = this.parts.map((part) => centroidOf(part.fitVertices, this.base));
         const offsets = this.parts.map((part, i) => {
             const rest = restFrames[i];
-            return rest ? Float64Array.from(part.vertices.flatMap((v) => [0, 1, 2].map((k) => this.base[v * 3 + k] - rest.c[k]))) : undefined;
+            const f = fitRest[i];
+            return rest ? Float64Array.from(part.fitVertices.flatMap((v) => [0, 1, 2].map((k) => this.base[v * 3 + k] - f[k]))) : undefined;
         });
         const samples: { dir: Vec3; twist: number }[][] = this.parts.map(() => []);
         const fitsPerPose: (PoseFit | undefined)[][] = [];
@@ -769,9 +986,13 @@ export class Ragdoll {
                 const now = frameOf(part, pose);
                 const guess = new Array(9);
                 rotationBetween(now.basis, rest.basis, guess);
-                const to = Float64Array.from(part.vertices.flatMap((v) => [0, 1, 2].map((k) => pose[v * 3 + k] - now.c[k])));
+                const f = centroidOf(part.fitVertices, pose);
+                const to = Float64Array.from(part.fitVertices.flatMap((v) => [0, 1, 2].map((k) => pose[v * 3 + k] - f[k])));
                 const { r, misfit } = fitRotation(from, to, guess);
-                return misfit < RIGID_MISFIT ? { r, c: now.c } : undefined;
+                // Where the part's centroid goes with that motion.
+                const o = part.restOrigin;
+                const d = mul(r, [o[0] - fitRest[i][0], o[1] - fitRest[i][1], o[2] - fitRest[i][2]]);
+                return misfit < RIGID_MISFIT ? { r, c: [f[0] + d[0], f[1] + d[1], f[2] + d[2]] } : undefined;
             });
             fitsPerPose.push(rotations);
             this.parts.forEach((part, i) => {
@@ -794,7 +1015,7 @@ export class Ragdoll {
                 part.limit = learnJointLimit(samples[i], part.restDir);
             }
         });
-        return fitsPerPose;
+        return { fits: fitsPerPose, poses };
     }
 
     /**
@@ -971,6 +1192,7 @@ export class Ragdoll {
             }
             for (let it = 0; it < ITERATIONS; it++) {
                 this.solveDistances();
+                this.solveLigaments();
                 this.updateFrames();
                 // Limits every other pass: half the cost, and they hold as well.
                 if (it % 2 === 0) {
@@ -1034,6 +1256,62 @@ export class Ragdoll {
             }
         }
     }
+
+    /**
+     * Keeps the skin together (spec 20.8): two parts joined by mesh edges may not part further at
+     * their seam than the animations ever stretch it. The skeleton OSRS animations imply need not
+     * follow the body (a giant rat's chest hangs from its tail), and without these a dead body
+     * could fold apart where no joint holds it, stretching the skin across.
+     */
+    private solveLigaments(): void {
+        const p = this.pos;
+        const w = this.invMass;
+        const ids = this.ligamentParticles;
+        const ws = this.ligamentWeights;
+        for (let k = 0; k < this.ligamentMax.length; k++) {
+            const a = this.ligamentEnd(k, 0);
+            const b = this.ligamentEnd(k, 4);
+            const dx = b[0] - a[0];
+            const dy = b[1] - a[1];
+            const dz = b[2] - a[2];
+            const d = Math.hypot(dx, dy, dz);
+            const max = this.ligamentMax[k];
+            if (d <= max) {
+                continue;
+            }
+            // Position-based: each particle moves by its weight and inverse mass.
+            let denominator = 0;
+            for (let i = 0; i < 8; i++) {
+                denominator += ws[k * 8 + i] ** 2 * w[ids[k * 8 + i]];
+            }
+            if (denominator <= 0) {
+                continue;
+            }
+            const s = (d - max) / d / denominator;
+            for (let i = 0; i < 8; i++) {
+                const j = ids[k * 8 + i] * 3;
+                const f = s * ws[k * 8 + i] * w[ids[k * 8 + i]] * (i < 4 ? 1 : -1);
+                p[j] += dx * f;
+                p[j + 1] += dy * f;
+                p[j + 2] += dz * f;
+            }
+        }
+    }
+
+    /** Where one end of ligament k is now (side 0 or 4), local coordinates. */
+    private ligamentEnd(k: number, side: number): Vec3 {
+        const p = this.pos;
+        const at: Vec3 = [0, 0, 0];
+        for (let i = 0; i < 4; i++) {
+            const j = this.ligamentParticles[k * 8 + side + i] * 3;
+            const wt = this.ligamentWeights[k * 8 + side + i];
+            at[0] += p[j] * wt;
+            at[1] += p[j + 1] * wt;
+            at[2] += p[j + 2] * wt;
+        }
+        return at;
+    }
+
 
     private solveDistances(): void {
         const p = this.pos;

@@ -309,6 +309,96 @@ describe("ragdoll (spec 20)", () => {
         near.forEach((v, i) => expect(Math.abs(v - far[i])).toBeLessThan(0.02));
     });
 
+    it("holds the skin together where no joint does (spec 20.8)", () => {
+        // As in a giant rat: hips (the root), a tail behind them that wags ±60° in the walk, and
+        // a chest in front that hangs from the tail (its joint at the hips' front), so its learned
+        // limits are as wide as the wag. The mesh joins the chest straight to the hips.
+        const hips = box(-0.2, 0.2, 0.4, 0.8, -0.6, 0);
+        const tail = box(-0.05, 0.05, 0.55, 0.65, -1.4, -0.6);
+        const chest = box(-0.2, 0.2, 0.4, 0.8, 0, 0.6);
+        const vertices = [...hips, ...tail, ...chest];
+        const base = Float32Array.from(vertices.flat());
+        const skeleton: NpcSkeleton = {
+            partOf: Uint8Array.from([...hips.map(() => 0), ...tail.map(() => 1), ...chest.map(() => 2)]),
+            parents: Int8Array.from([-1, 0, 1]),
+            pivots: Int16Array.from([...rs([0, 0.6, -0.3]), ...rs([0, 0.6, -0.6]), ...rs([0, 0.6, 0])]),
+        };
+        const angles = [-60, -30, 0, 30, 60];
+        const positions = new Int16Array(angles.length * vertices.length * 3);
+        angles.forEach((deg, f) => {
+            const a = (deg * Math.PI) / 180;
+            vertices.forEach(([x, y, z], v) => {
+                // The tail turns about the vertical through its root (0, ·, −0.6).
+                const p = v >= 8 && v < 16 ? [x * Math.cos(a) + (z + 0.6) * Math.sin(a), y, -0.6 - x * Math.sin(a) + (z + 0.6) * Math.cos(a)] : [x, y, z];
+                positions.set(rs(p), (f * vertices.length + v) * 3);
+            });
+        });
+        const walk: NpcClip = { frameLengths: new Uint16Array(angles.length).fill(3), frameStep: 0, positions };
+        // Box corners: index z·4 + y·2 + x. Hips' front face (z = 0): 4–7; chest's back face: 16–19.
+        const seam = [[4, 16], [5, 17], [6, 18], [7, 19]];
+        const skin = {
+            indices: Uint32Array.from([4, 5, 16, 5, 17, 16, 6, 7, 18, 7, 19, 18, 4, 6, 16, 6, 18, 16, 5, 7, 17, 7, 19, 17]),
+            sources: Uint16Array.from({ length: 24 }, (_, v) => v),
+        };
+        const air: RagdollWorld = { flagsAt: () => 0, groundHeight: () => -100 };
+        const stretch = (withSkin: boolean) => {
+            const ragdoll = new Ragdoll(skeleton, base, placed(base, 100.5, 0, -100.5), 90, 0, [undefined, walk], withSkin ? [skin] : []);
+            // Swat the chest sideways. Particles are relative to the ragdoll's origin; particle 0
+            // is the root's centroid.
+            const originZ = ragdoll.rootPosition()[2] - ragdoll.pos[2];
+            for (let i = 0; i < ragdoll.pos.length; i += 3) {
+                if (ragdoll.pos[i + 2] + originZ > -100.5 + 0.05) {
+                    ragdoll.prev[i] = ragdoll.pos[i] - 8 / 120;
+                }
+            }
+            const out = new Float32Array(24 * 3);
+            let most = 0;
+            for (let f = 0; f < 40; f++) {
+                ragdoll.step(1 / 60, air);
+                ragdoll.computeWorld(air, out);
+                for (const [a, b] of seam) {
+                    const now = Math.hypot(out[a * 3] - out[b * 3], out[a * 3 + 1] - out[b * 3 + 1], out[a * 3 + 2] - out[b * 3 + 2]);
+                    const rest = Math.hypot(base[a * 3] - base[b * 3], base[a * 3 + 1] - base[b * 3 + 1], base[a * 3 + 2] - base[b * 3 + 2]);
+                    most = Math.max(most, now - rest);
+                }
+            }
+            return most;
+        };
+        // Without the skin the chest swings off the hips and tears the seam open (about a tile)...
+        expect(stretch(false)).toBeGreaterThan(0.5);
+        // ...with it, the seam stretches about as far as the ligaments allow (0.05).
+        expect(stretch(true)).toBeLessThan(0.1);
+    });
+
+    it("starts each part where it is drawn, even one whose folded-in segment is bent", () => {
+        // A torso with a 4-vertex tail along −z (folded into it), drawn with the tail swung up.
+        const torso = box(-0.2, 0.2, 0.8, 1.6, -0.1, 0.1);
+        const tail = [[0, 1, -0.1], [0.03, 1, -0.1], [0, 1, -0.9], [0.03, 1, -0.9]];
+        const leg = box(-0.1, 0.1, 0, 0.8, -0.1, 0.1);
+        const base = Float32Array.from([...torso, ...tail, ...leg].flat());
+        const skeleton: NpcSkeleton = {
+            partOf: Uint8Array.from([...torso.map(() => 0), ...tail.map(() => 1), ...leg.map(() => 2)]),
+            parents: Int8Array.from([-1, 0, 0]),
+            pivots: Int16Array.from([...rs([0, 1.2, 0]), ...rs([0, 1, -0.1]), ...rs([0, 0.8, 0])]),
+        };
+        const current = placed(base, 100.5, 0, -100.5);
+        // Tail swung straight up about its root (0, 1, −0.1).
+        for (let v = 8; v < 12; v++) {
+            const dz = base[v * 3 + 2] + 0.1;
+            current[v * 3 + 1] = 1 - dz;
+            current[v * 3 + 2] = -100.5 - 0.1;
+        }
+        const ragdoll = new Ragdoll(skeleton, base, current, 90, 0);
+        const out = new Float32Array(base.length);
+        ragdoll.computeWorld({ flagsAt: () => 0, groundHeight: () => -100 }, out);
+        // The torso is drawn where it was, not turned to follow the tail's tip.
+        for (let v = 0; v < 8; v++) {
+            for (let k = 0; k < 3; k++) {
+                expect(Math.abs(out[v * 3 + k] - current[v * 3 + k])).toBeLessThan(0.01);
+            }
+        }
+    });
+
     it("falls as one rigid body without a skeleton", () => {
         const { base, count } = figure();
         const ragdoll = new Ragdoll(singlePartSkeleton(base, count), base, placed(base, 100.5, 0.5, -100.5), 90, 0);

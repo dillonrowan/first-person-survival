@@ -803,7 +803,7 @@ export class Npc {
         const current = new Float32Array(data.vertexCount * 3);
         this.animatedWorldPositions(base, current);
         const skeleton = data.skeleton ?? singlePartSkeleton(base, data.vertexCount);
-        const ragdoll = new Ragdoll(skeleton, base, current, this.mass, this.plane, [data.idle, data.walk]);
+        const ragdoll = new Ragdoll(skeleton, base, current, this.mass, this.plane, [data.idle, data.walk], [data.opaque, data.transparent]);
         ragdoll.settleOnFloor(this.ragdollWorld);
         const k = this.knockback;
         const vx = k ? k.vx : this.velocityX;
