@@ -166,10 +166,18 @@ longer match the cache are skipped and counted in the export log).
   frame base rotates them.
 - NPCs are solid: the player is pushed out of their collision cylinder and slides around them,
   and NPCs wait instead of walking into the player. NPCs with skeletal animations (a
-  handful) are shown in their base pose. Combat animations are not baked; deaths and knockdowns
-  are ragdolls.
+  handful) are shown in their base pose. Deaths and knockdowns are ragdolls.
   Dev builds can draw the collision circles with `?debug=collision`.
-- `npm run export-world -- --no-npcs` skips them.
+- NPC attacks are the cache's own melee animations, baked into each NPC file with the moment the
+  blow lands (`tools/world-export/NpcAttackAnims.ts`). The cache does not say which animation an
+  NPC attacks with (server data) or name its animations, so the exporter uses Jagex's animation
+  names (`data/animation-names-runelite.json`): a creature's attack is the one on its own skeleton
+  whose name matches its idle (`ZOMBIE_UPDATE_READY_DRAGGING` → `ZOMBIE_UPDATE_ATTACK_DRAGGING`),
+  and NPCs on the player's skeleton fight like players, with their stance's weapon attacks (or
+  punches and kicks when they hold nothing). NPCs the cache has no attack for lunge with a generic
+  attack made in Blender (`tools/blender/lunge_clip.py`).
+- `npm run export-world -- --no-npcs` skips them; `--npcs-only` re-bakes the NPCs of the exported
+  map without exporting it again.
 
 Runtime (`src/`): three.js, one raw shader (`WorldMaterials.ts`), region streaming around the
 player (`World.ts`), and a first-person controller with tile collision (`Player.ts`). In dev
@@ -207,4 +215,7 @@ space, tile `(x, y)` at height `h` is `(x, h, -y)`, one unit per tile.
 The cache decoders in `tools/world-export/rs/` (including the NPC and animation ones) and the
 NPC spawn list come from [rs-map-viewer](https://github.com/dennisdev/rs-map-viewer)
 (BSD 2-Clause, Copyright (c) 2022-2023 dennisdev). Caches come from the
-[OpenRS2 archive](https://archive.openrs2.org/).
+[OpenRS2 archive](https://archive.openrs2.org/). The animation names in
+`tools/world-export/data/animation-names-runelite.json` come from RuneLite's
+`net.runelite.api.gameval.AnimationID` ([RuneLite](https://github.com/runelite/runelite),
+BSD 2-Clause).

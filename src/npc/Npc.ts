@@ -2,7 +2,14 @@ import * as THREE from "three";
 
 import type { NpcAppearanceInfo, NpcClip, NpcSpawnInfo } from "../world/NpcFormat";
 import { CollisionFlag, RS_UNITS_PER_TILE } from "../world/WorldFormat";
-import { ClipPlayback, advanceClip, orientationToYaw, writeFramePositions } from "./NpcAnimation";
+import {
+    CLIENT_CYCLE_SECONDS,
+    ClipPlayback,
+    advanceClip,
+    frameAtCycle,
+    orientationToYaw,
+    writeFramePositions,
+} from "./NpcAnimation";
 import {
     FlagLookup,
     MAX_QUEUED_STEPS,
@@ -23,7 +30,7 @@ import { tuning } from "../combat/tuning";
 import { Knockback, findSnapTile, massForce, slideSpeedForDistance, stepKnockback } from "./NpcPhysics";
 import type { Reaction } from "../combat/Combatant";
 import type { SharedNpcModel } from "./NpcModels";
-import { NpcAttacker, StrikeEvent } from "./NpcAttacks";
+import { NpcAttacker, StrikeEvent, attacksFromClips } from "./NpcAttacks";
 import { canHear, canSee, hearingDelay, sightDelay } from "./NpcSenses";
 import { Ragdoll, RagdollWorld, singlePartSkeleton } from "./Ragdoll";
 import type { BodyHit } from "./BodyHits";
@@ -243,7 +250,8 @@ export class Npc {
         );
         this.group.rotation.order = "YXZ";
         this.brain = new NpcCombatBrain(random);
-        this.attacker = new NpcAttacker(random);
+        const attacks = model.data.attacks;
+        this.attacker = new NpcAttacker(random, attacks ? attacksFromClips(attacks, model.height) : undefined);
         this.body = {
             x: this.fineX / RS_UNITS_PER_TILE,
             y: this.fineY / RS_UNITS_PER_TILE,
@@ -626,6 +634,11 @@ export class Npc {
             }
         } else if (this.alerted && !c.dead) {
             this.fight(dt, occupancy, ctx);
+        }
+        if (this.reactions && !this.model.data.attacks) {
+            // No attack animation in the cache: strikes play the generic lunge from Blender.
+            const a = this.attacker.current;
+            this.reactions.setLunge(a && { time: this.attacker.elapsed, hitTime: a.hitTimes[0], total: a.total });
         }
 
         this.updatePose(dt);
@@ -1055,6 +1068,21 @@ export class Npc {
     /** Client cycle while moving freely: turn, and play the walk clip at a speed-matched rate. */
     private freeCycle(): void {
         this.rotation = rotateTowards(this.rotation, this.orientation, this.rotationSpeed);
+        // A strike shows its own animation, frame for frame with the attack's clock, so the blow
+        // lands on the clip's impact frame.
+        const attack = this.attacker.current;
+        const attackClip = attack?.clip !== undefined ? this.model.data.attacks?.[attack.clip] : undefined;
+        if (attackClip) {
+            const frame = frameAtCycle(attackClip, this.attacker.elapsed / CLIENT_CYCLE_SECONDS);
+            if (attackClip !== this.clip || frame !== this.playback.frame) {
+                this.clip = attackClip;
+                this.playback.frame = frame;
+                this.playback.cycle = 0;
+                this.animCarry = 0;
+                this.dirty = true;
+            }
+            return;
+        }
         const walk = this.model.data.walk;
         const moving = !this.knockback && this.moveSpeed > MOVING_SPEED && walk !== undefined;
         const clip = moving ? walk : this.model.data.idle;

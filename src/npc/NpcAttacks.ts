@@ -1,5 +1,7 @@
 import { tuning } from "../combat/tuning";
 import { units } from "../player/MoveMath";
+import type { NpcAttackClip } from "../world/NpcFormat";
+import { CLIENT_CYCLE_SECONDS } from "./NpcAnimation";
 
 /**
  * One NPC melee attack (docs/combat-movement-spec.md 16.6): the guard's combatmovedatas entry plus
@@ -20,6 +22,8 @@ export type NpcAttack = {
     /** alwayspush: the hit always shoves the player. */
     push: boolean;
     breaksParry: boolean;
+    /** Index of the NPC's attack clip this plays (NpcModelData.attacks); none for the guard table. */
+    clip?: number;
 };
 
 const attack = (
@@ -45,6 +49,32 @@ export const GUARD_ATTACKS: readonly NpcAttack[] = [
     attack("bash", [0.7], [0.459], 1.5, 40, 30, true),
     attack("kick", [0.7], [0.5], 1.375, 40, 0, true),
 ];
+
+/** Height of the guard the strike ranges above are for, tiles; bigger bodies reach further. [design] */
+const GUARD_HEIGHT = 1.5;
+
+/**
+ * Strikes from an NPC's own attack animations: each lands where its clip reaches furthest
+ * forward and lasts the clip. Reach and lunge are the guard's typical ones (60 u and 40 u),
+ * scaled with the body's height.
+ */
+export function attacksFromClips(clips: readonly NpcAttackClip[], bodyHeight: number): NpcAttack[] {
+    const scale = Math.min(2.5, Math.max(0.6, bodyHeight / GUARD_HEIGHT));
+    return clips.map((clip, i) => {
+        const cycles = clip.frameLengths.reduce((sum, length) => sum + length, 0);
+        return {
+            id: `clip${i}`,
+            hitPow: [0.7],
+            hitTimes: [clip.hitCycle * CLIENT_CYCLE_SECONDS],
+            total: Math.max(cycles, clip.hitCycle + 1) * CLIENT_CYCLE_SECONDS,
+            range: units(60) * scale,
+            lunge: units(40) * scale,
+            push: clip.shove,
+            breaksParry: false,
+            clip: i,
+        };
+    });
+}
 
 /**
  * Damage of an NPC strike on the player (spec 16.5):
@@ -81,7 +111,10 @@ export class NpcAttacker {
     private rhythm: number;
     private nextHit = 0;
 
-    constructor(private readonly random: () => number = Math.random) {
+    constructor(
+        private readonly random: () => number = Math.random,
+        private readonly attacks: readonly NpcAttack[] = GUARD_ATTACKS,
+    ) {
         this.cooldown = this.pickCooldown();
         this.rhythm = this.between(tuning.rhythmSwitchMin, tuning.rhythmSwitchMax);
     }
@@ -136,7 +169,7 @@ export class NpcAttacker {
         }
         this.cooldown -= dt;
         if (this.cooldown <= 0 && canStart) {
-            const options = attacksInReach(gap);
+            const options = attacksInReach(gap, this.attacks);
             if (options.length > 0) {
                 this.current = options[Math.floor(this.random() * options.length)];
                 this.elapsed = 0;

@@ -69,6 +69,19 @@ describe("NPC model file", () => {
         expect(plain(decoded)).toEqual(plain(data));
     });
 
+    it("round-trips attack clips with their impact and shove flag", () => {
+        const data = model({
+            idle: clip(2, 5),
+            skeleton: { parents: Int8Array.from([-1, 0]), pivots: Int16Array.from([0, -10, 0, 0, -20, 0]), partOf: Uint8Array.from([0, 0, 1, 1, 1]) },
+            attacks: [
+                { ...clip(3, 5), frameStep: -1, hitCycle: 4, shove: false },
+                { ...clip(1, 5), frameStep: -1, hitCycle: 1, shove: true },
+            ],
+        });
+
+        expect(plain(roundTrip(data))).toEqual(plain(data));
+    });
+
     it("round-trips a model without clips", () => {
         const decoded = roundTrip(model());
 

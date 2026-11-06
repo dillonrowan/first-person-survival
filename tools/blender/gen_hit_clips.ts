@@ -41,5 +41,22 @@ for (const [name, c] of Object.entries(src.clips)) {
     lines.push(`    ${name}: clip(${c.fps}, ${c.loop}, [${data.join(", ")}]),`);
 }
 lines.push("};", "", "export type HitClipName = keyof typeof HIT_CLIPS;", "");
+
+// The generic lunge attack (lunge_clip.py), for bodies the cache has no attack animation for.
+const lunge = JSON.parse(readFileSync("tools/blender/lunge_clip.json", "utf8")) as {
+    fps: number;
+    impactFrame: number;
+    frames: number[][];
+};
+lines.push(
+    "/** Generic lunge attack: per frame the body's pitch (radians, + forward), forward and lift (shares of its height). */",
+    "export const LUNGE_CLIP = {",
+    `    fps: ${lunge.fps},`,
+    `    impactFrame: ${lunge.impactFrame},`,
+    `    frames: ${lunge.frames.length},`,
+    `    data: new Float32Array([${lunge.frames.flat().map(round).join(", ")}]),`,
+    "};",
+    "",
+);
 writeFileSync("src/npc/HitClips.ts", lines.join("\n"));
 console.log("wrote src/npc/HitClips.ts:", Object.keys(src.clips).join(", "));

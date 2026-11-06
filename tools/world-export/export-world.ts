@@ -5,6 +5,7 @@
 //   npm run export-world -- --area 44,48,54,56   map squares x 44..54, y 48..56 (inclusive)
 //   npm run export-world -- --workers 4
 //   npm run export-world -- --no-npcs            skip the NPC models and spawns
+//   npm run export-world -- --npcs-only          re-bake only the NPCs of the exported map
 //
 // The cache decoders live in rs/; RegionBuilder turns each decoded map square into the meshes
 // and collision data the game loads.
@@ -27,6 +28,7 @@ import { readCacheFiles } from "./cache-files";
 import { ExportResult, ExportTask, ExportWorkerData } from "./export-worker";
 import { encodePng } from "./png";
 import { BRIGHTNESS } from "./FaceColors";
+import { AttackIndex, buildAttackIndex, readAnimationNames } from "./NpcAttackAnims";
 import { NpcAppearanceTask, finalizeNpcManifest, readNpcSpawnFile, selectNpcs } from "./NpcSpawns";
 import { TextureLoader } from "./rs/texture/TextureLoader";
 import { createWorldLoaders } from "./WorldLoaders";
@@ -37,6 +39,7 @@ const OUT_DIR = path.join(ROOT, "public", "world");
 const REGION_DIR = path.join(OUT_DIR, "regions");
 const NPC_DIR = path.join(OUT_DIR, "npcs");
 const NPC_SPAWN_FILE = path.join(ROOT, "tools", "world-export", "data", "npc-spawns-osrs.json");
+const ANIMATION_NAMES_FILE = path.join(ROOT, "tools", "world-export", "data", "animation-names-runelite.json");
 const NPC_MANIFEST_FILE = "npcs.json";
 
 // Lumbridge, where new OSRS characters start.
@@ -64,9 +67,10 @@ function defaultWorkerCount(): number {
     return Math.max(1, Math.min(6, byCores, byMemory));
 }
 
-function parseArgs(argv: string[]): { area: Area; workers: number; npcs: boolean } {
+function parseArgs(argv: string[]): { area: Area; workers: number; npcs: boolean; npcsOnly: boolean } {
     let area = AREAS.surface;
     let npcs = true;
+    let npcsOnly = false;
     let workers = defaultWorkerCount();
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
@@ -89,6 +93,8 @@ function parseArgs(argv: string[]): { area: Area; workers: number; npcs: boolean
             }
         } else if (arg === "--no-npcs") {
             npcs = false;
+        } else if (arg === "--npcs-only") {
+            npcsOnly = true;
         } else if (arg === "--workers" && value) {
             i++;
             workers = Math.max(1, Number(value) | 0);
@@ -96,7 +102,7 @@ function parseArgs(argv: string[]): { area: Area; workers: number; npcs: boolean
             throw new Error(`Unknown argument "${arg}"`);
         }
     }
-    return { area, workers, npcs };
+    return { area, workers, npcs, npcsOnly };
 }
 
 function exportTextures(textureLoader: TextureLoader): WorldManifest["textures"] {
@@ -158,7 +164,7 @@ function formatDuration(ms: number): string {
     return s >= 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${s}s`;
 }
 
-function createWorkerData(cache: ReturnType<typeof readCacheFiles>): ExportWorkerData {
+function createWorkerData(cache: ReturnType<typeof readCacheFiles>, attackIndex?: AttackIndex): ExportWorkerData {
     return {
         info: cache.info,
         dat2: cache.dat2 as SharedArrayBuffer,
@@ -166,7 +172,16 @@ function createWorkerData(cache: ReturnType<typeof readCacheFiles>): ExportWorke
         xteas: [...cache.xteas],
         regionDir: REGION_DIR,
         npcDir: NPC_DIR,
+        attackIndex,
     };
+}
+
+/** Every named sequence by its frame base, to find each NPC's attacks among its skeleton's. */
+function createAttackIndex(loaders: ReturnType<typeof createWorldLoaders>): AttackIndex {
+    const names = readAnimationNames(ANIMATION_NAMES_FILE);
+    const index = buildAttackIndex(names, (id) => loaders.npcModelLoader.getFrameBase(id)?.id);
+    loaders.seqFrameLoader.clearCache();
+    return index;
 }
 
 /** Runs tasks on a pool of export workers; `onResult` sees every result except "ready". */
@@ -270,6 +285,10 @@ async function exportNpcs(
         return undefined;
     }
 
+    console.log("Indexing attack animations...");
+    const attackIndex = createAttackIndex(loaders);
+
+    fs.rmSync(NPC_DIR, { recursive: true, force: true });
     fs.mkdirSync(NPC_DIR, { recursive: true });
     console.log(`Exporting ${selection.appearances.length} NPC models...`);
     const built = new Set<number>();
@@ -282,9 +301,11 @@ async function exportNpcs(
     const tasks: ExportTask[] = selection.appearances.map(
         (npc: NpcAppearanceTask, index): ExportTask => ({ kind: "npc", index, npc }),
     );
-    await runWorkerPool(createWorkerData(cache), tasks, workerCount, (result) => {
+    let withAttacks = 0;
+    await runWorkerPool(createWorkerData(cache, attackIndex), tasks, workerCount, (result) => {
         done++;
         if (result.type === "npc") {
+            withAttacks += result.attacks > 0 ? 1 : 0;
             built.add(result.index);
             bytes += result.bytes;
             withWalk += result.hasWalk ? 1 : 0;
@@ -309,7 +330,7 @@ async function exportNpcs(
     const { skipped } = selection;
     console.log(
         `NPCs: ${manifest.spawns.length} spawns, ${manifest.appearances.length} appearances ` +
-            `(${withWalk} can walk), ${(bytes / 1048576).toFixed(0)} MiB; skipped ` +
+            `(${withWalk} can walk, ${withAttacks} with attacks), ${(bytes / 1048576).toFixed(0)} MiB; skipped ` +
             `${skipped.outsideArea} outside the area, ${skipped.nameMismatch} name mismatches, ` +
             `${skipped.noModel} without model, ${skipped.noIdle} without idle animation`,
     );
@@ -321,7 +342,7 @@ async function exportNpcs(
 }
 
 async function main() {
-    const { area, workers, npcs } = parseArgs(process.argv.slice(2));
+    const { area, workers, npcs, npcsOnly } = parseArgs(process.argv.slice(2));
 
     console.log("Reading cache...");
     const cache = readCacheFiles(CACHE_DIR);
@@ -331,6 +352,19 @@ async function main() {
     );
 
     const loaders = createWorldLoaders(cache);
+
+    if (npcsOnly) {
+        // Keep the map; re-bake the NPCs standing on it.
+        const worldFile = path.join(OUT_DIR, "world.json");
+        if (!fs.existsSync(worldFile)) {
+            throw new Error(`No exported map in ${OUT_DIR}; run a full export first`);
+        }
+        const world: WorldManifest = JSON.parse(fs.readFileSync(worldFile, "utf8"));
+        world.npcs = await exportNpcs(cache, loaders, world.regions, workers);
+        fs.writeFileSync(worldFile, JSON.stringify(world));
+        console.log("Done: NPCs re-exported");
+        return;
+    }
 
     const regions: [number, number][] = [];
     for (let x = area.x1; x <= area.x2; x++) {

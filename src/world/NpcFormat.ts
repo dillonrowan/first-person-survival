@@ -5,11 +5,12 @@
 //   npcs/{id}_{displayId}.bin   gzip-compressed NpcModelData (see encodeNpcModel)
 //
 // Animation is baked: each file holds the lit base mesh plus the vertex positions of every frame of
-// the idle and walk clips, so the game only copies positions and runs no RuneScape animation code.
+// the idle, walk and attack clips, so the game only copies positions and runs no RuneScape
+// animation code.
 
-export const NPC_FORMAT_VERSION = 2;
-/** Files of these versions can be read. Version 1 has no skeleton. */
-const READABLE_NPC_VERSIONS = [1, 2];
+export const NPC_FORMAT_VERSION = 3;
+/** Files of these versions can be read. Version 1 has no skeleton, versions 1-2 no attacks. */
+const READABLE_NPC_VERSIONS = [1, 2, 3];
 
 export type NpcAppearanceInfo = {
     /** Spawn (base) NPC id. */
@@ -80,6 +81,14 @@ export type NpcSkeleton = {
     pivots: Int16Array;
 };
 
+/** A melee attack animation from the cache. */
+export type NpcAttackClip = NpcClip & {
+    /** Client cycles (20 ms) from the start to the blow landing: the strike's furthest reach. */
+    hitCycle: number;
+    /** A kick or bash: the blow shoves the player. */
+    shove: boolean;
+};
+
 export type NpcModelData = {
     /** Vertices of the animated model (not of the meshes). */
     vertexCount: number;
@@ -91,6 +100,8 @@ export type NpcModelData = {
     walk?: NpcClip;
     /** Absent in version 1 files. */
     skeleton?: NpcSkeleton;
+    /** Melee attacks, best first. Absent before version 3 and for NPCs the cache has none for. */
+    attacks?: NpcAttackClip[];
 };
 
 export function npcModelFileName(id: number, displayId: number): string {
@@ -108,6 +119,8 @@ export function npcModelFileName(id: number, displayId: number): string {
 // Version 2 appends the skeleton:
 //   u32 partCount (0 = none), i8[partCount] parents (+pad), i16[partCount * 3] pivots (+pad),
 //   u8[vertexCount] partOf (+pad)
+// Version 3 appends the attacks:
+//   u32 attackCount, then per attack: u16 hitCycle, u16 flags (1 = shove), and a clip as above
 const MAGIC = 0x4e535046; // "FPSN"
 const HEADER_BYTES = 32;
 
@@ -133,7 +146,9 @@ export function encodeNpcModel(model: NpcModelData): Uint8Array {
         4 +
         (skeleton
             ? pad4(skeleton.parents.length) + pad4(skeleton.pivots.length * 2) + pad4(skeleton.partOf.length)
-            : 0);
+            : 0) +
+        4 +
+        (model.attacks ?? []).reduce((sum, clip) => sum + 4 + clipByteLength(clip), 0);
 
     const bytes = new Uint8Array(byteLength);
     const view = new DataView(bytes.buffer);
@@ -161,15 +176,17 @@ export function encodeNpcModel(model: NpcModelData): Uint8Array {
         writeArray(mesh.indices);
     }
 
-    for (const clip of clips) {
-        if (!clip) {
-            continue;
-        }
+    const writeClip = (clip: NpcClip) => {
         view.setUint32(offset, clip.frameLengths.length, true);
         view.setInt32(offset + 4, clip.frameStep, true);
         offset += 8;
         writeArray(clip.frameLengths);
         writeArray(clip.positions);
+    };
+    for (const clip of clips) {
+        if (clip) {
+            writeClip(clip);
+        }
     }
 
     view.setUint32(offset, skeleton ? skeleton.parents.length : 0, true);
@@ -178,6 +195,16 @@ export function encodeNpcModel(model: NpcModelData): Uint8Array {
         writeArray(skeleton.parents);
         writeArray(skeleton.pivots);
         writeArray(skeleton.partOf);
+    }
+
+    const attacks = model.attacks ?? [];
+    view.setUint32(offset, attacks.length, true);
+    offset += 4;
+    for (const attack of attacks) {
+        view.setUint16(offset, attack.hitCycle, true);
+        view.setUint16(offset + 2, attack.shove ? 1 : 0, true);
+        offset += 4;
+        writeClip(attack);
     }
 
     return bytes;
@@ -245,5 +272,16 @@ export function decodeNpcModel(buffer: ArrayBuffer): NpcModelData {
             skeleton = { partOf, parents, pivots };
         }
     }
-    return { vertexCount, bounds, opaque, transparent, idle, walk, skeleton };
+    let attacks: NpcAttackClip[] | undefined;
+    if (version >= 3) {
+        const count = view.getUint32(offset, true);
+        offset += 4;
+        for (let i = 0; i < count; i++) {
+            const hitCycle = view.getUint16(offset, true);
+            const shove = (view.getUint16(offset + 2, true) & 1) !== 0;
+            offset += 4;
+            (attacks ??= []).push({ ...readClip(), hitCycle, shove });
+        }
+    }
+    return { vertexCount, bounds, opaque, transparent, idle, walk, skeleton, attacks };
 }

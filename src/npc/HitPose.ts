@@ -1,6 +1,6 @@
 import type { NpcClip, NpcModelData, NpcSkeleton } from "../world/NpcFormat";
 import { RS_UNITS_PER_TILE } from "../world/WorldFormat";
-import { HIT_BONES, HIT_CLIPS, HIT_RIG_NECK_HEIGHT, HitClip, HitClipName } from "./HitClips";
+import { HIT_BONES, HIT_CLIPS, HIT_RIG_NECK_HEIGHT, HitClip, HitClipName, LUNGE_CLIP } from "./HitClips";
 
 /**
  * Hit reactions drawn on top of an NPC's baked animation frame. Humanoids play the clips authored
@@ -413,6 +413,8 @@ export class HitReactions {
     private readonly spin: Float32Array;
     private springing = false;
     private wasActive = false;
+    /** The generic lunge attack's pitch, forward and lift now (LUNGE_CLIP), while one plays. */
+    private lunge: [number, number, number] | undefined;
     /** Local rotation (x, y, z, w) of each bone (humanoids) or part (springs), filled by pose(). */
     readonly local: Float32Array;
     readonly offset: Vec3 = [0, 0, 0];
@@ -432,7 +434,31 @@ export class HitReactions {
 
     /** True while anything moves the body, and for one update after so the rest pose is drawn. */
     get active(): boolean {
-        return this.layers.length > 0 || this.stun !== undefined || this.springing || this.wasActive;
+        return this.layers.length > 0 || this.stun !== undefined || this.springing || this.lunge !== undefined || this.wasActive;
+    }
+
+    /**
+     * Plays the generic lunge attack (for bodies without an attack animation of their own) `time`
+     * seconds into a strike that lands at `hitTime` and lasts `total`; undefined stops it. The clip
+     * is time-warped so its impact frame meets the strike's.
+     */
+    setLunge(strike: { time: number; hitTime: number; total: number } | undefined): void {
+        if (!strike) {
+            this.lunge = undefined;
+            return;
+        }
+        const impact = LUNGE_CLIP.impactFrame / LUNGE_CLIP.fps;
+        const end = (LUNGE_CLIP.frames - 1) / LUNGE_CLIP.fps;
+        const { time, hitTime, total } = strike;
+        const t =
+            time < hitTime
+                ? (time / Math.max(1e-6, hitTime)) * impact
+                : impact + ((time - hitTime) / Math.max(1e-6, total - hitTime)) * (end - impact);
+        const f = Math.min(LUNGE_CLIP.frames - 1, Math.max(0, t * LUNGE_CLIP.fps));
+        const i = Math.min(Math.floor(f), LUNGE_CLIP.frames - 2);
+        const k = f - i;
+        const d = LUNGE_CLIP.data;
+        this.lunge = [0, 1, 2].map((c) => d[i * 3 + c] + (d[(i + 1) * 3 + c] - d[i * 3 + c]) * k) as [number, number, number];
     }
 
     clear(): void {
@@ -507,7 +533,7 @@ export class HitReactions {
     }
 
     update(dt: number): void {
-        this.wasActive = this.layers.length > 0 || this.stun !== undefined || this.springing;
+        this.wasActive = this.layers.length > 0 || this.stun !== undefined || this.springing || this.lunge !== undefined;
         for (let i = this.layers.length - 1; i >= 0; i--) {
             const l = this.layers[i];
             l.time += dt;
@@ -556,6 +582,13 @@ export class HitReactions {
             local[i + 3] = 1;
         }
         this.offset[0] = this.offset[1] = this.offset[2] = 0;
+        if (this.lunge) {
+            // The whole body leans about its root (+x is its side, so + pitch tips it forward).
+            const [pitch, forward, lift] = this.lunge;
+            local.set([Math.sin(pitch / 2), 0, 0, Math.cos(pitch / 2)], 0);
+            this.offset[1] = lift * this.rig.height;
+            this.offset[2] = forward * this.rig.height;
+        }
         const h = this.rig.humanoid;
         if (h) {
             for (const layer of this.layers) {
@@ -573,7 +606,7 @@ export class HitReactions {
             const a = Math.hypot(ax, ay, az);
             if (a > 1e-6) {
                 const s = Math.sin(a / 2) / a;
-                local.set([ax * s, ay * s, az * s, Math.cos(a / 2)], p * 4);
+                mulInto(local, p * 4, [ax * s, ay * s, az * s, Math.cos(a / 2)]);
             }
         }
     }
