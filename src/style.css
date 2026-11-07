@@ -252,21 +252,18 @@ kbd {
     image-rendering: pixelated;
 }
 
-.enemy-health-back,
-.enemy-health-fill {
+.enemy-health-back {
     position: absolute;
     inset: 0;
     height: 100%;
-    background-repeat: no-repeat;
-    background-size: 30px 5px;
-}
-
-.enemy-health-back {
-    background-image: url("/world/npc-health-front.png");
+    box-sizing: border-box;
+    border: 1px solid #111;
+    background: #3b1111;
 }
 
 .enemy-health-fill {
-    overflow: hidden;
-    width: 30px;
-    background-image: url("/world/npc-health-back.png");
+    position: absolute;
+    inset: 1px auto 1px 1px;
+    height: auto;
+    background: #65b84d;
 }
