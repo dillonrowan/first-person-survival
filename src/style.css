@@ -236,3 +236,37 @@ kbd {
     font: 12px/1.4 system-ui, sans-serif;
     text-shadow: 0 1px 2px #000;
 }
+
+#enemy-health-bars {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+}
+
+.enemy-health-bar {
+    position: absolute;
+    width: 30px;
+    height: 5px;
+    transform: translate(-50%, -100%);
+    overflow: hidden;
+    image-rendering: pixelated;
+}
+
+.enemy-health-back,
+.enemy-health-fill {
+    position: absolute;
+    inset: 0;
+    height: 100%;
+    background-repeat: no-repeat;
+    background-size: 30px 5px;
+}
+
+.enemy-health-back {
+    background-image: url("/world/npc-health-front.png");
+}
+
+.enemy-health-fill {
+    overflow: hidden;
+    width: 30px;
+    background-image: url("/world/npc-health-back.png");
+}

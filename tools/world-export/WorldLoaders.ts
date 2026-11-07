@@ -1,4 +1,5 @@
 import { CacheInfo } from "./rs/cache/CacheInfo";
+import { CacheIndex } from "./rs/cache/CacheIndex";
 import { CacheSystem } from "./rs/cache/CacheSystem";
 import { ConfigType } from "./rs/cache/ConfigType";
 import { IndexType } from "./rs/cache/IndexType";
@@ -35,6 +36,8 @@ export type CacheFiles = {
 
 export type WorldLoaders = {
     info: CacheInfo;
+    configIndex: CacheIndex;
+    spriteIndex: CacheIndex;
     locTypeLoader: LocTypeLoader;
     textureLoader: TextureLoader;
     locModelLoader: LocModelLoader;
@@ -121,9 +124,10 @@ export function createWorldLoaders(files: CacheFiles): WorldLoaders {
     );
 
     const modelLoader = new IndexModelLoader(cacheSystem.getIndex(IndexType.DAT2.models));
+    const spriteIndex = cacheSystem.getIndex(IndexType.DAT2.sprites);
     const textureLoader = SpriteTextureLoader.load(
         cacheSystem.getIndex(IndexType.DAT2.textures),
-        cacheSystem.getIndex(IndexType.DAT2.sprites),
+        spriteIndex,
         info.revision >= 233,
     );
 
@@ -167,6 +171,8 @@ export function createWorldLoaders(files: CacheFiles): WorldLoaders {
 
     return {
         info,
+        configIndex,
+        spriteIndex,
         soundEffectData,
         locTypeLoader,
         textureLoader,

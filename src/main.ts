@@ -20,6 +20,7 @@ import { tuning } from "./combat/tuning";
 import { WeaponView } from "./combat/WeaponView";
 import type { BodySource } from "./physics/Bodies";
 import { CombatHud } from "./ui/CombatHud";
+import { EnemyHealthBars } from "./ui/EnemyHealthBars";
 import "./style.css";
 import { NpcManifest, decodeNpcModel } from "./world/NpcFormat";
 import { WorldInteractives } from "./world/Interactives";
@@ -171,6 +172,7 @@ async function main(): Promise<void> {
         avatar.root.getObjectByName("socket_hand_r") ?? undefined,
     );
     const combatHud = new CombatHud(document.body);
+    const enemyHealthBars = npcs ? new EnemyHealthBars(document.body, npcs, camera) : undefined;
     combat.groundHeight = (plane, x, y) => world.groundHeight(plane, x, y);
     const hitFeel = new HitFeel();
     combat.onHit = ({ result, move }) => {
@@ -403,6 +405,7 @@ async function main(): Promise<void> {
             collisionDebug.update(npcs, player.footprint(), player.plane, player.x, player.y);
         }
         materials.setTime(now / 1000);
+        enemyHealthBars?.update(player.x, player.y, player.plane);
         renderer.render(scene, camera);
 
         frames++;
