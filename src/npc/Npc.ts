@@ -20,6 +20,7 @@ import {
     findWanderPath,
     rotateTowards,
     stepOrientation,
+    constrainMovementToEnvironment,
 } from "./NpcMovement";
 import { Body, computePush } from "../physics/Bodies";
 import { sweepAxis } from "../physics/Sweep";
@@ -762,6 +763,7 @@ export class Npc {
         const r = this.body.radius;
         let nx = sweepAxis(flags, this.plane, x, y, r, true, move.vx * dt, this.boxes);
         let ny = sweepAxis(flags, this.plane, nx, y, r, false, move.vy * dt, this.boxes);
+        ({ x: nx, y: ny } = constrainMovementToEnvironment(x, y, nx, ny, (tx, ty) => this.matchesEnvironment(tx, ty)));
         // Never walk off the edge of an upper floor on purpose.
         if (this.plane > 0 && this.world.hasFloor && !this.world.hasFloor(this.plane, nx, ny)) {
             nx = x;
@@ -775,6 +777,7 @@ export class Npc {
             if (computePush(nx, ny, this.body.z, r, this.body.height, others, -move.vx, -move.vy, this.push)) {
                 nx = sweepAxis(flags, this.plane, nx, ny, r, true, this.push.x, this.boxes);
                 ny = sweepAxis(flags, this.plane, nx, ny, r, false, this.push.y, this.boxes);
+                ({ x: nx, y: ny } = constrainMovementToEnvironment(x, y, nx, ny, (tx, ty) => this.matchesEnvironment(tx, ty)));
             }
         }
         this.moveSpeed = dt > 0 ? Math.hypot(nx - x, ny - y) / dt : 0;

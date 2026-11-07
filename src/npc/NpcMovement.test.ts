@@ -6,6 +6,7 @@ import {
     MAX_PATH_STEPS,
     WANDER_RADIUS,
     canStep,
+    constrainMovementToEnvironment,
     findWanderPath,
     rotateTowards,
     stepOrientation,
@@ -57,6 +58,21 @@ describe("canStep", () => {
 
     it("blocks tiles of regions that are not loaded (all flags set)", () => {
         expect(canStep(() => 0xffffff, 5, 5, 1, 0, 1)).toBe(false);
+    });
+});
+
+describe("constrainMovementToEnvironment", () => {
+    it("keeps continuous movement on the NPC's environment tiles", () => {
+        const land = (x: number, y: number) => x < 101 && y < 101;
+
+        expect(constrainMovementToEnvironment(100.5, 100.5, 101.5, 100.5, land)).toEqual({
+            x: 100.5,
+            y: 100.5,
+        });
+        expect(constrainMovementToEnvironment(100.5, 100.5, 100.5, 101.5, land)).toEqual({
+            x: 100.5,
+            y: 100.5,
+        });
     });
 });
 
