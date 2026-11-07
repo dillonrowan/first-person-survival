@@ -7,6 +7,7 @@ import { MemoryStore } from "./rs/cache/store/MemoryStore";
 import {
     ArchiveOverlayFloorTypeLoader,
     ArchiveUnderlayFloorTypeLoader,
+    OverlayFloorTypeLoader,
 } from "./rs/config/floortype/FloorTypeLoader";
 import { NpcModelLoader } from "./rs/config/npctype/NpcModelLoader";
 import { ArchiveNpcTypeLoader, NpcTypeLoader } from "./rs/config/npctype/NpcTypeLoader";
@@ -45,6 +46,7 @@ export type WorldLoaders = {
     seqTypeLoader: SeqTypeLoader;
     seqFrameLoader: SeqFrameLoader;
     npcModelLoader: NpcModelLoader;
+    overlayTypeLoader: OverlayFloorTypeLoader;
     varManager: VarManager;
     sceneBuilder: SceneBuilder;
     /** A sound effect's encoded instruments (cache index 4, one archive per effect), if it exists. */
@@ -181,6 +183,7 @@ export function createWorldLoaders(files: CacheFiles): WorldLoaders {
         seqTypeLoader,
         seqFrameLoader,
         npcModelLoader,
+        overlayTypeLoader,
         varManager,
         sceneBuilder,
     };

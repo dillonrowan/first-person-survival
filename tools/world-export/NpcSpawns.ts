@@ -95,6 +95,7 @@ export function selectNpcs(
     isExported: (mapX: number, mapY: number) => boolean,
     loader: NpcTypeLoader,
     vars: NpcVars,
+    waterAt?: (plane: number, x: number, y: number) => boolean,
 ): NpcSelection {
     const skipped: Record<SkipReason, number> = {
         outsideArea: 0,
@@ -157,6 +158,7 @@ export function selectNpcs(
             y: spawn.y,
             plane: spawn.level,
             orientation: DIRECTION_ORIENTATIONS[base.spawnDirection] ?? 0,
+            environment: waterAt ? (waterAt(spawn.level, spawn.x, spawn.y) ? "water" : "land") : undefined,
         });
     }
 

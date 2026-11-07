@@ -6,9 +6,9 @@
 //   regions/X_Y.bin    one gzip-compressed region per 64x64-tile map square (see encodeRegion)
 //   npcs.json, npcs/*.bin   optional NPC spawns and baked models (see NpcFormat.ts)
 
-export const WORLD_FORMAT_VERSION = 2;
+export const WORLD_FORMAT_VERSION = 3;
 /** Region files of these versions can be read. Version 1 has no doors or ladders. */
-const READABLE_VERSIONS = [1, 2];
+const READABLE_VERSIONS = [1, 2, 3];
 
 /** Tiles per region (an OSRS map square). */
 export const REGION_SIZE = 64;
@@ -124,6 +124,8 @@ export type RegionData = {
     floors: Uint8Array;
     /** OSRS collision flags, same indexing as renderFlags. Bridges are already moved down a level. */
     collision: Int32Array;
+    /** 1 on water tiles, same indexing as renderFlags. */
+    water?: Uint8Array;
     interactives: InteractiveLoc[];
     /** Meshes of the doors and physics props, indexed by DoorData.mesh and PropData.mesh. */
     doorMeshes: DoorMesh[];
@@ -206,6 +208,7 @@ export function encodeRegion(region: RegionData): Uint8Array {
         HEIGHTS_LENGTH * 4 +
         TILES_LENGTH * 2 +
         TILES_LENGTH * 4 +
+        TILES_LENGTH +
         4 +
         ((json.length + 3) & ~3) +
         4 +
@@ -241,6 +244,7 @@ export function encodeRegion(region: RegionData): Uint8Array {
     writeArray(region.renderFlags);
     writeArray(region.floors);
     writeArray(region.collision);
+    writeArray(region.water ?? new Uint8Array(TILES_LENGTH));
 
     view.setUint32(offset, json.length, true);
     offset += 4;
@@ -296,6 +300,10 @@ export function decodeRegion(buffer: ArrayBuffer): RegionData {
     offset += TILES_LENGTH;
     const collision = new Int32Array(buffer, offset, TILES_LENGTH);
     offset += TILES_LENGTH * 4;
+    const water = new Uint8Array(buffer, offset, TILES_LENGTH);
+    if (version >= 3) {
+        offset += TILES_LENGTH;
+    }
 
     let interactives: InteractiveLoc[] = [];
     const doorMeshes: DoorMesh[] = [];
@@ -321,6 +329,7 @@ export function decodeRegion(buffer: ArrayBuffer): RegionData {
         renderFlags,
         floors,
         collision,
+        water: version >= 3 ? water : new Uint8Array(TILES_LENGTH),
         interactives,
         doorMeshes,
     };

@@ -25,6 +25,7 @@ import { stripNameTags } from "./NpcSpawns";
 import { FaceColors, BRIGHTNESS } from "./FaceColors";
 import { MeshBuilder } from "./MeshBuilder";
 import { WorldLoaders } from "./WorldLoaders";
+import type { OverlayFloorTypeLoader } from "./rs/config/floortype/FloorTypeLoader";
 
 // Neighbouring tiles are decoded too, so underlay blending, lighting and ground contouring are
 // seamless across region edges.
@@ -200,7 +201,7 @@ export class RegionBuilder {
                 mapX,
                 mapY,
                 ...meshes,
-                ...extractTerrainData(scene),
+                ...extractTerrainData(scene, this.loaders.overlayTypeLoader),
                 interactives: found.interactives,
                 doorMeshes,
             },
@@ -757,12 +758,14 @@ function collectTileLocs(
 
 function extractTerrainData(
     scene: Scene,
-): Pick<RegionData, "heights" | "renderFlags" | "floors" | "collision"> {
+    overlayTypeLoader: OverlayFloorTypeLoader,
+): Pick<RegionData, "heights" | "renderFlags" | "floors" | "collision" | "water"> {
     const corners = REGION_SIZE + 1;
     const heights = new Int32Array(LEVELS * corners * corners);
     const renderFlags = new Uint8Array(LEVELS * REGION_SIZE * REGION_SIZE);
     const floors = new Uint8Array(LEVELS * REGION_SIZE * REGION_SIZE);
     const collision = new Int32Array(LEVELS * REGION_SIZE * REGION_SIZE);
+    const water = new Uint8Array(LEVELS * REGION_SIZE * REGION_SIZE);
 
     for (let level = 0; level < LEVELS; level++) {
         for (let x = 0; x < corners; x++) {
@@ -779,11 +782,14 @@ function extractTerrainData(
                 const tileModel = scene.tiles[level][x + BORDER_SIZE][y + BORDER_SIZE]?.tileModel;
                 floors[i] = tileModel && tileModel.faces.length > 0 ? 1 : 0;
                 collision[i] = collisionMap.getFlag(x + BORDER_SIZE, y + BORDER_SIZE);
+                const overlayId = scene.tileOverlays[level][x + BORDER_SIZE][y + BORDER_SIZE] - 1;
+                const overlay = overlayId >= 0 ? overlayTypeLoader.load(overlayId) : undefined;
+                water[i] = overlay?.name?.toLowerCase().includes("water") ? 1 : 0;
             }
         }
     }
 
-    return { heights, renderFlags, floors, collision };
+    return { heights, renderFlags, floors, collision, water };
 }
 
 function findDiagonalWallTag(tile: SceneTile | undefined): bigint | undefined {

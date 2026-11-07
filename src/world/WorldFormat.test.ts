@@ -56,6 +56,7 @@ function region(overrides: Partial<RegionData> = {}): RegionData {
         renderFlags: new Uint8Array(tiles).fill(2),
         floors: new Uint8Array(tiles).fill(1),
         collision: new Int32Array(tiles).fill(0x100),
+        water: new Uint8Array(tiles),
         interactives: [],
         doorMeshes: [],
         ...overrides,
@@ -80,6 +81,7 @@ describe("region format", () => {
         expect(decoded.mapX).toBe(50);
         expect(Array.from(decoded.terrain.positions)).toEqual(Array.from(data.terrain.positions));
         expect(Array.from(decoded.collision.slice(0, 3))).toEqual([0x100, 0x100, 0x100]);
+        expect(Array.from(decoded.water ?? []).length).toBe(LEVELS * REGION_SIZE * REGION_SIZE);
         expect(decoded.interactives).toEqual(JSON.parse(JSON.stringify(data.interactives)));
         expect(decoded.doorMeshes).toHaveLength(1);
         expect(Array.from(decoded.doorMeshes[0].opaque.positions)).toEqual(

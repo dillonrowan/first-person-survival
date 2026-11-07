@@ -274,11 +274,30 @@ async function exportNpcs(
     workerCount: number,
 ): Promise<NonNullable<WorldManifest["npcs"]> | undefined> {
     const exportedKeys = new Set(exportedRegions.map(([x, y]) => (x << 8) | y));
+    const scenes = new Map<string, ReturnType<typeof loaders.sceneBuilder.buildScene>>();
+    const waterAt = (plane: number, x: number, y: number) => {
+        const mapX = x >> 6;
+        const mapY = y >> 6;
+        const key = `${mapX},${mapY}`;
+        let scene = scenes.get(key);
+        if (!scene) {
+            scene = loaders.sceneBuilder.buildScene(mapX * 64, mapY * 64, 64, 64);
+            scenes.set(key, scene);
+        }
+        const lx = x - mapX * 64;
+        const ly = y - mapY * 64;
+        const overlayId = scene.tileOverlays[plane]?.[lx]?.[ly] - 1;
+        if (overlayId === undefined || overlayId < 0) {
+            return false;
+        }
+        return loaders.overlayTypeLoader.load(overlayId).name?.toLowerCase().includes("water") === true;
+    };
     const selection = selectNpcs(
         readNpcSpawnFile(NPC_SPAWN_FILE),
         (mapX, mapY) => exportedKeys.has((mapX << 8) | mapY),
         loaders.npcTypeLoader,
         loaders.varManager,
+        waterAt,
     );
     if (selection.appearances.length === 0) {
         console.log("No NPC spawns in the exported area");

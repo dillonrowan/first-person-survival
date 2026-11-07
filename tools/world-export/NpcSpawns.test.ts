@@ -112,6 +112,18 @@ describe("resolveDisplayType", () => {
 });
 
 describe("selectNpcs", () => {
+    it("records cached water and land environment for each spawn", () => {
+        const result = selectNpcs(
+            [spawn(1, 3222, 3218), spawn(1, 3223, 3218)],
+            everywhere,
+            loader([npc(1)]),
+            vars,
+            (_plane, x) => x === 3223,
+        );
+
+        expect(result.spawns.map((item) => item.environment)).toEqual(["land", "water"]);
+    });
+
     it("counts each reason a spawn is skipped", () => {
         const l = loader([
             npc(1),

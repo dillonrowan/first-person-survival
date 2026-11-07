@@ -38,6 +38,8 @@ export type NpcSpawnInfo = {
     plane: number;
     /** Client orientation: 0 south, 512 west, 1024 north, 1536 east (2048 per turn). */
     orientation: number;
+    /** Cached terrain at spawn; restricts normal wandering to matching tiles. */
+    environment?: "water" | "land";
 };
 
 export type NpcManifest = {

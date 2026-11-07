@@ -45,6 +45,7 @@ export type NpcWorld = {
     renderLevel(plane: number, x: number, y: number): number;
     /** Used to drop knocked-back NPCs off upper floors; without it NPCs keep their plane. */
     hasFloor?(plane: number, x: number, y: number): boolean;
+    isWater?(plane: number, x: number, y: number): boolean;
 };
 
 /** Fall damage when knocked off the edge of a floor. [data ai.DamageOnTriggerFall] */
@@ -188,6 +189,7 @@ export class Npc {
     private velocityY = 0;
 
     private readonly spawn: Tile;
+    private readonly environment: "water" | "land" | undefined;
     private readonly size: number;
     private readonly rotationSpeed: number;
     private readonly meshes: NpcMesh[] = [];
@@ -247,6 +249,7 @@ export class Npc {
         this.size = Math.max(1, appearance.size);
         this.rotationSpeed = appearance.rotationSpeed ?? DEFAULT_ROTATION_SPEED;
         this.spawn = { x: info.x, y: info.y };
+        this.environment = info.environment;
         this.tileX = info.x;
         this.tileY = info.y;
         this.fineX = info.x * RS_UNITS_PER_TILE + this.size * (RS_UNITS_PER_TILE / 2);
@@ -1023,6 +1026,14 @@ export class Npc {
         return this.model.data.walk !== undefined;
     }
 
+    private matchesEnvironment(x: number, y: number): boolean {
+        if (!this.environment || !this.world.isWater) {
+            return true;
+        }
+        const isWater = this.world.isWater(this.plane, x, y);
+        return this.environment === "water" ? isWater : !isWater;
+    }
+
     /** Once per server tick (600 ms): maybe pick a wander target, then take one step. */
     serverTick(
         occupancy: Occupancy,
@@ -1043,7 +1054,6 @@ export class Npc {
 
         if (
             this.canWalk &&
-            (flags(this.spawn.x, this.spawn.y) & CollisionFlag.FLOOR) === 0 &&
             random() < WANDER_CHANCE
         ) {
             const target = {
@@ -1056,6 +1066,7 @@ export class Npc {
                 target,
                 this.size,
                 this.spawn,
+                (tile) => this.matchesEnvironment(tile.x, tile.y),
             );
         }
 
@@ -1069,6 +1080,7 @@ export class Npc {
         if (
             this.steps.length < MAX_QUEUED_STEPS &&
             canStep(flags, this.tileX, this.tileY, dx, dy, this.size) &&
+            this.matchesEnvironment(next.x, next.y) &&
             occupancy.isFree(plane, next.x, next.y, this.size)
         ) {
             this.tileX = next.x;

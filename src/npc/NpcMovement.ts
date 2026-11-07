@@ -94,6 +94,7 @@ export function findWanderPath(
     to: Tile,
     size: number,
     spawn: Tile,
+    matchesEnvironment: (tile: Tile) => boolean = () => true,
 ): Tile[] {
     const inRange = (t: Tile) =>
         Math.abs(t.x - spawn.x) <= WANDER_RADIUS && Math.abs(t.y - spawn.y) <= WANDER_RADIUS;
@@ -123,6 +124,7 @@ export function findWanderPath(
             if (
                 previous.has(nextKey) ||
                 !inRange(next) ||
+                !matchesEnvironment(next) ||
                 !canStep(flags, current.x, current.y, dx, dy, size)
             ) {
                 continue;

@@ -40,6 +40,7 @@ type LoadedRegion = {
     renderFlags: Uint8Array;
     floors: Uint8Array;
     collision: Int32Array;
+    water: Uint8Array;
     interactives: InteractiveLoc[];
     doorGeometries: DoorGeometry[];
 };
@@ -231,6 +232,15 @@ export class World {
         return region.collision[(plane * REGION_SIZE + lx) * REGION_SIZE + ly];
     }
 
+    isWater(plane: number, tileX: number, tileY: number): boolean {
+        const region = this.getRegion(tileX, tileY);
+        if (!region) {
+            return false;
+        }
+        const [lx, ly] = localTile(tileX, tileY);
+        return region.water[(plane * REGION_SIZE + lx) * REGION_SIZE + ly] !== 0;
+    }
+
     private getRegion(x: number, y: number): LoadedRegion | undefined {
         return this.regions.get(
             regionKey(Math.floor(x / REGION_SIZE), Math.floor(y / REGION_SIZE)),
@@ -287,6 +297,7 @@ export class World {
                 renderFlags: data.renderFlags.slice(),
                 floors: data.floors.slice(),
                 collision: data.collision.slice(),
+                water: data.water?.slice() ?? new Uint8Array(LEVELS * REGION_SIZE * REGION_SIZE),
                 interactives: data.interactives,
                 doorGeometries,
             });
