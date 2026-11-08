@@ -836,6 +836,8 @@ from the player's right to their left; a vertical sweep with impact X +1 goes to
 first entity the line touches is hit (mask 0x46004003). Moves without a start-ray event (sword B
 and T thrusts, dagger C) hit at their impact event 2102 `[inferred: a centre trace]`.
 
+Short targets may receive up to three limited downward aim retries from the melee trace.
+
 ### 17.3 Ray table `[mdl: first_animations_*.mdl]`
 
 Seconds from the start of the layer; roll in degrees; V = vertical (2198); "thrust" = impact event

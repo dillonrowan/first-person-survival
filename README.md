@@ -36,6 +36,9 @@ npm run dev
 Open http://localhost:5173 and click to play. To start somewhere else, add tile coordinates,
 for example `http://localhost:5173/?x=3213&y=3428` (Varrock square).
 
+For movement, combat, interactions, props, flying, and the HUD, see the
+[Player Guide](docs/player-guide.md).
+
 | Key        | Action                                                          |
 | ---------- | --------------------------------------------------------------- |
 | W A S D    | Move                                                            |
