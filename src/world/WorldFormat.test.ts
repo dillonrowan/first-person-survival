@@ -69,7 +69,41 @@ function roundTrip(data: RegionData) {
     return decodeRegion(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer);
 }
 
+/** Removes the version 3 water section, producing the layout written by version 2 exporters. */
+function encodeLegacyV2(data: RegionData): Uint8Array {
+    const bytes = encodeRegion(data);
+    new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).setUint32(4, 2, true);
+
+    let offset = 16;
+    for (const mesh of [data.terrain, data.opaque, data.transparent]) {
+        const vertexCount = mesh.positions.length / 4;
+        offset += 24 + vertexCount * 16 + mesh.indices.length * 4;
+    }
+    offset +=
+        LEVELS * (REGION_SIZE + 1) * (REGION_SIZE + 1) * 4 +
+        LEVELS * REGION_SIZE * REGION_SIZE * 2 +
+        LEVELS * REGION_SIZE * REGION_SIZE * 4;
+
+    const legacy = new Uint8Array(bytes.length - LEVELS * REGION_SIZE * REGION_SIZE);
+    legacy.set(bytes.subarray(0, offset), 0);
+    legacy.set(bytes.subarray(offset + LEVELS * REGION_SIZE * REGION_SIZE), offset);
+    return legacy;
+}
+
 describe("region format", () => {
+    it("decodes legacy version 2 regions without the water array", () => {
+        const data = region({
+            water: Uint8Array.from({ length: LEVELS * REGION_SIZE * REGION_SIZE }, (_, i) => i % 3 === 0 ? 1 : 0),
+            interactives: [door],
+        });
+        const decoded = decodeRegion(encodeLegacyV2(data).buffer as ArrayBuffer);
+        expect(decoded.mapX).toBe(50);
+        expect(decoded.mapY).toBe(50);
+        expect(decoded.water).toEqual(new Uint8Array(LEVELS * REGION_SIZE * REGION_SIZE));
+        expect(decoded.interactives).toEqual(JSON.parse(JSON.stringify([door])));
+        expect(decoded.collision[0]).toBe(0x100);
+    });
+
     it("round-trips meshes, terrain data, interactives and door meshes", () => {
         const data = region({
             interactives: [door, { ...door, kind: "climb", name: "Ladder — up", door: undefined }],

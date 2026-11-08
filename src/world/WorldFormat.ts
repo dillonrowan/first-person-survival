@@ -186,6 +186,8 @@ export const CollisionFlag = {
 //     i16[2 * vertexCount] uvs, u32[indexCount] indices
 //   i32[LEVELS * 65 * 65] heights, u8[LEVELS * 64 * 64] renderFlags, u8[LEVELS * 64 * 64] floors,
 //   i32[LEVELS * 64 * 64] collision
+// Version 3 appends:
+//   u8[LEVELS * 64 * 64] water
 // Version 2 appends:
 //   u32 jsonByteLength, UTF-8 JSON InteractiveLoc[] (padded to 4 bytes),
 //   u32 doorMeshCount, then per door an (opaque, transparent) mesh in the layout above
@@ -300,8 +302,9 @@ export function decodeRegion(buffer: ArrayBuffer): RegionData {
     offset += TILES_LENGTH;
     const collision = new Int32Array(buffer, offset, TILES_LENGTH);
     offset += TILES_LENGTH * 4;
-    const water = new Uint8Array(buffer, offset, TILES_LENGTH);
+    let water = new Uint8Array(TILES_LENGTH);
     if (version >= 3) {
+        water = new Uint8Array(buffer, offset, TILES_LENGTH);
         offset += TILES_LENGTH;
     }
 
@@ -329,7 +332,7 @@ export function decodeRegion(buffer: ArrayBuffer): RegionData {
         renderFlags,
         floors,
         collision,
-        water: version >= 3 ? water : new Uint8Array(TILES_LENGTH),
+        water: version >= 2 ? water.slice() : new Uint8Array(TILES_LENGTH),
         interactives,
         doorMeshes,
     };
