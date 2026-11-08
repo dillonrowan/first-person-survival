@@ -325,6 +325,38 @@ export class Npc {
         return this.alerted;
     }
 
+    /** Selects an animation clip and frame without running gameplay AI. */
+    setVisualAnimation(pose: "idle" | "walk", frame = 0): void {
+        const clip = pose === "walk" ? this.model.data.walk : this.model.data.idle;
+        if (!clip || clip.frameLengths.length === 0) {
+            throw new Error(`NPC ${this.appearance.id} has no ${pose} animation`);
+        }
+        this.clip = clip;
+        this.playback.frame = Math.min(frame, clip.frameLengths.length - 1);
+        this.playback.cycle = 0;
+        this.animCarry = 0;
+        this.dirty = true;
+    }
+
+    /** Advances the selected clip by client cycles without running NPC movement. */
+    advanceVisualAnimation(cycles: number): number {
+        if (!this.clip || !Number.isInteger(cycles) || cycles < 0) {
+            return this.playback.frame;
+        }
+        advanceClip(this.playback, this.clip, cycles);
+        this.dirty = true;
+        return this.playback.frame;
+    }
+
+    get visualAnimationFrame(): number {
+        return this.playback.frame;
+    }
+
+    setVisualYaw(degrees: number): void {
+        this.orientation = ((degrees / 360) * 2048 + 2048) % 2048;
+        this.rotation = this.orientation;
+    }
+
     /** Mass for kicks: 80 for a one-tile NPC, growing with its footprint. [design] */
     get mass(): number {
         return tuning.npcBaseMass * this.size * this.size;

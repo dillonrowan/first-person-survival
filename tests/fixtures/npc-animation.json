@@ -1,0 +1,9 @@
+[
+    {
+        "id": 5241,
+        "name": "Bird",
+        "idleFrames": [0, 45],
+        "walkFrames": [0, 4],
+        "yaws": [0, 90, 180]
+    }
+]
