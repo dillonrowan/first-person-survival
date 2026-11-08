@@ -6,14 +6,15 @@ import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { REGION_SIZE, RegionData, decodeRegion, encodeRegion } from "../../src/world/WorldFormat";
-import { readCacheFiles } from "./cache-files";
+import { isCacheAvailable, readCacheFiles } from "./cache-files";
 import { RegionBuilder } from "./RegionBuilder";
 import { createWorldLoaders } from "./WorldLoaders";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const CACHE_DIR = path.join(ROOT, "cache");
+const hasCache = isCacheAvailable(CACHE_DIR);
 
-describe("Lumbridge doors and ladders from the cache", () => {
+describe.skipIf(!hasCache)("Lumbridge doors and ladders from the cache", () => {
     let region: RegionData;
 
     beforeAll(() => {

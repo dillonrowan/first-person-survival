@@ -18,7 +18,7 @@ import {
     encodeNpcModel,
 } from "../../src/world/NpcFormat";
 import { RegionListener, WorldManifest } from "../../src/world/WorldFormat";
-import { readCacheFiles } from "./cache-files";
+import { isCacheAvailable, readCacheFiles } from "./cache-files";
 import { FaceColors } from "./FaceColors";
 import { NpcModelBuilder } from "./NpcModelBuilder";
 import { NpcAppearanceTask, NpcSelection, readNpcSpawnFile, selectNpcs } from "./NpcSpawns";
@@ -30,6 +30,7 @@ const WORLD_DIR = path.join(ROOT, "public", "world");
 const SPAWN_FILE = path.join(ROOT, "tools", "world-export", "data", "npc-spawns-osrs.json");
 
 const hasWorld = fs.existsSync(path.join(WORLD_DIR, "npcs.json"));
+const hasCache = isCacheAvailable(CACHE_DIR);
 
 describe("committed NPC spawn list", () => {
     const spawns = readNpcSpawnFile(SPAWN_FILE);
@@ -51,7 +52,7 @@ describe("committed NPC spawn list", () => {
     });
 });
 
-describe("NPCs from the downloaded cache", () => {
+describe.skipIf(!hasCache)("NPCs from the downloaded cache", () => {
     let loaders: ReturnType<typeof createWorldLoaders>;
     let builder: NpcModelBuilder;
     let lumbridge: NpcSelection;
