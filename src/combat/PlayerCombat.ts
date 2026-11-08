@@ -148,6 +148,16 @@ export class PlayerCombat {
         this.bow.cancel();
     }
 
+    equipWeapon(weapon: WeaponDef): void {
+        const index = WEAPONS.indexOf(weapon);
+        if (index >= 0) {
+            this.weaponIndex = index;
+        }
+        this.melee.weapon = weapon;
+        this.melee.cancel();
+        this.bow.cancel();
+    }
+
     /**
      * An NPC strike's impact (spec 16.5, 16.8). It lands if the player is within its range in front
      * of the attacker (`inCone`); a parry stance facing the attacker inside the weapon's parry cone

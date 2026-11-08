@@ -21,6 +21,9 @@ import { WeaponView } from "./combat/WeaponView";
 import type { BodySource } from "./physics/Bodies";
 import { CombatHud } from "./ui/CombatHud";
 import { EnemyHealthBars } from "./ui/EnemyHealthBars";
+import { CacheWeapon, WeaponMenu } from "./ui/WeaponMenu";
+import { WeaponDef } from "./combat/weapons";
+import { units } from "./player/MoveMath";
 import "./style.css";
 import { NpcManifest, decodeNpcModel } from "./world/NpcFormat";
 import { WorldInteractives } from "./world/Interactives";
@@ -45,6 +48,24 @@ const playButton = document.getElementById("play") as HTMLButtonElement;
 const hud = document.getElementById("hud")!;
 const promptElement = document.getElementById("prompt")!;
 const messageElement = document.getElementById("message")!;
+
+function cacheWeaponDef(weapon: CacheWeapon): WeaponDef {
+    const weights: Record<WeaponDef["family"], number> = { sword: 1.5, daggers: 0.4, staff: 2.2, bow: 0.8 };
+    const weight = weights[weapon.family];
+    const quickStrikeTime = 0.4;
+    return {
+        id: weapon.id,
+        name: weapon.name,
+        family: weapon.family,
+        damage: weapon.family === "daggers" ? 1 : weapon.family === "staff" ? 2 : 3,
+        reach: units(weapon.family === "staff" ? 110 : weapon.family === "daggers" ? 80 : 100),
+        piercing: weapon.family === "daggers" ? 0.5 : weapon.family === "staff" ? 0.5 : 0.1,
+        parryCos: weapon.family === "staff" ? 0.7 : weapon.family === "daggers" ? 0.2 : 0.5,
+        weight,
+        speed: quickStrikeTime / (0.18 + 0.15 * weight),
+        stunMultiplier: 1,
+    };
+}
 
 /** ?x=3222&y=3218&plane=0 starts somewhere else than the manifest's spawn. */
 function spawnFromUrl(fallback: WorldManifest["spawn"]): WorldManifest["spawn"] {
@@ -171,6 +192,25 @@ async function main(): Promise<void> {
         import.meta.env.BASE_URL,
         avatar.root.getObjectByName("socket_hand_r") ?? undefined,
     );
+    const weaponMenuElement = document.getElementById("weapon-menu")!;
+    const weaponMenu = new WeaponMenu(
+        weaponMenuElement,
+        document.getElementById("weapon-menu-list")!,
+        document.getElementById("weapon-menu-status")!,
+        (weapon) => {
+            combat.equipWeapon(cacheWeaponDef(weapon));
+        },
+        () => undefined,
+    );
+    await weaponMenu.load().catch((error) => {
+        document.getElementById("weapon-menu-status")!.textContent =
+            error instanceof Error ? error.message : String(error);
+    });
+    window.addEventListener("keydown", (event) => {
+        if (!event.repeat && event.code === "KeyI") {
+            weaponMenu.toggle();
+        }
+    });
     const combatHud = new CombatHud(document.body);
     const enemyHealthBars = npcs ? new EnemyHealthBars(document.body, npcs, camera) : undefined;
     combat.groundHeight = (plane, x, y) => world.groundHeight(plane, x, y);

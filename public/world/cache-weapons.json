@@ -1,0 +1,4755 @@
+[
+  {
+    "id": "cache-24539",
+    "cacheId": 24539,
+    "name": "'24-carat' sword",
+    "family": "sword",
+    "model": 17246
+  },
+  {
+    "id": "cache-20011",
+    "cacheId": 20011,
+    "name": "3rd Age axe",
+    "family": "sword",
+    "model": 1282
+  },
+  {
+    "id": "cache-12424",
+    "cacheId": 12424,
+    "name": "3rd Age bow",
+    "family": "sword",
+    "model": 45568
+  },
+  {
+    "id": "cache-23342",
+    "cacheId": 23342,
+    "name": "3rd Age druidic staff",
+    "family": "staff",
+    "model": 3072
+  },
+  {
+    "id": "cache-28226",
+    "cacheId": 28226,
+    "name": "3rd Age felling axe",
+    "family": "sword",
+    "model": 39204
+  },
+  {
+    "id": "cache-12422",
+    "cacheId": 12422,
+    "name": "3rd Age wand",
+    "family": "sword",
+    "model": 1285
+  },
+  {
+    "id": "cache-13265",
+    "cacheId": 13265,
+    "name": "Abyssal dagger",
+    "family": "daggers",
+    "model": 50444
+  },
+  {
+    "id": "cache-27861",
+    "cacheId": 27861,
+    "name": "Abyssal dagger (bh)",
+    "family": "daggers",
+    "model": 50444
+  },
+  {
+    "id": "cache-27863",
+    "cacheId": 27863,
+    "name": "Abyssal dagger (bh)(p)",
+    "family": "daggers",
+    "model": 50444
+  },
+  {
+    "id": "cache-27865",
+    "cacheId": 27865,
+    "name": "Abyssal dagger (bh)(p+)",
+    "family": "daggers",
+    "model": 50444
+  },
+  {
+    "id": "cache-27867",
+    "cacheId": 27867,
+    "name": "Abyssal dagger (bh)(p++)",
+    "family": "daggers",
+    "model": 50444
+  },
+  {
+    "id": "cache-13267",
+    "cacheId": 13267,
+    "name": "Abyssal dagger (p)",
+    "family": "daggers",
+    "model": 50444
+  },
+  {
+    "id": "cache-13269",
+    "cacheId": 13269,
+    "name": "Abyssal dagger (p+)",
+    "family": "daggers",
+    "model": 50444
+  },
+  {
+    "id": "cache-13271",
+    "cacheId": 13271,
+    "name": "Abyssal dagger (p++)",
+    "family": "daggers",
+    "model": 50444
+  },
+  {
+    "id": "cache-28080",
+    "cacheId": 28080,
+    "name": "Abyssal dagger imbue scroll",
+    "family": "daggers",
+    "model": 17158
+  },
+  {
+    "id": "cache-4151",
+    "cacheId": 4151,
+    "name": "Abyssal whip",
+    "family": "sword",
+    "model": 6180
+  },
+  {
+    "id": "cache-4178",
+    "cacheId": 4178,
+    "name": "Abyssal whip",
+    "family": "sword",
+    "model": 6180
+  },
+  {
+    "id": "cache-20405",
+    "cacheId": 20405,
+    "name": "Abyssal whip",
+    "family": "sword",
+    "model": 6180
+  },
+  {
+    "id": "cache-26482",
+    "cacheId": 26482,
+    "name": "Abyssal whip (or)",
+    "family": "sword",
+    "model": 63750
+  },
+  {
+    "id": "cache-30989",
+    "cacheId": 30989,
+    "name": "Acatzin's axe",
+    "family": "sword",
+    "model": 2048
+  },
+  {
+    "id": "cache-30990",
+    "cacheId": 30990,
+    "name": "Acatzin's axe",
+    "family": "sword",
+    "model": 2048
+  },
+  {
+    "id": "cache-27665",
+    "cacheId": 27665,
+    "name": "Accursed sceptre",
+    "family": "sword",
+    "model": 36958
+  },
+  {
+    "id": "cache-27679",
+    "cacheId": 27679,
+    "name": "Accursed sceptre (a)",
+    "family": "sword",
+    "model": 36958
+  },
+  {
+    "id": "cache-27676",
+    "cacheId": 27676,
+    "name": "Accursed sceptre (au)",
+    "family": "sword",
+    "model": 36958
+  },
+  {
+    "id": "cache-27662",
+    "cacheId": 27662,
+    "name": "Accursed sceptre (u)",
+    "family": "sword",
+    "model": 36958
+  },
+  {
+    "id": "cache-1317",
+    "cacheId": 1317,
+    "name": "Adamant 2h sword",
+    "family": "sword",
+    "model": 61
+  },
+  {
+    "id": "cache-1357",
+    "cacheId": 1357,
+    "name": "Adamant axe",
+    "family": "sword",
+    "model": 65024
+  },
+  {
+    "id": "cache-3100",
+    "cacheId": 3100,
+    "name": "Adamant claws",
+    "family": "sword",
+    "model": 3108
+  },
+  {
+    "id": "cache-9183",
+    "cacheId": 9183,
+    "name": "Adamant crossbow",
+    "family": "sword",
+    "model": 517
+  },
+  {
+    "id": "cache-9463",
+    "cacheId": 9463,
+    "name": "Adamant crossbow (u)",
+    "family": "sword",
+    "model": 42059
+  },
+  {
+    "id": "cache-1211",
+    "cacheId": 1211,
+    "name": "Adamant dagger",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-1227",
+    "cacheId": 1227,
+    "name": "Adamant dagger(p)",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-5676",
+    "cacheId": 5676,
+    "name": "Adamant dagger(p+)",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-5694",
+    "cacheId": 5694,
+    "name": "Adamant dagger(p++)",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-28211",
+    "cacheId": 28211,
+    "name": "Adamant felling axe",
+    "family": "sword",
+    "model": 39204
+  },
+  {
+    "id": "cache-3200",
+    "cacheId": 3200,
+    "name": "Adamant halberd",
+    "family": "sword",
+    "model": 61
+  },
+  {
+    "id": "cache-11375",
+    "cacheId": 11375,
+    "name": "Adamant hasta",
+    "family": "sword",
+    "model": 15877
+  },
+  {
+    "id": "cache-11409",
+    "cacheId": 11409,
+    "name": "Adamant hasta(kp)",
+    "family": "sword",
+    "model": 15877
+  },
+  {
+    "id": "cache-11407",
+    "cacheId": 11407,
+    "name": "Adamant hasta(p)",
+    "family": "sword",
+    "model": 15877
+  },
+  {
+    "id": "cache-11410",
+    "cacheId": 11410,
+    "name": "Adamant hasta(p+)",
+    "family": "sword",
+    "model": 15877
+  },
+  {
+    "id": "cache-11412",
+    "cacheId": 11412,
+    "name": "Adamant hasta(p++)",
+    "family": "sword",
+    "model": 15877
+  },
+  {
+    "id": "cache-1430",
+    "cacheId": 1430,
+    "name": "Adamant mace",
+    "family": "sword",
+    "model": 62976
+  },
+  {
+    "id": "cache-1331",
+    "cacheId": 1331,
+    "name": "Adamant scimitar",
+    "family": "sword",
+    "model": 11300
+  },
+  {
+    "id": "cache-30607",
+    "cacheId": 30607,
+    "name": "Adamant staff of collection",
+    "family": "staff",
+    "model": 1
+  },
+  {
+    "id": "cache-4710",
+    "cacheId": 4710,
+    "name": "Ahrim's staff",
+    "family": "staff",
+    "model": 19464
+  },
+  {
+    "id": "cache-23653",
+    "cacheId": 23653,
+    "name": "Ahrim's staff",
+    "family": "staff",
+    "model": 11264
+  },
+  {
+    "id": "cache-4866",
+    "cacheId": 4866,
+    "name": "Ahrim's staff 0",
+    "family": "staff",
+    "model": 19464
+  },
+  {
+    "id": "cache-4862",
+    "cacheId": 4862,
+    "name": "Ahrim's staff 100",
+    "family": "staff",
+    "model": 19464
+  },
+  {
+    "id": "cache-4865",
+    "cacheId": 4865,
+    "name": "Ahrim's staff 25",
+    "family": "staff",
+    "model": 19464
+  },
+  {
+    "id": "cache-4864",
+    "cacheId": 4864,
+    "name": "Ahrim's staff 50",
+    "family": "staff",
+    "model": 19464
+  },
+  {
+    "id": "cache-4863",
+    "cacheId": 4863,
+    "name": "Ahrim's staff 75",
+    "family": "staff",
+    "model": 19464
+  },
+  {
+    "id": "cache-33762",
+    "cacheId": 33762,
+    "name": "Ancestral dagger",
+    "family": "daggers",
+    "model": 2048
+  },
+  {
+    "id": "cache-11061",
+    "cacheId": 11061,
+    "name": "Ancient mace",
+    "family": "sword",
+    "model": 65535
+  },
+  {
+    "id": "cache-27624",
+    "cacheId": 27624,
+    "name": "Ancient sceptre",
+    "family": "sword",
+    "model": 19208
+  },
+  {
+    "id": "cache-27626",
+    "cacheId": 27626,
+    "name": "Ancient sceptre (l)",
+    "family": "sword",
+    "model": 19208
+  },
+  {
+    "id": "cache-33829",
+    "cacheId": 33829,
+    "name": "Ancient sceptre (l) (mangled)",
+    "family": "sword",
+    "model": 9984
+  },
+  {
+    "id": "cache-4675",
+    "cacheId": 4675,
+    "name": "Ancient staff",
+    "family": "staff",
+    "model": 19208
+  },
+  {
+    "id": "cache-20431",
+    "cacheId": 20431,
+    "name": "Ancient staff",
+    "family": "staff",
+    "model": 19208
+  },
+  {
+    "id": "cache-7808",
+    "cacheId": 7808,
+    "name": "Anger mace",
+    "family": "sword",
+    "model": 2048
+  },
+  {
+    "id": "cache-7809",
+    "cacheId": 7809,
+    "name": "Anger spear",
+    "family": "sword",
+    "model": 2048
+  },
+  {
+    "id": "cache-7806",
+    "cacheId": 7806,
+    "name": "Anger sword",
+    "family": "sword",
+    "model": 61988
+  },
+  {
+    "id": "cache-6910",
+    "cacheId": 6910,
+    "name": "Apprentice wand",
+    "family": "sword",
+    "model": 4161
+  },
+  {
+    "id": "cache-20556",
+    "cacheId": 20556,
+    "name": "Apprentice wand",
+    "family": "sword",
+    "model": 40962
+  },
+  {
+    "id": "cache-11785",
+    "cacheId": 11785,
+    "name": "Armadyl crossbow",
+    "family": "sword",
+    "model": 45568
+  },
+  {
+    "id": "cache-23611",
+    "cacheId": 23611,
+    "name": "Armadyl crossbow",
+    "family": "sword",
+    "model": 9984
+  },
+  {
+    "id": "cache-30320",
+    "cacheId": 30320,
+    "name": "Arrav's axe",
+    "family": "sword",
+    "model": 49956
+  },
+  {
+    "id": "cache-11050",
+    "cacheId": 11050,
+    "name": "Axe head",
+    "family": "sword",
+    "model": 54898
+  },
+  {
+    "id": "cache-10887",
+    "cacheId": 10887,
+    "name": "Barrelchest anchor",
+    "family": "sword",
+    "model": 16685
+  },
+  {
+    "id": "cache-10888",
+    "cacheId": 10888,
+    "name": "Barrelchest anchor",
+    "family": "sword",
+    "model": 2047
+  },
+  {
+    "id": "cache-27855",
+    "cacheId": 27855,
+    "name": "Barrelchest anchor (bh)",
+    "family": "sword",
+    "model": 9773
+  },
+  {
+    "id": "cache-28074",
+    "cacheId": 28074,
+    "name": "Barrelchest anchor imbue scroll",
+    "family": "sword",
+    "model": 17158
+  },
+  {
+    "id": "cache-25641",
+    "cacheId": 25641,
+    "name": "Barronite mace",
+    "family": "sword",
+    "model": 65535
+  },
+  {
+    "id": "cache-25643",
+    "cacheId": 25643,
+    "name": "Barronite mace (l)",
+    "family": "sword",
+    "model": 65535
+  },
+  {
+    "id": "cache-6908",
+    "cacheId": 6908,
+    "name": "Beginner wand",
+    "family": "sword",
+    "model": 1026
+  },
+  {
+    "id": "cache-20553",
+    "cacheId": 20553,
+    "name": "Beginner wand",
+    "family": "sword",
+    "model": 1026
+  },
+  {
+    "id": "cache-1313",
+    "cacheId": 1313,
+    "name": "Black 2h sword",
+    "family": "sword",
+    "model": 61
+  },
+  {
+    "id": "cache-1361",
+    "cacheId": 1361,
+    "name": "Black axe",
+    "family": "sword",
+    "model": 65024
+  },
+  {
+    "id": "cache-3098",
+    "cacheId": 3098,
+    "name": "Black claws",
+    "family": "sword",
+    "model": 26668
+  },
+  {
+    "id": "cache-1217",
+    "cacheId": 1217,
+    "name": "Black dagger",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-1233",
+    "cacheId": 1233,
+    "name": "Black dagger(p)",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-5682",
+    "cacheId": 5682,
+    "name": "Black dagger(p+)",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-5700",
+    "cacheId": 5700,
+    "name": "Black dagger(p++)",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-28205",
+    "cacheId": 28205,
+    "name": "Black felling axe",
+    "family": "sword",
+    "model": 32812
+  },
+  {
+    "id": "cache-3196",
+    "cacheId": 3196,
+    "name": "Black halberd",
+    "family": "sword",
+    "model": 61
+  },
+  {
+    "id": "cache-1426",
+    "cacheId": 1426,
+    "name": "Black mace",
+    "family": "sword",
+    "model": 45092
+  },
+  {
+    "id": "cache-1327",
+    "cacheId": 1327,
+    "name": "Black scimitar",
+    "family": "sword",
+    "model": 11300
+  },
+  {
+    "id": "cache-30603",
+    "cacheId": 30603,
+    "name": "Black staff of collection",
+    "family": "staff",
+    "model": 1
+  },
+  {
+    "id": "cache-24699",
+    "cacheId": 24699,
+    "name": "Blisterwood flail",
+    "family": "sword",
+    "model": 13899
+  },
+  {
+    "id": "cache-24697",
+    "cacheId": 24697,
+    "name": "Blisterwood sickle",
+    "family": "sword",
+    "model": 9984
+  },
+  {
+    "id": "cache-33713",
+    "cacheId": 33713,
+    "name": "Blisterwood sickle (e)",
+    "family": "sword",
+    "model": 968
+  },
+  {
+    "id": "cache-25489",
+    "cacheId": 25489,
+    "name": "Blood ancient sceptre",
+    "family": "sword",
+    "model": 19208
+  },
+  {
+    "id": "cache-28260",
+    "cacheId": 28260,
+    "name": "Blood ancient sceptre",
+    "family": "sword",
+    "model": 19208
+  },
+  {
+    "id": "cache-28473",
+    "cacheId": 28473,
+    "name": "Blood ancient sceptre (l)",
+    "family": "sword",
+    "model": 19208
+  },
+  {
+    "id": "cache-33506",
+    "cacheId": 33506,
+    "name": "Blood ancient sceptre (l) (mangled)",
+    "family": "sword",
+    "model": 15243
+  },
+  {
+    "id": "cache-12757",
+    "cacheId": 12757,
+    "name": "Blue dark bow paint",
+    "family": "sword",
+    "model": 1027
+  },
+  {
+    "id": "cache-28988",
+    "cacheId": 28988,
+    "name": "Blue Moon spear",
+    "family": "sword",
+    "model": 19211
+  },
+  {
+    "id": "cache-29849",
+    "cacheId": 29849,
+    "name": "Blue Moon spear",
+    "family": "sword",
+    "model": 19211
+  },
+  {
+    "id": "cache-4415",
+    "cacheId": 4415,
+    "name": "Blunt axe",
+    "family": "sword",
+    "model": 926
+  },
+  {
+    "id": "cache-9176",
+    "cacheId": 9176,
+    "name": "Blurite crossbow",
+    "family": "sword",
+    "model": 517
+  },
+  {
+    "id": "cache-9456",
+    "cacheId": 9456,
+    "name": "Blurite crossbow (u)",
+    "family": "sword",
+    "model": 42059
+  },
+  {
+    "id": "cache-667",
+    "cacheId": 667,
+    "name": "Blurite sword",
+    "family": "sword",
+    "model": 38917
+  },
+  {
+    "id": "cache-5018",
+    "cacheId": 5018,
+    "name": "Bone club",
+    "family": "sword",
+    "model": 53253
+  },
+  {
+    "id": "cache-8872",
+    "cacheId": 8872,
+    "name": "Bone dagger",
+    "family": "daggers",
+    "model": 50444
+  },
+  {
+    "id": "cache-8874",
+    "cacheId": 8874,
+    "name": "Bone dagger (p)",
+    "family": "daggers",
+    "model": 50444
+  },
+  {
+    "id": "cache-8876",
+    "cacheId": 8876,
+    "name": "Bone dagger (p+)",
+    "family": "daggers",
+    "model": 50444
+  },
+  {
+    "id": "cache-8878",
+    "cacheId": 8878,
+    "name": "Bone dagger (p++)",
+    "family": "daggers",
+    "model": 50444
+  },
+  {
+    "id": "cache-28792",
+    "cacheId": 28792,
+    "name": "Bone mace",
+    "family": "sword",
+    "model": 36101
+  },
+  {
+    "id": "cache-5016",
+    "cacheId": 5016,
+    "name": "Bone spear",
+    "family": "sword",
+    "model": 43044
+  },
+  {
+    "id": "cache-28796",
+    "cacheId": 28796,
+    "name": "Bone staff",
+    "family": "staff",
+    "model": 2303
+  },
+  {
+    "id": "cache-7686",
+    "cacheId": 7686,
+    "name": "Bow and arrow",
+    "family": "sword",
+    "model": 2047
+  },
+  {
+    "id": "cache-25865",
+    "cacheId": 25865,
+    "name": "Bow of Faerdhinen",
+    "family": "sword",
+    "model": 45568
+  },
+  {
+    "id": "cache-25867",
+    "cacheId": 25867,
+    "name": "Bow of Faerdhinen (c)",
+    "family": "sword",
+    "model": 512
+  },
+  {
+    "id": "cache-25869",
+    "cacheId": 25869,
+    "name": "Bow of Faerdhinen (c)",
+    "family": "sword",
+    "model": 10242
+  },
+  {
+    "id": "cache-25884",
+    "cacheId": 25884,
+    "name": "Bow of Faerdhinen (c)",
+    "family": "sword",
+    "model": 512
+  },
+  {
+    "id": "cache-25886",
+    "cacheId": 25886,
+    "name": "Bow of Faerdhinen (c)",
+    "family": "sword",
+    "model": 512
+  },
+  {
+    "id": "cache-25888",
+    "cacheId": 25888,
+    "name": "Bow of Faerdhinen (c)",
+    "family": "sword",
+    "model": 512
+  },
+  {
+    "id": "cache-25890",
+    "cacheId": 25890,
+    "name": "Bow of Faerdhinen (c)",
+    "family": "sword",
+    "model": 512
+  },
+  {
+    "id": "cache-25892",
+    "cacheId": 25892,
+    "name": "Bow of Faerdhinen (c)",
+    "family": "sword",
+    "model": 512
+  },
+  {
+    "id": "cache-25894",
+    "cacheId": 25894,
+    "name": "Bow of Faerdhinen (c)",
+    "family": "sword",
+    "model": 512
+  },
+  {
+    "id": "cache-25896",
+    "cacheId": 25896,
+    "name": "Bow of Faerdhinen (c)",
+    "family": "sword",
+    "model": 512
+  },
+  {
+    "id": "cache-27187",
+    "cacheId": 27187,
+    "name": "Bow of Faerdhinen (c)",
+    "family": "sword",
+    "model": 9984
+  },
+  {
+    "id": "cache-33021",
+    "cacheId": 33021,
+    "name": "Bow of Faerdhinen (c)",
+    "family": "sword",
+    "model": 512
+  },
+  {
+    "id": "cache-25862",
+    "cacheId": 25862,
+    "name": "Bow of Faerdhinen (inactive)",
+    "family": "sword",
+    "model": 33001
+  },
+  {
+    "id": "cache-31052",
+    "cacheId": 31052,
+    "name": "Bow string spool",
+    "family": "sword",
+    "model": 62476
+  },
+  {
+    "id": "cache-6818",
+    "cacheId": 6818,
+    "name": "Bow-sword",
+    "family": "sword",
+    "model": 61
+  },
+  {
+    "id": "cache-1307",
+    "cacheId": 1307,
+    "name": "Bronze 2h sword",
+    "family": "sword",
+    "model": 61
+  },
+  {
+    "id": "cache-1351",
+    "cacheId": 1351,
+    "name": "Bronze axe",
+    "family": "sword",
+    "model": 65024
+  },
+  {
+    "id": "cache-508",
+    "cacheId": 508,
+    "name": "Bronze axe head",
+    "family": "sword",
+    "model": 65017
+  },
+  {
+    "id": "cache-3095",
+    "cacheId": 3095,
+    "name": "Bronze claws",
+    "family": "sword",
+    "model": 3108
+  },
+  {
+    "id": "cache-9174",
+    "cacheId": 9174,
+    "name": "Bronze crossbow",
+    "family": "sword",
+    "model": 517
+  },
+  {
+    "id": "cache-9454",
+    "cacheId": 9454,
+    "name": "Bronze crossbow (u)",
+    "family": "sword",
+    "model": 42059
+  },
+  {
+    "id": "cache-1205",
+    "cacheId": 1205,
+    "name": "Bronze dagger",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-1221",
+    "cacheId": 1221,
+    "name": "Bronze dagger(p)",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-5670",
+    "cacheId": 5670,
+    "name": "Bronze dagger(p+)",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-5688",
+    "cacheId": 5688,
+    "name": "Bronze dagger(p++)",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-28196",
+    "cacheId": 28196,
+    "name": "Bronze felling axe",
+    "family": "sword",
+    "model": 39204
+  },
+  {
+    "id": "cache-3190",
+    "cacheId": 3190,
+    "name": "Bronze halberd",
+    "family": "sword",
+    "model": 61
+  },
+  {
+    "id": "cache-11367",
+    "cacheId": 11367,
+    "name": "Bronze hasta",
+    "family": "sword",
+    "model": 15877
+  },
+  {
+    "id": "cache-11381",
+    "cacheId": 11381,
+    "name": "Bronze hasta(kp)",
+    "family": "sword",
+    "model": 15877
+  },
+  {
+    "id": "cache-11379",
+    "cacheId": 11379,
+    "name": "Bronze hasta(p)",
+    "family": "sword",
+    "model": 15877
+  },
+  {
+    "id": "cache-11382",
+    "cacheId": 11382,
+    "name": "Bronze hasta(p+)",
+    "family": "sword",
+    "model": 15877
+  },
+  {
+    "id": "cache-11384",
+    "cacheId": 11384,
+    "name": "Bronze hasta(p++)",
+    "family": "sword",
+    "model": 15877
+  },
+  {
+    "id": "cache-1422",
+    "cacheId": 1422,
+    "name": "Bronze mace",
+    "family": "sword",
+    "model": 62976
+  },
+  {
+    "id": "cache-1321",
+    "cacheId": 1321,
+    "name": "Bronze scimitar",
+    "family": "sword",
+    "model": 11300
+  },
+  {
+    "id": "cache-30597",
+    "cacheId": 30597,
+    "name": "Bronze staff of collection",
+    "family": "staff",
+    "model": 1028
+  },
+  {
+    "id": "cache-22370",
+    "cacheId": 22370,
+    "name": "Bryophyta's staff",
+    "family": "staff",
+    "model": 2303
+  },
+  {
+    "id": "cache-22368",
+    "cacheId": 22368,
+    "name": "Bryophyta's staff (uncharged)",
+    "family": "staff",
+    "model": 2303
+  },
+  {
+    "id": "cache-29577",
+    "cacheId": 29577,
+    "name": "Burning claws",
+    "family": "sword",
+    "model": 23844
+  },
+  {
+    "id": "cache-33200",
+    "cacheId": 33200,
+    "name": "Burning claws",
+    "family": "sword",
+    "model": 23844
+  },
+  {
+    "id": "cache-24537",
+    "cacheId": 24537,
+    "name": "Carrot sword",
+    "family": "sword",
+    "model": 17246
+  },
+  {
+    "id": "cache-27667",
+    "cacheId": 27667,
+    "name": "Claws of Callisto",
+    "family": "sword",
+    "model": 40976
+  },
+  {
+    "id": "cache-22692",
+    "cacheId": 22692,
+    "name": "Clown bow tie",
+    "family": "sword",
+    "model": 1026
+  },
+  {
+    "id": "cache-4827",
+    "cacheId": 4827,
+    "name": "Comp ogre bow",
+    "family": "sword",
+    "model": 1
+  },
+  {
+    "id": "cache-23821",
+    "cacheId": 23821,
+    "name": "Corrupted axe",
+    "family": "sword",
+    "model": 9984
+  },
+  {
+    "id": "cache-23856",
+    "cacheId": 23856,
+    "name": "Corrupted bow (attuned)",
+    "family": "sword",
+    "model": 1030
+  },
+  {
+    "id": "cache-23855",
+    "cacheId": 23855,
+    "name": "Corrupted bow (basic)",
+    "family": "sword",
+    "model": 64450
+  },
+  {
+    "id": "cache-23857",
+    "cacheId": 23857,
+    "name": "Corrupted bow (perfected)",
+    "family": "sword",
+    "model": 1030
+  },
+  {
+    "id": "cache-29599",
+    "cacheId": 29599,
+    "name": "Corrupted dark bow",
+    "family": "sword",
+    "model": 45568
+  },
+  {
+    "id": "cache-28534",
+    "cacheId": 28534,
+    "name": "Corrupted dragon claws",
+    "family": "sword",
+    "model": 23844
+  },
+  {
+    "id": "cache-23850",
+    "cacheId": 23850,
+    "name": "Corrupted halberd (attuned)",
+    "family": "sword",
+    "model": 9984
+  },
+  {
+    "id": "cache-23849",
+    "cacheId": 23849,
+    "name": "Corrupted halberd (basic)",
+    "family": "sword",
+    "model": 9984
+  },
+  {
+    "id": "cache-23851",
+    "cacheId": 23851,
+    "name": "Corrupted halberd (perfected)",
+    "family": "sword",
+    "model": 4427
+  },
+  {
+    "id": "cache-23820",
+    "cacheId": 23820,
+    "name": "Corrupted sceptre",
+    "family": "sword",
+    "model": 62509
+  },
+  {
+    "id": "cache-23853",
+    "cacheId": 23853,
+    "name": "Corrupted staff (attuned)",
+    "family": "staff",
+    "model": 44805
+  },
+  {
+    "id": "cache-23852",
+    "cacheId": 23852,
+    "name": "Corrupted staff (basic)",
+    "family": "staff",
+    "model": 44805
+  },
+  {
+    "id": "cache-23854",
+    "cacheId": 23854,
+    "name": "Corrupted staff (perfected)",
+    "family": "staff",
+    "model": 44805
+  },
+  {
+    "id": "cache-28540",
+    "cacheId": 28540,
+    "name": "Corrupted twisted bow",
+    "family": "sword",
+    "model": 1541
+  },
+  {
+    "id": "cache-29602",
+    "cacheId": 29602,
+    "name": "Corrupted Volatile Nightmare staff",
+    "family": "staff",
+    "model": 37963
+  },
+  {
+    "id": "cache-22550",
+    "cacheId": 22550,
+    "name": "Craw's bow",
+    "family": "sword",
+    "model": 65119
+  },
+  {
+    "id": "cache-22547",
+    "cacheId": 22547,
+    "name": "Craw's bow (u)",
+    "family": "sword",
+    "model": 65119
+  },
+  {
+    "id": "cache-1813",
+    "cacheId": 1813,
+    "name": "Criminal's dagger",
+    "family": "daggers",
+    "model": 55371
+  },
+  {
+    "id": "cache-1814",
+    "cacheId": 1814,
+    "name": "Criminal's dagger",
+    "family": "daggers",
+    "model": 55371
+  },
+  {
+    "id": "cache-837",
+    "cacheId": 837,
+    "name": "Crossbow",
+    "family": "sword",
+    "model": 1027
+  },
+  {
+    "id": "cache-9438",
+    "cacheId": 9438,
+    "name": "Crossbow string",
+    "family": "sword",
+    "model": 22091
+  },
+  {
+    "id": "cache-23673",
+    "cacheId": 23673,
+    "name": "Crystal axe",
+    "family": "sword",
+    "model": 1
+  },
+  {
+    "id": "cache-23862",
+    "cacheId": 23862,
+    "name": "Crystal axe",
+    "family": "sword",
+    "model": 9984
+  },
+  {
+    "id": "cache-23675",
+    "cacheId": 23675,
+    "name": "Crystal axe (inactive)",
+    "family": "sword",
+    "model": 512
+  },
+  {
+    "id": "cache-23983",
+    "cacheId": 23983,
+    "name": "Crystal bow",
+    "family": "sword",
+    "model": 1030
+  },
+  {
+    "id": "cache-24123",
+    "cacheId": 24123,
+    "name": "Crystal bow",
+    "family": "sword",
+    "model": 1030
+  },
+  {
+    "id": "cache-23902",
+    "cacheId": 23902,
+    "name": "Crystal bow (attuned)",
+    "family": "sword",
+    "model": 64450
+  },
+  {
+    "id": "cache-23901",
+    "cacheId": 23901,
+    "name": "Crystal bow (basic)",
+    "family": "sword",
+    "model": 64450
+  },
+  {
+    "id": "cache-23985",
+    "cacheId": 23985,
+    "name": "Crystal bow (inactive)",
+    "family": "sword",
+    "model": 1030
+  },
+  {
+    "id": "cache-23903",
+    "cacheId": 23903,
+    "name": "Crystal bow (perfected)",
+    "family": "sword",
+    "model": 64450
+  },
+  {
+    "id": "cache-4223",
+    "cacheId": 4223,
+    "name": "Crystal bow 1/10",
+    "family": "sword",
+    "model": 1792
+  },
+  {
+    "id": "cache-11758",
+    "cacheId": 11758,
+    "name": "Crystal bow 1/10 (i)",
+    "family": "sword",
+    "model": 1792
+  },
+  {
+    "id": "cache-4222",
+    "cacheId": 4222,
+    "name": "Crystal bow 2/10",
+    "family": "sword",
+    "model": 1792
+  },
+  {
+    "id": "cache-11757",
+    "cacheId": 11757,
+    "name": "Crystal bow 2/10 (i)",
+    "family": "sword",
+    "model": 1792
+  },
+  {
+    "id": "cache-4221",
+    "cacheId": 4221,
+    "name": "Crystal bow 3/10",
+    "family": "sword",
+    "model": 1792
+  },
+  {
+    "id": "cache-11756",
+    "cacheId": 11756,
+    "name": "Crystal bow 3/10 (i)",
+    "family": "sword",
+    "model": 1792
+  },
+  {
+    "id": "cache-4220",
+    "cacheId": 4220,
+    "name": "Crystal bow 4/10",
+    "family": "sword",
+    "model": 1792
+  },
+  {
+    "id": "cache-11755",
+    "cacheId": 11755,
+    "name": "Crystal bow 4/10 (i)",
+    "family": "sword",
+    "model": 1792
+  },
+  {
+    "id": "cache-4219",
+    "cacheId": 4219,
+    "name": "Crystal bow 5/10",
+    "family": "sword",
+    "model": 1792
+  },
+  {
+    "id": "cache-11754",
+    "cacheId": 11754,
+    "name": "Crystal bow 5/10 (i)",
+    "family": "sword",
+    "model": 1792
+  },
+  {
+    "id": "cache-4218",
+    "cacheId": 4218,
+    "name": "Crystal bow 6/10",
+    "family": "sword",
+    "model": 1792
+  },
+  {
+    "id": "cache-11753",
+    "cacheId": 11753,
+    "name": "Crystal bow 6/10 (i)",
+    "family": "sword",
+    "model": 1792
+  },
+  {
+    "id": "cache-4217",
+    "cacheId": 4217,
+    "name": "Crystal bow 7/10",
+    "family": "sword",
+    "model": 1792
+  },
+  {
+    "id": "cache-11752",
+    "cacheId": 11752,
+    "name": "Crystal bow 7/10 (i)",
+    "family": "sword",
+    "model": 1792
+  },
+  {
+    "id": "cache-4216",
+    "cacheId": 4216,
+    "name": "Crystal bow 8/10",
+    "family": "sword",
+    "model": 1792
+  },
+  {
+    "id": "cache-11751",
+    "cacheId": 11751,
+    "name": "Crystal bow 8/10 (i)",
+    "family": "sword",
+    "model": 1792
+  },
+  {
+    "id": "cache-4215",
+    "cacheId": 4215,
+    "name": "Crystal bow 9/10",
+    "family": "sword",
+    "model": 1792
+  },
+  {
+    "id": "cache-11750",
+    "cacheId": 11750,
+    "name": "Crystal bow 9/10 (i)",
+    "family": "sword",
+    "model": 1792
+  },
+  {
+    "id": "cache-4214",
+    "cacheId": 4214,
+    "name": "Crystal bow full",
+    "family": "sword",
+    "model": 1792
+  },
+  {
+    "id": "cache-11749",
+    "cacheId": 11749,
+    "name": "Crystal bow full (i)",
+    "family": "sword",
+    "model": 1792
+  },
+  {
+    "id": "cache-30340",
+    "cacheId": 30340,
+    "name": "Crystal dagger (perfected)",
+    "family": "daggers",
+    "model": 61988
+  },
+  {
+    "id": "cache-28220",
+    "cacheId": 28220,
+    "name": "Crystal felling axe",
+    "family": "sword",
+    "model": 39204
+  },
+  {
+    "id": "cache-28223",
+    "cacheId": 28223,
+    "name": "Crystal felling axe (inactive)",
+    "family": "sword",
+    "model": 39204
+  },
+  {
+    "id": "cache-23987",
+    "cacheId": 23987,
+    "name": "Crystal halberd",
+    "family": "sword",
+    "model": 4427
+  },
+  {
+    "id": "cache-24125",
+    "cacheId": 24125,
+    "name": "Crystal halberd",
+    "family": "sword",
+    "model": 4427
+  },
+  {
+    "id": "cache-23896",
+    "cacheId": 23896,
+    "name": "Crystal halberd (attuned)",
+    "family": "sword",
+    "model": 9984
+  },
+  {
+    "id": "cache-23895",
+    "cacheId": 23895,
+    "name": "Crystal halberd (basic)",
+    "family": "sword",
+    "model": 9984
+  },
+  {
+    "id": "cache-23989",
+    "cacheId": 23989,
+    "name": "Crystal halberd (inactive)",
+    "family": "sword",
+    "model": 4356
+  },
+  {
+    "id": "cache-23897",
+    "cacheId": 23897,
+    "name": "Crystal halberd (perfected)",
+    "family": "sword",
+    "model": 4427
+  },
+  {
+    "id": "cache-13101",
+    "cacheId": 13101,
+    "name": "Crystal halberd 1/10",
+    "family": "sword",
+    "model": 9047
+  },
+  {
+    "id": "cache-13090",
+    "cacheId": 13090,
+    "name": "Crystal halberd 1/10 (i)",
+    "family": "sword",
+    "model": 9047
+  },
+  {
+    "id": "cache-13100",
+    "cacheId": 13100,
+    "name": "Crystal halberd 2/10",
+    "family": "sword",
+    "model": 9047
+  },
+  {
+    "id": "cache-13089",
+    "cacheId": 13089,
+    "name": "Crystal halberd 2/10 (i)",
+    "family": "sword",
+    "model": 9047
+  },
+  {
+    "id": "cache-13099",
+    "cacheId": 13099,
+    "name": "Crystal halberd 3/10",
+    "family": "sword",
+    "model": 9047
+  },
+  {
+    "id": "cache-13088",
+    "cacheId": 13088,
+    "name": "Crystal halberd 3/10 (i)",
+    "family": "sword",
+    "model": 9047
+  },
+  {
+    "id": "cache-13098",
+    "cacheId": 13098,
+    "name": "Crystal halberd 4/10",
+    "family": "sword",
+    "model": 9047
+  },
+  {
+    "id": "cache-13087",
+    "cacheId": 13087,
+    "name": "Crystal halberd 4/10 (i)",
+    "family": "sword",
+    "model": 9047
+  },
+  {
+    "id": "cache-13097",
+    "cacheId": 13097,
+    "name": "Crystal halberd 5/10",
+    "family": "sword",
+    "model": 9047
+  },
+  {
+    "id": "cache-13086",
+    "cacheId": 13086,
+    "name": "Crystal halberd 5/10 (i)",
+    "family": "sword",
+    "model": 9047
+  },
+  {
+    "id": "cache-13096",
+    "cacheId": 13096,
+    "name": "Crystal halberd 6/10",
+    "family": "sword",
+    "model": 9047
+  },
+  {
+    "id": "cache-13085",
+    "cacheId": 13085,
+    "name": "Crystal halberd 6/10 (i)",
+    "family": "sword",
+    "model": 9047
+  },
+  {
+    "id": "cache-13095",
+    "cacheId": 13095,
+    "name": "Crystal halberd 7/10",
+    "family": "sword",
+    "model": 9047
+  },
+  {
+    "id": "cache-13084",
+    "cacheId": 13084,
+    "name": "Crystal halberd 7/10 (i)",
+    "family": "sword",
+    "model": 9047
+  },
+  {
+    "id": "cache-13094",
+    "cacheId": 13094,
+    "name": "Crystal halberd 8/10",
+    "family": "sword",
+    "model": 9047
+  },
+  {
+    "id": "cache-13083",
+    "cacheId": 13083,
+    "name": "Crystal halberd 8/10 (i)",
+    "family": "sword",
+    "model": 9047
+  },
+  {
+    "id": "cache-13093",
+    "cacheId": 13093,
+    "name": "Crystal halberd 9/10",
+    "family": "sword",
+    "model": 9047
+  },
+  {
+    "id": "cache-13082",
+    "cacheId": 13082,
+    "name": "Crystal halberd 9/10 (i)",
+    "family": "sword",
+    "model": 9047
+  },
+  {
+    "id": "cache-13092",
+    "cacheId": 13092,
+    "name": "Crystal halberd full",
+    "family": "sword",
+    "model": 9047
+  },
+  {
+    "id": "cache-13081",
+    "cacheId": 13081,
+    "name": "Crystal halberd full (i)",
+    "family": "sword",
+    "model": 9047
+  },
+  {
+    "id": "cache-23861",
+    "cacheId": 23861,
+    "name": "Crystal sceptre",
+    "family": "sword",
+    "model": 62509
+  },
+  {
+    "id": "cache-23899",
+    "cacheId": 23899,
+    "name": "Crystal staff (attuned)",
+    "family": "staff",
+    "model": 44805
+  },
+  {
+    "id": "cache-23898",
+    "cacheId": 23898,
+    "name": "Crystal staff (basic)",
+    "family": "staff",
+    "model": 44805
+  },
+  {
+    "id": "cache-23900",
+    "cacheId": 23900,
+    "name": "Crystal staff (perfected)",
+    "family": "staff",
+    "model": 44805
+  },
+  {
+    "id": "cache-11708",
+    "cacheId": 11708,
+    "name": "Cursed goblin bow",
+    "family": "sword",
+    "model": 64557
+  },
+  {
+    "id": "cache-11709",
+    "cacheId": 11709,
+    "name": "Cursed goblin staff",
+    "family": "staff",
+    "model": 19208
+  },
+  {
+    "id": "cache-2387",
+    "cacheId": 2387,
+    "name": "Damaged dagger",
+    "family": "daggers",
+    "model": 55371
+  },
+  {
+    "id": "cache-11235",
+    "cacheId": 11235,
+    "name": "Dark bow",
+    "family": "sword",
+    "model": 54466
+  },
+  {
+    "id": "cache-12765",
+    "cacheId": 12765,
+    "name": "Dark bow",
+    "family": "sword",
+    "model": 54466
+  },
+  {
+    "id": "cache-12766",
+    "cacheId": 12766,
+    "name": "Dark bow",
+    "family": "sword",
+    "model": 54466
+  },
+  {
+    "id": "cache-12767",
+    "cacheId": 12767,
+    "name": "Dark bow",
+    "family": "sword",
+    "model": 54466
+  },
+  {
+    "id": "cache-12768",
+    "cacheId": 12768,
+    "name": "Dark bow",
+    "family": "sword",
+    "model": 54466
+  },
+  {
+    "id": "cache-20408",
+    "cacheId": 20408,
+    "name": "Dark bow",
+    "family": "sword",
+    "model": 9984
+  },
+  {
+    "id": "cache-27853",
+    "cacheId": 27853,
+    "name": "Dark bow (bh)",
+    "family": "sword",
+    "model": 54466
+  },
+  {
+    "id": "cache-29611",
+    "cacheId": 29611,
+    "name": "Dark bow (Deadman)",
+    "family": "sword",
+    "model": 54466
+  },
+  {
+    "id": "cache-28072",
+    "cacheId": 28072,
+    "name": "Dark bow imbue scroll",
+    "family": "sword",
+    "model": 17158
+  },
+  {
+    "id": "cache-19970",
+    "cacheId": 19970,
+    "name": "Dark bow tie",
+    "family": "sword",
+    "model": 49672
+  },
+  {
+    "id": "cache-746",
+    "cacheId": 746,
+    "name": "Dark dagger",
+    "family": "daggers",
+    "model": 1027
+  },
+  {
+    "id": "cache-4068",
+    "cacheId": 4068,
+    "name": "Decorative sword",
+    "family": "sword",
+    "model": 62508
+  },
+  {
+    "id": "cache-4503",
+    "cacheId": 4503,
+    "name": "Decorative sword",
+    "family": "sword",
+    "model": 38917
+  },
+  {
+    "id": "cache-4508",
+    "cacheId": 4508,
+    "name": "Decorative sword",
+    "family": "sword",
+    "model": 38917
+  },
+  {
+    "id": "cache-24157",
+    "cacheId": 24157,
+    "name": "Decorative sword (l)",
+    "family": "sword",
+    "model": 38917
+  },
+  {
+    "id": "cache-33296",
+    "cacheId": 33296,
+    "name": "Demonic sceptre",
+    "family": "sword",
+    "model": 9984
+  },
+  {
+    "id": "cache-33709",
+    "cacheId": 33709,
+    "name": "Diamond sickle (b)",
+    "family": "sword",
+    "model": 256
+  },
+  {
+    "id": "cache-13188",
+    "cacheId": 13188,
+    "name": "Diango's claws",
+    "family": "sword",
+    "model": 3107
+  },
+  {
+    "id": "cache-8880",
+    "cacheId": 8880,
+    "name": "Dorgeshuun crossbow",
+    "family": "sword",
+    "model": 48140
+  },
+  {
+    "id": "cache-7158",
+    "cacheId": 7158,
+    "name": "Dragon 2h sword",
+    "family": "sword",
+    "model": 45568
+  },
+  {
+    "id": "cache-20559",
+    "cacheId": 20559,
+    "name": "Dragon 2h sword",
+    "family": "sword",
+    "model": 9984
+  },
+  {
+    "id": "cache-28051",
+    "cacheId": 28051,
+    "name": "Dragon 2h sword (cr)",
+    "family": "sword",
+    "model": 45568
+  },
+  {
+    "id": "cache-6739",
+    "cacheId": 6739,
+    "name": "Dragon axe",
+    "family": "sword",
+    "model": 512
+  },
+  {
+    "id": "cache-25378",
+    "cacheId": 25378,
+    "name": "Dragon axe (or)",
+    "family": "sword",
+    "model": 512
+  },
+  {
+    "id": "cache-30352",
+    "cacheId": 30352,
+    "name": "Dragon axe (or)",
+    "family": "sword",
+    "model": 55309
+  },
+  {
+    "id": "cache-6743",
+    "cacheId": 6743,
+    "name": "Dragon axe head",
+    "family": "sword",
+    "model": 51275
+  },
+  {
+    "id": "cache-27810",
+    "cacheId": 27810,
+    "name": "Dragon candle dagger",
+    "family": "daggers",
+    "model": 55371
+  },
+  {
+    "id": "cache-13652",
+    "cacheId": 13652,
+    "name": "Dragon claws",
+    "family": "sword",
+    "model": 23844
+  },
+  {
+    "id": "cache-20784",
+    "cacheId": 20784,
+    "name": "Dragon claws",
+    "family": "sword",
+    "model": 23844
+  },
+  {
+    "id": "cache-28039",
+    "cacheId": 28039,
+    "name": "Dragon claws (cr)",
+    "family": "sword",
+    "model": 23844
+  },
+  {
+    "id": "cache-26708",
+    "cacheId": 26708,
+    "name": "Dragon claws (or)",
+    "family": "sword",
+    "model": 23844
+  },
+  {
+    "id": "cache-21902",
+    "cacheId": 21902,
+    "name": "Dragon crossbow",
+    "family": "sword",
+    "model": 517
+  },
+  {
+    "id": "cache-33460",
+    "cacheId": 33460,
+    "name": "Dragon crossbow",
+    "family": "sword",
+    "model": 517
+  },
+  {
+    "id": "cache-28053",
+    "cacheId": 28053,
+    "name": "Dragon crossbow (cr)",
+    "family": "sword",
+    "model": 517
+  },
+  {
+    "id": "cache-21921",
+    "cacheId": 21921,
+    "name": "Dragon crossbow (u)",
+    "family": "sword",
+    "model": 42059
+  },
+  {
+    "id": "cache-1215",
+    "cacheId": 1215,
+    "name": "Dragon dagger",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-20407",
+    "cacheId": 20407,
+    "name": "Dragon dagger",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-28019",
+    "cacheId": 28019,
+    "name": "Dragon dagger (cr)",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-28021",
+    "cacheId": 28021,
+    "name": "Dragon dagger (p)(cr)",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-28023",
+    "cacheId": 28023,
+    "name": "Dragon dagger (p+)(cr)",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-28025",
+    "cacheId": 28025,
+    "name": "Dragon dagger (p++)(cr)",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-1231",
+    "cacheId": 1231,
+    "name": "Dragon dagger(p)",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-5680",
+    "cacheId": 5680,
+    "name": "Dragon dagger(p+)",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-5698",
+    "cacheId": 5698,
+    "name": "Dragon dagger(p++)",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-28217",
+    "cacheId": 28217,
+    "name": "Dragon felling axe",
+    "family": "sword",
+    "model": 39204
+  },
+  {
+    "id": "cache-28049",
+    "cacheId": 28049,
+    "name": "Dragon halberd (cr)",
+    "family": "sword",
+    "model": 9984
+  },
+  {
+    "id": "cache-22731",
+    "cacheId": 22731,
+    "name": "Dragon hasta",
+    "family": "sword",
+    "model": 2303
+  },
+  {
+    "id": "cache-22743",
+    "cacheId": 22743,
+    "name": "Dragon hasta(kp)",
+    "family": "sword",
+    "model": 2303
+  },
+  {
+    "id": "cache-22734",
+    "cacheId": 22734,
+    "name": "Dragon hasta(p)",
+    "family": "sword",
+    "model": 2303
+  },
+  {
+    "id": "cache-22737",
+    "cacheId": 22737,
+    "name": "Dragon hasta(p+)",
+    "family": "sword",
+    "model": 2303
+  },
+  {
+    "id": "cache-22740",
+    "cacheId": 22740,
+    "name": "Dragon hasta(p++)",
+    "family": "sword",
+    "model": 2303
+  },
+  {
+    "id": "cache-21012",
+    "cacheId": 21012,
+    "name": "Dragon hunter crossbow",
+    "family": "sword",
+    "model": 517
+  },
+  {
+    "id": "cache-25918",
+    "cacheId": 25918,
+    "name": "Dragon hunter crossbow (b)",
+    "family": "sword",
+    "model": 517
+  },
+  {
+    "id": "cache-25916",
+    "cacheId": 25916,
+    "name": "Dragon hunter crossbow (t)",
+    "family": "sword",
+    "model": 517
+  },
+  {
+    "id": "cache-30070",
+    "cacheId": 30070,
+    "name": "Dragon hunter wand",
+    "family": "sword",
+    "model": 8710
+  },
+  {
+    "id": "cache-1434",
+    "cacheId": 1434,
+    "name": "Dragon mace",
+    "family": "sword",
+    "model": 60672
+  },
+  {
+    "id": "cache-27857",
+    "cacheId": 27857,
+    "name": "Dragon mace (bh)",
+    "family": "sword",
+    "model": 15454
+  },
+  {
+    "id": "cache-28027",
+    "cacheId": 28027,
+    "name": "Dragon mace (cr)",
+    "family": "sword",
+    "model": 23646
+  },
+  {
+    "id": "cache-28076",
+    "cacheId": 28076,
+    "name": "Dragon mace imbue scroll",
+    "family": "sword",
+    "model": 17158
+  },
+  {
+    "id": "cache-4587",
+    "cacheId": 4587,
+    "name": "Dragon scimitar",
+    "family": "sword",
+    "model": 51236
+  },
+  {
+    "id": "cache-20406",
+    "cacheId": 20406,
+    "name": "Dragon scimitar",
+    "family": "sword",
+    "model": 51236
+  },
+  {
+    "id": "cache-28031",
+    "cacheId": 28031,
+    "name": "Dragon scimitar (cr)",
+    "family": "sword",
+    "model": 51236
+  },
+  {
+    "id": "cache-20000",
+    "cacheId": 20000,
+    "name": "Dragon scimitar (or)",
+    "family": "sword",
+    "model": 51236
+  },
+  {
+    "id": "cache-1249",
+    "cacheId": 1249,
+    "name": "Dragon spear",
+    "family": "sword",
+    "model": 63744
+  },
+  {
+    "id": "cache-28041",
+    "cacheId": 28041,
+    "name": "Dragon spear (cr)",
+    "family": "sword",
+    "model": 2303
+  },
+  {
+    "id": "cache-28043",
+    "cacheId": 28043,
+    "name": "Dragon spear (p)(cr)",
+    "family": "sword",
+    "model": 2303
+  },
+  {
+    "id": "cache-28045",
+    "cacheId": 28045,
+    "name": "Dragon spear (p+)(cr)",
+    "family": "sword",
+    "model": 2303
+  },
+  {
+    "id": "cache-28047",
+    "cacheId": 28047,
+    "name": "Dragon spear (p++)(cr)",
+    "family": "sword",
+    "model": 2303
+  },
+  {
+    "id": "cache-3176",
+    "cacheId": 3176,
+    "name": "Dragon spear(kp)",
+    "family": "sword",
+    "model": 63744
+  },
+  {
+    "id": "cache-1263",
+    "cacheId": 1263,
+    "name": "Dragon spear(p)",
+    "family": "sword",
+    "model": 63744
+  },
+  {
+    "id": "cache-5716",
+    "cacheId": 5716,
+    "name": "Dragon spear(p+)",
+    "family": "sword",
+    "model": 63744
+  },
+  {
+    "id": "cache-5730",
+    "cacheId": 5730,
+    "name": "Dragon spear(p++)",
+    "family": "sword",
+    "model": 63744
+  },
+  {
+    "id": "cache-30611",
+    "cacheId": 30611,
+    "name": "Dragon staff of collection",
+    "family": "staff",
+    "model": 1
+  },
+  {
+    "id": "cache-772",
+    "cacheId": 772,
+    "name": "Dramen staff",
+    "family": "staff",
+    "model": 31012
+  },
+  {
+    "id": "cache-30568",
+    "cacheId": 30568,
+    "name": "Echo ahrim's staff",
+    "family": "staff",
+    "model": 19464
+  },
+  {
+    "id": "cache-30574",
+    "cacheId": 30574,
+    "name": "Echo ahrim's staff 0",
+    "family": "staff",
+    "model": 19464
+  },
+  {
+    "id": "cache-30570",
+    "cacheId": 30570,
+    "name": "Echo ahrim's staff 100",
+    "family": "staff",
+    "model": 19464
+  },
+  {
+    "id": "cache-30573",
+    "cacheId": 30573,
+    "name": "Echo ahrim's staff 25",
+    "family": "staff",
+    "model": 19464
+  },
+  {
+    "id": "cache-30572",
+    "cacheId": 30572,
+    "name": "Echo ahrim's staff 50",
+    "family": "staff",
+    "model": 19464
+  },
+  {
+    "id": "cache-30571",
+    "cacheId": 30571,
+    "name": "Echo ahrim's staff 75",
+    "family": "staff",
+    "model": 19464
+  },
+  {
+    "id": "cache-25110",
+    "cacheId": 25110,
+    "name": "Echo axe",
+    "family": "sword",
+    "model": 55309
+  },
+  {
+    "id": "cache-30434",
+    "cacheId": 30434,
+    "name": "Echo venator bow",
+    "family": "sword",
+    "model": 45568
+  },
+  {
+    "id": "cache-30436",
+    "cacheId": 30436,
+    "name": "Echo venator bow (uncharged)",
+    "family": "sword",
+    "model": 45568
+  },
+  {
+    "id": "cache-21003",
+    "cacheId": 21003,
+    "name": "Elder maul",
+    "family": "sword",
+    "model": 44293
+  },
+  {
+    "id": "cache-21205",
+    "cacheId": 21205,
+    "name": "Elder maul",
+    "family": "sword",
+    "model": 44293
+  },
+  {
+    "id": "cache-27100",
+    "cacheId": 27100,
+    "name": "Elder maul (or)",
+    "family": "sword",
+    "model": 44293
+  },
+  {
+    "id": "cache-24425",
+    "cacheId": 24425,
+    "name": "Eldritch Nightmare staff",
+    "family": "staff",
+    "model": 37963
+  },
+  {
+    "id": "cache-22433",
+    "cacheId": 22433,
+    "name": "Emerald sickle (b)",
+    "family": "sword",
+    "model": 256
+  },
+  {
+    "id": "cache-33711",
+    "cacheId": 33711,
+    "name": "Enchanted diamond sickle (b)",
+    "family": "sword",
+    "model": 256
+  },
+  {
+    "id": "cache-22435",
+    "cacheId": 22435,
+    "name": "Enchanted emerald sickle (b)",
+    "family": "sword",
+    "model": 256
+  },
+  {
+    "id": "cache-24695",
+    "cacheId": 24695,
+    "name": "Enchanted ruby sickle (b)",
+    "family": "sword",
+    "model": 256
+  },
+  {
+    "id": "cache-28319",
+    "cacheId": 28319,
+    "name": "Executioner's axe head",
+    "family": "sword",
+    "model": 48715
+  },
+  {
+    "id": "cache-22744",
+    "cacheId": 22744,
+    "name": "Fake dragon hasta(kp)",
+    "family": "sword",
+    "model": 2303
+  },
+  {
+    "id": "cache-27580",
+    "cacheId": 27580,
+    "name": "Festive nutcracker staff",
+    "family": "staff",
+    "model": 65535
+  },
+  {
+    "id": "cache-30631",
+    "cacheId": 30631,
+    "name": "Fire element staff crown",
+    "family": "staff",
+    "model": 43083
+  },
+  {
+    "id": "cache-12774",
+    "cacheId": 12774,
+    "name": "Frozen abyssal whip",
+    "family": "sword",
+    "model": 6180
+  },
+  {
+    "id": "cache-12769",
+    "cacheId": 12769,
+    "name": "Frozen whip mix",
+    "family": "sword",
+    "model": 1027
+  },
+  {
+    "id": "cache-22324",
+    "cacheId": 22324,
+    "name": "Ghrazi rapier",
+    "family": "sword",
+    "model": 90
+  },
+  {
+    "id": "cache-23628",
+    "cacheId": 23628,
+    "name": "Ghrazi rapier",
+    "family": "sword",
+    "model": 90
+  },
+  {
+    "id": "cache-27871",
+    "cacheId": 27871,
+    "name": "Giant bronze dagger",
+    "family": "daggers",
+    "model": 21511
+  },
+  {
+    "id": "cache-20155",
+    "cacheId": 20155,
+    "name": "Gilded 2h sword",
+    "family": "sword",
+    "model": 61
+  },
+  {
+    "id": "cache-23279",
+    "cacheId": 23279,
+    "name": "Gilded axe",
+    "family": "sword",
+    "model": 65024
+  },
+  {
+    "id": "cache-20161",
+    "cacheId": 20161,
+    "name": "Gilded hasta",
+    "family": "sword",
+    "model": 15877
+  },
+  {
+    "id": "cache-12389",
+    "cacheId": 12389,
+    "name": "Gilded scimitar",
+    "family": "sword",
+    "model": 11300
+  },
+  {
+    "id": "cache-30613",
+    "cacheId": 30613,
+    "name": "Gilded staff of collection",
+    "family": "staff",
+    "model": 1
+  },
+  {
+    "id": "cache-747",
+    "cacheId": 747,
+    "name": "Glowing dagger",
+    "family": "daggers",
+    "model": 1027
+  },
+  {
+    "id": "cache-9016",
+    "cacheId": 9016,
+    "name": "Gorak claws",
+    "family": "sword",
+    "model": 2047
+  },
+  {
+    "id": "cache-4153",
+    "cacheId": 4153,
+    "name": "Granite maul",
+    "family": "sword",
+    "model": 13348
+  },
+  {
+    "id": "cache-20557",
+    "cacheId": 20557,
+    "name": "Granite maul",
+    "family": "sword",
+    "model": 2048
+  },
+  {
+    "id": "cache-24225",
+    "cacheId": 24225,
+    "name": "Granite maul",
+    "family": "sword",
+    "model": 2048
+  },
+  {
+    "id": "cache-24227",
+    "cacheId": 24227,
+    "name": "Granite maul",
+    "family": "sword",
+    "model": 2048
+  },
+  {
+    "id": "cache-12759",
+    "cacheId": 12759,
+    "name": "Green dark bow paint",
+    "family": "sword",
+    "model": 1027
+  },
+  {
+    "id": "cache-2416",
+    "cacheId": 2416,
+    "name": "Guthix staff",
+    "family": "staff",
+    "model": 14464
+  },
+  {
+    "id": "cache-1413",
+    "cacheId": 1413,
+    "name": "Halberd",
+    "family": "sword",
+    "model": 36869
+  },
+  {
+    "id": "cache-33718",
+    "cacheId": 33718,
+    "name": "Hallowed flail",
+    "family": "sword",
+    "model": 14464
+  },
+  {
+    "id": "cache-24423",
+    "cacheId": 24423,
+    "name": "Harmonised Nightmare staff",
+    "family": "staff",
+    "model": 37963
+  },
+  {
+    "id": "cache-20756",
+    "cacheId": 20756,
+    "name": "Hill giant club",
+    "family": "sword",
+    "model": 35954
+  },
+  {
+    "id": "cache-25734",
+    "cacheId": 25734,
+    "name": "Holy ghrazi rapier",
+    "family": "sword",
+    "model": 90
+  },
+  {
+    "id": "cache-25731",
+    "cacheId": 25731,
+    "name": "Holy sanguinesti staff",
+    "family": "staff",
+    "model": 19205
+  },
+  {
+    "id": "cache-25733",
+    "cacheId": 25733,
+    "name": "Holy sanguinesti staff (uncharged)",
+    "family": "staff",
+    "model": 19205
+  },
+  {
+    "id": "cache-29305",
+    "cacheId": 29305,
+    "name": "Hunter's spear",
+    "family": "sword",
+    "model": 55045
+  },
+  {
+    "id": "cache-28869",
+    "cacheId": 28869,
+    "name": "Hunters' sunlight crossbow",
+    "family": "sword",
+    "model": 27723
+  },
+  {
+    "id": "cache-1409",
+    "cacheId": 1409,
+    "name": "Iban's staff",
+    "family": "staff",
+    "model": 3072
+  },
+  {
+    "id": "cache-33330",
+    "cacheId": 33330,
+    "name": "Iban's staff (o)",
+    "family": "staff",
+    "model": 3072
+  },
+  {
+    "id": "cache-12658",
+    "cacheId": 12658,
+    "name": "Iban's staff (u)",
+    "family": "staff",
+    "model": 3072
+  },
+  {
+    "id": "cache-33332",
+    "cacheId": 33332,
+    "name": "Iban's staff (u) (o)",
+    "family": "staff",
+    "model": 3072
+  },
+  {
+    "id": "cache-25490",
+    "cacheId": 25490,
+    "name": "Ice ancient sceptre",
+    "family": "sword",
+    "model": 19208
+  },
+  {
+    "id": "cache-28262",
+    "cacheId": 28262,
+    "name": "Ice ancient sceptre",
+    "family": "sword",
+    "model": 19208
+  },
+  {
+    "id": "cache-28474",
+    "cacheId": 28474,
+    "name": "Ice ancient sceptre (l)",
+    "family": "sword",
+    "model": 19208
+  },
+  {
+    "id": "cache-30628",
+    "cacheId": 30628,
+    "name": "Ice element staff crown",
+    "family": "staff",
+    "model": 2048
+  },
+  {
+    "id": "cache-13241",
+    "cacheId": 13241,
+    "name": "Infernal axe",
+    "family": "sword",
+    "model": 34265
+  },
+  {
+    "id": "cache-25066",
+    "cacheId": 25066,
+    "name": "Infernal axe (or)",
+    "family": "sword",
+    "model": 512
+  },
+  {
+    "id": "cache-30347",
+    "cacheId": 30347,
+    "name": "Infernal axe (or)",
+    "family": "sword",
+    "model": 55309
+  },
+  {
+    "id": "cache-13242",
+    "cacheId": 13242,
+    "name": "Infernal axe (uncharged)",
+    "family": "sword",
+    "model": 34264
+  },
+  {
+    "id": "cache-25371",
+    "cacheId": 25371,
+    "name": "Infernal axe (uncharged)",
+    "family": "sword",
+    "model": 512
+  },
+  {
+    "id": "cache-30348",
+    "cacheId": 30348,
+    "name": "Infernal axe (uncharged)",
+    "family": "sword",
+    "model": 55309
+  },
+  {
+    "id": "cache-11013",
+    "cacheId": 11013,
+    "name": "Infused wand",
+    "family": "sword",
+    "model": 41291
+  },
+  {
+    "id": "cache-24417",
+    "cacheId": 24417,
+    "name": "Inquisitor's mace",
+    "family": "sword",
+    "model": 2048
+  },
+  {
+    "id": "cache-27198",
+    "cacheId": 27198,
+    "name": "Inquisitor's mace",
+    "family": "sword",
+    "model": 2048
+  },
+  {
+    "id": "cache-1309",
+    "cacheId": 1309,
+    "name": "Iron 2h sword",
+    "family": "sword",
+    "model": 6188
+  },
+  {
+    "id": "cache-1349",
+    "cacheId": 1349,
+    "name": "Iron axe",
+    "family": "sword",
+    "model": 65024
+  },
+  {
+    "id": "cache-510",
+    "cacheId": 510,
+    "name": "Iron axe head",
+    "family": "sword",
+    "model": 65529
+  },
+  {
+    "id": "cache-3096",
+    "cacheId": 3096,
+    "name": "Iron claws",
+    "family": "sword",
+    "model": 3108
+  },
+  {
+    "id": "cache-9177",
+    "cacheId": 9177,
+    "name": "Iron crossbow",
+    "family": "sword",
+    "model": 517
+  },
+  {
+    "id": "cache-9457",
+    "cacheId": 9457,
+    "name": "Iron crossbow (u)",
+    "family": "sword",
+    "model": 42059
+  },
+  {
+    "id": "cache-1203",
+    "cacheId": 1203,
+    "name": "Iron dagger",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-1219",
+    "cacheId": 1219,
+    "name": "Iron dagger(p)",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-5668",
+    "cacheId": 5668,
+    "name": "Iron dagger(p+)",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-5686",
+    "cacheId": 5686,
+    "name": "Iron dagger(p++)",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-28199",
+    "cacheId": 28199,
+    "name": "Iron felling axe",
+    "family": "sword",
+    "model": 39204
+  },
+  {
+    "id": "cache-3192",
+    "cacheId": 3192,
+    "name": "Iron halberd",
+    "family": "sword",
+    "model": 6188
+  },
+  {
+    "id": "cache-11369",
+    "cacheId": 11369,
+    "name": "Iron hasta",
+    "family": "sword",
+    "model": 15877
+  },
+  {
+    "id": "cache-11388",
+    "cacheId": 11388,
+    "name": "Iron hasta(kp)",
+    "family": "sword",
+    "model": 15877
+  },
+  {
+    "id": "cache-11386",
+    "cacheId": 11386,
+    "name": "Iron hasta(p)",
+    "family": "sword",
+    "model": 15877
+  },
+  {
+    "id": "cache-11389",
+    "cacheId": 11389,
+    "name": "Iron hasta(p+)",
+    "family": "sword",
+    "model": 15877
+  },
+  {
+    "id": "cache-11391",
+    "cacheId": 11391,
+    "name": "Iron hasta(p++)",
+    "family": "sword",
+    "model": 15877
+  },
+  {
+    "id": "cache-1420",
+    "cacheId": 1420,
+    "name": "Iron mace",
+    "family": "sword",
+    "model": 62976
+  },
+  {
+    "id": "cache-1323",
+    "cacheId": 1323,
+    "name": "Iron scimitar",
+    "family": "sword",
+    "model": 11300
+  },
+  {
+    "id": "cache-3899",
+    "cacheId": 3899,
+    "name": "Iron sickle",
+    "family": "sword",
+    "model": 24
+  },
+  {
+    "id": "cache-1239",
+    "cacheId": 1239,
+    "name": "Iron spear",
+    "family": "sword",
+    "model": 28
+  },
+  {
+    "id": "cache-30599",
+    "cacheId": 30599,
+    "name": "Iron staff of collection",
+    "family": "staff",
+    "model": 1028
+  },
+  {
+    "id": "cache-22398",
+    "cacheId": 22398,
+    "name": "Ivandis flail",
+    "family": "sword",
+    "model": 50783
+  },
+  {
+    "id": "cache-4734",
+    "cacheId": 4734,
+    "name": "Karil's crossbow",
+    "family": "sword",
+    "model": 8286
+  },
+  {
+    "id": "cache-4938",
+    "cacheId": 4938,
+    "name": "Karil's crossbow 0",
+    "family": "sword",
+    "model": 8286
+  },
+  {
+    "id": "cache-4934",
+    "cacheId": 4934,
+    "name": "Karil's crossbow 100",
+    "family": "sword",
+    "model": 8286
+  },
+  {
+    "id": "cache-4937",
+    "cacheId": 4937,
+    "name": "Karil's crossbow 25",
+    "family": "sword",
+    "model": 8286
+  },
+  {
+    "id": "cache-4936",
+    "cacheId": 4936,
+    "name": "Karil's crossbow 50",
+    "family": "sword",
+    "model": 8286
+  },
+  {
+    "id": "cache-4935",
+    "cacheId": 4935,
+    "name": "Karil's crossbow 75",
+    "family": "sword",
+    "model": 8286
+  },
+  {
+    "id": "cache-10113",
+    "cacheId": 10113,
+    "name": "Kebbit claws",
+    "family": "sword",
+    "model": 42059
+  },
+  {
+    "id": "cache-21006",
+    "cacheId": 21006,
+    "name": "Kodai wand",
+    "family": "sword",
+    "model": 4161
+  },
+  {
+    "id": "cache-23626",
+    "cacheId": 23626,
+    "name": "Kodai wand",
+    "family": "sword",
+    "model": 3072
+  },
+  {
+    "id": "cache-4158",
+    "cacheId": 4158,
+    "name": "Leaf-bladed spear",
+    "family": "sword",
+    "model": 2048
+  },
+  {
+    "id": "cache-4159",
+    "cacheId": 4159,
+    "name": "Leaf-bladed spear",
+    "family": "sword",
+    "model": 2048
+  },
+  {
+    "id": "cache-11902",
+    "cacheId": 11902,
+    "name": "Leaf-bladed sword",
+    "family": "sword",
+    "model": 62509
+  },
+  {
+    "id": "cache-19985",
+    "cacheId": 19985,
+    "name": "Light bow tie",
+    "family": "sword",
+    "model": 49672
+  },
+  {
+    "id": "cache-33255",
+    "cacheId": 33255,
+    "name": "Lithic sceptre",
+    "family": "sword",
+    "model": 46637
+  },
+  {
+    "id": "cache-33257",
+    "cacheId": 33257,
+    "name": "Lithic sceptre (uncharged)",
+    "family": "sword",
+    "model": 46637
+  },
+  {
+    "id": "cache-28128",
+    "cacheId": 28128,
+    "name": "Love crossbow",
+    "family": "sword",
+    "model": 11264
+  },
+  {
+    "id": "cache-9084",
+    "cacheId": 9084,
+    "name": "Lunar staff",
+    "family": "staff",
+    "model": 12382
+  },
+  {
+    "id": "cache-9091",
+    "cacheId": 9091,
+    "name": "Lunar staff - pt1",
+    "family": "staff",
+    "model": 31012
+  },
+  {
+    "id": "cache-9092",
+    "cacheId": 9092,
+    "name": "Lunar staff - pt2",
+    "family": "staff",
+    "model": 31012
+  },
+  {
+    "id": "cache-9093",
+    "cacheId": 9093,
+    "name": "Lunar staff - pt3",
+    "family": "staff",
+    "model": 31012
+  },
+  {
+    "id": "cache-11058",
+    "cacheId": 11058,
+    "name": "Mace",
+    "family": "sword",
+    "model": 24065
+  },
+  {
+    "id": "cache-33760",
+    "cacheId": 33760,
+    "name": "Mace",
+    "family": "sword",
+    "model": 9984
+  },
+  {
+    "id": "cache-10284",
+    "cacheId": 10284,
+    "name": "Magic comp bow",
+    "family": "sword",
+    "model": 25389
+  },
+  {
+    "id": "cache-1389",
+    "cacheId": 1389,
+    "name": "Magic staff",
+    "family": "staff",
+    "model": 19208
+  },
+  {
+    "id": "cache-33655",
+    "cacheId": 33655,
+    "name": "Makeshift spear",
+    "family": "sword",
+    "model": 55045
+  },
+  {
+    "id": "cache-6914",
+    "cacheId": 6914,
+    "name": "Master wand",
+    "family": "sword",
+    "model": 34465
+  },
+  {
+    "id": "cache-20560",
+    "cacheId": 20560,
+    "name": "Master wand",
+    "family": "sword",
+    "model": 40962
+  },
+  {
+    "id": "cache-1315",
+    "cacheId": 1315,
+    "name": "Mithril 2h sword",
+    "family": "sword",
+    "model": 61
+  },
+  {
+    "id": "cache-1355",
+    "cacheId": 1355,
+    "name": "Mithril axe",
+    "family": "sword",
+    "model": 65024
+  },
+  {
+    "id": "cache-3099",
+    "cacheId": 3099,
+    "name": "Mithril claws",
+    "family": "sword",
+    "model": 56108
+  },
+  {
+    "id": "cache-9181",
+    "cacheId": 9181,
+    "name": "Mithril crossbow",
+    "family": "sword",
+    "model": 517
+  },
+  {
+    "id": "cache-9461",
+    "cacheId": 9461,
+    "name": "Mithril crossbow (u)",
+    "family": "sword",
+    "model": 42059
+  },
+  {
+    "id": "cache-1209",
+    "cacheId": 1209,
+    "name": "Mithril dagger",
+    "family": "daggers",
+    "model": 17672
+  },
+  {
+    "id": "cache-1225",
+    "cacheId": 1225,
+    "name": "Mithril dagger(p)",
+    "family": "daggers",
+    "model": 17672
+  },
+  {
+    "id": "cache-5674",
+    "cacheId": 5674,
+    "name": "Mithril dagger(p+)",
+    "family": "daggers",
+    "model": 17672
+  },
+  {
+    "id": "cache-5692",
+    "cacheId": 5692,
+    "name": "Mithril dagger(p++)",
+    "family": "daggers",
+    "model": 17672
+  },
+  {
+    "id": "cache-28208",
+    "cacheId": 28208,
+    "name": "Mithril felling axe",
+    "family": "sword",
+    "model": 39204
+  },
+  {
+    "id": "cache-3198",
+    "cacheId": 3198,
+    "name": "Mithril halberd",
+    "family": "sword",
+    "model": 61
+  },
+  {
+    "id": "cache-11373",
+    "cacheId": 11373,
+    "name": "Mithril hasta",
+    "family": "sword",
+    "model": 15877
+  },
+  {
+    "id": "cache-11402",
+    "cacheId": 11402,
+    "name": "Mithril hasta(kp)",
+    "family": "sword",
+    "model": 15877
+  },
+  {
+    "id": "cache-11400",
+    "cacheId": 11400,
+    "name": "Mithril hasta(p)",
+    "family": "sword",
+    "model": 15877
+  },
+  {
+    "id": "cache-11403",
+    "cacheId": 11403,
+    "name": "Mithril hasta(p+)",
+    "family": "sword",
+    "model": 15877
+  },
+  {
+    "id": "cache-11405",
+    "cacheId": 11405,
+    "name": "Mithril hasta(p++)",
+    "family": "sword",
+    "model": 15877
+  },
+  {
+    "id": "cache-1428",
+    "cacheId": 1428,
+    "name": "Mithril mace",
+    "family": "sword",
+    "model": 62976
+  },
+  {
+    "id": "cache-1329",
+    "cacheId": 1329,
+    "name": "Mithril scimitar",
+    "family": "sword",
+    "model": 11300
+  },
+  {
+    "id": "cache-30605",
+    "cacheId": 30605,
+    "name": "Mithril staff of collection",
+    "family": "staff",
+    "model": 1
+  },
+  {
+    "id": "cache-32827",
+    "cacheId": 32827,
+    "name": "Mogre mace",
+    "family": "sword",
+    "model": 9984
+  },
+  {
+    "id": "cache-22634",
+    "cacheId": 22634,
+    "name": "Morrigan's throwing axe",
+    "family": "sword",
+    "model": 45568
+  },
+  {
+    "id": "cache-27912",
+    "cacheId": 27912,
+    "name": "Morrigan's throwing axe (bh)",
+    "family": "sword",
+    "model": 6
+  },
+  {
+    "id": "cache-27914",
+    "cacheId": 27914,
+    "name": "Morrigan's throwing axe (bh)(inactive)",
+    "family": "sword",
+    "model": 6
+  },
+  {
+    "id": "cache-1405",
+    "cacheId": 1405,
+    "name": "Mystic air staff",
+    "family": "staff",
+    "model": 19208
+  },
+  {
+    "id": "cache-20739",
+    "cacheId": 20739,
+    "name": "Mystic dust staff",
+    "family": "staff",
+    "model": 19208
+  },
+  {
+    "id": "cache-1407",
+    "cacheId": 1407,
+    "name": "Mystic earth staff",
+    "family": "staff",
+    "model": 19208
+  },
+  {
+    "id": "cache-1401",
+    "cacheId": 1401,
+    "name": "Mystic fire staff",
+    "family": "staff",
+    "model": 19208
+  },
+  {
+    "id": "cache-3054",
+    "cacheId": 3054,
+    "name": "Mystic lava staff",
+    "family": "staff",
+    "model": 19208
+  },
+  {
+    "id": "cache-21200",
+    "cacheId": 21200,
+    "name": "Mystic lava staff",
+    "family": "staff",
+    "model": 19208
+  },
+  {
+    "id": "cache-20733",
+    "cacheId": 20733,
+    "name": "Mystic mist staff",
+    "family": "staff",
+    "model": 19208
+  },
+  {
+    "id": "cache-6563",
+    "cacheId": 6563,
+    "name": "Mystic mud staff",
+    "family": "staff",
+    "model": 24064
+  },
+  {
+    "id": "cache-12000",
+    "cacheId": 12000,
+    "name": "Mystic smoke staff",
+    "family": "staff",
+    "model": 24064
+  },
+  {
+    "id": "cache-11789",
+    "cacheId": 11789,
+    "name": "Mystic steam staff",
+    "family": "staff",
+    "model": 4161
+  },
+  {
+    "id": "cache-12796",
+    "cacheId": 12796,
+    "name": "Mystic steam staff",
+    "family": "staff",
+    "model": 2303
+  },
+  {
+    "id": "cache-1403",
+    "cacheId": 1403,
+    "name": "Mystic water staff",
+    "family": "staff",
+    "model": 19208
+  },
+  {
+    "id": "cache-4212",
+    "cacheId": 4212,
+    "name": "New crystal bow",
+    "family": "sword",
+    "model": 1030
+  },
+  {
+    "id": "cache-4213",
+    "cacheId": 4213,
+    "name": "New crystal bow",
+    "family": "sword",
+    "model": 1030
+  },
+  {
+    "id": "cache-16888",
+    "cacheId": 16888,
+    "name": "New crystal bow",
+    "family": "sword",
+    "model": 1030
+  },
+  {
+    "id": "cache-11748",
+    "cacheId": 11748,
+    "name": "New crystal bow (i)",
+    "family": "sword",
+    "model": 1030
+  },
+  {
+    "id": "cache-16889",
+    "cacheId": 16889,
+    "name": "New crystal bow (i)",
+    "family": "sword",
+    "model": 1030
+  },
+  {
+    "id": "cache-13091",
+    "cacheId": 13091,
+    "name": "New crystal halberd full",
+    "family": "sword",
+    "model": 9047
+  },
+  {
+    "id": "cache-16893",
+    "cacheId": 16893,
+    "name": "New crystal halberd full",
+    "family": "sword",
+    "model": 9047
+  },
+  {
+    "id": "cache-13080",
+    "cacheId": 13080,
+    "name": "New crystal halberd full (i)",
+    "family": "sword",
+    "model": 9047
+  },
+  {
+    "id": "cache-16892",
+    "cacheId": 16892,
+    "name": "New crystal halberd full (i)",
+    "family": "sword",
+    "model": 9047
+  },
+  {
+    "id": "cache-24422",
+    "cacheId": 24422,
+    "name": "Nightmare staff",
+    "family": "staff",
+    "model": 37963
+  },
+  {
+    "id": "cache-10150",
+    "cacheId": 10150,
+    "name": "Noose wand",
+    "family": "sword",
+    "model": 5389
+  },
+  {
+    "id": "cache-29796",
+    "cacheId": 29796,
+    "name": "Noxious halberd",
+    "family": "sword",
+    "model": 61
+  },
+  {
+    "id": "cache-33178",
+    "cacheId": 33178,
+    "name": "Noxious halberd",
+    "family": "sword",
+    "model": 61
+  },
+  {
+    "id": "cache-2883",
+    "cacheId": 2883,
+    "name": "Ogre bow",
+    "family": "sword",
+    "model": 62508
+  },
+  {
+    "id": "cache-9044",
+    "cacheId": 9044,
+    "name": "Pharaoh's sceptre",
+    "family": "sword",
+    "model": 7440
+  },
+  {
+    "id": "cache-9045",
+    "cacheId": 9045,
+    "name": "Pharaoh's sceptre",
+    "family": "sword",
+    "model": 3331
+  },
+  {
+    "id": "cache-9046",
+    "cacheId": 9046,
+    "name": "Pharaoh's sceptre",
+    "family": "sword",
+    "model": 7440
+  },
+  {
+    "id": "cache-9047",
+    "cacheId": 9047,
+    "name": "Pharaoh's sceptre",
+    "family": "sword",
+    "model": 3331
+  },
+  {
+    "id": "cache-9048",
+    "cacheId": 9048,
+    "name": "Pharaoh's sceptre",
+    "family": "sword",
+    "model": 7440
+  },
+  {
+    "id": "cache-9049",
+    "cacheId": 9049,
+    "name": "Pharaoh's sceptre",
+    "family": "sword",
+    "model": 3331
+  },
+  {
+    "id": "cache-9050",
+    "cacheId": 9050,
+    "name": "Pharaoh's sceptre",
+    "family": "sword",
+    "model": 7440
+  },
+  {
+    "id": "cache-9051",
+    "cacheId": 9051,
+    "name": "Pharaoh's sceptre",
+    "family": "sword",
+    "model": 3331
+  },
+  {
+    "id": "cache-13074",
+    "cacheId": 13074,
+    "name": "Pharaoh's sceptre",
+    "family": "sword",
+    "model": 7440
+  },
+  {
+    "id": "cache-13075",
+    "cacheId": 13075,
+    "name": "Pharaoh's sceptre",
+    "family": "sword",
+    "model": 7440
+  },
+  {
+    "id": "cache-13076",
+    "cacheId": 13076,
+    "name": "Pharaoh's sceptre",
+    "family": "sword",
+    "model": 7440
+  },
+  {
+    "id": "cache-13077",
+    "cacheId": 13077,
+    "name": "Pharaoh's sceptre",
+    "family": "sword",
+    "model": 7440
+  },
+  {
+    "id": "cache-13078",
+    "cacheId": 13078,
+    "name": "Pharaoh's sceptre",
+    "family": "sword",
+    "model": 7440
+  },
+  {
+    "id": "cache-16176",
+    "cacheId": 16176,
+    "name": "Pharaoh's sceptre",
+    "family": "sword",
+    "model": 3331
+  },
+  {
+    "id": "cache-21445",
+    "cacheId": 21445,
+    "name": "Pharaoh's sceptre",
+    "family": "sword",
+    "model": 3331
+  },
+  {
+    "id": "cache-21446",
+    "cacheId": 21446,
+    "name": "Pharaoh's sceptre",
+    "family": "sword",
+    "model": 3331
+  },
+  {
+    "id": "cache-26948",
+    "cacheId": 26948,
+    "name": "Pharaoh's sceptre",
+    "family": "sword",
+    "model": 17798
+  },
+  {
+    "id": "cache-26950",
+    "cacheId": 26950,
+    "name": "Pharaoh's sceptre",
+    "family": "sword",
+    "model": 17798
+  },
+  {
+    "id": "cache-26945",
+    "cacheId": 26945,
+    "name": "Pharaoh's sceptre (uncharged)",
+    "family": "sword",
+    "model": 17798
+  },
+  {
+    "id": "cache-767",
+    "cacheId": 767,
+    "name": "Phoenix crossbow",
+    "family": "sword",
+    "model": 58206
+  },
+  {
+    "id": "cache-11165",
+    "cacheId": 11165,
+    "name": "Phoenix crossbow",
+    "family": "sword",
+    "model": 8740
+  },
+  {
+    "id": "cache-11167",
+    "cacheId": 11167,
+    "name": "Phoenix crossbow",
+    "family": "sword",
+    "model": 19492
+  },
+  {
+    "id": "cache-5684",
+    "cacheId": 5684,
+    "name": "Poison dagger(p+)",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-5702",
+    "cacheId": 5702,
+    "name": "Poison dagger(p++)",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-1235",
+    "cacheId": 1235,
+    "name": "Poisoned dagger(p)",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-22316",
+    "cacheId": 22316,
+    "name": "Prop sword",
+    "family": "sword",
+    "model": 50471
+  },
+  {
+    "id": "cache-29911",
+    "cacheId": 29911,
+    "name": "Prop sword",
+    "family": "sword",
+    "model": 11377
+  },
+  {
+    "id": "cache-29594",
+    "cacheId": 29594,
+    "name": "Purging staff",
+    "family": "staff",
+    "model": 1032
+  },
+  {
+    "id": "cache-33184",
+    "cacheId": 33184,
+    "name": "Purging staff",
+    "family": "staff",
+    "model": 1032
+  },
+  {
+    "id": "cache-23357",
+    "cacheId": 23357,
+    "name": "Rain bow",
+    "family": "sword",
+    "model": 62508
+  },
+  {
+    "id": "cache-7142",
+    "cacheId": 7142,
+    "name": "Rapier",
+    "family": "sword",
+    "model": 1886
+  },
+  {
+    "id": "cache-31049",
+    "cacheId": 31049,
+    "name": "Redwood hiking staff",
+    "family": "staff",
+    "model": 36929
+  },
+  {
+    "id": "cache-24693",
+    "cacheId": 24693,
+    "name": "Ruby sickle (b)",
+    "family": "sword",
+    "model": 256
+  },
+  {
+    "id": "cache-1319",
+    "cacheId": 1319,
+    "name": "Rune 2h sword",
+    "family": "sword",
+    "model": 61
+  },
+  {
+    "id": "cache-20555",
+    "cacheId": 20555,
+    "name": "Rune 2h sword",
+    "family": "sword",
+    "model": 61
+  },
+  {
+    "id": "cache-1359",
+    "cacheId": 1359,
+    "name": "Rune axe",
+    "family": "sword",
+    "model": 65024
+  },
+  {
+    "id": "cache-3101",
+    "cacheId": 3101,
+    "name": "Rune claws",
+    "family": "sword",
+    "model": 3108
+  },
+  {
+    "id": "cache-9185",
+    "cacheId": 9185,
+    "name": "Rune crossbow",
+    "family": "sword",
+    "model": 517
+  },
+  {
+    "id": "cache-23601",
+    "cacheId": 23601,
+    "name": "Rune crossbow",
+    "family": "sword",
+    "model": 517
+  },
+  {
+    "id": "cache-26486",
+    "cacheId": 26486,
+    "name": "Rune crossbow (or)",
+    "family": "sword",
+    "model": 517
+  },
+  {
+    "id": "cache-1213",
+    "cacheId": 1213,
+    "name": "Rune dagger",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-1229",
+    "cacheId": 1229,
+    "name": "Rune dagger(p)",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-5678",
+    "cacheId": 5678,
+    "name": "Rune dagger(p+)",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-5696",
+    "cacheId": 5696,
+    "name": "Rune dagger(p++)",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-28214",
+    "cacheId": 28214,
+    "name": "Rune felling axe",
+    "family": "sword",
+    "model": 39204
+  },
+  {
+    "id": "cache-3202",
+    "cacheId": 3202,
+    "name": "Rune halberd",
+    "family": "sword",
+    "model": 61
+  },
+  {
+    "id": "cache-11377",
+    "cacheId": 11377,
+    "name": "Rune hasta",
+    "family": "sword",
+    "model": 15877
+  },
+  {
+    "id": "cache-11416",
+    "cacheId": 11416,
+    "name": "Rune hasta(kp)",
+    "family": "sword",
+    "model": 15877
+  },
+  {
+    "id": "cache-11414",
+    "cacheId": 11414,
+    "name": "Rune hasta(p)",
+    "family": "sword",
+    "model": 15877
+  },
+  {
+    "id": "cache-11417",
+    "cacheId": 11417,
+    "name": "Rune hasta(p+)",
+    "family": "sword",
+    "model": 15877
+  },
+  {
+    "id": "cache-11419",
+    "cacheId": 11419,
+    "name": "Rune hasta(p++)",
+    "family": "sword",
+    "model": 15877
+  },
+  {
+    "id": "cache-1432",
+    "cacheId": 1432,
+    "name": "Rune mace",
+    "family": "sword",
+    "model": 62976
+  },
+  {
+    "id": "cache-1333",
+    "cacheId": 1333,
+    "name": "Rune scimitar",
+    "family": "sword",
+    "model": 11300
+  },
+  {
+    "id": "cache-20402",
+    "cacheId": 20402,
+    "name": "Rune scimitar",
+    "family": "sword",
+    "model": 11300
+  },
+  {
+    "id": "cache-23330",
+    "cacheId": 23330,
+    "name": "Rune scimitar",
+    "family": "sword",
+    "model": 11300
+  },
+  {
+    "id": "cache-23332",
+    "cacheId": 23332,
+    "name": "Rune scimitar",
+    "family": "sword",
+    "model": 11300
+  },
+  {
+    "id": "cache-23334",
+    "cacheId": 23334,
+    "name": "Rune scimitar",
+    "family": "sword",
+    "model": 11300
+  },
+  {
+    "id": "cache-26262",
+    "cacheId": 26262,
+    "name": "Rune scimitar",
+    "family": "sword",
+    "model": 11339
+  },
+  {
+    "id": "cache-30609",
+    "cacheId": 30609,
+    "name": "Rune staff of collection",
+    "family": "staff",
+    "model": 1
+  },
+  {
+    "id": "cache-9012",
+    "cacheId": 9012,
+    "name": "Runed sceptre",
+    "family": "sword",
+    "model": 2048
+  },
+  {
+    "id": "cache-9465",
+    "cacheId": 9465,
+    "name": "Runite crossbow (u)",
+    "family": "sword",
+    "model": 42059
+  },
+  {
+    "id": "cache-28773",
+    "cacheId": 28773,
+    "name": "Sage's axe",
+    "family": "sword",
+    "model": 11264
+  },
+  {
+    "id": "cache-22323",
+    "cacheId": 22323,
+    "name": "Sanguinesti staff",
+    "family": "staff",
+    "model": 19205
+  },
+  {
+    "id": "cache-22481",
+    "cacheId": 22481,
+    "name": "Sanguinesti staff (uncharged)",
+    "family": "staff",
+    "model": 19205
+  },
+  {
+    "id": "cache-12808",
+    "cacheId": 12808,
+    "name": "Sara's blessed sword (full)",
+    "family": "sword",
+    "model": 45568
+  },
+  {
+    "id": "cache-2415",
+    "cacheId": 2415,
+    "name": "Saradomin staff",
+    "family": "staff",
+    "model": 14464
+  },
+  {
+    "id": "cache-11838",
+    "cacheId": 11838,
+    "name": "Saradomin sword",
+    "family": "sword",
+    "model": 64464
+  },
+  {
+    "id": "cache-12809",
+    "cacheId": 12809,
+    "name": "Saradomin's blessed sword",
+    "family": "sword",
+    "model": 45568
+  },
+  {
+    "id": "cache-29591",
+    "cacheId": 29591,
+    "name": "Scorching bow",
+    "family": "sword",
+    "model": 2048
+  },
+  {
+    "id": "cache-25492",
+    "cacheId": 25492,
+    "name": "Shadow ancient sceptre",
+    "family": "sword",
+    "model": 19208
+  },
+  {
+    "id": "cache-28266",
+    "cacheId": 28266,
+    "name": "Shadow ancient sceptre",
+    "family": "sword",
+    "model": 19208
+  },
+  {
+    "id": "cache-28476",
+    "cacheId": 28476,
+    "name": "Shadow ancient sceptre (l)",
+    "family": "sword",
+    "model": 19208
+  },
+  {
+    "id": "cache-4444",
+    "cacheId": 4444,
+    "name": "Sharpened axe",
+    "family": "sword",
+    "model": 926
+  },
+  {
+    "id": "cache-2976",
+    "cacheId": 2976,
+    "name": "Sickle mould",
+    "family": "sword",
+    "model": 7243
+  },
+  {
+    "id": "cache-4236",
+    "cacheId": 4236,
+    "name": "Signed oak bow",
+    "family": "sword",
+    "model": 55045
+  },
+  {
+    "id": "cache-2961",
+    "cacheId": 2961,
+    "name": "Silver sickle",
+    "family": "sword",
+    "model": 45568
+  },
+  {
+    "id": "cache-2963",
+    "cacheId": 2963,
+    "name": "Silver sickle (b)",
+    "family": "sword",
+    "model": 256
+  },
+  {
+    "id": "cache-28323",
+    "cacheId": 28323,
+    "name": "Siren's staff",
+    "family": "staff",
+    "model": 60491
+  },
+  {
+    "id": "cache-9013",
+    "cacheId": 9013,
+    "name": "Skull sceptre",
+    "family": "sword",
+    "model": 5156
+  },
+  {
+    "id": "cache-21276",
+    "cacheId": 21276,
+    "name": "Skull sceptre (i)",
+    "family": "sword",
+    "model": 5156
+  },
+  {
+    "id": "cache-4170",
+    "cacheId": 4170,
+    "name": "Slayer's staff",
+    "family": "staff",
+    "model": 10285
+  },
+  {
+    "id": "cache-21255",
+    "cacheId": 21255,
+    "name": "Slayer's staff (e)",
+    "family": "staff",
+    "model": 10285
+  },
+  {
+    "id": "cache-25491",
+    "cacheId": 25491,
+    "name": "Smoke ancient sceptre",
+    "family": "sword",
+    "model": 19208
+  },
+  {
+    "id": "cache-28264",
+    "cacheId": 28264,
+    "name": "Smoke ancient sceptre",
+    "family": "sword",
+    "model": 19208
+  },
+  {
+    "id": "cache-28475",
+    "cacheId": 28475,
+    "name": "Smoke ancient sceptre (l)",
+    "family": "sword",
+    "model": 19208
+  },
+  {
+    "id": "cache-25484",
+    "cacheId": 25484,
+    "name": "Soulreaper axe",
+    "family": "sword",
+    "model": 6160
+  },
+  {
+    "id": "cache-28338",
+    "cacheId": 28338,
+    "name": "Soulreaper axe",
+    "family": "sword",
+    "model": 3344
+  },
+  {
+    "id": "cache-33335",
+    "cacheId": 33335,
+    "name": "Soulreaper axe (o)",
+    "family": "sword",
+    "model": 3441
+  },
+  {
+    "id": "cache-20397",
+    "cacheId": 20397,
+    "name": "Spear",
+    "family": "sword",
+    "model": 11264
+  },
+  {
+    "id": "cache-33758",
+    "cacheId": 33758,
+    "name": "Spear",
+    "family": "sword",
+    "model": 9984
+  },
+  {
+    "id": "cache-1379",
+    "cacheId": 1379,
+    "name": "Staff",
+    "family": "staff",
+    "model": 19207
+  },
+  {
+    "id": "cache-1381",
+    "cacheId": 1381,
+    "name": "Staff of air",
+    "family": "staff",
+    "model": 19208
+  },
+  {
+    "id": "cache-84",
+    "cacheId": 84,
+    "name": "Staff of Armadyl",
+    "family": "staff",
+    "model": 4111
+  },
+  {
+    "id": "cache-24144",
+    "cacheId": 24144,
+    "name": "Staff of Balance",
+    "family": "staff",
+    "model": 17416
+  },
+  {
+    "id": "cache-23363",
+    "cacheId": 23363,
+    "name": "Staff of Bob the Cat",
+    "family": "staff",
+    "model": 1032
+  },
+  {
+    "id": "cache-1385",
+    "cacheId": 1385,
+    "name": "Staff of earth",
+    "family": "staff",
+    "model": 19208
+  },
+  {
+    "id": "cache-1387",
+    "cacheId": 1387,
+    "name": "Staff of fire",
+    "family": "staff",
+    "model": 19208
+  },
+  {
+    "id": "cache-22296",
+    "cacheId": 22296,
+    "name": "Staff of Light",
+    "family": "staff",
+    "model": 2048
+  },
+  {
+    "id": "cache-11791",
+    "cacheId": 11791,
+    "name": "Staff of the Dead",
+    "family": "staff",
+    "model": 19205
+  },
+  {
+    "id": "cache-23613",
+    "cacheId": 23613,
+    "name": "Staff of the Dead",
+    "family": "staff",
+    "model": 19205
+  },
+  {
+    "id": "cache-1383",
+    "cacheId": 1383,
+    "name": "Staff of water",
+    "family": "staff",
+    "model": 19208
+  },
+  {
+    "id": "cache-22333",
+    "cacheId": 22333,
+    "name": "Starter bow",
+    "family": "sword",
+    "model": 64548
+  },
+  {
+    "id": "cache-28555",
+    "cacheId": 28555,
+    "name": "Starter bow",
+    "family": "sword",
+    "model": 64548
+  },
+  {
+    "id": "cache-22335",
+    "cacheId": 22335,
+    "name": "Starter staff",
+    "family": "staff",
+    "model": 2303
+  },
+  {
+    "id": "cache-28557",
+    "cacheId": 28557,
+    "name": "Starter staff",
+    "family": "staff",
+    "model": 1029
+  },
+  {
+    "id": "cache-22331",
+    "cacheId": 22331,
+    "name": "Starter sword",
+    "family": "sword",
+    "model": 24612
+  },
+  {
+    "id": "cache-28559",
+    "cacheId": 28559,
+    "name": "Starter sword",
+    "family": "sword",
+    "model": 24612
+  },
+  {
+    "id": "cache-1353",
+    "cacheId": 1353,
+    "name": "Steel axe",
+    "family": "sword",
+    "model": 65024
+  },
+  {
+    "id": "cache-512",
+    "cacheId": 512,
+    "name": "Steel axe head",
+    "family": "sword",
+    "model": 63745
+  },
+  {
+    "id": "cache-3097",
+    "cacheId": 3097,
+    "name": "Steel claws",
+    "family": "sword",
+    "model": 3108
+  },
+  {
+    "id": "cache-9179",
+    "cacheId": 9179,
+    "name": "Steel crossbow",
+    "family": "sword",
+    "model": 517
+  },
+  {
+    "id": "cache-9459",
+    "cacheId": 9459,
+    "name": "Steel crossbow (u)",
+    "family": "sword",
+    "model": 42059
+  },
+  {
+    "id": "cache-1207",
+    "cacheId": 1207,
+    "name": "Steel dagger",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-1223",
+    "cacheId": 1223,
+    "name": "Steel dagger(p)",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-5672",
+    "cacheId": 5672,
+    "name": "Steel dagger(p+)",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-5690",
+    "cacheId": 5690,
+    "name": "Steel dagger(p++)",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-28202",
+    "cacheId": 28202,
+    "name": "Steel felling axe",
+    "family": "sword",
+    "model": 39204
+  },
+  {
+    "id": "cache-11371",
+    "cacheId": 11371,
+    "name": "Steel hasta",
+    "family": "sword",
+    "model": 17708
+  },
+  {
+    "id": "cache-11395",
+    "cacheId": 11395,
+    "name": "Steel hasta(kp)",
+    "family": "sword",
+    "model": 17708
+  },
+  {
+    "id": "cache-11393",
+    "cacheId": 11393,
+    "name": "Steel hasta(p)",
+    "family": "sword",
+    "model": 17708
+  },
+  {
+    "id": "cache-11396",
+    "cacheId": 11396,
+    "name": "Steel hasta(p+)",
+    "family": "sword",
+    "model": 17708
+  },
+  {
+    "id": "cache-11398",
+    "cacheId": 11398,
+    "name": "Steel hasta(p++)",
+    "family": "sword",
+    "model": 17708
+  },
+  {
+    "id": "cache-1424",
+    "cacheId": 1424,
+    "name": "Steel mace",
+    "family": "sword",
+    "model": 62976
+  },
+  {
+    "id": "cache-1325",
+    "cacheId": 1325,
+    "name": "Steel scimitar",
+    "family": "sword",
+    "model": 36908
+  },
+  {
+    "id": "cache-1241",
+    "cacheId": 1241,
+    "name": "Steel spear",
+    "family": "sword",
+    "model": 17708
+  },
+  {
+    "id": "cache-3172",
+    "cacheId": 3172,
+    "name": "Steel spear(kp)",
+    "family": "sword",
+    "model": 17739
+  },
+  {
+    "id": "cache-1255",
+    "cacheId": 1255,
+    "name": "Steel spear(p)",
+    "family": "sword",
+    "model": 17708
+  },
+  {
+    "id": "cache-5708",
+    "cacheId": 5708,
+    "name": "Steel spear(p+)",
+    "family": "sword",
+    "model": 17708
+  },
+  {
+    "id": "cache-5722",
+    "cacheId": 5722,
+    "name": "Steel spear(p++)",
+    "family": "sword",
+    "model": 17708
+  },
+  {
+    "id": "cache-30601",
+    "cacheId": 30601,
+    "name": "Steel staff of collection",
+    "family": "staff",
+    "model": 1028
+  },
+  {
+    "id": "cache-30369",
+    "cacheId": 30369,
+    "name": "Sunlight spear",
+    "family": "sword",
+    "model": 51748
+  },
+  {
+    "id": "cache-27586",
+    "cacheId": 27586,
+    "name": "Sweet nutcracker staff",
+    "family": "staff",
+    "model": 65535
+  },
+  {
+    "id": "cache-33757",
+    "cacheId": 33757,
+    "name": "Sword",
+    "family": "sword",
+    "model": 13899
+  },
+  {
+    "id": "cache-11056",
+    "cacheId": 11056,
+    "name": "Sword fragment",
+    "family": "sword",
+    "model": 1026
+  },
+  {
+    "id": "cache-623",
+    "cacheId": 623,
+    "name": "Sword pommel",
+    "family": "sword",
+    "model": 2047
+  },
+  {
+    "id": "cache-6912",
+    "cacheId": 6912,
+    "name": "Teacher wand",
+    "family": "sword",
+    "model": 4161
+  },
+  {
+    "id": "cache-22555",
+    "cacheId": 22555,
+    "name": "Thammaron's sceptre",
+    "family": "sword",
+    "model": 36958
+  },
+  {
+    "id": "cache-27788",
+    "cacheId": 27788,
+    "name": "Thammaron's sceptre (a)",
+    "family": "sword",
+    "model": 36958
+  },
+  {
+    "id": "cache-27785",
+    "cacheId": 27785,
+    "name": "Thammaron's sceptre (au)",
+    "family": "sword",
+    "model": 36958
+  },
+  {
+    "id": "cache-22552",
+    "cacheId": 22552,
+    "name": "Thammaron's sceptre (u)",
+    "family": "sword",
+    "model": 36958
+  },
+  {
+    "id": "cache-33036",
+    "cacheId": 33036,
+    "name": "Toxic staff (Deadman)",
+    "family": "staff",
+    "model": 41035
+  },
+  {
+    "id": "cache-12902",
+    "cacheId": 12902,
+    "name": "Toxic staff (uncharged)",
+    "family": "staff",
+    "model": 19205
+  },
+  {
+    "id": "cache-33035",
+    "cacheId": 33035,
+    "name": "Toxic staff (uncharged)",
+    "family": "staff",
+    "model": 19205
+  },
+  {
+    "id": "cache-12904",
+    "cacheId": 12904,
+    "name": "Toxic Staff of the Dead",
+    "family": "staff",
+    "model": 41035
+  },
+  {
+    "id": "cache-30634",
+    "cacheId": 30634,
+    "name": "Twinflame staff",
+    "family": "staff",
+    "model": 43014
+  },
+  {
+    "id": "cache-20997",
+    "cacheId": 20997,
+    "name": "Twisted bow",
+    "family": "sword",
+    "model": 1541
+  },
+  {
+    "id": "cache-27610",
+    "cacheId": 27610,
+    "name": "Venator bow",
+    "family": "sword",
+    "model": 45568
+  },
+  {
+    "id": "cache-31133",
+    "cacheId": 31133,
+    "name": "Venator bow",
+    "family": "sword",
+    "model": 1
+  },
+  {
+    "id": "cache-27612",
+    "cacheId": 27612,
+    "name": "Venator bow (uncharged)",
+    "family": "sword",
+    "model": 45568
+  },
+  {
+    "id": "cache-4755",
+    "cacheId": 4755,
+    "name": "Verac's flail",
+    "family": "sword",
+    "model": 24581
+  },
+  {
+    "id": "cache-27189",
+    "cacheId": 27189,
+    "name": "Verac's flail",
+    "family": "sword",
+    "model": 24581
+  },
+  {
+    "id": "cache-4986",
+    "cacheId": 4986,
+    "name": "Verac's flail 0",
+    "family": "sword",
+    "model": 24581
+  },
+  {
+    "id": "cache-4982",
+    "cacheId": 4982,
+    "name": "Verac's flail 100",
+    "family": "sword",
+    "model": 24581
+  },
+  {
+    "id": "cache-4985",
+    "cacheId": 4985,
+    "name": "Verac's flail 25",
+    "family": "sword",
+    "model": 24581
+  },
+  {
+    "id": "cache-4984",
+    "cacheId": 4984,
+    "name": "Verac's flail 50",
+    "family": "sword",
+    "model": 24581
+  },
+  {
+    "id": "cache-4983",
+    "cacheId": 4983,
+    "name": "Verac's flail 75",
+    "family": "sword",
+    "model": 24581
+  },
+  {
+    "id": "cache-22610",
+    "cacheId": 22610,
+    "name": "Vesta's spear",
+    "family": "sword",
+    "model": 45568
+  },
+  {
+    "id": "cache-27900",
+    "cacheId": 27900,
+    "name": "Vesta's spear (bh)",
+    "family": "sword",
+    "model": 6
+  },
+  {
+    "id": "cache-27902",
+    "cacheId": 27902,
+    "name": "Vesta's spear (bh)(inactive)",
+    "family": "sword",
+    "model": 6
+  },
+  {
+    "id": "cache-8841",
+    "cacheId": 8841,
+    "name": "Void knight mace",
+    "family": "sword",
+    "model": 517
+  },
+  {
+    "id": "cache-24181",
+    "cacheId": 24181,
+    "name": "Void knight mace (l)",
+    "family": "sword",
+    "model": 517
+  },
+  {
+    "id": "cache-24424",
+    "cacheId": 24424,
+    "name": "Volatile Nightmare staff",
+    "family": "staff",
+    "model": 37963
+  },
+  {
+    "id": "cache-25517",
+    "cacheId": 25517,
+    "name": "Volatile Nightmare staff",
+    "family": "staff",
+    "model": 37963
+  },
+  {
+    "id": "cache-29609",
+    "cacheId": 29609,
+    "name": "Volatile Nightmare staff (Deadman)",
+    "family": "staff",
+    "model": 37963
+  },
+  {
+    "id": "cache-12773",
+    "cacheId": 12773,
+    "name": "Volcanic abyssal whip",
+    "family": "sword",
+    "model": 6180
+  },
+  {
+    "id": "cache-12771",
+    "cacheId": 12771,
+    "name": "Volcanic whip mix",
+    "family": "sword",
+    "model": 1027
+  },
+  {
+    "id": "cache-11012",
+    "cacheId": 11012,
+    "name": "Wand",
+    "family": "sword",
+    "model": 41291
+  },
+  {
+    "id": "cache-28585",
+    "cacheId": 28585,
+    "name": "Warped sceptre",
+    "family": "sword",
+    "model": 9303
+  },
+  {
+    "id": "cache-28583",
+    "cacheId": 28583,
+    "name": "Warped sceptre (uncharged)",
+    "family": "sword",
+    "model": 9303
+  },
+  {
+    "id": "cache-27655",
+    "cacheId": 27655,
+    "name": "Webweaver bow",
+    "family": "sword",
+    "model": 65119
+  },
+  {
+    "id": "cache-27652",
+    "cacheId": 27652,
+    "name": "Webweaver bow (u)",
+    "family": "sword",
+    "model": 65119
+  },
+  {
+    "id": "cache-6609",
+    "cacheId": 6609,
+    "name": "White 2h sword",
+    "family": "sword",
+    "model": 61
+  },
+  {
+    "id": "cache-6587",
+    "cacheId": 6587,
+    "name": "White claws",
+    "family": "sword",
+    "model": 26668
+  },
+  {
+    "id": "cache-6591",
+    "cacheId": 6591,
+    "name": "White dagger",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-6593",
+    "cacheId": 6593,
+    "name": "White dagger(p)",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-6595",
+    "cacheId": 6595,
+    "name": "White dagger(p+)",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-6597",
+    "cacheId": 6597,
+    "name": "White dagger(p++)",
+    "family": "daggers",
+    "model": 55332
+  },
+  {
+    "id": "cache-12763",
+    "cacheId": 12763,
+    "name": "White dark bow paint",
+    "family": "sword",
+    "model": 1027
+  },
+  {
+    "id": "cache-6601",
+    "cacheId": 6601,
+    "name": "White mace",
+    "family": "sword",
+    "model": 45092
+  },
+  {
+    "id": "cache-6603",
+    "cacheId": 6603,
+    "name": "White magic staff",
+    "family": "staff",
+    "model": 19208
+  },
+  {
+    "id": "cache-6611",
+    "cacheId": 6611,
+    "name": "White scimitar",
+    "family": "sword",
+    "model": 11300
+  },
+  {
+    "id": "cache-3981",
+    "cacheId": 3981,
+    "name": "Wilderness sword",
+    "family": "sword",
+    "model": 62470
+  },
+  {
+    "id": "cache-13108",
+    "cacheId": 13108,
+    "name": "Wilderness sword 1",
+    "family": "sword",
+    "model": 62470
+  },
+  {
+    "id": "cache-13109",
+    "cacheId": 13109,
+    "name": "Wilderness sword 2",
+    "family": "sword",
+    "model": 62470
+  },
+  {
+    "id": "cache-13110",
+    "cacheId": 13110,
+    "name": "Wilderness sword 3",
+    "family": "sword",
+    "model": 62470
+  },
+  {
+    "id": "cache-13111",
+    "cacheId": 13111,
+    "name": "Wilderness sword 4",
+    "family": "sword",
+    "model": 62470
+  },
+  {
+    "id": "cache-10280",
+    "cacheId": 10280,
+    "name": "Willow comp bow",
+    "family": "sword",
+    "model": 25389
+  },
+  {
+    "id": "cache-12761",
+    "cacheId": 12761,
+    "name": "Yellow dark bow paint",
+    "family": "sword",
+    "model": 1027
+  },
+  {
+    "id": "cache-10282",
+    "cacheId": 10282,
+    "name": "Yew comp bow",
+    "family": "sword",
+    "model": 25389
+  },
+  {
+    "id": "cache-2417",
+    "cacheId": 2417,
+    "name": "Zamorak staff",
+    "family": "staff",
+    "model": 14464
+  },
+  {
+    "id": "cache-11889",
+    "cacheId": 11889,
+    "name": "Zamorakian hasta",
+    "family": "sword",
+    "model": 78
+  },
+  {
+    "id": "cache-11824",
+    "cacheId": 11824,
+    "name": "Zamorakian spear",
+    "family": "sword",
+    "model": 34469
+  },
+  {
+    "id": "cache-26237",
+    "cacheId": 26237,
+    "name": "Zaryte bow",
+    "family": "sword",
+    "model": 11264
+  },
+  {
+    "id": "cache-26239",
+    "cacheId": 26239,
+    "name": "Zaryte bow",
+    "family": "sword",
+    "model": 11264
+  },
+  {
+    "id": "cache-26374",
+    "cacheId": 26374,
+    "name": "Zaryte crossbow",
+    "family": "sword",
+    "model": 45568
+  },
+  {
+    "id": "cache-27186",
+    "cacheId": 27186,
+    "name": "Zaryte crossbow",
+    "family": "sword",
+    "model": 9984
+  },
+  {
+    "id": "cache-28810",
+    "cacheId": 28810,
+    "name": "Zombie axe",
+    "family": "sword",
+    "model": 11300
+  },
+  {
+    "id": "cache-22647",
+    "cacheId": 22647,
+    "name": "Zuriel's staff",
+    "family": "staff",
+    "model": 3331
+  },
+  {
+    "id": "cache-23617",
+    "cacheId": 23617,
+    "name": "Zuriel's staff",
+    "family": "staff",
+    "model": 3331
+  },
+  {
+    "id": "cache-27920",
+    "cacheId": 27920,
+    "name": "Zuriel's staff (bh)",
+    "family": "staff",
+    "model": 3331
+  },
+  {
+    "id": "cache-27922",
+    "cacheId": 27922,
+    "name": "Zuriel's staff (bh)(inactive)",
+    "family": "staff",
+    "model": 11264
+  },
+  {
+    "id": "cache-5000",
+    "cacheId": 5000,
+    "name": "ZView the various crossbow bolt enchantment spells (4+ Magic required)",
+    "family": "sword",
+    "model": 2
+  }
+]

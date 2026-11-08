@@ -70,6 +70,8 @@ attack. The adrenaline bar decays gradually if it is not used.
 ## Weapons and Blocking
 
 Use the mouse wheel to switch between available weapons.
+Press `I` to open the cache weapon menu and equip any listed weapon. The selected weapon remains active
+until another weapon is equipped or selected with the mouse wheel.
 
 - Sword: balanced melee weapon.
 - Daggers: fast attacks and close-range stepping attacks.

@@ -168,6 +168,7 @@ export class WeaponView {
     private swingCount = 0;
     /** The quick strike that last played, to pick the combo end layer. */
     private lastQuick = -1;
+    private readonly cacheLoading = new Set<string>();
 
     constructor(
         private readonly camera: THREE.Camera,
@@ -186,8 +187,65 @@ export class WeaponView {
             model = createPlaceholderWeapon(weapon);
             this.models.set(weapon.id, model);
             this.tryLoadGltf(weapon);
+            this.tryLoadCacheGeometry(weapon);
         }
         return model;
+    }
+
+    private tryLoadCacheGeometry(weapon: WeaponDef): void {
+        if (!weapon.id.startsWith("cache-") || this.cacheLoading.has(weapon.id)) return;
+        this.cacheLoading.add(weapon.id);
+        const cacheId = weapon.id.slice("cache-".length);
+        const url = `${this.baseUrl}world/cache-weapons/${cacheId}.json`;
+        void (async () => {
+            const response = await fetch(url);
+            if (!response.ok) return;
+            const data = await response.json() as { positions: number[]; indices: number[] };
+            const positions = data.positions.map((value, index) =>
+                index % 3 === 1 ? value / 128 : index % 3 === 2 ? value / 128 : value / 128,
+            );
+            let minX = Infinity;
+            let minY = Infinity;
+            let minZ = Infinity;
+            let maxX = -Infinity;
+            let maxY = -Infinity;
+            let maxZ = -Infinity;
+            for (let i = 0; i < positions.length; i += 3) {
+                minX = Math.min(minX, positions[i]);
+                minY = Math.min(minY, positions[i + 1]);
+                minZ = Math.min(minZ, positions[i + 2]);
+                maxX = Math.max(maxX, positions[i]);
+                maxY = Math.max(maxY, positions[i + 1]);
+                maxZ = Math.max(maxZ, positions[i + 2]);
+            }
+            const scale = 0.8 / Math.max(maxX - minX, maxY - minY, maxZ - minZ, 1e-6);
+            const centerX = (minX + maxX) / 2;
+            const centerY = (minY + maxY) / 2;
+            const centerZ = (minZ + maxZ) / 2;
+            for (let i = 0; i < positions.length; i += 3) {
+                positions[i] = (positions[i] - centerX) * scale;
+                positions[i + 1] = (positions[i + 1] - centerY) * scale;
+                positions[i + 2] = (positions[i + 2] - centerZ) * scale;
+            }
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+            geometry.setIndex(data.indices);
+            geometry.computeVertexNormals();
+            const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({
+                color: 0xbcc4cc,
+                metalness: 0.35,
+                roughness: 0.55,
+                side: THREE.DoubleSide,
+            }));
+            mesh.name = "cache_weapon";
+            const group = new THREE.Group();
+            group.name = `weapon_${weapon.id}`;
+            group.add(mesh);
+            this.models.set(weapon.id, group);
+            if (this.currentId === weapon.id) {
+                this.attach(group);
+            }
+        })().catch((error) => console.warn(`Cache weapon model ${url} could not be loaded`, error));
     }
 
     private tryLoadGltf(weapon: WeaponDef): void {
