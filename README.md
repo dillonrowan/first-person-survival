@@ -1,37 +1,26 @@
 # First-Person Survival
 
-A browser game prototype set on the Old School RuneScape (OSRS) world map. The map is converted
-**once** from the OSRS cache into game files (`public/world/`); the game only loads those
-files and never touches the cache.
+A browser game prototype set on the Old School RuneScape (OSRS) world map. Exported runtime files
+live in `public/world/`; the game loads those files and never needs the source cache.
 
-This is currently a simple web app: you can walk (or fly) through the whole surface of
-Gielinor in first person, with collision.
+This is currently a simple web app: you can walk (or fly) through the version-controlled
+exported world map in first person, with collision.
 
 ## Quick start
 
+Install Git LFS, clone the repository, and hydrate its exported world assets:
+
 ```bash
+git clone https://github.com/dillonrowan/first-person-survival.git
+cd first-person-survival
+git lfs pull
 npm ci
-```
-
-Download the OSRS cache once (newest live cache from the [OpenRS2 archive](https://archive.openrs2.org/),
-about 200 MB, saved to `cache/`):
-
-```bash
-npm run download-cache
-```
-
-Convert it into the world map once (1,636 map squares, ~1.5 GB written to `public/world/`;
-about 5 minutes with 3 workers):
-
-```bash
-npm run export-world
-```
-
-Run the game:
-
-```bash
 npm run dev
 ```
+
+Git LFS must be installed before cloning; GitHub Desktop and recent Git distributions may
+prompt you to install it automatically. The OSRS source cache is only needed when regenerating
+the exported world.
 
 Open http://localhost:5173 and click to play. To start somewhere else, add tile coordinates,
 for example `http://localhost:5173/?x=3213&y=3428` (Varrock square).
@@ -207,8 +196,10 @@ space, tile `(x, y)` at height `h` is `(x, h, -y)`, one unit per tile.
 
 ## Notes
 
-- `cache/` and `public/world/` are git-ignored: they are large and derived from Jagex's game
-  data. The map, models and textures belong to Jagex. Using them for a personal prototype is
+- `cache/` is git-ignored because the downloaded source cache is large and can be recreated
+  with `npm run download-cache`. The exported `public/world/` assets are version-controlled so
+  the game and tests work without an OSRS cache. The map, models and textures belong to Jagex.
+  Using them for a personal prototype is
   one thing; publishing a game built on them would need permission or your own replacement
   assets.
 - `vite build` copies `public/world/` into `dist/`, so a production build is ~1.5 GB.
