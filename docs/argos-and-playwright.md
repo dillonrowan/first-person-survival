@@ -35,6 +35,8 @@ Current screenshots:
 - `npc-5241-idle-frame-0`
 - `npc-5241-idle-frame-45`
 - `npc-5241-walk-frame-4-front`
+- `npc-6709-attack-frame-4-windup`
+- `npc-6709-attack-frame-8-impact`
 
 Each capture targets the 640 by 640 canvas. Capture names are stable and unique because Argos uses them to match screenshots between builds.
 
@@ -83,23 +85,54 @@ Intentional source changes should be committed and merged separately from genera
 
 ## Local commands
 
-Run tests locally:
+Install dependencies and Chromium once:
 
-```bash
+```powershell
+npm ci
+npx playwright install chromium
+```
+
+Run all Playwright tests:
+
+```powershell
 npm run test:e2e
 ```
 
-Simulate CI and upload a build:
-
-```bash
-ARGOS_TOKEN=your-project-token CI=true npm run test:e2e
-```
-
-Use PowerShell for the equivalent environment variables:
+Run one test file:
 
 ```powershell
-$env:ARGOS_TOKEN='your-project-token'
+npm run test:e2e -- tests/npc-animation.spec.ts
+```
+
+Run one test by name:
+
+```powershell
+npm run test:e2e -- tests/npc-animation.spec.ts --grep "Lumbridge guard attack frames"
+```
+
+Run the NPC visual tests in a visible browser:
+
+```powershell
+npm run test:e2e:headed -- tests/npc-animation.spec.ts
+```
+
+Playwright starts and stops the Vite server configured in
+[playwright.config.ts](../playwright.config.ts). Local runs execute the NPC WebGL
+screenshots and assertions; they do not upload visual builds or compare against
+remote Argos baselines because Argos upload is enabled only when `CI` is set.
+
+Upload the current screenshots to Argos and compare them against the remote
+baseline:
+
+```bash
+CI=true ARGOS_TOKEN=your-project-token npm run test:e2e
+```
+
+The equivalent PowerShell environment setup is:
+
+```powershell
 $env:CI='true'
+$env:ARGOS_TOKEN='your-project-token'
 npm run test:e2e
 Remove-Item Env:ARGOS_TOKEN
 Remove-Item Env:CI

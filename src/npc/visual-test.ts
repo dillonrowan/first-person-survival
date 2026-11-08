@@ -11,7 +11,8 @@ import { loadWorldTextures } from "../world/WorldTextures";
 export interface NpcVisualTestApi {
     ready(): boolean;
     select(id: number): Promise<void>;
-    setPose(pose: "idle" | "walk"): void;
+    setPose(pose: "idle" | "walk" | "attack"): void;
+    setAttack(index: number): void;
     setFrame(frame: number): void;
     setYaw(degrees: number): void;
     advance(cycles: number): void;
@@ -90,7 +91,8 @@ async function main(): Promise<void> {
         let active: Npc | undefined;
         let model: SharedNpcModel | undefined;
         let appearance: NpcAppearanceInfo | undefined;
-        let pose: "idle" | "walk" = "idle";
+        let pose: "idle" | "walk" | "attack" = "idle";
+        let attack = 0;
         let frame = 0;
 
         const ready = () => Boolean(renderer && active && model);
@@ -131,12 +133,20 @@ async function main(): Promise<void> {
             setPose(nextPose) {
                 pose = nextPose;
                 frame = 0;
-                active?.setVisualAnimation(nextPose, 0);
+                active?.setVisualAnimation(nextPose, 0, attack);
                 render();
+            },
+            setAttack(index) {
+                attack = index;
+                if (pose === "attack") {
+                    frame = 0;
+                    active?.setVisualAnimation("attack", 0, attack);
+                    render();
+                }
             },
             setFrame(nextFrame) {
                 frame = nextFrame;
-                active?.setVisualAnimation(pose, nextFrame);
+                active?.setVisualAnimation(pose, nextFrame, attack);
                 render();
             },
             setYaw(degrees) {

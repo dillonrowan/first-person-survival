@@ -9,6 +9,7 @@ const fixtures = JSON.parse(
     id: number;
     idleFrames: number[];
     walkFrames: number[];
+    attackFrames?: number[];
     yaws: number[];
 }>;
 
@@ -17,7 +18,8 @@ declare global {
         __NPC_VISUAL_TEST__?: {
             ready(): boolean;
             select(id: number): Promise<void>;
-            setPose(pose: "idle" | "walk"): void;
+            setPose(pose: "idle" | "walk" | "attack"): void;
+            setAttack(index: number): void;
             setFrame(frame: number): void;
             setYaw(degrees: number): void;
             advance(cycles: number): void;
@@ -81,6 +83,33 @@ test("renders walk pose and facing changes", async ({ page }) => {
     const screenshot = await page.locator("canvas").screenshot();
     expect(screenshot.length).toBeGreaterThan(1_000);
     await argosScreenshot(page, "npc-5241-walk-frame-4-front", {
+        element: page.locator("canvas"),
+    });
+});
+
+test("renders Lumbridge guard attack frames", async ({ page }) => {
+    await page.goto("/npc-animation-test.html");
+    await page.locator("[data-npc-visual-status=ready]").waitFor({ timeout: 30_000 });
+    const fixture = fixtures.find(({ id }) => id === 6709)!;
+    await page.evaluate(async (id) => window.__NPC_VISUAL_TEST__?.select(id), fixture.id);
+    await page.evaluate(() => window.__NPC_VISUAL_TEST__?.setPose("attack"));
+    await page.evaluate(() => window.__NPC_VISUAL_TEST__?.setAttack(0));
+
+    await page.evaluate((frame) => window.__NPC_VISUAL_TEST__?.setFrame(frame), fixture.attackFrames![0]);
+    await page.evaluate(() => window.__NPC_VISUAL_TEST__?.render());
+    await expect.poll(() => page.evaluate(() => window.__NPC_VISUAL_TEST__?.frame())).toBe(
+        fixture.attackFrames![0],
+    );
+    await argosScreenshot(page, "npc-6709-attack-frame-4-windup", {
+        element: page.locator("canvas"),
+    });
+
+    await page.evaluate((frame) => window.__NPC_VISUAL_TEST__?.setFrame(frame), fixture.attackFrames![1]);
+    await page.evaluate(() => window.__NPC_VISUAL_TEST__?.render());
+    await expect.poll(() => page.evaluate(() => window.__NPC_VISUAL_TEST__?.frame())).toBe(
+        fixture.attackFrames![1],
+    );
+    await argosScreenshot(page, "npc-6709-attack-frame-8-impact", {
         element: page.locator("canvas"),
     });
 });

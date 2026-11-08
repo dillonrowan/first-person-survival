@@ -5,5 +5,14 @@
         "idleFrames": [0, 45],
         "walkFrames": [0, 4],
         "yaws": [0, 90, 180]
+    },
+    {
+        "id": 6709,
+        "displayId": 6583,
+        "name": "Lumbridge guard",
+        "idleFrames": [0],
+        "walkFrames": [0],
+        "attackFrames": [4, 8],
+        "yaws": [0]
     }
 ]

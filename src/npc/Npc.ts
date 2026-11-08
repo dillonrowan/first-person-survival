@@ -326,8 +326,12 @@ export class Npc {
     }
 
     /** Selects an animation clip and frame without running gameplay AI. */
-    setVisualAnimation(pose: "idle" | "walk", frame = 0): void {
-        const clip = pose === "walk" ? this.model.data.walk : this.model.data.idle;
+    setVisualAnimation(pose: "idle" | "walk" | "attack", frame = 0, attack = 0): void {
+        const clip = pose === "walk"
+            ? this.model.data.walk
+            : pose === "attack"
+                ? this.model.data.attacks?.[attack]
+                : this.model.data.idle;
         if (!clip || clip.frameLengths.length === 0) {
             throw new Error(`NPC ${this.appearance.id} has no ${pose} animation`);
         }
