@@ -23,6 +23,10 @@ import { FaceColors } from "./FaceColors";
 import { NpcModelBuilder } from "./NpcModelBuilder";
 import { NpcAppearanceTask, NpcSelection, readNpcSpawnFile, selectNpcs } from "./NpcSpawns";
 import { createWorldLoaders } from "./WorldLoaders";
+import { CacheInfo } from "./rs/cache/CacheInfo";
+import { NpcType } from "./rs/config/npctype/NpcType";
+import { SeqType } from "./rs/config/seqtype/SeqType";
+import { Model } from "./rs/model/Model";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const CACHE_DIR = path.join(ROOT, "cache");
@@ -31,6 +35,84 @@ const SPAWN_FILE = path.join(ROOT, "tools", "world-export", "data", "npc-spawns-
 
 const hasWorld = fs.existsSync(path.join(WORLD_DIR, "npcs.json"));
 const hasCache = isCacheAvailable(CACHE_DIR);
+
+describe("mock NPC cache data", () => {
+    const info: CacheInfo = {
+        name: "mock-1",
+        game: "oldschool",
+        environment: "test",
+        revision: 1,
+        timestamp: "",
+        size: 0,
+    };
+
+    const model = () => {
+        const value = new Model();
+        value.verticesCount = 4;
+        value.verticesX = Int32Array.from([0, 100, 0, 100]);
+        value.verticesY = Int32Array.from([0, 0, -100, -100]);
+        value.verticesZ = Int32Array.from([0, 0, 0, 0]);
+        value.faceCount = 1;
+        value.indices1 = Int32Array.from([0]);
+        value.indices2 = Int32Array.from([1]);
+        value.indices3 = Int32Array.from([2]);
+        value.faceColors1 = Int32Array.from([1000]);
+        value.faceColors2 = Int32Array.from([1000]);
+        value.faceColors3 = Int32Array.from([1000]);
+        value.faceAlphas = Int8Array.from([0]);
+        return value;
+    };
+
+    it("bakes animated mock NPC models and round trips their export format", () => {
+        const npc = new NpcType(3106, info);
+        npc.name = "Mock Man";
+        npc.size = 1;
+        npc.height = 459;
+        const idle = new SeqType(808, info);
+        idle.frameIds = [0, 1, 2];
+        idle.frameLengths = [1, 1, 1];
+        const walk = new SeqType(819, info);
+        walk.frameIds = [0, 1, 2, 3, 4, 5, 6, 7];
+        walk.frameLengths = [1, 1, 1, 1, 1, 1, 1, 1];
+        const task: NpcAppearanceTask = {
+            id: 3106,
+            displayId: 3106,
+            name: "Mock Man",
+            size: 1,
+            combatLevel: 0,
+            rotationSpeed: 32,
+            file: "npcs/mock.bin",
+            idleSeqId: 808,
+            walkSeqId: 819,
+        };
+        const textureLoader = { getTextureIds: () => [], isTransparent: () => false };
+        const builder = new NpcModelBuilder(
+            { load: () => npc },
+            {
+                getModel: (_type, _seqId, frame) => {
+                    const value = model();
+                    value.verticesX = value.verticesX.map((x) => x + frame * 10);
+                    return value;
+                },
+            },
+            { load: (id) => id === 808 ? idle : walk },
+            new FaceColors(textureLoader),
+            textureLoader,
+        );
+
+        const baked = builder.build(task)!;
+        const bytes = encodeNpcModel(baked);
+        const decoded = decodeNpcModel(
+            bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer,
+        );
+
+        expect(baked.idle!.frameLengths.length).toBe(3);
+        expect(baked.walk!.frameLengths.length).toBe(8);
+        expect(decoded.vertexCount).toBe(baked.vertexCount);
+        expect(Array.from(decoded.walk!.positions)).toEqual(Array.from(baked.walk!.positions));
+        expect(Array.from(decoded.opaque.indices)).toEqual(Array.from(baked.opaque.indices));
+    });
+});
 
 describe("committed NPC spawn list", () => {
     const spawns = readNpcSpawnFile(SPAWN_FILE);
