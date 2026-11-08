@@ -13,7 +13,7 @@
         "test:e2e:headed": "playwright test --headed",
         "typecheck": "tsc --noEmit && tsc --noEmit -p tools/world-export",
         "download-cache": "node scripts/download-cache.mjs",
-        "export-world": "node --max-old-space-size=8192 node_modules/tsx/dist/cli.mjs --tsconfig tools/world-export/tsconfig.json tools/world-export/export-world.ts"
+        "export-world": "node --max-old-space-size=16384 --import tsx tools/world-export/export-world.ts"
     },
     "dependencies": {
         "three": "^0.187.0"
