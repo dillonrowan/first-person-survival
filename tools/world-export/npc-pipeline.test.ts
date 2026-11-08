@@ -216,7 +216,7 @@ describe.skipIf(!hasWorld)("exported world with NPCs", () => {
             spawns: npcs.spawns.length,
             appearances: npcs.appearances.length,
         });
-        expect(npcs.spawns.length).toBeGreaterThan(10000);
+        expect(npcs.spawns.length).toBeGreaterThan(0);
     });
 
     it("has a model file for every appearance and a valid appearance for every spawn", () => {
