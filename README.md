@@ -1,51 +1,73 @@
 # First-Person Survival
 
-A browser game prototype set on the Old School RuneScape (OSRS) world map. The map is converted
-**once** from the OSRS cache into game files (`public/world/`); the game only loads those
-files and never touches the cache.
+A browser game prototype set on the Old School RuneScape (OSRS) world map. Exported runtime files
+live in `public/world/`; the game loads those files and never needs the source cache.
 
-This is currently a simple web app: you can walk (or fly) through the whole surface of
-Gielinor in first person, with collision.
+This is currently a simple web app: you can walk (or fly) through the version-controlled
+exported world map in first person, with collision.
 
 ## Quick start
 
+Install Git LFS, clone the repository, and hydrate its exported world assets:
+
 ```bash
+git clone https://github.com/dillonrowan/first-person-survival.git
+cd first-person-survival
+git lfs pull
 npm ci
-```
-
-Download the OSRS cache once (newest live cache from the [OpenRS2 archive](https://archive.openrs2.org/),
-about 200 MB, saved to `cache/`):
-
-```bash
-npm run download-cache
-```
-
-Convert it into the world map once (1,636 map squares, ~1.5 GB written to `public/world/`;
-about 5 minutes with 3 workers):
-
-```bash
-npm run export-world
-```
-
-Run the game:
-
-```bash
 npm run dev
 ```
+
+Git LFS must be installed before cloning; GitHub Desktop and recent Git distributions may
+prompt you to install it automatically. The OSRS source cache is only needed when regenerating
+the exported world.
 
 Open http://localhost:5173 and click to play. To start somewhere else, add tile coordinates,
 for example `http://localhost:5173/?x=3213&y=3428` (Varrock square).
 
-| Key     | Action                                  |
-| ------- | --------------------------------------- |
-| W A S D | Move                                    |
-| Mouse   | Look                                    |
-| Shift   | Sprint (or fly faster)                  |
-| Space   | Jump                                    |
-| F       | Toggle flying; Space / C to rise / sink |
-| E / R   | First / second action on what you aim at |
-| Esc     | Release the mouse                       |
-| V       | Third-person camera (dev builds only)   |
+For movement, combat, interactions, props, flying, and the HUD, see the
+[Player Guide](docs/player-guide.md).
+
+| Key        | Action                                                          |
+| ---------- | --------------------------------------------------------------- |
+| W A S D    | Move                                                            |
+| Mouse      | Look                                                            |
+| Left mouse | Attack: tap for quick strikes, hold to charge a power attack    |
+| F          | Kick: shoves an enemy back; into a wall or off a ledge it falls |
+| Wheel      | Switch weapon (sword, daggers, club, staff)                     |
+| Shift      | Sprint, costs stamina (or fly faster)                           |
+| Alt        | Walk slowly                                                     |
+| C          | Crouch (while flying: sink)                                     |
+| Space      | Jump                                                            |
+| N          | Toggle flying; Space / C to rise / sink                         |
+| E / R      | First / second action on what you aim at (E picks up a prop)    |
+| Left mouse | While carrying a prop: throw it (E drops it)                    |
+| Esc        | Release the mouse                                               |
+| V          | Third-person camera (dev builds only)                           |
+
+A charged attack takes its direction from the movement keys held when you release it:
+strafe left or right for side slashes, back for a thrust, forward while looking up or jumping for
+an overhead. Charging while sprinting at full stamina gives a lunging rush; attacking while falling
+fast gives a plunging strike. Hits fill the adrenaline bar, and when it is full your next charged
+attack is a finishing blow. NPCs with an Attack option take damage, flinch, get knocked back and
+die. Once hit, an NPC fights: it runs or walks in, zig-zags while you look straight at it, then
+holds its ideal distance with short combat steps, and flees when badly hurt. It does not strike
+back yet. The numbers and their sources are in
+[docs/combat-movement-spec.md](docs/combat-movement-spec.md). Weapon art goes in
+`public/models/weapons/`, see [docs/weapon-models.md](docs/weapon-models.md).
+
+Knocked-down and killed NPCs become ragdolls, as in Dark Messiah: their body parts (found from the
+OSRS model's vertex labels and animation data, see section 20 of the spec) fall, tumble and come to
+rest on the floor and against walls; knocked-down NPCs then get up where they lie. Joints bend only
+as far, and only the way, the NPC's own idle and walk animations bend them (a knee never folds
+backwards), body parts collide with each other, and a body is still within about a second and a
+half. A body flying into another NPC knocks it over too (it gets up again; a body never kills),
+and bodies on the ground push each other aside. Corpses stay for 30 s, at most 8 at a time.
+
+Crates, barrels, sacks, chairs, stools and pots are loose physics props, as in Dark Messiah: kick
+them, hit them, pick them up and throw them. Thrown props hurt and knock down NPCs, props break
+from hard impacts or weapon hits, and props falling on you hurt. Long falls hurt too (Source fall
+damage, 60% taken). The values and their sources are in section 19 of the spec.
 
 Turning flying off lands you on the highest floor below you, so you can fly onto a castle
 roof or into an upper floor and walk around there.
@@ -111,6 +133,9 @@ each map square into game files:
   front faces and back faces, so upper floors work as ceilings and roofs show from inside;
   the back-face pass gets extra depth bias so the bottoms of objects standing on an upper
   floor don't poke through the ceiling below.
+- One-tile locs named like crates, barrels, sacks, chairs, stools or pots
+  (`tools/world-export/Props.ts`) are exported as physics props: their own meshes, a mass and a
+  material, and no tile collision (the game's prop body replaces it).
 - Doors and gates (locs with an "Open" action) have their collision removed, since nothing
   can open them yet. Animated locs are shown in their base pose; varbit-dependent locs in
   their default state. Ground items are not exported.
@@ -128,11 +153,23 @@ longer match the cache are skipped and counted in the export log).
   vertex positions per frame; no RuneScape animation code runs in the browser.
 - In game, NPCs appear and disappear with their map square, loop their idle animation, and
   wander within 5 tiles of their spawn (walls and objects stop them), like rs-map-viewer.
+- Each NPC file also carries a ragdoll skeleton (`tools/world-export/NpcSkeleton.ts`): the model's
+  labelled vertex groups that animate together become rigid parts, joined where the animation's
+  frame base rotates them.
 - NPCs are solid: the player is pushed out of their collision cylinder and slides around them,
   and NPCs wait instead of walking into the player. NPCs with skeletal animations (a
-  handful) are shown in their base pose. Combat and death animations are not supported.
+  handful) are shown in their base pose. Deaths and knockdowns are ragdolls.
   Dev builds can draw the collision circles with `?debug=collision`.
-- `npm run export-world -- --no-npcs` skips them.
+- NPC attacks are the cache's own melee animations, baked into each NPC file with the moment the
+  blow lands (`tools/world-export/NpcAttackAnims.ts`). The cache does not say which animation an
+  NPC attacks with (server data) or name its animations, so the exporter uses Jagex's animation
+  names (`data/animation-names-runelite.json`): a creature's attack is the one on its own skeleton
+  whose name matches its idle (`ZOMBIE_UPDATE_READY_DRAGGING` → `ZOMBIE_UPDATE_ATTACK_DRAGGING`),
+  and NPCs on the player's skeleton fight like players, with their stance's weapon attacks (or
+  punches and kicks when they hold nothing). NPCs the cache has no attack for lunge with a generic
+  attack made in Blender (`tools/blender/lunge_clip.py`).
+- `npm run export-world -- --no-npcs` skips them; `--npcs-only` re-bakes the NPCs of the exported
+  map without exporting it again.
 
 Runtime (`src/`): three.js, one raw shader (`WorldMaterials.ts`), region streaming around the
 player (`World.ts`), and a first-person controller with tile collision (`Player.ts`). In dev
@@ -159,8 +196,10 @@ space, tile `(x, y)` at height `h` is `(x, h, -y)`, one unit per tile.
 
 ## Notes
 
-- `cache/` and `public/world/` are git-ignored: they are large and derived from Jagex's game
-  data. The map, models and textures belong to Jagex. Using them for a personal prototype is
+- `cache/` is git-ignored because the downloaded source cache is large and can be recreated
+  with `npm run download-cache`. The exported `public/world/` assets are version-controlled so
+  the game and tests work without an OSRS cache. The map, models and textures belong to Jagex.
+  Using them for a personal prototype is
   one thing; publishing a game built on them would need permission or your own replacement
   assets.
 - `vite build` copies `public/world/` into `dist/`, so a production build is ~1.5 GB.
@@ -170,4 +209,7 @@ space, tile `(x, y)` at height `h` is `(x, h, -y)`, one unit per tile.
 The cache decoders in `tools/world-export/rs/` (including the NPC and animation ones) and the
 NPC spawn list come from [rs-map-viewer](https://github.com/dennisdev/rs-map-viewer)
 (BSD 2-Clause, Copyright (c) 2022-2023 dennisdev). Caches come from the
-[OpenRS2 archive](https://archive.openrs2.org/).
+[OpenRS2 archive](https://archive.openrs2.org/). The animation names in
+`tools/world-export/data/animation-names-runelite.json` come from RuneLite's
+`net.runelite.api.gameval.AnimationID` ([RuneLite](https://github.com/runelite/runelite),
+BSD 2-Clause).

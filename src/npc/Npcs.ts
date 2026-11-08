@@ -5,8 +5,12 @@ import { RS_UNITS_PER_TILE, type RegionListener } from "../world/WorldFormat";
 import { CLIENT_CYCLE_SECONDS } from "./NpcAnimation";
 import { SERVER_TICK_SECONDS } from "./NpcMovement";
 import { NpcModels, SharedNpcModel } from "./NpcModels";
-import type { Body, BodySource } from "../physics/Bodies";
-import { Npc, NpcWorld, Occupancy } from "./Npc";
+import { Body, BodySource, segmentHitsBoxes2D } from "../physics/Bodies";
+import { Box, collectTileBoxes } from "../physics/TileColliders";
+import { tuning } from "../combat/tuning";
+import { CombatContext, Npc, NpcWorld, Occupancy } from "./Npc";
+import { strikeBody } from "./BodyHits";
+import { Ragdoll } from "./Ragdoll";
 
 const MAX_CLIENT_CYCLES_PER_UPDATE = 50;
 const MAX_SERVER_TICKS_PER_UPDATE = 5;
@@ -29,6 +33,9 @@ export class Npcs implements BodySource<Npc> {
     private playerTiles: [number, number, number][] = [];
     private clientTime = 0;
     private serverTime = 0;
+    /** Seconds simulated, and when each body last knocked each NPC down (spec 20.7). */
+    private time = 0;
+    private readonly bodyHits = new WeakMap<Npc, Map<Npc, number>>();
 
     constructor(
         private readonly manifest: NpcManifest,
@@ -91,7 +98,7 @@ export class Npcs implements BodySource<Npc> {
         for (const region of this.regions.values()) {
             for (const npc of region.npcs) {
                 const b = npc.body;
-                if (b.plane !== plane) {
+                if (b.plane !== plane || npc.combatant.dead) {
                     continue;
                 }
                 const dx = b.x - Math.min(Math.max(b.x, minX), maxX);
@@ -106,7 +113,7 @@ export class Npcs implements BodySource<Npc> {
     /** Whether the player's cylinder blocks an NPC from moving to (x, y) in tiles. */
     private readonly blockedByPlayer = (npc: Npc, x: number, y: number): boolean => {
         const player = this.playerBody;
-        if (!player || npc.info.plane !== player.plane) {
+        if (!player || npc.plane !== player.plane) {
             return false;
         }
         const b = npc.body;
@@ -141,12 +148,55 @@ export class Npcs implements BodySource<Npc> {
         }
     }
 
-    /** Advances all NPCs by `dt` seconds. `player` is the player's collision body, if any. */
-    update(dt: number, player?: Body): void {
+    /** Bodies near a box: NPCs plus the player, for NPCs moving freely in combat. */
+    private readonly collectWithPlayer = (
+        plane: number,
+        minX: number,
+        minY: number,
+        maxX: number,
+        maxY: number,
+        out: Body[],
+    ): void => {
+        this.collectBodies(plane, minX, minY, maxX, maxY, out as Body<Npc>[]);
+        const p = this.playerBody;
+        if (p && p.plane === plane && p.x + p.radius > minX && p.x - p.radius < maxX && p.y + p.radius > minY && p.y - p.radius < maxY) {
+            out.push(p);
+        }
+    };
+
+    /** True if no wall lies on the segment (for NPC sight). */
+    private readonly lineOfSight = (plane: number, x0: number, y0: number, x1: number, y1: number): boolean => {
+        this.losBoxes.length = 0;
+        collectTileBoxes(
+            (p, x, y) => this.world.collisionFlags(p, x, y),
+            plane,
+            Math.min(x0, x1),
+            Math.min(y0, y1),
+            Math.max(x0, x1),
+            Math.max(y0, y1),
+            this.losBoxes,
+            "walls",
+        );
+        return segmentHitsBoxes2D(x0, y0, x1, y1, this.losBoxes) === undefined;
+    };
+    private readonly losBoxes: Box[] = [];
+
+    /**
+     * Advances all NPCs by `dt` seconds. `player` is the player's collision body, if any, and
+     * `playerYaw` where they look (NPCs zig-zag when looked at). `senses` carries what NPCs can
+     * notice of the player and where their strikes go.
+     */
+    update(
+        dt: number,
+        player?: Body,
+        playerYaw = 0,
+        senses: Omit<NonNullable<CombatContext["player"]>, keyof Body | "yaw"> & Pick<CombatContext, "strike"> = {},
+    ): void {
         this.playerBody = player;
         this.syncPlayerTiles(player);
         this.clientTime += dt;
         this.serverTime += dt;
+        this.time += dt;
         const cycles = Math.min(
             Math.floor(this.clientTime / CLIENT_CYCLE_SECONDS),
             MAX_CLIENT_CYCLES_PER_UPDATE,
@@ -167,7 +217,106 @@ export class Npcs implements BodySource<Npc> {
                 for (let c = 0; c < cycles; c++) {
                     npc.clientCycle(this.blockedByPlayer);
                 }
+                npc.updateCombat(dt, this.occupancy, {
+                    player: player ? { ...player, yaw: playerYaw, ...senses } : undefined,
+                    collect: this.collectWithPlayer,
+                    lineOfSight: this.lineOfSight,
+                    strike: senses.strike,
+                });
                 npc.sync();
+            }
+        }
+        this.collideBodies();
+        this.limitCorpses();
+        if (player) {
+            this.callForHelp(player);
+        }
+    }
+
+    /**
+     * Bodies meeting NPCs (spec 20.7): a moving ragdoll knocks over the standing NPCs it flies
+     * into (they fall onto ragdolls of their own and get up again; harmlessly when a kick sent it
+     * flying), is stopped by those it does not, and bodies on the ground push each other apart
+     * instead of sinking into each other.
+     */
+    private collideBodies(): void {
+        const all = this.all();
+        const bodies = all.filter((npc) => npc.ragdoll && !npc.gone && !npc.gettingUp);
+        for (let i = 0; i < bodies.length; i++) {
+            const striker = bodies[i];
+            const ragdoll = striker.ragdoll!;
+            for (let j = i + 1; j < bodies.length; j++) {
+                Ragdoll.collide(ragdoll, bodies[j].ragdoll!);
+            }
+            if (ragdoll.asleep) {
+                continue;
+            }
+            const reach = ragdoll.bounds();
+            for (const target of all) {
+                const body = target.body;
+                const c = target.combatant;
+                if (target === striker || target.ragdoll || target.gone || c.dead || c.knockedDown || body.plane !== ragdoll.plane) {
+                    continue;
+                }
+                // Tile space (x, y) is three.js (x, −z).
+                if (Math.hypot(body.x - reach.x, body.y + reach.z) > reach.r + body.radius) {
+                    continue;
+                }
+                const hits = this.bodyHits.get(striker) ?? new Map<Npc, number>();
+                const again = this.time - (hits.get(target) ?? -Infinity) < tuning.ragdollHitRepeat;
+                const hit = strikeBody(ragdoll, body, target.mass, target.attackable && !again);
+                if (hit) {
+                    hits.set(target, this.time);
+                    this.bodyHits.set(striker, hits);
+                    target.hitByBody(hit, striker.body.x, striker.body.y, striker.kickedDown);
+                }
+            }
+        }
+    }
+
+    /** At most ragdollMax corpses lie around; the oldest go first (cvar g_ragdoll_maxcount). */
+    private limitCorpses(): void {
+        const corpses: Npc[] = [];
+        for (const region of this.regions.values()) {
+            for (const npc of region.npcs) {
+                if (npc.combatant.dead && !npc.gone) {
+                    corpses.push(npc);
+                }
+            }
+        }
+        if (corpses.length <= tuning.ragdollMax) {
+            return;
+        }
+        corpses.sort((a, b) => b.deadFor - a.deadFor);
+        for (const npc of corpses.slice(0, corpses.length - tuning.ragdollMax)) {
+            npc.removeCorpse(this.occupancy);
+        }
+    }
+
+    /** NPCs that just turned hostile alert up to 3 calm allies within 700 u (spec 16.7). */
+    private callForHelp(player: Body): void {
+        const all = this.all();
+        for (const caller of all) {
+            if (!caller.justAlerted) {
+                continue;
+            }
+            caller.justAlerted = false;
+            let called = 0;
+            for (const other of all) {
+                if (called >= tuning.callForHelpMax) {
+                    break;
+                }
+                if (
+                    other !== caller &&
+                    !other.alerted &&
+                    other.attackable &&
+                    other.plane === caller.plane &&
+                    Math.hypot(other.body.x - caller.body.x, other.body.y - caller.body.y) <= tuning.callForHelpDistance
+                ) {
+                    other.becomeAlerted(player.x, player.y);
+                    other.justAlerted = false;
+                    called++;
+                }
             }
         }
     }
@@ -230,7 +379,7 @@ export class Npcs implements BodySource<Npc> {
         }
         this.regions.delete(key);
         for (const npc of region.npcs) {
-            this.occupancy.remove(npc.info.plane, npc.tileX, npc.tileY, Math.max(1, npc.appearance.size));
+            npc.releaseOccupancy(this.occupancy);
             npc.dispose();
         }
         region.npcs.length = 0;

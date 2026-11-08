@@ -1,26 +1,29 @@
 import * as THREE from "three";
 
 import { Body, BodySource, computePush } from "../physics/Bodies";
-import { BLOCKS_TILE, Box, FlagsAt, collectTileBoxes } from "../physics/TileColliders";
+import { sweepAxis } from "../physics/Sweep";
+import { BLOCKS_TILE, Box, FlagsAt } from "../physics/TileColliders";
 import type { World } from "../world/World";
 import { LEVELS } from "../world/WorldFormat";
 import type { Input } from "./Input";
+import { MoveMode, Vec2, accelerate, airAccelerate, friction, speedFor, wishSpeed } from "./MoveMath";
+import { Stamina } from "./Stamina";
+import { tuning } from "../combat/tuning";
 
 // Distances are in tiles. An OSRS floor is 240 units (1.875 tiles) high.
 export const EYE_HEIGHT = 1.25;
 /** Half the width of the player's square footprint. Doorways are one tile wide. */
 export const PLAYER_RADIUS = 0.3;
 export const PLAYER_HEIGHT = 1.4;
-export const WALK_SPEED = 3.5;
-export const SPRINT_SPEED = 6.5;
+export const CROUCH_EYE_HEIGHT = 0.8;
+/** Default running and sprint speed in tiles per second (design choices, see MoveMath). */
+export const WALK_SPEED = speedFor("run");
+export const SPRINT_SPEED = speedFor("sprint");
 const FLY_SPEED = 12;
 const FLY_FAST_SPEED = 40;
-const GRAVITY = 18;
-const JUMP_SPEED = 5.5;
 /** Walking down slopes stays glued to the ground within this drop per frame. */
 const STEP_DOWN = 0.35;
 const MOUSE_SENSITIVITY = 0.0022;
-const EPSILON = 1e-4;
 /** Longest distance moved per collision sub-step; keeps fast movement from tunnelling. */
 const MAX_SUBSTEP = 0.2;
 const MAX_PUSH_ITERATIONS = 3;
@@ -53,9 +56,22 @@ export class Player {
     velocityX = 0;
     velocityY = 0;
     sprinting = false;
+    crouching = false;
+    walking = false;
+    /** Current eye height above the feet; eases towards the standing or crouching height. */
+    eyeHeight = EYE_HEIGHT;
+    readonly stamina = new Stamina();
+    /** Called on touching down with the downward speed in tiles/s (fall damage, spec 19.8). */
+    onLanded?: (speed: number) => void;
+    /** Set when flying is switched off or the player teleports, so that drop does not hurt. */
+    private ignoreNextLanding = false;
 
+    /** Simulated horizontal velocity, persisting between updates (Source-style acceleration). */
+    private readonly vel: Vec2 = { x: 0, y: 0 };
     private velocityZ = 0;
     private onGround = false;
+    /** Seconds since take-off while the held-jump boost may still apply, or -1. */
+    private jumpHeld = -1;
     private placed = false;
     private readonly boxes: Box[] = [];
     private readonly nearby: Body[] = [];
@@ -96,8 +112,25 @@ export class Player {
         return this.onGround;
     }
 
+    /** Vertical velocity in tiles per second (negative while falling). */
+    get verticalSpeed(): number {
+        return this.velocityZ;
+    }
+
     get speed(): number {
         return Math.hypot(this.velocityX, this.velocityY);
+    }
+
+    /**
+     * Velocity the player is trying to move at, tiles/s, before bodies stop it. Props the player
+     * walks into are shoved at this speed (spec 19.10).
+     */
+    get intentX(): number {
+        return this.vel.x;
+    }
+
+    get intentY(): number {
+        return this.vel.y;
     }
 
     /** Velocity along the facing direction: positive walking forward, negative backwards. */
@@ -124,10 +157,22 @@ export class Player {
         this.y = y;
         this.plane = plane;
         this.velocityZ = 0;
+        this.vel.x = this.vel.y = 0;
         this.onGround = false;
         this.placed = false;
+        this.ignoreNextLanding = true;
         if (this.world.isLoaded(x, y)) {
             this.placeOnWalkableTile();
+        }
+    }
+
+    /** Adds to the player's velocity, for knockback and lunges. Tiles per second. */
+    applyImpulse(x: number, y: number, z = 0): void {
+        this.vel.x += x;
+        this.vel.y += y;
+        if (z !== 0) {
+            this.velocityZ += z;
+            this.onGround = false;
         }
     }
 
@@ -142,13 +187,14 @@ export class Player {
 
         if (!this.placed) {
             this.velocityX = this.velocityY = 0;
+            this.vel.x = this.vel.y = 0;
             if (!this.world.isLoaded(this.x, this.y)) {
                 return;
             }
             this.placeOnWalkableTile();
         }
 
-        if (input.wasPressed("KeyF")) {
+        if (input.wasPressed("KeyN")) {
             this.setFlying(!this.flying);
         }
 
@@ -159,17 +205,7 @@ export class Player {
         if (this.flying) {
             this.fly(dt, input, forward, strafe);
         } else {
-            // Yaw 0 looks north; forward is (-sin, cos) and right is (cos, sin) in (east, north).
-            const sin = Math.sin(this.yaw);
-            const cos = Math.cos(this.yaw);
-            let moveX = strafe * cos - forward * sin;
-            let moveY = strafe * sin + forward * cos;
-            const length = Math.hypot(moveX, moveY);
-            if (length > 1) {
-                moveX /= length;
-                moveY /= length;
-            }
-            this.walk(dt, input, moveX, moveY);
+            this.walk(dt, input, forward, strafe);
         }
         this.velocityX = dt > 0 ? (this.x - startX) / dt : 0;
         this.velocityY = dt > 0 ? (this.y - startY) / dt : 0;
@@ -188,13 +224,50 @@ export class Player {
         this.z += (forward * Math.sin(this.pitch) + up) * speed;
     }
 
-    private walk(dt: number, input: PlayerInput, moveX: number, moveY: number): void {
-        this.sprinting = input.isDown("ShiftLeft", "ShiftRight");
-        const speed = this.sprinting ? SPRINT_SPEED : WALK_SPEED;
-        const dx = moveX * speed * dt;
-        const dy = moveY * speed * dt;
-        this.moveX = moveX;
-        this.moveY = moveY;
+    private walk(dt: number, input: PlayerInput, forward: number, strafe: number): void {
+        this.crouching = input.isDown("KeyC");
+        this.walking = input.isDown("AltLeft", "AltRight");
+        const wantsSprint = input.isDown("ShiftLeft", "ShiftRight") && forward > 0 && !this.crouching;
+        // Megasprint needs the start threshold to begin, then runs until stamina is empty.
+        this.sprinting =
+            wantsSprint && (this.sprinting ? this.stamina.canContinueSprint : this.stamina.canStartSprint);
+        const mode: MoveMode = this.crouching
+            ? "crouch"
+            : this.sprinting
+              ? "sprint"
+              : this.walking
+                ? "walk"
+                : "run";
+        this.stamina.update(dt, this.sprinting && this.speed > 0.5);
+        const targetEye = this.crouching ? CROUCH_EYE_HEIGHT : EYE_HEIGHT;
+        this.eyeHeight += (targetEye - this.eyeHeight) * Math.min(1, dt * 14);
+
+        // Yaw 0 looks north; forward is (-sin, cos) and right is (cos, sin) in (east, north).
+        const sin = Math.sin(this.yaw);
+        const cos = Math.cos(this.yaw);
+        let wishX = strafe * cos - forward * sin;
+        let wishY = strafe * sin + forward * cos;
+        const length = Math.hypot(wishX, wishY);
+        if (length > 0) {
+            wishX /= length;
+            wishY /= length;
+        }
+        const wish = wishSpeed(mode, forward, strafe);
+        const wishDir = { x: wishX, y: wishY };
+        if (this.onGround) {
+            friction(this.vel, dt);
+            if (length > 0) {
+                accelerate(this.vel, wishDir, wish, dt);
+            }
+        } else if (length > 0) {
+            airAccelerate(this.vel, wishDir, wish, dt);
+        }
+
+        const dx = this.vel.x * dt;
+        const dy = this.vel.y * dt;
+        const moving = this.vel.x !== 0 || this.vel.y !== 0;
+        this.moveX = moving ? wishX : 0;
+        this.moveY = moving ? wishY : 0;
 
         this.nearby.length = 0;
         this.bodies?.collectBodies(
@@ -210,10 +283,19 @@ export class Player {
         this.resolveBodies();
         // Sub-steps keep fast movement from tunnelling through thin walls and bodies.
         const steps = Math.max(1, Math.ceil(Math.max(Math.abs(dx), Math.abs(dy)) / MAX_SUBSTEP));
+        const startX = this.x;
+        const startY = this.y;
         for (let i = 0; i < steps; i++) {
             this.x = this.sweep(true, dx / steps);
             this.y = this.sweep(false, dy / steps);
             this.resolveBodies();
+        }
+        // A blocked axis loses its velocity (clipping against an axis-aligned surface).
+        if (Math.abs(this.x - startX) < Math.abs(dx) - 1e-4) {
+            this.vel.x = 0;
+        }
+        if (Math.abs(this.y - startY) < Math.abs(dy) - 1e-4) {
+            this.vel.y = 0;
         }
 
         // Walked off the edge of an upper floor: fall to the plane below.
@@ -222,17 +304,37 @@ export class Player {
             this.onGround = false;
         }
 
-        if (this.onGround && input.wasPressed("Space")) {
-            this.velocityZ = JUMP_SPEED;
+        const ground = this.world.groundHeight(this.plane, this.x, this.y);
+        // Spec 16.2: 160 u/s take-off, allowed while falling with ground within 17 u below; holding
+        // jump adds 672 u/s² for 0.3 s more.
+        const nearGround = this.onGround || (this.velocityZ < 0 && this.z - ground <= tuning.jumpGroundSnap);
+        if (nearGround && input.wasPressed("Space")) {
+            this.velocityZ = this.crouching ? tuning.jumpSpeed : Math.max(0, this.velocityZ) + tuning.jumpSpeed;
             this.onGround = false;
+            this.jumpHeld = 0;
+        } else if (this.jumpHeld >= 0) {
+            const left = tuning.jumpHoldTime - this.jumpHeld;
+            if (!input.isDown("Space") || left <= 0) {
+                this.jumpHeld = -1;
+            } else {
+                this.velocityZ += tuning.jumpHoldAccel * Math.min(dt, left);
+                this.jumpHeld += dt;
+            }
         }
 
-        const ground = this.world.groundHeight(this.plane, this.x, this.y);
-        this.velocityZ -= GRAVITY * dt;
+        this.velocityZ -= tuning.gravity * dt;
         this.z += this.velocityZ * dt;
         if (this.z <= ground) {
+            const landing = -this.velocityZ;
             this.z = ground;
             this.velocityZ = 0;
+            if (!this.onGround && landing > 0) {
+                if (this.ignoreNextLanding) {
+                    this.ignoreNextLanding = false;
+                } else {
+                    this.onLanded?.(landing);
+                }
+            }
             this.onGround = true;
         } else if (this.onGround && this.velocityZ <= 0 && this.z - ground <= STEP_DOWN) {
             this.z = ground;
@@ -272,6 +374,7 @@ export class Player {
         this.flying = flying;
         this.velocityZ = 0;
         this.onGround = false;
+        this.ignoreNextLanding = !flying;
         if (!flying) {
             // Land on the highest floor that is below the player's feet.
             for (let plane = LEVELS - 1; plane >= 0; plane--) {
@@ -288,48 +391,7 @@ export class Player {
 
     /** Moves along one axis and returns the new coordinate on that axis, stopped by blockers. */
     private sweep(alongX: boolean, delta: number): number {
-        const start = alongX ? this.x : this.y;
-        if (delta === 0) {
-            return start;
-        }
-        const target = start + delta;
-        const toX = alongX ? target : this.x;
-        const toY = alongX ? this.y : target;
-
-        collectTileBoxes(
-            this.flagsAt,
-            this.plane,
-            Math.min(this.x, toX) - RADIUS,
-            Math.min(this.y, toY) - RADIUS,
-            Math.max(this.x, toX) + RADIUS,
-            Math.max(this.y, toY) + RADIUS,
-            this.boxes,
-        );
-
-        let resolved = target;
-        for (const box of this.boxes) {
-            // Boxes the player already overlaps are ignored, so a bad spot can be walked out of.
-            if (
-                box.minX < this.x + RADIUS &&
-                box.maxX > this.x - RADIUS &&
-                box.minY < this.y + RADIUS &&
-                box.maxY > this.y - RADIUS
-            ) {
-                continue;
-            }
-            const [boxMin, boxMax, crossMin, crossMax, cross] = alongX
-                ? [box.minX, box.maxX, box.minY, box.maxY, this.y]
-                : [box.minY, box.maxY, box.minX, box.maxX, this.x];
-            if (crossMax <= cross - RADIUS || crossMin >= cross + RADIUS) {
-                continue;
-            }
-            if (delta > 0 && boxMin >= start + RADIUS - EPSILON) {
-                resolved = Math.min(resolved, boxMin - RADIUS - EPSILON);
-            } else if (delta < 0 && boxMax <= start - RADIUS + EPSILON) {
-                resolved = Math.max(resolved, boxMax + RADIUS + EPSILON);
-            }
-        }
-        return resolved;
+        return sweepAxis(this.flagsAt, this.plane, this.x, this.y, RADIUS, alongX, delta, this.boxes);
     }
 
     /** Moves the spawn point to the nearest tile that is not blocked and has a floor. */

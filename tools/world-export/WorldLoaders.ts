@@ -1,4 +1,5 @@
 import { CacheInfo } from "./rs/cache/CacheInfo";
+import { CacheIndex } from "./rs/cache/CacheIndex";
 import { CacheSystem } from "./rs/cache/CacheSystem";
 import { ConfigType } from "./rs/cache/ConfigType";
 import { IndexType } from "./rs/cache/IndexType";
@@ -6,6 +7,7 @@ import { MemoryStore } from "./rs/cache/store/MemoryStore";
 import {
     ArchiveOverlayFloorTypeLoader,
     ArchiveUnderlayFloorTypeLoader,
+    OverlayFloorTypeLoader,
 } from "./rs/config/floortype/FloorTypeLoader";
 import { NpcModelLoader } from "./rs/config/npctype/NpcModelLoader";
 import { ArchiveNpcTypeLoader, NpcTypeLoader } from "./rs/config/npctype/NpcTypeLoader";
@@ -35,6 +37,8 @@ export type CacheFiles = {
 
 export type WorldLoaders = {
     info: CacheInfo;
+    configIndex: CacheIndex;
+    spriteIndex: CacheIndex;
     locTypeLoader: LocTypeLoader;
     textureLoader: TextureLoader;
     locModelLoader: LocModelLoader;
@@ -42,15 +46,19 @@ export type WorldLoaders = {
     seqTypeLoader: SeqTypeLoader;
     seqFrameLoader: SeqFrameLoader;
     npcModelLoader: NpcModelLoader;
+    overlayTypeLoader: OverlayFloorTypeLoader;
     varManager: VarManager;
     sceneBuilder: SceneBuilder;
+    /** A sound effect's encoded instruments (cache index 4, one archive per effect), if it exists. */
+    soundEffectData(id: number): Int8Array | undefined;
 };
 
-// Only these indices are needed to build the map, so the others are never decoded.
+// Only these indices are needed to build the map and its sounds, so the others are never decoded.
 const REQUIRED_INDICES = [
     IndexType.DAT2.animations,
     IndexType.DAT2.skeletons,
     IndexType.DAT2.configs,
+    IndexType.DAT2.soundEffects,
     IndexType.DAT2.maps,
     IndexType.DAT2.models,
     IndexType.DAT2.sprites,
@@ -118,9 +126,10 @@ export function createWorldLoaders(files: CacheFiles): WorldLoaders {
     );
 
     const modelLoader = new IndexModelLoader(cacheSystem.getIndex(IndexType.DAT2.models));
+    const spriteIndex = cacheSystem.getIndex(IndexType.DAT2.sprites);
     const textureLoader = SpriteTextureLoader.load(
         cacheSystem.getIndex(IndexType.DAT2.textures),
-        cacheSystem.getIndex(IndexType.DAT2.sprites),
+        spriteIndex,
         info.revision >= 233,
     );
 
@@ -154,8 +163,19 @@ export function createWorldLoaders(files: CacheFiles): WorldLoaders {
         files.xteas,
     );
 
+    const soundIndex = cacheSystem.getIndex(IndexType.DAT2.soundEffects);
+    const soundEffectData = (id: number): Int8Array | undefined => {
+        if (!soundIndex.getArchiveReference(id)) {
+            return undefined;
+        }
+        return soundIndex.getArchive(id).getFile(0)?.data;
+    };
+
     return {
         info,
+        configIndex,
+        spriteIndex,
+        soundEffectData,
         locTypeLoader,
         textureLoader,
         locModelLoader,
@@ -163,6 +183,7 @@ export function createWorldLoaders(files: CacheFiles): WorldLoaders {
         seqTypeLoader,
         seqFrameLoader,
         npcModelLoader,
+        overlayTypeLoader,
         varManager,
         sceneBuilder,
     };

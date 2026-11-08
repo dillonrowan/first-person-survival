@@ -132,15 +132,17 @@ describe("AvatarAnimator", () => {
 });
 
 describe("Avatar", () => {
-    it("follows the player and hides its head only in first person", () => {
+    it("follows the player and hides the entire body from its first-person view", () => {
         const asset = createPlaceholderAvatar();
         const avatar = new Avatar(asset);
 
         avatar.update(0.05, target(), "first");
         expect(avatar.root.position.toArray()).toEqual([10, 1, -20]);
+        expect(avatar.root.visible).toBe(false);
         expect(asset.headParts.every((part) => !part.visible)).toBe(true);
 
         avatar.update(0.05, target(), "third");
+        expect(avatar.root.visible).toBe(true);
         expect(asset.headParts.every((part) => part.visible)).toBe(true);
     });
 

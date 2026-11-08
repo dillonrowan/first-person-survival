@@ -6,6 +6,7 @@ import {
     MAX_PATH_STEPS,
     WANDER_RADIUS,
     canStep,
+    constrainMovementToEnvironment,
     findWanderPath,
     rotateTowards,
     stepOrientation,
@@ -60,6 +61,21 @@ describe("canStep", () => {
     });
 });
 
+describe("constrainMovementToEnvironment", () => {
+    it("keeps continuous movement on the NPC's environment tiles", () => {
+        const land = (x: number, y: number) => x < 101 && y < 101;
+
+        expect(constrainMovementToEnvironment(100.5, 100.5, 101.5, 100.5, land)).toEqual({
+            x: 100.5,
+            y: 100.5,
+        });
+        expect(constrainMovementToEnvironment(100.5, 100.5, 100.5, 101.5, land)).toEqual({
+            x: 100.5,
+            y: 100.5,
+        });
+    });
+});
+
 describe("findWanderPath", () => {
     const spawn = { x: 100, y: 100 };
 
@@ -94,6 +110,18 @@ describe("findWanderPath", () => {
         expect(path.length).toBeGreaterThan(2);
         expect(path.at(-1)).toEqual({ x: 102, y: 100 });
         expect(path.every((t) => (flags(t.x, t.y) & F.OBJECT) === 0)).toBe(true);
+    });
+
+    it("keeps paths within the spawn environment", () => {
+        const water = new Set(["100,100", "101,100", "101,101"]);
+        const isWater = (tile: { x: number; y: number }) => water.has(`${tile.x},${tile.y}`);
+
+        const waterPath = findWanderPath(grid(), spawn, { x: 101, y: 101 }, 1, spawn, isWater);
+        const landPath = findWanderPath(grid(), { x: 102, y: 100 }, { x: 104, y: 100 }, 1, spawn, (tile) => !isWater(tile));
+
+        expect(waterPath).toEqual([{ x: 101, y: 101 }]);
+        expect(waterPath.every(isWater)).toBe(true);
+        expect(landPath.every((tile) => !isWater(tile))).toBe(true);
     });
 
     it("returns nothing when the target is unreachable, the same tile, or too far from the spawn", () => {

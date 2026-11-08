@@ -10,6 +10,22 @@ export const MAX_QUEUED_STEPS = 10;
 export type FlagLookup = (x: number, y: number) => number;
 export type Tile = { x: number; y: number };
 
+export function constrainMovementToEnvironment(
+    x: number,
+    y: number,
+    nextX: number,
+    nextY: number,
+    matchesEnvironment: (x: number, y: number) => boolean,
+): { x: number; y: number } {
+    if (!matchesEnvironment(nextX, y)) {
+        nextX = x;
+    }
+    if (!matchesEnvironment(nextX, nextY)) {
+        nextY = y;
+    }
+    return { x: nextX, y: nextY };
+}
+
 const FLOOR_BLOCKED = CollisionFlag.FLOOR | CollisionFlag.FLOOR_DECORATION;
 const SOLID = CollisionFlag.OBJECT | FLOOR_BLOCKED;
 const F = CollisionFlag;
@@ -94,6 +110,7 @@ export function findWanderPath(
     to: Tile,
     size: number,
     spawn: Tile,
+    matchesEnvironment: (tile: Tile) => boolean = () => true,
 ): Tile[] {
     const inRange = (t: Tile) =>
         Math.abs(t.x - spawn.x) <= WANDER_RADIUS && Math.abs(t.y - spawn.y) <= WANDER_RADIUS;
@@ -123,6 +140,7 @@ export function findWanderPath(
             if (
                 previous.has(nextKey) ||
                 !inRange(next) ||
+                !matchesEnvironment(next) ||
                 !canStep(flags, current.x, current.y, dx, dy, size)
             ) {
                 continue;

@@ -6,9 +6,9 @@
 //   regions/X_Y.bin    one gzip-compressed region per 64x64-tile map square (see encodeRegion)
 //   npcs.json, npcs/*.bin   optional NPC spawns and baked models (see NpcFormat.ts)
 
-export const WORLD_FORMAT_VERSION = 2;
+export const WORLD_FORMAT_VERSION = 3;
 /** Region files of these versions can be read. Version 1 has no doors or ladders. */
-const READABLE_VERSIONS = [1, 2];
+const READABLE_VERSIONS = [1, 2, 3];
 
 /** Tiles per region (an OSRS map square). */
 export const REGION_SIZE = 64;
@@ -61,9 +61,27 @@ export type DoorData = {
     partner?: number;
 };
 
-/** A door, gate, ladder or staircase the player can act on. */
+/** Dark Messiah propdata material class of a physics prop (spec 19.1). */
+export type PropMaterial = "wood" | "cloth" | "pottery" | "metal";
+
+/** A loose object that physics moves: crates, barrels, sacks, chairs (spec 19). */
+export type PropData = {
+    /** Index into RegionData.doorMeshes, which holds the meshes of doors and props. */
+    mesh: number;
+    material: PropMaterial;
+    /** kg. */
+    mass: number;
+    /** Centre of the model's footprint in world tiles, and its ground height there. */
+    x: number;
+    y: number;
+    z: number;
+    /** Horizontal radius of the model in tiles (its collision cylinder). */
+    radius: number;
+};
+
+/** A door, gate, ladder, staircase or physics prop the player can act on. */
 export type InteractiveLoc = {
-    kind: "door" | "climb";
+    kind: "door" | "climb" | "prop";
     /** Loc id in the cache. */
     id: number;
     name: string;
@@ -82,9 +100,10 @@ export type InteractiveLoc = {
     /** Height of the model above the ground, in tiles. */
     height: number;
     door?: DoorData;
+    prop?: PropData;
 };
 
-/** Meshes of one door, in region-local RS units like the region's own meshes. */
+/** Meshes of one door or prop, in region-local RS units like the region's own meshes. */
 export type DoorMesh = { opaque: MeshData; transparent: MeshData };
 
 export type RegionData = {
@@ -105,7 +124,10 @@ export type RegionData = {
     floors: Uint8Array;
     /** OSRS collision flags, same indexing as renderFlags. Bridges are already moved down a level. */
     collision: Int32Array;
+    /** 1 on water tiles, same indexing as renderFlags. */
+    water?: Uint8Array;
     interactives: InteractiveLoc[];
+    /** Meshes of the doors and physics props, indexed by DoorData.mesh and PropData.mesh. */
     doorMeshes: DoorMesh[];
 };
 
@@ -164,6 +186,8 @@ export const CollisionFlag = {
 //     i16[2 * vertexCount] uvs, u32[indexCount] indices
 //   i32[LEVELS * 65 * 65] heights, u8[LEVELS * 64 * 64] renderFlags, u8[LEVELS * 64 * 64] floors,
 //   i32[LEVELS * 64 * 64] collision
+// Version 3 appends:
+//   u8[LEVELS * 64 * 64] water
 // Version 2 appends:
 //   u32 jsonByteLength, UTF-8 JSON InteractiveLoc[] (padded to 4 bytes),
 //   u32 doorMeshCount, then per door an (opaque, transparent) mesh in the layout above
@@ -186,6 +210,7 @@ export function encodeRegion(region: RegionData): Uint8Array {
         HEIGHTS_LENGTH * 4 +
         TILES_LENGTH * 2 +
         TILES_LENGTH * 4 +
+        TILES_LENGTH +
         4 +
         ((json.length + 3) & ~3) +
         4 +
@@ -221,6 +246,7 @@ export function encodeRegion(region: RegionData): Uint8Array {
     writeArray(region.renderFlags);
     writeArray(region.floors);
     writeArray(region.collision);
+    writeArray(region.water ?? new Uint8Array(TILES_LENGTH));
 
     view.setUint32(offset, json.length, true);
     offset += 4;
@@ -276,6 +302,11 @@ export function decodeRegion(buffer: ArrayBuffer): RegionData {
     offset += TILES_LENGTH;
     const collision = new Int32Array(buffer, offset, TILES_LENGTH);
     offset += TILES_LENGTH * 4;
+    let water = new Uint8Array(TILES_LENGTH);
+    if (version >= 3) {
+        water = new Uint8Array(buffer, offset, TILES_LENGTH);
+        offset += TILES_LENGTH;
+    }
 
     let interactives: InteractiveLoc[] = [];
     const doorMeshes: DoorMesh[] = [];
@@ -301,6 +332,7 @@ export function decodeRegion(buffer: ArrayBuffer): RegionData {
         renderFlags,
         floors,
         collision,
+        water: version >= 2 ? water.slice() : new Uint8Array(TILES_LENGTH),
         interactives,
         doorMeshes,
     };

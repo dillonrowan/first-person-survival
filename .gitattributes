@@ -1,0 +1,2 @@
+public/world/**/*.bin filter=lfs diff=lfs merge=lfs -text
+public/world/**/*.gz filter=lfs diff=lfs merge=lfs -text

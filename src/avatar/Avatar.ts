@@ -66,6 +66,7 @@ export class Avatar {
         this.lean(this.lastLean);
 
         const firstPerson = mode === "first";
+        root.visible = !firstPerson;
         for (const part of this.asset.headParts) {
             part.visible = !firstPerson;
         }

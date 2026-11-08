@@ -140,3 +140,130 @@ kbd {
     color: #8a939b;
     cursor: wait;
 }
+
+/* Combat HUD */
+#damage-flash {
+    position: fixed;
+    inset: 0;
+    background: rgb(128 0 0);
+    opacity: 0;
+    pointer-events: none;
+}
+
+#charge-ring {
+    --charge: 0deg;
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    width: 26px;
+    height: 26px;
+    margin: -13px 0 0 -13px;
+    border-radius: 50%;
+    background: conic-gradient(rgb(255 255 255 / 0.85) var(--charge), transparent 0);
+    mask: radial-gradient(circle, transparent 10px, #000 11px);
+    opacity: 0;
+    transition: opacity 0.1s;
+    pointer-events: none;
+}
+
+#charge-ring.charged {
+    background: rgb(255 200 80 / 0.95);
+}
+
+#hit-marker {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    width: 18px;
+    height: 18px;
+    margin: -9px 0 0 -9px;
+    opacity: 0;
+    pointer-events: none;
+    background:
+        linear-gradient(45deg, transparent 45%, #fff 45%, #fff 55%, transparent 55%),
+        linear-gradient(-45deg, transparent 45%, #fff 45%, #fff 55%, transparent 55%);
+    mask: radial-gradient(circle, transparent 4px, #000 5px);
+    filter: drop-shadow(0 0 1px #000);
+}
+
+#hit-marker.heavy {
+    transform: scale(1.5);
+    filter: drop-shadow(0 0 1px #000) sepia(1) saturate(6) hue-rotate(-20deg);
+}
+
+#combat-hud {
+    position: fixed;
+    left: 16px;
+    bottom: 16px;
+    display: grid;
+    gap: 5px;
+    width: min(240px, 40vw);
+    pointer-events: none;
+}
+
+#combat-hud .bar {
+    height: 9px;
+    border-radius: 2px;
+    background: rgb(0 0 0 / 0.45);
+    box-shadow: 0 0 0 1px rgb(0 0 0 / 0.5);
+    overflow: hidden;
+}
+
+#combat-hud .bar > div {
+    height: 100%;
+    width: 100%;
+}
+
+#bar-health {
+    background: #c4302b;
+}
+
+#bar-stamina {
+    background: #d9b23a;
+}
+
+#bar-adrenaline {
+    background: #7a4fd0;
+}
+
+#bar-adrenaline.full {
+    background: #b58cff;
+    box-shadow: 0 0 8px #b58cff;
+}
+
+#weapon-name {
+    color: #fff;
+    font: 12px/1.4 system-ui, sans-serif;
+    text-shadow: 0 1px 2px #000;
+}
+
+#enemy-health-bars {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+}
+
+.enemy-health-bar {
+    position: absolute;
+    width: 30px;
+    height: 5px;
+    transform: translate(-50%, -100%);
+    overflow: hidden;
+    image-rendering: pixelated;
+}
+
+.enemy-health-back {
+    position: absolute;
+    inset: 0;
+    height: 100%;
+    box-sizing: border-box;
+    border: 1px solid #111;
+    background: #3b1111;
+}
+
+.enemy-health-fill {
+    position: absolute;
+    inset: 1px auto 1px 1px;
+    height: auto;
+    background: #65b84d;
+}

@@ -152,7 +152,7 @@ errors, selects Lumbridge's NPCs, bakes them all, round-trips them through the f
 plays a real baked Man in the game runtime to confirm it animates and wanders. When
 `public/world/npcs.json` exists it checks the exported world: every model file exists and
 decodes, every spawn points at a valid appearance inside an exported region, and animation data
-is consistent. Without the cache or export (as in CI) those sections are skipped and the rest of
+is consistent. Without the exported world that section is skipped and the rest of
 the suite still passes.
 
 ## Reproducing the checks

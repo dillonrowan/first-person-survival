@@ -6,6 +6,7 @@ import { parentPort, workerData } from "node:worker_threads";
 import { encodeNpcModel } from "../../src/world/NpcFormat";
 import { encodeRegion, regionFileName } from "../../src/world/WorldFormat";
 import { FaceColors } from "./FaceColors";
+import { AttackIndex, NpcAttackPicker } from "./NpcAttackAnims";
 import { NpcModelBuilder } from "./NpcModelBuilder";
 import { NpcAppearanceTask } from "./NpcSpawns";
 import { RegionBuilder, RegionStats } from "./RegionBuilder";
@@ -19,6 +20,8 @@ export type ExportWorkerData = {
     regionDir: string;
     /** Directory the NPC model files are written to (public/world/npcs). */
     npcDir: string;
+    /** Named sequences by frame base, for choosing NPC attacks (absent: no attacks baked). */
+    attackIndex?: AttackIndex;
 };
 
 export type ExportTask =
@@ -29,7 +32,7 @@ export type ExportResult =
     | { type: "ready" }
     | { type: "region"; mapX: number; mapY: number; bytes: number; stats: RegionStats }
     | { type: "empty"; mapX: number; mapY: number }
-    | { type: "npc"; index: number; bytes: number; hasWalk: boolean }
+    | { type: "npc"; index: number; bytes: number; hasWalk: boolean; attacks: number }
     | { type: "npc-empty"; index: number }
     | { type: "error"; label: string; message: string };
 
@@ -51,6 +54,7 @@ const npcBuilder = new NpcModelBuilder(
     loaders.seqTypeLoader,
     faceColors,
     loaders.textureLoader,
+    data.attackIndex && new NpcAttackPicker(data.attackIndex),
 );
 
 function exportRegion(mapX: number, mapY: number): ExportResult {
@@ -74,7 +78,7 @@ function exportNpc(index: number, npc: NpcAppearanceTask): ExportResult {
     }
     const file = gzipSync(encodeNpcModel(model), { level: 6 });
     fs.writeFileSync(path.join(data.npcDir, path.basename(npc.file)), file);
-    return { type: "npc", index, bytes: file.length, hasWalk: model.walk !== undefined };
+    return { type: "npc", index, bytes: file.length, hasWalk: model.walk !== undefined, attacks: model.attacks?.length ?? 0 };
 }
 
 port.on("message", (task: ExportTask) => {

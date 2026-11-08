@@ -30,6 +30,18 @@ export function advanceClip(
     return playback.frame !== start;
 }
 
+/** The frame shown `cycles` client cycles into a clip played once (the last frame afterwards). */
+export function frameAtCycle(clip: Pick<NpcClip, "frameLengths">, cycles: number): number {
+    let end = 0;
+    for (let f = 0; f < clip.frameLengths.length; f++) {
+        end += clip.frameLengths[f];
+        if (cycles < end) {
+            return f;
+        }
+    }
+    return clip.frameLengths.length - 1;
+}
+
 /**
  * Copies the positions of `frame` into a mesh's position attribute (x, y, z, info per vertex),
  * leaving the info component alone.

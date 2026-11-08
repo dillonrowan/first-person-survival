@@ -1,9 +1,10 @@
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 
+import { tuning } from "../combat/tuning";
 import type { NpcManifest, NpcModelData } from "../world/NpcFormat";
 import { CollisionFlag, RegionListener } from "../world/WorldFormat";
-import { Occupancy } from "./Npc";
+import { Npc, Occupancy } from "./Npc";
 import { Npcs } from "./Npcs";
 
 const APPEARANCE = {
@@ -334,5 +335,294 @@ describe("Occupancy", () => {
 
         occupancy.remove(0, 10, 10, 2);
         expect(occupancy.size).toBe(0);
+    });
+});
+
+describe("NPC combat", () => {
+    async function oneNpc(flags?: (x: number, y: number) => number) {
+        const world = fakeWorld(flags);
+        const attackable = { ...manifest, appearances: [{ ...APPEARANCE, actions: ["Talk-to", "Attack"] }] };
+        const npcs = new Npcs(attackable, world, new THREE.Scene(), materials, async () => modelData(), () => 0.5);
+        world.load(50, 50);
+        await flush();
+        return { npcs, npc: npcs.all()[0] };
+    }
+
+    it("is attackable only with an Attack option and gets health from its combat level", async () => {
+        const { npc } = await oneNpc();
+        expect(npc.attackable).toBe(true);
+        expect(npc.combatant.maxHealth).toBeGreaterThan(0);
+    });
+
+    it("is knocked back, never into a wall, and settles on a free tile once it loses the player", async () => {
+        // A wall two tiles north of the spawn (3222, 3218).
+        const { npcs, npc } = await oneNpc((x, y) => (y === 3220 ? CollisionFlag.OBJECT : 0));
+        npc.combatant.hurt(1, "stagger");
+        npc.takeHit(0, 1, 8, 3222.5, 3217);
+        for (let i = 0; i < 200; i++) {
+            npcs.update(0.02);
+            expect(npc.body.y).toBeLessThanOrEqual(3220 - npc.body.radius + 1e-3);
+        }
+        expect(npc.knockback).toBeUndefined();
+        // No player to fight: after TimeUntilNPCLoosePlayer it gives up and returns to the grid.
+        expect(npc.inCombat).toBe(false);
+        expect(npc.tileY).toBe(3219);
+        expect(npcs.occupiedTileCount).toBe(1);
+    });
+
+    it("dies into a ragdoll that lies on the floor, then is removed after corpseTime", async () => {
+        const { npcs, npc } = await oneNpc();
+        npc.combatant.hurt(1e6, "knockdown");
+        const found: unknown[] = [];
+        npcs.collectBodies(0, 3200, 3200, 3260, 3260, found as never[]);
+        expect(found).toHaveLength(0);
+        for (let i = 0; i < 150; i++) {
+            npcs.update(0.02);
+        }
+        expect(npc.ragdoll).toBeDefined();
+        expect(npc.gone).toBe(false);
+        expect(npcs.occupiedTileCount).toBe(0);
+        // No drawn vertex is below the floor (height 0): RS units are +y down.
+        const mesh = npc.group.children[0] as THREE.Mesh;
+        const positions = mesh.geometry.getAttribute("a_position").array as Int16Array;
+        for (let i = 0; i < positions.length; i += 4) {
+            expect(npc.group.position.y - positions[i + 1] / 128).toBeGreaterThanOrEqual(-0.01);
+        }
+        for (let t = 0; t < tuning.corpseTime; t += 0.5) {
+            npcs.update(0.5);
+        }
+        expect(npc.gone).toBe(true);
+        expect(npc.group.visible).toBe(false);
+    });
+
+    it("gets up from a knockdown ragdoll and returns to its animation", async () => {
+        const { npcs, npc } = await oneNpc();
+        npc.combatant.hurt(1, "knockdown");
+        npcs.update(0.02);
+        expect(npc.ragdoll).toBeDefined();
+        for (let t = 0; t < tuning.knockdownDuration + tuning.standUpBack + tuning.standUpFront; t += 0.02) {
+            npcs.update(0.02);
+        }
+        expect(npc.ragdoll).toBeUndefined();
+        expect(npc.combatant.reaction).toBe("none");
+    });
+});
+
+describe("bodies knocking NPCs over (spec 20.7)", () => {
+    /** A standing box 0.6 × 1.5 × 0.3 tiles (RS units: +y down), idle and walk holding still. */
+    function boxModel(): NpcModelData {
+        const corners: number[] = [];
+        for (const z of [-19, 19]) {
+            for (const y of [0, -192]) {
+                for (const x of [-38, 38]) {
+                    corners.push(x, y, z);
+                }
+            }
+        }
+        const clip = () => ({ frameLengths: Uint16Array.from([2, 2]), frameStep: -1, positions: Int16Array.from([...corners, ...corners]) });
+        const faces = [0, 1, 3, 0, 3, 2, 4, 6, 7, 4, 7, 5, 0, 4, 5, 0, 5, 1, 2, 3, 7, 2, 7, 6, 0, 2, 6, 0, 6, 4, 1, 5, 7, 1, 7, 3];
+        return {
+            vertexCount: 8,
+            bounds: Float32Array.from([0, 0.75, 0, 0.9]),
+            opaque: {
+                positions: Int16Array.from(Array.from({ length: 8 }, (_, v) => [corners[v * 3], corners[v * 3 + 1], corners[v * 3 + 2], 0]).flat()),
+                colors: new Uint8Array(32).fill(255),
+                uvs: new Int16Array(16),
+                sources: Uint16Array.from({ length: 8 }, (_, v) => v),
+                indices: Uint32Array.from(faces),
+            },
+            transparent: {
+                positions: new Int16Array(0),
+                colors: new Uint8Array(0),
+                uvs: new Int16Array(0),
+                sources: new Uint16Array(0),
+                indices: new Uint32Array(0),
+            },
+            idle: clip(),
+            walk: clip(),
+        };
+    }
+
+    /** Two attackable box NPCs side by side, one tile apart along x; returns the west one first. */
+    async function twoNpcs() {
+        const world = fakeWorld();
+        const pair: NpcManifest = {
+            ...manifest,
+            appearances: [{ ...APPEARANCE, actions: ["Attack"] }],
+            spawns: [
+                { appearance: 0, x: 3222, y: 3218, plane: 0, orientation: 0 },
+                { appearance: 0, x: 3223, y: 3218, plane: 0, orientation: 0 },
+            ],
+        };
+        const npcs = new Npcs(pair, world, new THREE.Scene(), materials, async () => boxModel(), () => 0.5);
+        world.load(50, 50);
+        await flush();
+        const [west, east] = npcs.all().sort((a, b) => a.body.x - b.body.x);
+        return { npcs, west, east };
+    }
+
+    /**
+     * Kills the west NPC and throws its body east at `speed` tiles/s, a little upwards so it flies
+     * instead of tripping over its feet; returns once the east one is down (or after 2 s).
+     */
+    function fling(npcs: Npcs, west: Npc, east: Npc, speed: number): boolean {
+        west.combatant.hurt(1e6, "knockdown");
+        npcs.update(0.02);
+        west.ragdoll!.addVelocity(speed, 2, 0);
+        for (let t = 0; t < 2; t += 0.02) {
+            npcs.update(0.02);
+            if (east.combatant.knockedDown) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    it("knocks over the NPC a flying body hits, which falls onto its own ragdoll and gets up again", async () => {
+        const { npcs, west, east } = await twoNpcs();
+        const health = east.combatant.health;
+        expect(fling(npcs, west, east, 5)).toBe(true);
+        npcs.update(0.02);
+        expect(east.ragdoll).toBeDefined();
+        // Under 300 u/s: no damage, and it is not defeated.
+        expect(east.combatant.health).toBe(health);
+        for (let t = 0; t < tuning.knockdownPhysics + tuning.standUpBack + tuning.standUpFront + 0.5; t += 0.02) {
+            npcs.update(0.02);
+        }
+        expect(east.ragdoll).toBeUndefined();
+        expect(east.combatant.dead).toBe(false);
+        expect(east.combatant.reaction).toBe("none");
+    });
+
+    it("never kills: a fast body leaves even a nearly dead NPC standing up again", async () => {
+        const { npcs, west, east } = await twoNpcs();
+        east.combatant.health = 1;
+        expect(fling(npcs, west, east, 10)).toBe(true);
+        expect(east.combatant.health).toBe(1);
+        expect(east.combatant.dead).toBe(false);
+    });
+
+    it("hurts with a fast corpse: only kicked bodies are harmless", async () => {
+        const { npcs, west, east } = await twoNpcs();
+        const health = east.combatant.health;
+        expect(fling(npcs, west, east, 10)).toBe(true);
+        expect(east.combatant.health).toBeLessThan(health);
+        expect(east.kickedDown).toBe(false);
+    });
+
+    it("knocks over, unhurt, the NPC a kicked NPC flies into; both get up again", async () => {
+        const { npcs, west, east } = await twoNpcs();
+        const health = [west.combatant.health, east.combatant.health];
+        // Kicked from the west, towards the east NPC (random 0.5 never dodges).
+        expect(west.kick(1, 0, west.body.x - 1.5, west.body.y)).toBe("hit");
+        let hit = false;
+        for (let t = 0; t < 2 && !hit; t += 0.02) {
+            npcs.update(0.02);
+            hit = east.combatant.knockedDown;
+        }
+        expect(hit).toBe(true);
+        npcs.update(0.02);
+        expect(east.ragdoll).toBeDefined();
+        // Passed on: the east NPC's body would knock others over harmlessly too.
+        expect(east.kickedDown).toBe(true);
+        expect([west.combatant.health, east.combatant.health]).toEqual(health);
+        for (let t = 0; t < tuning.knockdownPhysics + tuning.standUpBack + tuning.standUpFront + 0.5; t += 0.02) {
+            npcs.update(0.02);
+        }
+        for (const npc of [west, east]) {
+            expect(npc.ragdoll).toBeUndefined();
+            expect(npc.combatant.dead).toBe(false);
+            expect(npc.kickedDown).toBe(false);
+        }
+        expect([west.combatant.health, east.combatant.health]).toEqual(health);
+    });
+});
+
+describe("NPC combat movement and kicks", () => {
+    async function oneNpc(flags?: (x: number, y: number) => number) {
+        const world = fakeWorld(flags);
+        const attackable = { ...manifest, appearances: [{ ...APPEARANCE, actions: ["Attack"] }] };
+        let seed = 1;
+        const random = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+        const npcs = new Npcs(attackable, world, new THREE.Scene(), materials, async () => modelData(), random);
+        world.load(50, 50);
+        await flush();
+        return { npcs, npc: npcs.all()[0] };
+    }
+    const playerAt = (x: number, y: number) => ({ x, y, z: 0, radius: 0.3, height: 1.4, plane: 0, owner: null });
+
+    it("runs in from afar, then holds its distance with short steps instead of walking into the player", async () => {
+        const { npcs, npc } = await oneNpc();
+        const player = playerAt(3222.5, 3230.5); // 12 tiles north
+        npc.takeHit(0, 1, 0, player.x, player.y);
+        let maxSpeed = 0;
+        for (let i = 0; i < 100; i++) {
+            npcs.update(0.02, player, Math.PI / 2); // the player looks west, not at it
+            maxSpeed = Math.max(maxSpeed, npc.moveSpeed);
+        }
+        expect(maxSpeed).toBeGreaterThan(3); // running: 165 u/s, about 3.4 tiles/s
+        for (let i = 0; i < 600; i++) {
+            npcs.update(0.02, player, Math.PI / 2);
+            const d = Math.hypot(npc.body.x - player.x, npc.body.y - player.y);
+            expect(d).toBeGreaterThanOrEqual(npc.body.radius + player.radius - 1e-3);
+        }
+        const d = Math.hypot(npc.body.x - player.x, npc.body.y - player.y);
+        expect(d).toBeLessThan(3.2); // inside the Yellow zone, plus hysteresis
+        expect(npc.inCombat).toBe(true);
+    });
+
+    it("is knocked down onto its ragdoll by a kick, unhurt, sent about as far as its long hit, and gets up", async () => {
+        const { npcs, npc } = await oneNpc();
+        npc.faceTowards(3222.5, 3240); // facing away from the kicker (south): cannot dodge
+        npc.rotation = npc.orientation;
+        const health = npc.combatant.health;
+        const y0 = npc.body.y;
+        expect(npc.kick(0, 1, 3222.5, y0 - 1.5)).toBe("hit");
+        expect(npc.combatant.knockedDown).toBe(true);
+        npcs.update(0.02);
+        expect(npc.ragdoll).toBeDefined();
+        for (let i = 0; i < 100; i++) {
+            npcs.update(0.02);
+        }
+        expect(npc.combatant.health).toBe(health);
+        expect(npc.body.y - y0).toBeGreaterThan(1.1); // long hit from behind: 64 u, about 1.3 tiles
+        expect(npc.body.y - y0).toBeLessThan(2.4);
+        for (let t = 0; t < tuning.knockdownKick + tuning.standUpBack + tuning.standUpFront; t += 0.02) {
+            npcs.update(0.02);
+        }
+        expect(npc.ragdoll).toBeUndefined();
+        expect(npc.combatant.dead).toBe(false);
+        expect(npc.kickedDown).toBe(false);
+    });
+
+    it("dodges kicks more often with every kick", async () => {
+        const { npc } = await oneNpc();
+
+        // Facing the kicker, repeated kicks are dodged sooner or later (chance 0.2, 0.5, 0.8, 1).
+        let dodged = false;
+        for (let i = 0; i < 4 && !dodged; i++) {
+            npc.faceTowards(npc.body.x, npc.body.y - 2);
+            npc.rotation = npc.orientation;
+            npc.combatant.reset();
+            dodged = npc.kick(0, 1, npc.body.x, npc.body.y - 1.5) === "dodged";
+        }
+        expect(dodged).toBe(true);
+    });
+
+    it("is stopped by a wall when a kick sends it into one, unhurt", async () => {
+        // A blocked row one tile north of the spawn tile (3222, 3218).
+        const { npcs, npc } = await oneNpc((_x, y) => (y === 3219 ? CollisionFlag.OBJECT : 0));
+        npc.faceTowards(3222.5, 3240); // facing away: cannot dodge
+        npc.rotation = npc.orientation;
+        const health = npc.combatant.health;
+        npc.kick(0, 1, 3222.5, npc.body.y - 1.5);
+        let furthest = -Infinity;
+        for (let i = 0; i < 75; i++) {
+            npcs.update(0.02);
+            expect(npc.combatant.knockedDown).toBe(true);
+            furthest = Math.max(furthest, npc.body.y);
+        }
+        expect(npc.combatant.health).toBe(health);
+        expect(furthest).toBeLessThan(3219);
     });
 });

@@ -1,6 +1,8 @@
-import { NpcClip, NpcMeshData, NpcModelData } from "../../src/world/NpcFormat";
+import { NpcAttackClip, NpcClip, NpcMeshData, NpcModelData } from "../../src/world/NpcFormat";
 import { RS_UNITS_PER_TILE } from "../../src/world/WorldFormat";
 import { FaceColors } from "./FaceColors";
+import { ChosenAttack, PLAYER_FRAME_BASE, holdsWeapon } from "./NpcAttackAnims";
+import { FrameBase, buildSkeleton } from "./NpcSkeleton";
 import { quantizeUv } from "./MeshBuilder";
 import { NpcAppearanceTask } from "./NpcSpawns";
 import { NpcType } from "./rs/config/npctype/NpcType";
@@ -15,6 +17,8 @@ const PRIORITY_NPC = 1;
 export type NpcModelSource = {
     /** A lit model of the NPC, animated to `frame` of `seqId` (-1 for the base pose). */
     getModel(type: NpcType, seqId: number, frame: number): Model | undefined;
+    /** The frame base (labelled transform groups) of an animation, for the ragdoll skeleton. */
+    getFrameBase?(seqId: number): (FrameBase & { id?: number }) | undefined;
 };
 
 class NpcMeshBuilder {
@@ -76,7 +80,12 @@ class NpcMeshBuilder {
     }
 }
 
-/** Bakes an NPC appearance (lit mesh plus idle and walk frames) into an NpcModelData. */
+/** Picks an NPC's attack sequences (see NpcAttackAnims). */
+export type NpcAttackSource = {
+    choose(idleSeqId: number, frameBase: number, armed: boolean): ChosenAttack[];
+};
+
+/** Bakes an NPC appearance (lit mesh plus idle, walk and attack frames) into an NpcModelData. */
 export class NpcModelBuilder {
     private warnedClamp = false;
 
@@ -86,6 +95,7 @@ export class NpcModelBuilder {
         private readonly seqTypeLoader: Pick<SeqTypeLoader, "load">,
         private readonly colors: FaceColors,
         private readonly textureLoader: Pick<TextureLoader, "isTransparent">,
+        private readonly attackSource?: NpcAttackSource,
     ) {}
 
     build(task: NpcAppearanceTask): NpcModelData | undefined {
@@ -106,14 +116,55 @@ export class NpcModelBuilder {
         const walk =
             task.walkSeqId !== -1 ? this.bakeClip(display, base, task.walkSeqId) : undefined;
 
+        // The walk usually moves more limbs than the idle, so its frame base splits more parts.
+        const frameBase =
+            (task.walkSeqId !== -1 ? this.models.getFrameBase?.(task.walkSeqId) : undefined) ??
+            this.models.getFrameBase?.(task.idleSeqId);
+        const skeleton = buildSkeleton(
+            base.vertexLabels,
+            base.verticesX,
+            base.verticesY,
+            base.verticesZ,
+            base.verticesCount,
+            frameBase,
+        );
+
+        const attacks = this.bakeAttacks(display, base, task.idleSeqId, skeleton);
+
         return {
             vertexCount: base.verticesCount,
-            bounds: computeBounds(base, [idle, walk]),
+            bounds: computeBounds(base, [idle, walk, ...(attacks ?? [])]),
             opaque: opaque.build(),
             transparent: transparent.build(),
             idle,
             walk,
+            skeleton,
+            attacks,
         };
+    }
+
+    /** The NPC's melee attacks from the cache, each with the moment its blow lands. */
+    private bakeAttacks(
+        display: NpcType,
+        base: Model,
+        idleSeqId: number,
+        skeleton: NpcModelData["skeleton"],
+    ): NpcAttackClip[] | undefined {
+        const frameBase = this.attackSource && this.models.getFrameBase?.(idleSeqId)?.id;
+        if (frameBase === undefined) {
+            return undefined;
+        }
+        const armed =
+            frameBase === PLAYER_FRAME_BASE &&
+            holdsWeapon(base.verticesCount, base.verticesX, base.verticesY, base.verticesZ, skeleton);
+        const attacks: NpcAttackClip[] = [];
+        for (const { seqId, shove } of this.attackSource!.choose(idleSeqId, frameBase, armed)) {
+            const clip = this.bakeClip(display, base, seqId);
+            if (clip) {
+                attacks.push({ ...clip, hitCycle: impactCycle(clip, base), shove });
+            }
+        }
+        return attacks.length > 0 ? attacks : undefined;
     }
 
     // Same face rules as RegionBuilder.addModel.
@@ -204,6 +255,34 @@ export class NpcModelBuilder {
         }
         return value;
     }
+}
+
+/**
+ * Client cycle of an attack's impact: the middle of the frame where the upper body reaches
+ * furthest forward (RS models face -z, +y is down).
+ */
+export function impactCycle(clip: NpcClip, base: Pick<Model, "verticesCount" | "verticesY">): number {
+    const count = base.verticesCount;
+    let top = 0;
+    for (let v = 0; v < count; v++) {
+        top = Math.max(top, -base.verticesY[v]);
+    }
+    let best = -Infinity;
+    let bestFrame = 0;
+    for (let f = 0; f < clip.frameLengths.length; f++) {
+        for (let v = 0; v < count; v++) {
+            const i = (f * count + v) * 3;
+            if (-clip.positions[i + 1] > top * 0.3 && -clip.positions[i + 2] > best) {
+                best = -clip.positions[i + 2];
+                bestFrame = f;
+            }
+        }
+    }
+    let cycle = 0;
+    for (let f = 0; f < bestFrame; f++) {
+        cycle += clip.frameLengths[f];
+    }
+    return cycle + Math.ceil(clip.frameLengths[bestFrame] / 2);
 }
 
 function computeBounds(base: Model, clips: (NpcClip | undefined)[]): Float32Array {

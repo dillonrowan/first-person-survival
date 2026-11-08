@@ -9,14 +9,18 @@
         "preview": "vite preview",
         "test": "vitest run",
         "test:watch": "vitest",
+        "test:e2e": "playwright test",
+        "test:e2e:headed": "playwright test --headed",
         "typecheck": "tsc --noEmit && tsc --noEmit -p tools/world-export",
         "download-cache": "node scripts/download-cache.mjs",
-        "export-world": "tsx --tsconfig tools/world-export/tsconfig.json tools/world-export/export-world.ts"
+        "export-world": "node --max-old-space-size=16384 --import tsx tools/world-export/export-world.ts"
     },
     "dependencies": {
         "three": "^0.187.0"
     },
     "devDependencies": {
+        "@argos-ci/playwright": "^7.8.0",
+        "@playwright/test": "^1.57.0",
         "@types/node": "^26.6.6",
         "@types/three": "^0.187.0",
         "bzip2": "^0.1.1",

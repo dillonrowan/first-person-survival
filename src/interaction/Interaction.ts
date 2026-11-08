@@ -131,6 +131,12 @@ export class Interaction {
         }
     }
 
+    /** Shows a prompt of the caller's own (e.g. while carrying something) instead of a target's. */
+    showPrompt(text: string): void {
+        this.target = undefined;
+        this.setPrompt(text);
+    }
+
     /** Tells the player something, e.g. "Something is in the way." */
     say(text: string): void {
         this.ui.showMessage(text);
