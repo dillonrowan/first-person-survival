@@ -10,12 +10,12 @@ import { MOVE_SETS, Ray } from "./moves";
 import { tuning } from "./tuning";
 import { WEAPONS, weaponById } from "./weapons";
 
-const target = (x: number, y: number, radius = 0.35): Body<string> => ({
+const target = (x: number, y: number, radius = 0.35, height = 1.7): Body<string> => ({
     x,
     y,
     z: 0,
     radius,
-    height: 1.7,
+    height,
     plane: 0,
     owner: `npc@${x},${y}`,
 });
@@ -63,6 +63,11 @@ describe("attack ray (spec 17.2)", () => {
         const seen = new Set<Body<string>>();
         expect(traceRay(attacker, sword.reach, flat, 1, 0, 1, source([b]), noWalls, seen)).toHaveLength(1);
         expect(traceRay(attacker, sword.reach, flat, 1, 0, 1, source([b]), noWalls, seen)).toHaveLength(0);
+    });
+
+    it("allows limited downward aim for a low giant spider", () => {
+        const spider = target(100.5, 102, 0.35, 0.5);
+        expect(traceRay(attacker, sword.reach, flat, 1, 0, 1, source([spider]), noWalls, new Set())).toHaveLength(1);
     });
 
     it("misses targets out of reach or behind", () => {
@@ -161,6 +166,46 @@ describe("which way a hit drives its target", () => {
         expect(pushes).toHaveLength(2);
         expect(pushes[0]).toBeGreaterThan(0.6);
         expect(pushes[1]).toBeLessThan(-0.6);
+    });
+
+    it("lets the player attack a low giant spider with the longsword", () => {
+        let hits = 0;
+        const spider: CombatTarget = {
+            combatant: new Combatant(100),
+            attackable: true,
+            inCombat: true,
+            takeHit: () => hits++,
+            kick: () => "hit",
+        };
+        const body: Body<CombatTarget> = {
+            x: 100.5,
+            y: 101.3,
+            z: 0,
+            radius: 0.35,
+            height: 0.5,
+            plane: 0,
+            owner: spider,
+        };
+        const combat = new PlayerCombat({ collectBodies: (_p, _a, _b, _c, _d, out) => out.push(body) }, noWalls, () => 0.99);
+        combat.weaponIndex = WEAPONS.findIndex((weapon) => weapon.id === "sword");
+        let reports = 0;
+        combat.onHit = () => reports++;
+        const player = {
+            ...attacker,
+            z: 0,
+            eyeHeight: 1.25,
+            sprinting: false,
+            grounded: true,
+            verticalSpeed: 0,
+            stamina: { value: 10, spend: () => true },
+            applyImpulse: () => {},
+        };
+        for (let t = 0; t < 0.8; t += 0.01) {
+            combat.update(0.01, player, { attackDown: t < 0.03, forward: 0, strafe: 0 });
+        }
+        expect(hits).toBeGreaterThan(0);
+        expect(reports).toBeGreaterThan(0);
+        expect(spider.combatant.health).toBeLessThan(100);
     });
 });
 

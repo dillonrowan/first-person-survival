@@ -37,6 +37,9 @@ export const tuning = {
     // --- 4 / 17.2 Hit detection: the attack ray's 90° fan (see SwingRay) ---
     /** Width of the cone in which a knocked-down target counts as aimed at, for trample. [design] */
     sideArc: (60 * Math.PI) / 180,
+    /** Short melee targets get limited downward aim assistance. */
+    meleeAimRetries: 3,
+    meleeAimDrop: 0.18,
 
     // --- 5 Damage ---
     /** Scales WDmg × HitPow into health points. [design] */

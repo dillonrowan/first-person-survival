@@ -135,46 +135,50 @@ export function traceRay<T>(
         }
         const t = from + ((to - from) * i) / samples;
         const d = viewToWorld(rayDirection(ray, sign, t), attacker.yaw, attacker.pitch);
-        const x1 = attacker.x + d.x * reach;
-        const y1 = attacker.y + d.y * reach;
-        const z1 = attacker.eyeZ + d.z * reach;
-        let best: { t: number; body: Body<T>; z: number } | undefined;
-        for (const b of found) {
-            if (alreadyHit.has(b)) {
+        for (let attempt = 0; attempt <= tuning.meleeAimRetries; attempt++) {
+            const originZ = attacker.eyeZ - attempt * tuning.meleeAimDrop;
+            const x1 = attacker.x + d.x * reach;
+            const y1 = attacker.y + d.y * reach;
+            const z1 = originZ + d.z * reach - attempt * 0.36;
+            let best: { t: number; body: Body<T>; z: number } | undefined;
+            for (const b of found) {
+                if (alreadyHit.has(b)) {
+                    continue;
+                }
+                const s = segmentCircle(attacker.x, attacker.y, x1, y1, b.x, b.y, b.radius);
+                if (s === undefined || (best && s >= best.t)) {
+                    continue;
+                }
+                const z = originZ + (z1 - originZ) * s;
+                if (z >= b.z && z <= b.z + b.height) {
+                    best = { t: s, body: b, z };
+                }
+            }
+            if (!best) {
                 continue;
             }
-            const s = segmentCircle(attacker.x, attacker.y, x1, y1, b.x, b.y, b.radius);
-            if (s === undefined || (best && s >= best.t)) {
+            boxes.length = 0;
+            collectTileBoxes(flagsAt, attacker.plane, Math.min(attacker.x, x1), Math.min(attacker.y, y1), Math.max(attacker.x, x1), Math.max(attacker.y, y1), boxes, "walls");
+            const wall = segmentHitsBoxes2D(attacker.x, attacker.y, x1, y1, boxes);
+            if (wall !== undefined && wall < best.t) {
                 continue;
             }
-            const z = attacker.eyeZ + (z1 - attacker.eyeZ) * s;
-            if (z >= b.z && z <= b.z + b.height) {
-                best = { t: s, body: b, z };
-            }
+            alreadyHit.add(best.body);
+            const dx = best.body.x - attacker.x;
+            const dy = best.body.y - attacker.y;
+            const dist = Math.hypot(dx, dy);
+            const swing = sweepDirection(ray, sign, t, attacker.yaw, attacker.pitch);
+            hits.push({
+                body: best.body,
+                dirX: dist > 1e-6 ? dx / dist : d.x,
+                dirY: dist > 1e-6 ? dy / dist : d.y,
+                distance: dist,
+                height: best.body.height > 0 ? (best.z - best.body.z) / best.body.height : 0.5,
+                swingX: swing?.x,
+                swingY: swing?.y,
+            });
+            break;
         }
-        if (!best) {
-            continue;
-        }
-        boxes.length = 0;
-        collectTileBoxes(flagsAt, attacker.plane, Math.min(attacker.x, x1), Math.min(attacker.y, y1), Math.max(attacker.x, x1), Math.max(attacker.y, y1), boxes, "walls");
-        const wall = segmentHitsBoxes2D(attacker.x, attacker.y, x1, y1, boxes);
-        if (wall !== undefined && wall < best.t) {
-            continue;
-        }
-        alreadyHit.add(best.body);
-        const dx = best.body.x - attacker.x;
-        const dy = best.body.y - attacker.y;
-        const dist = Math.hypot(dx, dy);
-        const swing = sweepDirection(ray, sign, t, attacker.yaw, attacker.pitch);
-        hits.push({
-            body: best.body,
-            dirX: dist > 1e-6 ? dx / dist : d.x,
-            dirY: dist > 1e-6 ? dy / dist : d.y,
-            distance: dist,
-            height: best.body.height > 0 ? (best.z - best.body.z) / best.body.height : 0.5,
-            swingX: swing?.x,
-            swingY: swing?.y,
-        });
     }
     return hits;
 }
