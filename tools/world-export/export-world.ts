@@ -192,16 +192,22 @@ async function runWorkerPool(
     onResult: (result: ExportResult) => void,
 ): Promise<void> {
     const queue = [...tasks];
-    const runWorker = () =>
+    const runWorker = (taskLimit: number) =>
         new Promise<void>((resolve, reject) => {
             const worker = new Worker(new URL("./export-worker.ts", import.meta.url), {
                 workerData,
+                resourceLimits: {
+                    maxOldGenerationSizeMb: 8192,
+                    maxYoungGenerationSizeMb: 2048,
+                },
             });
+            let assigned = 0;
             const next = () => {
                 const task = queue.shift();
                 if (task) {
+                    assigned++;
                     worker.postMessage(task);
-                } else {
+                } else if (assigned >= taskLimit || queue.length === 0) {
                     worker.terminate().then(() => resolve(), reject);
                 }
             };
@@ -209,12 +215,23 @@ async function runWorkerPool(
                 if (result.type !== "ready") {
                     onResult(result);
                 }
-                next();
+                if (assigned >= taskLimit || queue.length === 0) {
+                    worker.terminate().then(() => resolve(), reject);
+                } else {
+                    next();
+                }
             });
             worker.on("error", reject);
         });
 
-    await Promise.all(Array.from({ length: Math.min(workerCount, tasks.length) }, runWorker));
+    while (queue.length > 0) {
+        await Promise.all(
+            Array.from(
+                { length: Math.min(workerCount, queue.length) },
+                () => runWorker(10),
+            ),
+        );
+    }
 }
 
 function createProgressLogger(total: number, label: string) {

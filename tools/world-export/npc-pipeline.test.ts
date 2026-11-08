@@ -1,6 +1,7 @@
-// End-to-end checks of the NPC pipeline against real data. The committed spawn list is always
-// tested; the cache and exported-world sections are skipped when `cache/` or `public/world/` do
-// not exist (as in CI), and run after `npm run download-cache` / `npm run export-world`.
+// End-to-end checks of the NPC pipeline against real data. The committed spawn list and cache
+// sections always run. The exported-world section is skipped when `public/world/` is unavailable,
+// and run after `npm run download-cache` /
+// `npm run export-world`.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -28,7 +29,6 @@ const CACHE_DIR = path.join(ROOT, "cache");
 const WORLD_DIR = path.join(ROOT, "public", "world");
 const SPAWN_FILE = path.join(ROOT, "tools", "world-export", "data", "npc-spawns-osrs.json");
 
-const hasCache = fs.existsSync(path.join(CACHE_DIR, "info.json"));
 const hasWorld = fs.existsSync(path.join(WORLD_DIR, "npcs.json"));
 
 describe("committed NPC spawn list", () => {
@@ -51,7 +51,7 @@ describe("committed NPC spawn list", () => {
     });
 });
 
-describe.skipIf(!hasCache)("NPCs from the downloaded cache", () => {
+describe("NPCs from the downloaded cache", () => {
     let loaders: ReturnType<typeof createWorldLoaders>;
     let builder: NpcModelBuilder;
     let lumbridge: NpcSelection;

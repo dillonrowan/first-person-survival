@@ -15,6 +15,38 @@ export type DownloadedCacheInfo = {
 
 export type LoadedCache = CacheFiles & { download: DownloadedCacheInfo };
 
+function isGitLfsPointer(file: string): boolean {
+    if (!fs.existsSync(file)) {
+        return false;
+    }
+    const sample = fs.readFileSync(file);
+    return sample.subarray(0, 200).toString("utf8")
+        .startsWith("version https://git-lfs.github.com/spec/v1");
+}
+
+export function isCacheAvailable(cacheDir: string): boolean {
+    const infoFile = path.join(cacheDir, "info.json");
+    const datFile = path.join(cacheDir, "main_file_cache.dat2");
+    if (!fs.existsSync(infoFile) || !fs.existsSync(datFile)
+        || isGitLfsPointer(infoFile) || isGitLfsPointer(datFile)) {
+        return false;
+    }
+
+    try {
+        const download = JSON.parse(fs.readFileSync(infoFile, "utf8")) as DownloadedCacheInfo;
+        if (!Number.isInteger(download.revision)) {
+            return false;
+        }
+    } catch {
+        return false;
+    }
+
+    return REQUIRED_INDEX_FILES.every((id) => {
+        const indexFile = path.join(cacheDir, `main_file_cache.idx${id}`);
+        return fs.existsSync(indexFile) && !isGitLfsPointer(indexFile);
+    });
+}
+
 function readArrayBuffer(file: string): ArrayBuffer {
     const buf = fs.readFileSync(file);
     return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer;
@@ -26,8 +58,10 @@ function readArrayBuffer(file: string): ArrayBuffer {
  */
 export function readCacheFiles(cacheDir: string): LoadedCache {
     const infoFile = path.join(cacheDir, "info.json");
-    if (!fs.existsSync(infoFile)) {
-        throw new Error(`No cache found in ${cacheDir}. Run "npm run download-cache" first.`);
+    if (!isCacheAvailable(cacheDir)) {
+        throw new Error(
+            `No complete cache found in ${cacheDir}. Run "npm run download-cache" or install and fetch Git LFS.`,
+        );
     }
     const download: DownloadedCacheInfo = JSON.parse(fs.readFileSync(infoFile, "utf8"));
 
@@ -47,7 +81,7 @@ export function readCacheFiles(cacheDir: string): LoadedCache {
 
     const xteas = new Map<number, number[]>();
     const keysFile = path.join(cacheDir, "keys.json");
-    if (fs.existsSync(keysFile)) {
+    if (fs.existsSync(keysFile) && !isGitLfsPointer(keysFile)) {
         for (const [group, key] of Object.entries(JSON.parse(fs.readFileSync(keysFile, "utf8")))) {
             xteas.set(Number(group), key as number[]);
         }

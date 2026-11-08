@@ -1,7 +1,6 @@
 // Builds Lumbridge's map square from the downloaded cache (in memory, nothing is written) and
-// checks the doors and ladders it finds. Skipped when `cache/` does not exist, as in CI.
+// checks the doors and ladders it finds.
 
-import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -13,9 +12,8 @@ import { createWorldLoaders } from "./WorldLoaders";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const CACHE_DIR = path.join(ROOT, "cache");
-const hasCache = fs.existsSync(path.join(CACHE_DIR, "info.json"));
 
-describe.skipIf(!hasCache)("Lumbridge doors and ladders from the cache", () => {
+describe("Lumbridge doors and ladders from the cache", () => {
     let region: RegionData;
 
     beforeAll(() => {
