@@ -4,12 +4,6 @@ dist/
 /test-results/
 /playwright-report/
 
-# Downloaded OSRS cache (npm run download-cache)
-/cache/
-
-# Generated world map (npm run export-world), ~1.5 GB
-/public/world/
-
 # Logs
 *.log
 npm-debug.log*
