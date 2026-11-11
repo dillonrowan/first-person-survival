@@ -22,7 +22,8 @@ function euler(px: number, py: number, pz: number, rx: number, ry: number, rz: n
 
 const KICK_ASIDE = euler(0.42, -0.45, -0.35, -0.6, -0.3, -0.6);
 const BOW_REST = euler(0.2, -0.35, -0.5, -0.3, 0.3, 0.4);
-const BOW_DRAWN = euler(0.02, -0.08, -0.55, 0, 0, 0.15);
+/** Canted clockwise about the grip, below the reticule, so the upper limb clears the aim point. */
+const BOW_DRAWN = euler(0.05, -0.08, -0.55, 0, 0, -0.4);
 
 /** Crossfade between animation layers, and the slower settle back to the idle pose. */
 const BLEND = 0.1;
