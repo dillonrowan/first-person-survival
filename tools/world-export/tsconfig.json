@@ -13,5 +13,5 @@
         "noFallthroughCasesInSwitch": true,
         "forceConsistentCasingInFileNames": true
     },
-    "include": [".", "../../src/world/WorldFormat.ts", "../../src/world/NpcFormat.ts"]
+    "include": [".", "../../src/world/WorldFormat.ts", "../../src/world/NpcFormat.ts", "../../src/world/CacheWeaponFormat.ts"]
 }

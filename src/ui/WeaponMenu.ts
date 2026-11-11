@@ -1,20 +1,14 @@
-export type CacheWeapon = {
-    id: string;
-    cacheId: number;
-    name: string;
-    family: "sword" | "daggers" | "staff" | "bow";
-    model: number;
-};
+import type { CacheWeaponInfo } from "../world/CacheWeaponFormat";
 
 export class WeaponMenu {
-    private weapons: CacheWeapon[] = [];
+    private weapons: CacheWeaponInfo[] = [];
     private selected = new Set<string>();
 
     constructor(
         private readonly element: HTMLElement,
         private readonly list: HTMLElement,
         private readonly status: HTMLElement,
-        private readonly onEquip: (weapon: CacheWeapon) => void,
+        private readonly onEquip: (weapon: CacheWeaponInfo) => void,
         private readonly onClose: () => void,
         private readonly initialId?: string,
     ) {
@@ -27,6 +21,10 @@ export class WeaponMenu {
         this.weapons = await response.json();
         if (this.initialId) this.selected.add(this.initialId);
         this.render("");
+    }
+
+    find(id: string): CacheWeaponInfo | undefined {
+        return this.weapons.find((weapon) => weapon.id === id);
     }
 
     open(): void {

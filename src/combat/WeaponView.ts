@@ -168,12 +168,12 @@ export class WeaponView {
     private swingCount = 0;
     /** The quick strike that last played, to pick the combo end layer. */
     private lastQuick = -1;
-    private readonly cacheLoading = new Set<string>();
-
     constructor(
         private readonly camera: THREE.Camera,
         private readonly baseUrl: string,
         private readonly handSocket?: THREE.Object3D,
+        /** The model of a weapon exported from the cache, undefined for other weapons. */
+        private readonly loadCacheModel?: (weaponId: string) => Promise<THREE.Object3D> | undefined,
     ) {
         this.holder.rotation.order = "YXZ";
         camera.add(this.holder);
@@ -186,66 +186,24 @@ export class WeaponView {
         if (!model) {
             model = createPlaceholderWeapon(weapon);
             this.models.set(weapon.id, model);
-            this.tryLoadGltf(weapon);
-            this.tryLoadCacheGeometry(weapon);
+            const cacheModel = this.loadCacheModel?.(weapon.id);
+            if (cacheModel) {
+                cacheModel
+                    .then((loaded) => this.replaceModel(weapon.id, loaded))
+                    .catch((e) => console.warn(`Cache weapon ${weapon.id} could not be loaded`, e));
+            } else {
+                this.tryLoadGltf(weapon);
+            }
         }
         return model;
     }
 
-    private tryLoadCacheGeometry(weapon: WeaponDef): void {
-        if (!weapon.id.startsWith("cache-") || this.cacheLoading.has(weapon.id)) return;
-        this.cacheLoading.add(weapon.id);
-        const cacheId = weapon.id.slice("cache-".length);
-        const url = `${this.baseUrl}world/cache-weapons/${cacheId}.json`;
-        void (async () => {
-            const response = await fetch(url);
-            if (!response.ok) return;
-            const data = await response.json() as { positions: number[]; indices: number[] };
-            const positions = data.positions.map((value, index) =>
-                index % 3 === 1 ? value / 128 : index % 3 === 2 ? value / 128 : value / 128,
-            );
-            let minX = Infinity;
-            let minY = Infinity;
-            let minZ = Infinity;
-            let maxX = -Infinity;
-            let maxY = -Infinity;
-            let maxZ = -Infinity;
-            for (let i = 0; i < positions.length; i += 3) {
-                minX = Math.min(minX, positions[i]);
-                minY = Math.min(minY, positions[i + 1]);
-                minZ = Math.min(minZ, positions[i + 2]);
-                maxX = Math.max(maxX, positions[i]);
-                maxY = Math.max(maxY, positions[i + 1]);
-                maxZ = Math.max(maxZ, positions[i + 2]);
-            }
-            const scale = 0.8 / Math.max(maxX - minX, maxY - minY, maxZ - minZ, 1e-6);
-            const centerX = (minX + maxX) / 2;
-            const centerY = (minY + maxY) / 2;
-            const centerZ = (minZ + maxZ) / 2;
-            for (let i = 0; i < positions.length; i += 3) {
-                positions[i] = (positions[i] - centerX) * scale;
-                positions[i + 1] = (positions[i + 1] - centerY) * scale;
-                positions[i + 2] = (positions[i + 2] - centerZ) * scale;
-            }
-            const geometry = new THREE.BufferGeometry();
-            geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-            geometry.setIndex(data.indices);
-            geometry.computeVertexNormals();
-            const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({
-                color: 0xbcc4cc,
-                metalness: 0.35,
-                roughness: 0.55,
-                side: THREE.DoubleSide,
-            }));
-            mesh.name = "cache_weapon";
-            const group = new THREE.Group();
-            group.name = `weapon_${weapon.id}`;
-            group.add(mesh);
-            this.models.set(weapon.id, group);
-            if (this.currentId === weapon.id) {
-                this.attach(group);
-            }
-        })().catch((error) => console.warn(`Cache weapon model ${url} could not be loaded`, error));
+    /** Swaps a weapon's placeholder for its loaded model, on screen too if it is held. */
+    private replaceModel(id: string, model: THREE.Object3D): void {
+        const old = this.models.get(id);        this.models.set(id, model);
+        if (old && old === this.current) {
+            this.attach(model);
+        }
     }
 
     private tryLoadGltf(weapon: WeaponDef): void {
@@ -261,11 +219,7 @@ export class WeaponView {
                 return;
             }
             const gltf = await new GLTFLoader().parseAsync(await response.arrayBuffer(), "");
-            const old = this.models.get(weapon.id);
-            this.models.set(weapon.id, gltf.scene);
-            if (old && old === this.current) {
-                this.attach(gltf.scene);
-            }
+            this.replaceModel(weapon.id, gltf.scene);
         })().catch((e) => console.warn(`Weapon model ${url} could not be loaded`, e));
     }
 

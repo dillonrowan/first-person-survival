@@ -107,6 +107,19 @@ export const WEAPONS: readonly WeaponDef[] = [
     },
 ];
 
+/** The weapon each cache weapon family fights like. */
+const CACHE_TEMPLATES: Record<WeaponFamily, string> = {
+    sword: "sword",
+    daggers: "daggers",
+    staff: "staff",
+    bow: "bow",
+};
+
+/** A weapon exported from the cache: its name, with the moves and numbers of its family's weapon. */
+export function cacheWeaponDef(weapon: { id: string; name: string; family: WeaponFamily }): WeaponDef {
+    return { ...weaponById(CACHE_TEMPLATES[weapon.family]), id: weapon.id, name: weapon.name };
+}
+
 export function weaponById(id: string): WeaponDef {
     const weapon = WEAPONS.find((w) => w.id === id);
     if (!weapon) {

@@ -71,7 +71,9 @@ attack. The adrenaline bar decays gradually if it is not used.
 
 Use the mouse wheel to switch between available weapons.
 Press `I` to open the cache weapon menu and equip any listed weapon. The selected weapon remains active
-until another weapon is equipped or selected with the mouse wheel.
+until another weapon is equipped or selected with the mouse wheel. A weapon whose name contains
+"dagger" fights like the daggers, "staff" like the staff and "bow" like the bow; every other weapon
+fights like the sword.
 
 - Sword: balanced melee weapon.
 - Daggers: fast attacks and close-range stepping attacks.

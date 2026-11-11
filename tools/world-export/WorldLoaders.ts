@@ -11,6 +11,7 @@ import {
 } from "./rs/config/floortype/FloorTypeLoader";
 import { NpcModelLoader } from "./rs/config/npctype/NpcModelLoader";
 import { ArchiveNpcTypeLoader, NpcTypeLoader } from "./rs/config/npctype/NpcTypeLoader";
+import { ArchiveObjTypeLoader, ObjTypeLoader } from "./rs/config/objtype/ObjTypeLoader";
 import { ArchiveSeqTypeLoader, SeqTypeLoader } from "./rs/config/seqtype/SeqTypeLoader";
 import { LocModelLoader } from "./rs/config/loctype/LocModelLoader";
 import { ArchiveLocTypeLoader, LocTypeLoader } from "./rs/config/loctype/LocTypeLoader";
@@ -18,7 +19,7 @@ import { VarManager } from "./rs/config/vartype/VarManager";
 import { ArchiveVarBitTypeLoader } from "./rs/config/vartype/bit/VarBitTypeLoader";
 import { Dat2MapIndex, ModernMapFileIndex } from "./rs/map/MapFileIndex";
 import { MapFileLoader, ModernMapFileLoader } from "./rs/map/MapFileLoader";
-import { IndexModelLoader } from "./rs/model/ModelLoader";
+import { IndexModelLoader, ModelLoader } from "./rs/model/ModelLoader";
 import { IndexSeqBaseLoader } from "./rs/model/seq/SeqBaseLoader";
 import { Dat2SeqFrameLoader, SeqFrameLoader } from "./rs/model/seq/SeqFrameLoader";
 import { SceneBuilder } from "./rs/scene/SceneBuilder";
@@ -46,6 +47,8 @@ export type WorldLoaders = {
     seqTypeLoader: SeqTypeLoader;
     seqFrameLoader: SeqFrameLoader;
     npcModelLoader: NpcModelLoader;
+    objTypeLoader: ObjTypeLoader;
+    modelLoader: ModelLoader;
     overlayTypeLoader: OverlayFloorTypeLoader;
     varManager: VarManager;
     sceneBuilder: SceneBuilder;
@@ -69,7 +72,7 @@ export const REQUIRED_INDEX_FILES = [...REQUIRED_INDICES, 255];
 
 /**
  * Wires up the decoders for an OSRS (dat2) cache: map geometry plus NPCs and their frame
- * animations. Objs and skeletal animations are not decoded.
+ * animations, plus objs (items). Skeletal animations are not decoded.
  */
 export function createWorldLoaders(files: CacheFiles): WorldLoaders {
     const { info } = files;
@@ -183,6 +186,8 @@ export function createWorldLoaders(files: CacheFiles): WorldLoaders {
         seqTypeLoader,
         seqFrameLoader,
         npcModelLoader,
+        objTypeLoader: new ArchiveObjTypeLoader(info, configIndex.getArchive(ConfigType.DAT2.objs)),
+        modelLoader,
         overlayTypeLoader,
         varManager,
         sceneBuilder,
