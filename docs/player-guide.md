@@ -70,7 +70,8 @@ attack. The adrenaline bar decays gradually if it is not used.
 ## Weapons and Blocking
 
 Use the mouse wheel to switch between available weapons.
-Press `I` to open the cache weapon menu and equip any listed weapon. The selected weapon remains active
+Press `I` to open the cache weapon menu and equip any listed weapon; type in its search box to
+filter the list by name, then click a weapon or press `Enter` to equip the first match. The selected weapon remains active
 until another weapon is equipped or selected with the mouse wheel. A weapon whose name contains
 "dagger" fights like the daggers, "staff" like the staff and "bow" like the bow; every other weapon
 fights like the sword.

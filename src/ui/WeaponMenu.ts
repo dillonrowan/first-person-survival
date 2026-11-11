@@ -3,6 +3,7 @@ import type { CacheWeaponInfo } from "../world/CacheWeaponFormat";
 export class WeaponMenu {
     private weapons: CacheWeaponInfo[] = [];
     private selected = new Set<string>();
+    private readonly search: HTMLInputElement;
 
     constructor(
         private readonly element: HTMLElement,
@@ -13,6 +14,12 @@ export class WeaponMenu {
         private readonly initialId?: string,
     ) {
         element.querySelector<HTMLButtonElement>("#weapon-menu-close")?.addEventListener("click", () => this.close());
+        this.search = element.querySelector<HTMLInputElement>("#weapon-menu-search")!;
+        this.search.addEventListener("input", () => this.render(this.search.value));
+        // Enter equips the top match, as Enter on a focused row does.
+        this.search.addEventListener("keydown", (event) => {
+            if (event.key === "Enter") this.list.querySelector<HTMLButtonElement>(".weapon-menu-row")?.click();
+        });
     }
 
     async load(): Promise<void> {
@@ -20,7 +27,7 @@ export class WeaponMenu {
         if (!response.ok) throw new Error(`Failed loading cache weapons: ${response.status} ${response.statusText}`);
         this.weapons = await response.json();
         if (this.initialId) this.selected.add(this.initialId);
-        this.render("");
+        this.render(this.search.value);
     }
 
     find(id: string): CacheWeaponInfo | undefined {
@@ -30,7 +37,8 @@ export class WeaponMenu {
     open(): void {
         this.element.classList.remove("hidden");
         document.exitPointerLock();
-        this.list.querySelector<HTMLButtonElement>("button")?.focus();
+        this.search.focus();
+        this.search.select();
     }
 
     close(): void {

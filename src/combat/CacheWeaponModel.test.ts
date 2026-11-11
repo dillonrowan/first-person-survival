@@ -21,17 +21,23 @@ describe("cache weapons", () => {
         expect(cacheWeaponDef({ id: "cache-861", name: "Magic shortbow", family: "bow" }).family).toBe("bow");
     });
 
-    it("turns the blade to +Y and the model's up to +Z", () => {
+    it("turns the blade to +Y and the model's down (its cutting edge) to +Z", () => {
         // RS -z is three.js +z: a blade held forward from the grip, as worn models are.
-        const q = cacheWeaponOrientation({ grip: [-32, -95, -4], tip: [-32, -95, -120] });
+        const q = cacheWeaponOrientation({ blade: [0, 0, -116], family: "sword" });
         const blade = new THREE.Vector3(0, 0, 1).applyQuaternion(q);
-        const up = new THREE.Vector3(0, 1, 0).applyQuaternion(q);
+        const down = new THREE.Vector3(0, -1, 0).applyQuaternion(q);
         expect(blade.distanceTo(new THREE.Vector3(0, 1, 0))).toBeLessThan(1e-6);
+        expect(down.distanceTo(new THREE.Vector3(0, 0, 1))).toBeLessThan(1e-6);
+    });
+
+    it("turns a bow's curve (the model's up) to +Z, toward the archer", () => {
+        const q = cacheWeaponOrientation({ blade: [0, 0, -116], family: "bow" });
+        const up = new THREE.Vector3(0, 1, 0).applyQuaternion(q);
         expect(up.distanceTo(new THREE.Vector3(0, 0, 1))).toBeLessThan(1e-6);
     });
 
     it("handles a blade hanging straight down", () => {
-        const q = cacheWeaponOrientation({ grip: [0, -95, 0], tip: [0, 0, 0] });
+        const q = cacheWeaponOrientation({ blade: [0, 95, 0], family: "sword" });
         const blade = new THREE.Vector3(0, -1, 0).applyQuaternion(q);
         expect(blade.distanceTo(new THREE.Vector3(0, 1, 0))).toBeLessThan(1e-6);
     });

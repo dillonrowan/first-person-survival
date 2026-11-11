@@ -200,7 +200,10 @@ async function main(): Promise<void> {
             error instanceof Error ? error.message : String(error);
     });
     window.addEventListener("keydown", (event) => {
-        if (!event.repeat && event.code === "KeyI") {
+        // Typing an "i" into the weapon search must not close the menu.
+        if (!event.repeat && event.code === "KeyI" && !(event.target instanceof HTMLInputElement)) {
+            // Opening focuses the search box; keep this "i" from being typed into it.
+            event.preventDefault();
             weaponMenu.toggle();
         }
     });

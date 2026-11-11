@@ -18,6 +18,7 @@ import { readCacheFiles } from "./cache-files";
 import { FaceColors } from "./FaceColors";
 import { buildModelMeshes, computeBounds } from "./NpcModelBuilder";
 import { ObjType } from "./rs/config/objtype/ObjType";
+import { Model } from "./rs/model/Model";
 import { ModelData } from "./rs/model/ModelData";
 import { createWorldLoaders } from "./WorldLoaders";
 
@@ -50,6 +51,43 @@ function wornModel(obj: ObjType, loaders: ReturnType<typeof createWorldLoaders>)
     return model;
 }
 
+/**
+ * Where the weapon's business end points (CacheWeaponInfo.blade). The cache places every worn model
+ * in the hand of the base pose but does not say which end strikes, so read it from the shape: along
+ * the line from the grip to the farthest vertex, a weapon held near one end (sword, dagger, axe)
+ * strikes with the long end. One held mid-shaft (staff, spear, halberd, bow) is authored like a
+ * sword blade, head pointing forward and up from the hand, so it strikes with the end facing that
+ * way, and its axis runs butt to head rather than from the hand. Thrown weapons are the exception:
+ * darts are pinched mid-shaft with the point aimed back, so a `headForward` of false keeps the
+ * long end.
+ */
+function weaponBlade(model: Model, headForward: boolean): [number, number, number] {
+    const offsets: [number, number, number][] = [];
+    for (let v = 0; v < model.verticesCount; v++) {
+        offsets.push([model.verticesX[v] - GRIP[0], model.verticesY[v] - GRIP[1], model.verticesZ[v] - GRIP[2]]);
+    }
+    const length = (o: readonly number[]) => Math.hypot(o[0], o[1], o[2]);
+    const far = offsets.reduce((a, b) => (length(b) > length(a) ? b : a), [0, 0, 0]);
+    const axis = far.map((c) => c / (length(far) || 1));
+    const along = (o: readonly number[]) => o[0] * axis[0] + o[1] * axis[1] + o[2] * axis[2];
+
+    const reach = Math.max(...offsets.map(along));
+    const backReach = -Math.min(...offsets.map(along));
+    const midShaft = backReach > reach * HELD_MID_SHAFT;
+    const sign = headForward && midShaft && along(FORWARD_UP) < 0 ? -1 : 1;
+    const end = (s: number) => offsets.reduce((a, b) => (s * along(b) > s * along(a) ? b : a), [0, 0, 0]);
+    const head = end(sign);
+    const butt = midShaft ? end(-sign) : [0, 0, 0];
+    return [head[0] - butt[0], head[1] - butt[1], head[2] - butt[2]];
+}
+
+/** A weapon whose short end reaches this fraction of its long end is held mid-shaft. */
+const HELD_MID_SHAFT = 0.6;
+/** Forward and up from the base pose's hand, RS axes (y down, z south): where heads point. */
+const FORWARD_UP = [0, -1, -2];
+/** Obj category of darts, knives and thrownaxes. */
+const THROWN_CATEGORY = 24;
+
 const cache = readCacheFiles(path.join(ROOT, "cache"));
 const loaders = createWorldLoaders(cache);
 const faceColors = new FaceColors(loaders.textureLoader);
@@ -78,26 +116,14 @@ for (let id = 0; id < loaders.objTypeLoader.getCount(); id++) {
         : undefined;
     if (!meshes) continue;
 
-    let tip: [number, number, number] = GRIP;
-    let far = -1;
-    for (let v = 0; v < model.verticesCount; v++) {
-        const x = model.verticesX[v];
-        const y = model.verticesY[v];
-        const z = model.verticesZ[v];
-        const d = (x - GRIP[0]) ** 2 + (y - GRIP[1]) ** 2 + (z - GRIP[2]) ** 2;
-        if (d > far) {
-            far = d;
-            tip = [x, y, z];
-        }
-    }
-
+    const blade = weaponBlade(model, obj.category !== THROWN_CATEGORY);
     const file = `${MODEL_DIR}/${id}.bin`;
     files.set(file, gzipSync(encodeNpcModel({
         vertexCount: model.verticesCount,
         bounds: computeBounds(model, []),
         ...meshes,
     }), { level: 6 }));
-    weapons.push({ id: `cache-${id}`, cacheId: id, name: obj.name, family: cacheWeaponFamily(obj.name), file, grip: GRIP, tip });
+    weapons.push({ id: `cache-${id}`, cacheId: id, name: obj.name, family: cacheWeaponFamily(obj.name), file, grip: GRIP, blade });
 }
 weapons.sort((a, b) => a.name.localeCompare(b.name) || a.cacheId - b.cacheId);
 

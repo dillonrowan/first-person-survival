@@ -10,13 +10,15 @@ const toThree = ([x, y, z]: readonly number[]) =>
 
 /**
  * Rotation taking the worn model into the weapon art contract (docs/weapon-models.md): grip at the
- * origin, blade along +Y, edge along +Z. The worn model's up becomes the edge side, so a blade
- * held flat in the OSRS base pose keeps its flat in the YZ plane.
+ * origin, blade along +Y, edge along +Z. The OSRS base pose holds weapons forward with the cutting
+ * edge down (axe and halberd blades below the shaft, a scimitar's spine on top), so the worn
+ * model's down becomes the edge side. A bow lies with its limbs curving up from the hand; the bow
+ * view needs them curving back toward the archer along +Z, so for bows the model's up is +Z.
  */
-export function cacheWeaponOrientation(info: Pick<CacheWeaponInfo, "grip" | "tip">): THREE.Quaternion {
-    const blade = toThree(info.tip).sub(toThree(info.grip)).normalize();
-    const up = new THREE.Vector3(0, 1, 0);
-    let edge = up.clone().addScaledVector(blade, -up.dot(blade));
+export function cacheWeaponOrientation(info: Pick<CacheWeaponInfo, "blade" | "family">): THREE.Quaternion {
+    const blade = toThree(info.blade).normalize();
+    const facing = new THREE.Vector3(0, info.family === "bow" ? 1 : -1, 0);
+    let edge = facing.clone().addScaledVector(blade, -facing.dot(blade));
     if (edge.lengthSq() < 1e-6) {
         // Blade points straight up or down: the edge faces forward.
         edge = new THREE.Vector3(0, 0, -1).addScaledVector(blade, blade.z);

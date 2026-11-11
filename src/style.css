@@ -114,6 +114,23 @@ body {
     padding: 6px 10px;
 }
 
+#weapon-menu-search {
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 12px;
+    padding: 8px 10px;
+    border: 1px solid #59616a;
+    border-radius: 4px;
+    background: #272c31;
+    color: #eee;
+    font: inherit;
+}
+
+#weapon-menu-search:focus {
+    outline: none;
+    border-color: #b58cff;
+}
+
 #weapon-menu-status {
     margin: 8px 0;
     color: #9aa4ad;

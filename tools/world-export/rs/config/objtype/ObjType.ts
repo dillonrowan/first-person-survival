@@ -19,6 +19,8 @@ export class ObjType extends Type {
     wearPos1 = -1;
     wearPos2 = -1;
     wearPos3 = -1;
+    /** Item category (darts, spears, staves...), -1 when none. */
+    category = -1;
     recolorFrom?: number[];
     recolorTo?: number[];
     retextureFrom?: number[];
@@ -122,8 +124,10 @@ export class ObjType extends Type {
             buffer.readShort();
         } else if (opcode === 78) {
             this.maleModel2 = buffer.readUnsignedShort();
+        } else if (opcode === 94) {
+            this.category = buffer.readUnsignedShort();
         } else if (opcode === 79 || (opcode >= 90 && opcode <= 95)) {
-            // Female third model, head models, category, zan2d.
+            // Female third model, head models, zan2d.
             buffer.readUnsignedShort();
         } else if (opcode === 97) {
             buffer.readUnsignedShort();

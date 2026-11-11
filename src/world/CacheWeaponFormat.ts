@@ -18,8 +18,11 @@ export type CacheWeaponInfo = {
     file: string;
     /** Where the hand closes on the model, RS units (x, y down, z). */
     grip: [number, number, number];
-    /** Furthest model vertex from the grip, RS units: the blade or head points at it. */
-    tip: [number, number, number];
+    /**
+     * Where the blade or head points, RS axes: from the grip to the far end of a weapon held near
+     * one end, from butt to head of one held mid-shaft. Not normalized.
+     */
+    blade: [number, number, number];
 };
 
 /** Dagger names swing like the daggers, staffs like the staff, bows shoot; everything else is a sword. */
