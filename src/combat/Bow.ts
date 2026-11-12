@@ -12,6 +12,34 @@ const TWANG = { amplitude: 0.06, frequency: 14, decay: 0.07 };
 
 export type BowState = "idle" | "drawing" | "drawn" | "shooting" | "lowering";
 
+/**
+ * How a ranged weapon draws and shoots: seconds until a draw (and the chained re-draw) is ready,
+ * the launch speed (tiles/s) and the gravity its shots fall under (tiles/s²). Together they set the
+ * range: how far a shot carries, and how long it stays up, before it comes down.
+ */
+export type RangedProfile = { drawReady: number; redrawReady: number; speed: number; gravity: number };
+
+const LONGBOW: RangedProfile = {
+    drawReady: tuning.bowDrawReady,
+    redrawReady: tuning.bowReloadReady,
+    speed: tuning.arrowSpeed,
+    gravity: tuning.gravity * tuning.longbowGravityScale,
+};
+const SHORTBOW: RangedProfile = {
+    drawReady: tuning.shortbowDrawReady,
+    redrawReady: tuning.shortbowReloadReady,
+    speed: tuning.shortbowArrowSpeed,
+    gravity: tuning.gravity,
+};
+
+/**
+ * A bow named "shortbow" draws fast but its arrows fall short; every other bow is a longbow.
+ * Crossbows carry as far as longbows.
+ */
+export function rangedProfile(weapon: { name: string; family: string }): RangedProfile {
+    return weapon.family === "bow" && /shortbow/i.test(weapon.name) ? SHORTBOW : LONGBOW;
+}
+
 export type BowInput = {
     attackDown: boolean;
     /** Right mouse held: the view zooms. */
@@ -20,10 +48,10 @@ export type BowInput = {
 
 /**
  * The bow (docs/combat-movement-spec.md 16.4), with all three bow skills. Holding attack draws an
- * arrow: 2.0 s layer, ready to fire at 1.433 s. Releasing once ready shoots (0.233 s, the arrow
- * leaves at 0.033 s); releasing earlier lowers the bow (0.667 s). Pressing again during or right
- * after a shot chains into the 1.0 s re-draw (ready at 0.933 s). Drawn and almost still, the view
- * zooms while the right mouse is held; the aim stays steady for 4 s after the draw, then sways.
+ * arrow: 2.0 s layer, ready to fire at 1.433 s (a shortbow's sooner, see `profile`). Releasing once
+ * ready shoots (0.233 s, the arrow leaves at 0.033 s); releasing earlier lowers the bow (0.667 s).
+ * Pressing again during or right after a shot chains into the 1.0 s re-draw (ready at 0.933 s). The
+ * view zooms while the right mouse is held; the aim stays steady for 4 s after the draw, then sways.
  */
 export class BowController {
     state: BowState = "idle";
@@ -32,6 +60,8 @@ export class BowController {
     arrows = tuning.arrowsStart;
     /** 0..1 zoom amount, eased (zoom in rate 1/s, out 0.2/s as in mm_player_speed_zoom_in/_out × 5). */
     zoom = 0;
+    /** The held bow's draw times and arrow speed (rangedProfile). */
+    profile: RangedProfile = LONGBOW;
     private readyAt = tuning.bowDrawReady;
     private fired = false;
     private chain = false;
@@ -130,7 +160,7 @@ export class BowController {
         switch (this.state) {
             case "idle":
                 if (input.attackDown && this.arrows > 0) {
-                    this.startDraw(tuning.bowDrawReady);
+                    this.startDraw(this.profile.drawReady);
                 }
                 break;
             case "drawing":
@@ -160,7 +190,7 @@ export class BowController {
                 if (this.elapsed >= tuning.bowShootTime) {
                     if (this.chain && this.arrows > 0) {
                         // Bow reload skill: the fast re-draw.
-                        this.startDraw(tuning.bowReloadReady);
+                        this.startDraw(this.profile.redrawReady);
                     } else {
                         this.enter("lowering");
                         this.emptyLowering = true;
@@ -215,6 +245,10 @@ export type Arrow = {
     age: number;
     /** Stuck in a wall or the ground: stays a while, then disappears. */
     stuck: boolean;
+    /** Seconds since it stuck. In flight it never disappears: it flies until it hits something. */
+    stuckFor?: number;
+    /** Gravity it falls under, tiles/s² (sv_gravity unless given at launch). */
+    gravity?: number;
     /** A crossbow bolt rather than an arrow (drawn differently, flies the same). */
     bolt?: boolean;
 };
@@ -222,13 +256,17 @@ export type Arrow = {
 /** Where an arrow hit a body. */
 export type ArrowHit<T> = { body: Body<T>; arrow: Arrow; dirX: number; dirY: number };
 
-const ARROW_LIFETIME = 10;
-
 /**
- * Launches an arrow along the view (spec 16.4): speed 2100 u/s; pitched up more than 45° the pitch
- * is scaled by 0.985 (mm_arrow_pitch_compensation).
+ * Launches an arrow along the view (spec 16.4): speed 2100 u/s under sv_gravity unless a profile
+ * says otherwise (rangedProfile); pitched up more than 45° the pitch is scaled by 0.985
+ * (mm_arrow_pitch_compensation).
  */
-export function launchArrow(eye: { x: number; y: number; z: number; plane: number }, yaw: number, pitch: number): Arrow {
+export function launchArrow(
+    eye: { x: number; y: number; z: number; plane: number },
+    yaw: number,
+    pitch: number,
+    profile: Pick<RangedProfile, "speed" | "gravity"> = { speed: tuning.arrowSpeed, gravity: tuning.gravity },
+): Arrow {
     const start = (-45 * Math.PI) / 180;
     // Our pitch is positive looking up; the game's is positive looking down.
     let p = pitch;
@@ -236,7 +274,7 @@ export function launchArrow(eye: { x: number; y: number; z: number; plane: numbe
         p *= (1 - ((start * 180) / Math.PI + 90) / 90) * 1.97;
     }
     const cos = Math.cos(p);
-    const s = tuning.arrowSpeed;
+    const s = profile.speed;
     return {
         x: eye.x,
         y: eye.y,
@@ -247,6 +285,7 @@ export function launchArrow(eye: { x: number; y: number; z: number; plane: numbe
         plane: eye.plane,
         age: 0,
         stuck: false,
+        gravity: profile.gravity,
     };
 }
 
@@ -274,16 +313,16 @@ export function stepArrows<T>(
     for (let i = arrows.length - 1; i >= 0; i--) {
         const a = arrows[i];
         a.age += dt;
-        if (a.age > ARROW_LIFETIME) {
-            arrows.splice(i, 1);
-            continue;
-        }
         if (a.stuck) {
+            a.stuckFor = (a.stuckFor ?? 0) + dt;
+            if (a.stuckFor > tuning.arrowStuckTime) {
+                arrows.splice(i, 1);
+            }
             continue;
         }
         const x1 = a.x + a.vx * dt;
         const y1 = a.y + a.vy * dt;
-        a.vz -= tuning.gravity * dt;
+        a.vz -= (a.gravity ?? tuning.gravity) * dt;
         const z1 = a.z + a.vz * dt;
 
         // Bodies first: the nearest cylinder the segment passes through.

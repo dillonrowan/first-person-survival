@@ -80,8 +80,11 @@ bow; every other weapon fights like the sword.
 - Daggers: fast attacks and close-range stepping attacks.
 - Club: heavier melee weapon.
 - Staff: longer reach and defensive weapon.
-- Bow: ranged attacks where available.
-- Crossbow: ranged attacks with no draw to hold; it reloads between shots.
+- Bow: ranged attacks where available. A bow whose name contains "shortbow" draws faster, but its
+  arrows fly slower and drop sooner; every other bow is a longbow: a slower draw, and arrows that fly
+  further and stay in the air longer.
+- Crossbow: ranged attacks with no draw to hold; it reloads between shots and reaches as far as a
+  longbow.
 
 Hold `Mouse 2` to block during melee. Blocking can stop or weaken incoming attacks and can leave
 the attacker exposed to a follow-up. Weapon reach, speed, damage, and parry behavior vary by weapon.
@@ -91,7 +94,8 @@ arrows remain available. With a bow from the weapon menu, an arrow sits on the s
 as you draw; at full draw the arrow points into the reticule, and a shot arrow leaves the bow and
 curves into the line of sight within its first 8 tiles. Let go before the bow is fully drawn and it eases back without shooting. With a bow or crossbow,
 hold `Mouse 2` to zoom the view; let go and it zooms back out. Arrows and bolts fly in an arc and clear fences, low
-walls and anything else lower than their path; they stick only in what they actually reach.
+walls and anything else lower than their path; they stick only in what they actually reach. They never vanish in flight; one that has stuck
+disappears after 10 seconds.
 
 A crossbow has no charge. When you equip it, and after every shot, it plays a reload: it is lowered,
 the string is spanned back onto the latch and a bolt is laid on the rail, then it is raised to the

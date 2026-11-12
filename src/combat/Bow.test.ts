@@ -4,7 +4,7 @@ import type { Body, BodySource } from "../physics/Bodies";
 import { FlagsAt, WALL_HALF_THICKNESS } from "../physics/TileColliders";
 import { units } from "../player/MoveMath";
 import { CollisionFlag } from "../world/WorldFormat";
-import { Arrow, BowController, launchArrow, stepArrows } from "./Bow";
+import { Arrow, BowController, RangedProfile, launchArrow, rangedProfile, stepArrows } from "./Bow";
 import { tuning } from "./tuning";
 
 const run = (bow: BowController, seconds: number, attackDown: boolean, aimDown = false): number => {
@@ -121,6 +121,51 @@ describe("arrows", () => {
         stepArrows(arrows, 0.1, none, open, flat);
         expect(a.y).toBeCloseTo(units(210));
         expect(a.vz).toBeCloseTo(-units(60));
+    });
+
+    /** Ground distance and airtime of a level shot from eye height. */
+    const range = (profile: RangedProfile) => {
+        const arrows: Arrow[] = [launchArrow({ x: 0, y: 0, z: 1.25, plane: 0 }, 0, 0, profile)];
+        let airtime = 0;
+        while (!arrows[0].stuck) {
+            stepArrows(arrows, 0.01, none, open, flat);
+            airtime += 0.01;
+        }
+        return { distance: arrows[0].y, airtime };
+    };
+
+    it("carry further and stay up longer from a longbow or crossbow than from a shortbow", () => {
+        const long = rangedProfile({ name: "Yew longbow", family: "bow" });
+        const short = rangedProfile({ name: "Magic shortbow", family: "bow" });
+        expect(rangedProfile({ name: "Dark bow", family: "bow" })).toBe(long); // not named shortbow
+        expect(rangedProfile({ name: "Rune crossbow", family: "crossbow" })).toBe(long);
+        expect(short.drawReady).toBeLessThan(long.drawReady);
+        expect(short.redrawReady).toBeLessThan(long.redrawReady);
+        // Further, and longer in the air.
+        expect(range(long).distance).toBeGreaterThan(range(short).distance * 1.5);
+        expect(range(long).airtime).toBeGreaterThan(range(short).airtime * 1.2);
+    });
+
+    it("draw a shortbow ready sooner", () => {
+        const bow = new BowController();
+        bow.profile = rangedProfile({ name: "Oak shortbow", family: "bow" });
+        run(bow, tuning.shortbowDrawReady + 0.02, true);
+        expect(bow.state).toBe("drawn");
+    });
+
+    it("never vanish in flight, and disappear only some time after they stick", () => {
+        // Straight up: a long flight, well past the time a stuck arrow lasts.
+        const arrows: Arrow[] = [launchArrow({ x: 0, y: 0, z: 1.25, plane: 0 }, 0, Math.PI / 2 - 0.01)];
+        let flight = 0;
+        while (!arrows[0].stuck) {
+            stepArrows(arrows, 0.05, none, open, flat);
+            flight += 0.05;
+        }
+        expect(flight).toBeGreaterThan(1);
+        stepArrows(arrows, tuning.arrowStuckTime - 0.1, none, open, flat);
+        expect(arrows.length).toBe(1);
+        stepArrows(arrows, 0.2, none, open, flat);
+        expect(arrows.length).toBe(0);
     });
 
     it("fly over a fence lower than they are, and stick in a wall taller than they are", () => {

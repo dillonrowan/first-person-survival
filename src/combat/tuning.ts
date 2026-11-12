@@ -282,6 +282,20 @@ export const tuning = {
     bowShootTime: 0.233,
     bowReleaseAt: 0.033,
     bowLowerTime: 0.667,
+    /**
+     * Shortbows (any bow named "shortbow"; every other bow is a longbow, drawn as above): a quicker
+     * draw and re-draw, and a slower arrow, so it drops sooner and carries less far. [design]
+     */
+    shortbowDrawReady: 0.95,
+    shortbowReloadReady: 0.6,
+    shortbowArrowSpeed: units(1470),
+    /**
+     * Longbow and crossbow shots fall under this share of gravity: besides flying faster than a
+     * shortbow's they stay up longer, so they carry further and hang in the air longer. [design]
+     */
+    longbowGravityScale: 0.6,
+    /** Seconds an arrow or bolt stays stuck in a wall or the ground before it disappears. [design] */
+    arrowStuckTime: 10,
     /** Field-of-view scale when zoomed. [design] */
     bowZoomFov: 0.5,
     /** Steady-aim window after the draw. [cvar mm_time_bow_stabilisation] */

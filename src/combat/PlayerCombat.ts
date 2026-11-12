@@ -10,7 +10,7 @@ import type { MoveDef } from "./moves";
 import { tuning } from "./tuning";
 import { WEAPONS, WeaponDef } from "./weapons";
 import { npcStrikeDamage } from "../npc/NpcAttacks";
-import { Arrow, BowController, ObstacleTop, launchArrow, stepArrows } from "./Bow";
+import { Arrow, BowController, ObstacleTop, launchArrow, rangedProfile, stepArrows } from "./Bow";
 import { CrossbowController } from "./Crossbow";
 import type { HitEvent } from "./moves";
 
@@ -153,6 +153,7 @@ export class PlayerCombat {
         this.melee.weapon = WEAPONS[this.weaponIndex];
         this.melee.cancel();
         this.bow.cancel();
+        this.bow.profile = rangedProfile(this.weapon);
     }
 
     equipWeapon(weapon: WeaponDef): void {
@@ -163,6 +164,7 @@ export class PlayerCombat {
         this.melee.weapon = weapon;
         this.melee.cancel();
         this.bow.cancel();
+        this.bow.profile = rangedProfile(weapon);
     }
 
     /**
@@ -239,6 +241,7 @@ export class PlayerCombat {
                     { x: player.x, y: player.y, z: player.z + player.eyeHeight, plane: player.plane },
                     player.yaw,
                     player.pitch,
+                    rangedProfile(this.weapon),
                 );
                 bolt.bolt = true;
                 this.arrows.push(bolt);
@@ -267,6 +270,7 @@ export class PlayerCombat {
                         { x: player.x, y: player.y, z: player.z + player.eyeHeight, plane: player.plane },
                         player.yaw + swayYaw,
                         player.pitch + swayPitch,
+                        this.bow.profile,
                     ),
                 );
             }
