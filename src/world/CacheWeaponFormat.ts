@@ -25,6 +25,11 @@ export type CacheWeaponInfo = {
     blade: [number, number, number];
 };
 
+/** A bow drawn by hand: every bow but crossbows (and the like), which are loaded, not drawn. */
+export function cacheWeaponDrawsString(info: Pick<CacheWeaponInfo, "family" | "name">): boolean {
+    return info.family === "bow" && !/crossbow|ballista/i.test(info.name);
+}
+
 /** Dagger names swing like the daggers, staffs like the staff, bows shoot; everything else is a sword. */
 export function cacheWeaponFamily(name: string): CacheWeaponFamily {
     const lower = name.toLowerCase();

@@ -1,8 +1,9 @@
 import * as THREE from "three";
 
-import type { CacheWeaponInfo } from "../world/CacheWeaponFormat";
+import { CacheWeaponInfo, cacheWeaponDrawsString } from "../world/CacheWeaponFormat";
 import type { NpcModelData } from "../world/NpcFormat";
 import { RS_UNITS_PER_TILE } from "../world/WorldFormat";
+import { BowString } from "./BowString";
 
 /** RS units (y down, z south) to tiles in three.js axes, as the world vertex shader does. */
 const toThree = ([x, y, z]: readonly number[]) =>
@@ -30,7 +31,10 @@ export function cacheWeaponOrientation(info: Pick<CacheWeaponInfo, "blade" | "fa
     return new THREE.Quaternion().setFromRotationMatrix(toModel).invert();
 }
 
-/** The exported model as the held weapon, drawn with the world materials like NPCs. */
+/**
+ * The exported model as the held weapon, drawn with the world materials like NPCs. A hand-drawn bow
+ * also gets a string and nocked arrow (the models have none), found by name as a `BowString`.
+ */
 export function createCacheWeaponModel(
     info: CacheWeaponInfo,
     data: NpcModelData,
@@ -52,9 +56,28 @@ export function createCacheWeaponModel(
         mesh.renderOrder = transparent ? 2 : 1;
         model.add(mesh);
     }
+    const orientation = cacheWeaponOrientation(info);
+    const held = new THREE.Group();
+    held.quaternion.copy(orientation);
+    held.add(model);
     const weapon = new THREE.Group();
     weapon.name = `weapon_${info.id}`;
-    weapon.quaternion.copy(cacheWeaponOrientation(info));
-    weapon.add(model);
+    weapon.add(held);
+    if (cacheWeaponDrawsString(info)) {
+        const bowString = BowString.fit([...contractPoints(info, data, orientation)]);
+        if (bowString) {
+            weapon.add(bowString);
+        }
+    }
     return weapon;
+}
+
+/** The model's vertices in the weapon contract's space (tiles, grip at the origin). */
+function* contractPoints(info: CacheWeaponInfo, data: NpcModelData, orientation: THREE.Quaternion): Generator<THREE.Vector3> {
+    const grip = toThree(info.grip);
+    for (const { positions } of [data.opaque, data.transparent]) {
+        for (let i = 0; i < positions.length; i += 4) {
+            yield toThree([positions[i], positions[i + 1], positions[i + 2]]).sub(grip).applyQuaternion(orientation);
+        }
+    }
 }

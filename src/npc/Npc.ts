@@ -31,7 +31,7 @@ import { tuning } from "../combat/tuning";
 import { Knockback, deathLaunch, findSnapTile, massForce, slideSpeedForDistance, stepKnockback } from "./NpcPhysics";
 import type { SharedNpcModel } from "./NpcModels";
 import { NpcAttacker, StrikeEvent, attacksFromClips } from "./NpcAttacks";
-import { canHear, canSee, hearingDelay, sightDelay } from "./NpcSenses";
+import { canSee } from "./NpcSenses";
 import { Ragdoll, RagdollWorld, singlePartSkeleton } from "./Ragdoll";
 import type { BodyHit } from "./BodyHits";
 import { HitKind, HitReactions, bodyRig, movePoint } from "./HitPose";
@@ -218,15 +218,9 @@ export class Npc {
     private readonly brain: NpcCombatBrain;
     /** Melee attacks on the player (spec 16.6). */
     readonly attacker: NpcAttacker;
-    /** Set for one update when this NPC turned hostile, so allies can be called (spec 16.7). */
-    justAlerted = false;
-    /** Seconds until a noticed player is reacted to, or -1 when nothing is noticed. */
-    private noticeTimer = -1;
-    private noticeBySight = false;
     /** Last place the player was seen or heard, and how long the NPC has been searching there. */
     private lastSeen: { x: number; y: number } | undefined;
     private searching = -1;
-    private surprisedFor = 0;
     private sinceHit = Infinity;
     private readonly nearby: Body[] = [];
     private readonly push = { x: 0, y: 0 };
@@ -538,90 +532,25 @@ export class Npc {
      * and sinking away after death.
      */
     /**
-     * Turns hostile towards the player at (x, y): leaves the tile grid and fights (spec 16.7).
+     * Turns hostile towards the player at (x, y): leaves the tile grid and fights (spec 16.7). Only
+     * the player's own attacks call this: NPCs never start a fight on sight or sound.
      * Returns false if it already was.
      */
     becomeAlerted(x: number, y: number): boolean {
         this.lastSeen = { x, y };
         this.loseTimer = 0;
         this.searching = -1;
-        this.noticeTimer = -1;
         if (this.alerted) {
             return false;
         }
         this.startFreeMove();
         this.alerted = true;
-        this.justAlerted = true;
         return true;
     }
 
     /** Eye height in tiles above the ground. */
     private get eyeZ(): number {
         return this.body.z + this.body.height * 0.9;
-    }
-
-    /** Sight and hearing while calm (spec 16.7): noticing starts a reaction delay, then the NPC fights. */
-    private perceive(dt: number, ctx: CombatContext): void {
-        const player = ctx.player;
-        if (!player || player.plane !== this.plane || !this.attackable || this.combatant.incapacitated) {
-            this.noticeTimer = -1;
-            return;
-        }
-        const x = this.body.x;
-        const y = this.body.y;
-        const d = Math.hypot(player.x - x, player.y - y);
-        if (d > tuning.sightRange + 1) {
-            this.noticeTimer = -1;
-            return;
-        }
-        const f = this.forward;
-        const sense = {
-            x,
-            y,
-            eyeZ: this.eyeZ,
-            facingX: f.x,
-            facingY: f.y,
-            alerted: false,
-            playerX: player.x,
-            playerY: player.y,
-            playerZ: player.z,
-            playerHeight: player.height,
-            stealth: player.stealth ?? false,
-            visibility: 1,
-            presence: player.presence ?? 0,
-            lineOfSight: ctx.lineOfSight?.(this.plane, x, y, player.x, player.y) ?? true,
-        };
-        const seen = canSee(sense);
-        const heard = !seen && canHear(sense, player.z - this.body.z);
-        if (this.noticeTimer < 0) {
-            if (seen) {
-                this.noticeTimer = sightDelay(d, sense.stealth);
-                this.noticeBySight = true;
-            } else if (heard) {
-                this.noticeTimer = hearingDelay(sense.presence);
-                this.noticeBySight = false;
-            }
-        }
-        if (this.noticeTimer < 0) {
-            return;
-        }
-        this.faceTowards(player.x, player.y);
-        this.noticeTimer -= dt;
-        if (this.noticeTimer > 0) {
-            return;
-        }
-        // Heard only: turn hostile only once it can also see the player; until then it faces the noise.
-        if (!seen && this.noticeBySight) {
-            this.noticeTimer = -1;
-            return;
-        }
-        this.becomeAlerted(player.x, player.y);
-        if (seen && d < tuning.surprisedDistance) {
-            // The "surprised" reaction: a step back, then the fight (mm_ai_dist_surprised).
-            this.surprisedFor = tuning.surprisedTime;
-            const back = d > 1e-6 ? { x: (x - player.x) / d, y: (y - player.y) / d } : { x: -f.x, y: -f.y };
-            this.slide(back.x, back.y, tuning.surprisedStep);
-        }
     }
 
     updateCombat(dt: number, occupancy: Occupancy, ctx: CombatContext = {}): void {
@@ -633,11 +562,7 @@ export class Npc {
         }
         this.sinceKick += dt;
         this.sinceHit += dt;
-        this.surprisedFor = Math.max(0, this.surprisedFor - dt);
         this.reactionClock += dt;
-        if (!this.alerted && !c.dead && !this.knockback && !this.ragdoll) {
-            this.perceive(dt, ctx);
-        }
         const x = this.fineX / RS_UNITS_PER_TILE;
         const y = this.fineY / RS_UNITS_PER_TILE;
         if (dt > 0 && !Number.isNaN(this.lastX)) {
@@ -756,7 +681,7 @@ export class Npc {
                 return;
             }
         }
-        if (!player || !samePlane || this.combatant.incapacitated || this.surprisedFor > 0) {
+        if (!player || !samePlane || this.combatant.incapacitated) {
             return;
         }
         // While searching, head for the last known position; otherwise for the player.

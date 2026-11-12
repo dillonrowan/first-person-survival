@@ -42,6 +42,53 @@ describe("BowController (spec 16.4)", () => {
         expect(bow.state).toBe("drawn");
     });
 
+    it("pulls the string back with the draw and lets it down after an early release", () => {
+        const bow = new BowController();
+        expect(bow.stringPull).toBe(0);
+        expect(bow.arrowNocked).toBe(true);
+        run(bow, 0.5, true);
+        const early = bow.stringPull;
+        expect(early).toBeGreaterThan(bow.drawProgress); // eases into the anchor
+        run(bow, 0.5, true);
+        expect(bow.stringPull).toBeGreaterThan(early);
+        run(bow, 0.05, false);
+        expect(bow.state).toBe("lowering");
+        expect(bow.stringPull).toBeGreaterThan(0);
+        expect(bow.arrowNocked).toBe(true);
+        run(bow, 0.3, false);
+        expect(bow.stringPull).toBe(0);
+    });
+
+    it("settles the held bow back to rest quickly after a shot, not in one frame", () => {
+        const bow = new BowController();
+        run(bow, 1.5, true);
+        expect(bow.poseProgress).toBe(1);
+        run(bow, 0.02, false);
+        expect(bow.state).toBe("shooting");
+        expect(bow.poseProgress).toBeGreaterThan(0.9);
+        run(bow, 0.13, false);
+        expect(bow.poseProgress).toBeGreaterThan(0.2);
+        expect(bow.poseProgress).toBeLessThan(0.8);
+        run(bow, 0.2, false);
+        expect(bow.poseProgress).toBe(0);
+    });
+
+    it("loses the arrow on the shot, twangs the string, and nocks again once lowered", () => {
+        const bow = new BowController();
+        run(bow, 1.5, true);
+        expect(bow.stringPull).toBe(1);
+        run(bow, 0.02, false);
+        expect(bow.state).toBe("shooting");
+        expect(bow.arrowNocked).toBe(false);
+        expect(Math.abs(bow.stringPull)).toBeLessThan(0.1);
+        run(bow, 0.25, false);
+        expect(bow.state).toBe("lowering");
+        expect(bow.arrowNocked).toBe(false);
+        run(bow, 1, false);
+        expect(bow.state).toBe("idle");
+        expect(bow.arrowNocked).toBe(true);
+    });
+
     it("zooms only when drawn and almost still, and sways after 4 s", () => {
         const bow = new BowController();
         run(bow, 2, true, 3);

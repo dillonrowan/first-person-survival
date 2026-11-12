@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
+import { BowString } from "./BowString";
 import { DM_CLIPS, DmClip } from "./DmKeyframes";
 import type { KickController } from "./Kick";
 import type { MeleeController } from "./MeleeController";
@@ -24,6 +25,14 @@ const KICK_ASIDE = euler(0.42, -0.45, -0.35, -0.6, -0.3, -0.6);
 const BOW_REST = euler(0.2, -0.35, -0.5, -0.3, 0.3, 0.4);
 /** Canted clockwise about the grip, below the reticule, so the upper limb clears the aim point. */
 const BOW_DRAWN = euler(0.05, -0.08, -0.55, 0, 0, -0.4);
+
+/**
+ * The drawn arrow's line crosses the line of sight this far ahead (tiles), so from the eye it points
+ * straight into the reticule; a shot arrow closes onto its true flight over the same distance. [design]
+ */
+export const ARROW_CONVERGE = 8;
+/** How long (s) the last nocked arrow's position counts as where a shot leaves the bow. */
+const NOCK_MEMORY = 0.15;
 
 /** Crossfade between animation layers, and the slower settle back to the idle pose. */
 const BLEND = 0.1;
@@ -94,6 +103,24 @@ function lerpPose(a: Pose, b: Pose, t: number): Pose {
     return { pos: a.pos.clone().lerp(b.pos, s), quat: a.quat.clone().slerp(b.quat, s) };
 }
 
+/**
+ * Turns the held bow about the nock (the archer's anchor stays put) so the arrow points along the
+ * line of sight, crossing it ARROW_CONVERGE tiles ahead; `weight` 0 leaves the pose as it is.
+ */
+function aimArrow(pose: Pose, bow: BowString, weight: number): Pose {
+    if (weight <= 0) {
+        return pose;
+    }
+    const nock = bow.nock.clone().applyQuaternion(pose.quat).add(pose.pos);
+    const current = bow.arrowRest.clone().sub(bow.nock).applyQuaternion(pose.quat).normalize();
+    const wanted = new THREE.Vector3(0, 0, -ARROW_CONVERGE).sub(nock).normalize();
+    const turn = new THREE.Quaternion().slerp(new THREE.Quaternion().setFromUnitVectors(current, wanted), weight);
+    return {
+        pos: pose.pos.clone().sub(nock).applyQuaternion(turn).add(nock),
+        quat: turn.multiply(pose.quat),
+    };
+}
+
 const clipLength = (clip: DmClip) => (clip.frames - 1) / clip.fps;
 
 /** The clip's pose at `time` seconds, held at the ends or looped. */
@@ -149,6 +176,10 @@ export class WeaponView {
     private readonly loading = new Set<string>();
     private current: THREE.Object3D | undefined;
     private currentId = "";
+    /** The held bow's string and nocked arrow, when its model has one. */
+    private bowString: BowString | undefined;
+    private readonly lastArrowHead = new THREE.Vector3();
+    private sinceNocked = Infinity;
     private readonly boot = createBoot();
     /** Added to the first-person camera's rotation: the view following the swing and shaking on impact. */
     readonly viewOffset: ViewOffset = { pitch: 0, yaw: 0, roll: 0 };
@@ -227,7 +258,27 @@ export class WeaponView {
     private attach(model: THREE.Object3D): void {
         this.current?.removeFromParent();
         this.current = model;
+        const bowString = model.getObjectByName("bow_string");
+        this.bowString = bowString instanceof BowString ? bowString : undefined;
         this.holder.add(model);
+    }
+
+    /**
+     * World position of the nocked arrow's head the last time it was drawn on the string, where a
+     * shot arrow is seen to leave the bow; undefined when no arrow has been on the string lately.
+     */
+    arrowHead(out: THREE.Vector3): THREE.Vector3 | undefined {
+        return this.sinceNocked <= NOCK_MEMORY ? out.copy(this.lastArrowHead) : undefined;
+    }
+
+    private recordArrowHead(nocked: boolean, dt: number): void {
+        if (this.bowString && nocked) {
+            this.holder.updateWorldMatrix(true, true);
+            this.bowString.arrowHead(this.lastArrowHead);
+            this.sinceNocked = 0;
+        } else {
+            this.sinceNocked += dt;
+        }
     }
 
     /** A melee strike landed: the blade stalls in the target for a moment and the view jolts. 0..1. */
@@ -241,7 +292,16 @@ export class WeaponView {
         mode: "first" | "third",
         visible: boolean,
         kick?: KickController,
-        extra: { dt?: number; bowDraw?: number; blocking?: boolean } = {},
+        extra: {
+            dt?: number;
+            /** 0..1 how far into the draw the bow is held (the view pose). */
+            bowDraw?: number;
+            /** String pull, 1 at full draw (BowController.stringPull). */
+            bowString?: number;
+            /** An arrow is on the string. */
+            arrowNocked?: boolean;
+            blocking?: boolean;
+        } = {},
     ): void {
         const dt = extra.dt ?? 0;
         this.clock += dt;
@@ -262,26 +322,33 @@ export class WeaponView {
         const parent = firstPerson ? this.camera : this.handSocket;
         if (!parent || !visible) {
             this.holder.visible = false;
+            this.sinceNocked = Infinity;
             return;
         }
         this.holder.visible = true;
+        this.bowString?.update(extra.bowString ?? 0, extra.arrowNocked ?? false);
         if (this.holder.parent !== parent) {
             parent.add(this.holder);
         }
         if (!firstPerson) {
             this.holder.position.set(0, 0, 0);
             this.holder.rotation.set(Math.PI / 2, 0, 0);
+            this.recordArrowHead(extra.arrowNocked ?? false, dt);
             return;
         }
         let pose =
             weapon.family === "bow"
                 ? lerpPose(BOW_REST, BOW_DRAWN, extra.bowDraw ?? 0)
                 : this.animate(dt, weapon.family, melee, extra.blocking ?? false);
+        if (this.bowString && extra.arrowNocked) {
+            pose = aimArrow(pose, this.bowString, smooth(Math.min(1, Math.max(0, extra.bowDraw ?? 0))));
+        }
         if (kick?.active) {
             pose = lerpPose(pose, KICK_ASIDE, Math.min(1, (kick.elapsed ?? 0) / 0.1));
         }
         this.holder.position.copy(pose.pos);
         this.holder.quaternion.copy(pose.quat);
+        this.recordArrowHead(extra.arrowNocked ?? false, dt);
         if (this.freeze > 0) {
             // Stuck in the target: a fine judder rather than a dead stop.
             this.holder.position.x += Math.sin(this.clock * 190) * 0.004;

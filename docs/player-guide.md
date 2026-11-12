@@ -86,7 +86,10 @@ Hold `Mouse 2` to block during melee. Blocking can stop or weaken incoming attac
 the attacker exposed to a follow-up. Weapon reach, speed, damage, and parry behavior vary by weapon.
 
 To use the bow, aim with the mouse, hold the attack button to draw, then release to shoot while
-arrows remain available.
+arrows remain available. With a bow from the weapon menu, an arrow sits on the string and the string pulls back
+as you draw; at full draw the arrow points into the reticule, and a shot arrow leaves the bow and
+curves into the line of sight within its first 8 tiles. Let go before the bow is fully drawn and it eases back without shooting. Crossbows have
+no drawn string.
 
 ## Health, Stamina, and Adrenaline
 
@@ -111,8 +114,9 @@ Aim at an NPC or interactive object and approach within interaction range. When 
 | `R` | Use the second available action, when present |
 
 Available actions depend on the target. NPCs can offer actions such as `Talk-to` or `Attack`.
-Attacking NPCs may cause them to react, flee, retreat, or fight depending on their state and
-health.
+NPCs never start a fight on their own: they leave you alone until you hit, kick or shoot them (or
+knock them down with a thrown prop), and only the NPC you attacked fights back. Attacking an NPC
+may cause it to react, flee, retreat, or fight depending on its state and health.
 
 Some NPCs provide services or dialogue rather than combat. The exact actions shown in the screen
 prompt are authoritative.

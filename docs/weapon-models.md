@@ -35,3 +35,8 @@ The weapon ids live in `src/combat/weapons.ts`:
   [player-model.md](player-model.md)), rotated so +Y points along the forearm. The character has no
   attack clips yet, so in third person the weapon is held still.
 - Reach, damage and parry come from `src/combat/weapons.ts`, not from the model's size.
+- **Bows from the cache** have no string in their models. At load the game strings them and nocks
+  an arrow (`src/combat/BowString.ts`): from the nock the string runs to each limb tip along the
+  archer side (+Z) of the limb's outline, so it lies over recurves and flared tips instead of
+  passing through them, and the arrow passes beside the widest part of the grip. The nock is pulled
+  toward +Z as the bow is drawn. Crossbows are left as they are.

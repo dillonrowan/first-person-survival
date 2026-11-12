@@ -3,6 +3,13 @@ import { segmentHitsBoxes2D } from "../physics/Bodies";
 import { Box, FlagsAt, collectTileBoxes } from "../physics/TileColliders";
 import { tuning } from "./tuning";
 
+/** Seconds to ease the string back to brace after an early release. [design] */
+const LET_DOWN_TIME = 0.3;
+/** Seconds for the held bow to settle back to rest after a shot or let-down. [design] */
+const SETTLE_TIME = 0.3;
+/** String twang after a shot: peak pull past brace (fraction of a full draw), Hz, decay s. [design] */
+const TWANG = { amplitude: 0.06, frequency: 14, decay: 0.07 };
+
 export type BowState = "idle" | "drawing" | "drawn" | "shooting" | "lowering";
 
 export type BowInput = {
@@ -30,6 +37,13 @@ export class BowController {
     private chain = false;
     private wasDown = false;
     private drawnFor = 0;
+    /** String pull when the draw was let down early, eased back to brace while lowering. */
+    private letDownFrom = 0;
+    /** Lowering after a shot: the arrow has left, no new one is nocked yet. */
+    private emptyLowering = false;
+    /** Held pose (poseProgress) when the draw was released, and seconds since. */
+    private releasedPose = 0;
+    private sinceRelease = Infinity;
 
     /** 0..1 draw progress for the view model. */
     get drawProgress(): number {
@@ -37,6 +51,54 @@ export class BowController {
             return Math.min(1, this.elapsed / this.readyAt);
         }
         return this.state === "drawn" ? 1 : 0;
+    }
+
+    /**
+     * 0..1 how far the bow is raised into its drawn pose, for the view model: it follows the draw,
+     * and after a shot or a let-down it settles back to rest over SETTLE_TIME instead of snapping.
+     */
+    get poseProgress(): number {
+        const target = this.drawProgress;
+        if (this.sinceRelease >= SETTLE_TIME) {
+            return target;
+        }
+        const t = this.sinceRelease / SETTLE_TIME;
+        return Math.max(target, this.releasedPose * (1 - t * t * (3 - 2 * t)));
+    }
+
+    /**
+     * How far the string is pulled, 1 at full draw: it eases into the anchor while drawing, eases
+     * back when the draw is let down, and twangs about brace (going slightly negative) after a shot.
+     */
+    get stringPull(): number {
+        switch (this.state) {
+            case "drawing": {
+                const p = this.drawProgress;
+                return 1 - (1 - p) * (1 - p);
+            }
+            case "drawn":
+                return 1;
+            case "shooting": {
+                const { amplitude, frequency, decay } = TWANG;
+                const t = this.elapsed;
+                return -amplitude * Math.exp(-t / decay) * Math.sin(2 * Math.PI * frequency * t);
+            }
+            case "lowering": {
+                const t = Math.min(1, this.elapsed / LET_DOWN_TIME);
+                return this.letDownFrom * (1 - t * t * (3 - 2 * t));
+            }
+            default:
+                return 0;
+        }
+    }
+
+    /** An arrow sits on the string: from nocking until it leaves, and not until the bow is lowered after a shot. */
+    get arrowNocked(): boolean {
+        if (this.state === "shooting" || (this.state === "lowering" && this.emptyLowering)) {
+            return false;
+        }
+        // The nocked arrow counts until it is shot.
+        return this.arrows > 0;
     }
 
     /** Aim sway in radians (yaw, pitch) right now: none for 4 s after the draw (stability skill). */
@@ -53,6 +115,9 @@ export class BowController {
         this.elapsed = 0;
         this.zoom = 0;
         this.chain = false;
+        this.letDownFrom = 0;
+        this.emptyLowering = false;
+        this.sinceRelease = Infinity;
     }
 
     /** Returns true in the update the arrow leaves the bow. */
@@ -60,6 +125,7 @@ export class BowController {
         const pressed = input.attackDown && !this.wasDown;
         this.wasDown = input.attackDown;
         this.elapsed += dt;
+        this.sinceRelease += dt;
         let shot = false;
         switch (this.state) {
             case "idle":
@@ -69,7 +135,7 @@ export class BowController {
                 break;
             case "drawing":
                 if (!input.attackDown) {
-                    this.enter("lowering");
+                    this.letDown();
                 } else if (this.elapsed >= this.readyAt) {
                     this.enter("drawn");
                     this.drawnFor = 0;
@@ -78,6 +144,7 @@ export class BowController {
             case "drawn":
                 this.drawnFor += dt;
                 if (!input.attackDown) {
+                    this.release();
                     this.enter("shooting");
                     this.fired = false;
                     this.chain = false;
@@ -96,6 +163,7 @@ export class BowController {
                         this.startDraw(tuning.bowReloadReady);
                     } else {
                         this.enter("lowering");
+                        this.emptyLowering = true;
                     }
                 }
                 break;
@@ -115,9 +183,24 @@ export class BowController {
         this.enter("drawing");
     }
 
+    /** The draw ends: the held pose starts settling back from where it is. */
+    private release(): void {
+        this.releasedPose = this.poseProgress;
+        this.sinceRelease = 0;
+    }
+
+    private letDown(): void {
+        this.release();
+        const pull = this.stringPull;
+        this.enter("lowering");
+        this.letDownFrom = pull;
+    }
+
     private enter(state: BowState): void {
         this.state = state;
         this.elapsed = 0;
+        this.letDownFrom = 0;
+        this.emptyLowering = false;
     }
 }
 

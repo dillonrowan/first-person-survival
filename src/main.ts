@@ -422,11 +422,13 @@ async function main(): Promise<void> {
                 combatHud.showDamage();
             },
         });
-        arrowView.update(combat.arrows);
+        arrowView.update(combat.arrows, (out) => weaponView.arrowHead(out));
         avatar.update(dt, player, cameraRig.mode);
         weaponView.update(combat.melee, cameraRig.mode, player.ready && !player.flying, combat.kick, {
             dt,
-            bowDraw: combat.bow.drawProgress,
+            bowDraw: combat.bow.poseProgress,
+            bowString: combat.bow.stringPull,
+            arrowNocked: combat.bow.arrowNocked,
             blocking: combat.blocking,
         });
         combatHud.update(dt, {

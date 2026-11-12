@@ -251,13 +251,6 @@ export const tuning = {
     hearingHeightClip: units(300),
     /** Hearing reaction delay; none for sprint-level sounds. [delayhear, NoDelayHearAbovePresence] */
     hearingDelay: 1,
-    /** Seen this close, the NPC plays its surprised step back first. [cvar mm_ai_dist_surprised] */
-    surprisedDistance: units(314),
-    surprisedTime: 1.17,
-    surprisedStep: units(78),
-    /** Allies within this range join a fight, at most callForHelpMax of them. [data] */
-    callForHelpDistance: units(700),
-    callForHelpMax: 3,
     /** Search after losing sight. [cvar mm_ai_search_time; data SearchRadius] */
     searchTime: 10,
     searchRadius: units(600),
