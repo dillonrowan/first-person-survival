@@ -10,7 +10,7 @@ import type { MoveDef } from "./moves";
 import { tuning } from "./tuning";
 import { WEAPONS, WeaponDef } from "./weapons";
 import { npcStrikeDamage } from "../npc/NpcAttacks";
-import { Arrow, BowController, launchArrow, stepArrows } from "./Bow";
+import { Arrow, BowController, ObstacleTop, launchArrow, stepArrows } from "./Bow";
 import { CrossbowController } from "./Crossbow";
 import type { HitEvent } from "./moves";
 
@@ -116,6 +116,8 @@ export class PlayerCombat {
     readonly arrows: Arrow[] = [];
     /** Ground height for arrows; without it they only stop at walls. */
     groundHeight?: (plane: number, x: number, y: number) => number;
+    /** How tall the walls and fences are; without it arrows treat every wall as reaching the sky. */
+    obstacleTop?: ObstacleTop;
 
     private readonly hitThisSwing: Set<Body<CombatTarget>>[] = [];
     private clock = 0;
@@ -372,7 +374,7 @@ export class PlayerCombat {
             return;
         }
         const ground = this.groundHeight ?? (() => -Infinity);
-        for (const hit of stepArrows(this.arrows, dt, this.bodies, this.flagsAt, ground)) {
+        for (const hit of stepArrows(this.arrows, dt, this.bodies, this.flagsAt, ground, this.obstacleTop)) {
             const target = hit.body.owner;
             if (!target.attackable) {
                 continue;

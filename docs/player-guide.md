@@ -90,7 +90,8 @@ To use the bow, aim with the mouse, hold the attack button to draw, then release
 arrows remain available. With a bow from the weapon menu, an arrow sits on the string and the string pulls back
 as you draw; at full draw the arrow points into the reticule, and a shot arrow leaves the bow and
 curves into the line of sight within its first 8 tiles. Let go before the bow is fully drawn and it eases back without shooting. With a bow or crossbow,
-hold `Mouse 2` to zoom the view; let go and it zooms back out.
+hold `Mouse 2` to zoom the view; let go and it zooms back out. Arrows and bolts fly in an arc and clear fences, low
+walls and anything else lower than their path; they stick only in what they actually reach.
 
 A crossbow has no charge. When you equip it, and after every shot, it plays a reload: it is lowered,
 the string is spanned back onto the latch and a bolt is laid on the rail, then it is raised to the

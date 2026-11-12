@@ -250,9 +250,14 @@ export function launchArrow(eye: { x: number; y: number; z: number; plane: numbe
     };
 }
 
+/** Highest point (tiles, up positive) of whatever stands over a box of tiles, -Infinity if nothing. */
+export type ObstacleTop = (minX: number, minY: number, maxX: number, maxY: number) => number;
+
 /**
  * Moves arrows under gravity (sv_gravity, [inferred]) and returns the bodies they hit. Walls and
- * the ground stop them; an arrow hits each body at most once and then disappears.
+ * the ground stop them; an arrow hits each body at most once and then disappears. With
+ * `obstacleTop`, a wall stops an arrow only below its top, so arrows fly over fences and low walls;
+ * without it every wall is infinitely tall.
  */
 export function stepArrows<T>(
     arrows: Arrow[],
@@ -260,6 +265,7 @@ export function stepArrows<T>(
     bodies: BodySource<T>,
     flagsAt: FlagsAt,
     groundHeight: (plane: number, x: number, y: number) => number,
+    obstacleTop?: ObstacleTop,
     exclude?: unknown,
 ): ArrowHit<T>[] {
     const hits: ArrowHit<T>[] = [];
@@ -299,7 +305,19 @@ export function stepArrows<T>(
         }
         boxes.length = 0;
         collectTileBoxes(flagsAt, a.plane, Math.min(a.x, x1), Math.min(a.y, y1), Math.max(a.x, x1), Math.max(a.y, y1), boxes, "walls");
-        const wall = segmentHitsBoxes2D(a.x, a.y, x1, y1, boxes);
+        let wall: number | undefined;
+        for (const box of boxes) {
+            const t = segmentHitsBoxes2D(a.x, a.y, x1, y1, [box]);
+            if (t === undefined || (wall !== undefined && t >= wall)) {
+                continue;
+            }
+            // Clear over the top of what stands there (a fence, a low wall): no hit.
+            const z = a.z + (z1 - a.z) * t;
+            if (obstacleTop && z > obstacleTop(box.minX, box.minY, box.maxX, box.maxY)) {
+                continue;
+            }
+            wall = t;
+        }
         if (best && (wall === undefined || best.t <= wall)) {
             const speed = Math.hypot(a.vx, a.vy) || 1;
             hits.push({ body: best.body, arrow: a, dirX: a.vx / speed, dirY: a.vy / speed });

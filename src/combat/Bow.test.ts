@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import type { Body, BodySource } from "../physics/Bodies";
+import { FlagsAt, WALL_HALF_THICKNESS } from "../physics/TileColliders";
 import { units } from "../player/MoveMath";
+import { CollisionFlag } from "../world/WorldFormat";
 import { Arrow, BowController, launchArrow, stepArrows } from "./Bow";
 import { tuning } from "./tuning";
 
@@ -119,6 +121,24 @@ describe("arrows", () => {
         stepArrows(arrows, 0.1, none, open, flat);
         expect(a.y).toBeCloseTo(units(210));
         expect(a.vz).toBeCloseTo(-units(60));
+    });
+
+    it("fly over a fence lower than they are, and stick in a wall taller than they are", () => {
+        // A wall along the north edge of tile (0, 2), so at y = 3, crossed in the first 0.1 s.
+        const fence: FlagsAt = (_plane, x, y) => (x === 0 && y === 2 ? CollisionFlag.WALL_NORTH : 0);
+        const shoot = () => [launchArrow({ x: 0.5, y: 0, z: 1.25, plane: 0 }, 0, 0)];
+        const low = shoot();
+        stepArrows(low, 0.1, none, fence, flat, () => 1);
+        expect(low[0].stuck).toBe(false);
+        expect(low[0].y).toBeGreaterThan(3);
+        const tall = shoot();
+        stepArrows(tall, 0.1, none, fence, flat, () => 2);
+        expect(tall[0].stuck).toBe(true);
+        expect(tall[0].y).toBeCloseTo(3 - WALL_HALF_THICKNESS, 6);
+        // Without heights a wall stops it, as before.
+        const unknown = shoot();
+        stepArrows(unknown, 0.1, none, fence, flat);
+        expect(unknown[0].stuck).toBe(true);
     });
 
     it("hit a body in their path", () => {

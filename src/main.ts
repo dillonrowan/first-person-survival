@@ -210,6 +210,7 @@ async function main(): Promise<void> {
     const combatHud = new CombatHud(document.body);
     const enemyHealthBars = npcs ? new EnemyHealthBars(document.body, npcs, camera) : undefined;
     combat.groundHeight = (plane, x, y) => world.groundHeight(plane, x, y);
+    combat.obstacleTop = (minX, minY, maxX, maxY) => world.obstacleTop(minX, minY, maxX, maxY);
     const hitFeel = new HitFeel();
     combat.onHit = ({ result, move }) => {
         combatHud.showHit(result.reaction !== "none" && result.reaction !== "flinch");
