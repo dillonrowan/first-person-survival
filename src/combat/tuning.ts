@@ -282,8 +282,6 @@ export const tuning = {
     bowShootTime: 0.233,
     bowReleaseAt: 0.033,
     bowLowerTime: 0.667,
-    /** Zoom once drawn and slower than this. [cvar mm_speed_to_bow_zoom 10] */
-    bowZoomSpeed: units(10),
     /** Field-of-view scale when zoomed. [design] */
     bowZoomFov: 0.5,
     /** Steady-aim window after the draw. [cvar mm_time_bow_stabilisation] */
@@ -293,6 +291,11 @@ export const tuning = {
     bowHitPow: 1.5,
     bowAdrenaline: 2,
     arrowsStart: 30,
+    /** Crossbow: seconds to span the string and seat a bolt, after each shot and on equipping. [design] */
+    crossbowReloadTime: 1.8,
+    /** Crossbow: seconds of recoil after a shot before the reload starts. [design] */
+    crossbowRecoilTime: 0.3,
+    boltsStart: 30,
     arrowsMax: 99,
 
     // --- 19 Physics props ---

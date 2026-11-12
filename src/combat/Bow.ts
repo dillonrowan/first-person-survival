@@ -14,8 +14,8 @@ export type BowState = "idle" | "drawing" | "drawn" | "shooting" | "lowering";
 
 export type BowInput = {
     attackDown: boolean;
-    /** Player speed, tiles/s (zoom needs standing nearly still). */
-    speed: number;
+    /** Right mouse held: the view zooms. */
+    aimDown: boolean;
 };
 
 /**
@@ -23,7 +23,7 @@ export type BowInput = {
  * arrow: 2.0 s layer, ready to fire at 1.433 s. Releasing once ready shoots (0.233 s, the arrow
  * leaves at 0.033 s); releasing earlier lowers the bow (0.667 s). Pressing again during or right
  * after a shot chains into the 1.0 s re-draw (ready at 0.933 s). Drawn and almost still, the view
- * zooms; the aim stays steady for 4 s after the draw, then sways.
+ * zooms while the right mouse is held; the aim stays steady for 4 s after the draw, then sways.
  */
 export class BowController {
     state: BowState = "idle";
@@ -173,8 +173,7 @@ export class BowController {
                 }
                 break;
         }
-        const wantZoom = this.state === "drawn" && input.speed < tuning.bowZoomSpeed;
-        this.zoom = wantZoom ? Math.min(1, this.zoom + dt * 5) : Math.max(0, this.zoom - dt * 1);
+        this.zoom = input.aimDown ? Math.min(1, this.zoom + dt * 5) : Math.max(0, this.zoom - dt * 1);
         return shot;
     }
 
@@ -216,6 +215,8 @@ export type Arrow = {
     age: number;
     /** Stuck in a wall or the ground: stays a while, then disappears. */
     stuck: boolean;
+    /** A crossbow bolt rather than an arrow (drawn differently, flies the same). */
+    bolt?: boolean;
 };
 
 /** Where an arrow hit a body. */

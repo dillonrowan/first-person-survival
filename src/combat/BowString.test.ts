@@ -1,7 +1,6 @@
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 
-import { cacheWeaponDrawsString } from "../world/CacheWeaponFormat";
 import { BowString, limbOutline } from "./BowString";
 
 const v = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
@@ -78,9 +77,4 @@ describe("bow string", () => {
         expect(arrow.visible).toBe(false);
     });
 
-    it("strings bows but not crossbows", () => {
-        expect(cacheWeaponDrawsString({ family: "bow", name: "Magic longbow" })).toBe(true);
-        expect(cacheWeaponDrawsString({ family: "bow", name: "Rune crossbow" })).toBe(false);
-        expect(cacheWeaponDrawsString({ family: "sword", name: "Bronze sword" })).toBe(false);
-    });
 });

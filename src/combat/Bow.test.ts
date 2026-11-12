@@ -5,10 +5,10 @@ import { units } from "../player/MoveMath";
 import { Arrow, BowController, launchArrow, stepArrows } from "./Bow";
 import { tuning } from "./tuning";
 
-const run = (bow: BowController, seconds: number, attackDown: boolean, speed = 0): number => {
+const run = (bow: BowController, seconds: number, attackDown: boolean, aimDown = false): number => {
     let shots = 0;
     for (let t = 0; t < seconds - 1e-9; t += 0.01) {
-        if (bow.update(0.01, { attackDown, speed })) {
+        if (bow.update(0.01, { attackDown, aimDown })) {
             shots++;
         }
     }
@@ -89,15 +89,21 @@ describe("BowController (spec 16.4)", () => {
         expect(bow.arrowNocked).toBe(true);
     });
 
-    it("zooms only when drawn and almost still, and sways after 4 s", () => {
+    it("zooms only while the right mouse is held, and sways after 4 s", () => {
         const bow = new BowController();
-        run(bow, 2, true, 3);
-        expect(bow.zoom).toBe(0);
-        run(bow, 0.5, true, 0);
+        run(bow, 2, true);
+        expect(bow.zoom).toBe(0); // fully drawn, but not aiming
+        run(bow, 0.5, true, true);
         expect(bow.zoom).toBeGreaterThan(0.9);
         expect(bow.sway(1)).toEqual([0, 0]);
-        run(bow, 5, true, 0);
+        run(bow, 5, true, true);
         expect(Math.abs(bow.sway(1)[0])).toBeGreaterThan(0);
+        run(bow, 1.5, true, false);
+        expect(bow.zoom).toBe(0);
+        // Not drawn at all: holding the right mouse still zooms.
+        const idle = new BowController();
+        run(idle, 0.5, false, true);
+        expect(idle.zoom).toBeGreaterThan(0.9);
     });
 });
 

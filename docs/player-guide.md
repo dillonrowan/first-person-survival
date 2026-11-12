@@ -73,14 +73,15 @@ Use the mouse wheel to switch between available weapons.
 Press `I` to open the cache weapon menu and equip any listed weapon; type in its search box to
 filter the list by name, then click a weapon or press `Enter` to equip the first match. The selected weapon remains active
 until another weapon is equipped or selected with the mouse wheel. A weapon whose name contains
-"dagger" fights like the daggers, "staff" like the staff and "bow" like the bow; every other weapon
-fights like the sword.
+"dagger" fights like the daggers, "staff" like the staff, "crossbow" like a crossbow and "bow" like the
+bow; every other weapon fights like the sword.
 
 - Sword: balanced melee weapon.
 - Daggers: fast attacks and close-range stepping attacks.
 - Club: heavier melee weapon.
 - Staff: longer reach and defensive weapon.
 - Bow: ranged attacks where available.
+- Crossbow: ranged attacks with no draw to hold; it reloads between shots.
 
 Hold `Mouse 2` to block during melee. Blocking can stop or weaken incoming attacks and can leave
 the attacker exposed to a follow-up. Weapon reach, speed, damage, and parry behavior vary by weapon.
@@ -88,8 +89,14 @@ the attacker exposed to a follow-up. Weapon reach, speed, damage, and parry beha
 To use the bow, aim with the mouse, hold the attack button to draw, then release to shoot while
 arrows remain available. With a bow from the weapon menu, an arrow sits on the string and the string pulls back
 as you draw; at full draw the arrow points into the reticule, and a shot arrow leaves the bow and
-curves into the line of sight within its first 8 tiles. Let go before the bow is fully drawn and it eases back without shooting. Crossbows have
-no drawn string.
+curves into the line of sight within its first 8 tiles. Let go before the bow is fully drawn and it eases back without shooting. With a bow or crossbow,
+hold `Mouse 2` to zoom the view; let go and it zooms back out.
+
+A crossbow has no charge. When you equip it, and after every shot, it plays a reload: it is lowered,
+the string is spanned back onto the latch and a bolt is laid on the rail, then it is raised to the
+aim. Once it is back at the aim it is loaded, and a click shoots at once. The string is straight
+while the crossbow is spent and drawn back while it is loaded; the shot kicks the crossbow up and
+back. The weapon name shows the bolts left.
 
 ## Health, Stamina, and Adrenaline
 
@@ -173,7 +180,7 @@ Combat is unavailable while flying. Target interaction is also unavailable in fl
 | `W A S D` | Move |
 | Mouse | Look |
 | `Mouse 1` | Quick attack; hold and release for charged attack |
-| `Mouse 2` | Block |
+| `Mouse 2` | Block; with a bow or crossbow, hold to zoom |
 | `F` | Kick |
 | Mouse wheel | Switch weapon |
 | `Shift` | Sprint or fly faster |

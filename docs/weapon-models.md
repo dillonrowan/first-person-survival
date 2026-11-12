@@ -39,4 +39,12 @@ The weapon ids live in `src/combat/weapons.ts`:
   an arrow (`src/combat/BowString.ts`): from the nock the string runs to each limb tip along the
   archer side (+Z) of the limb's outline, so it lies over recurves and flared tips instead of
   passing through them, and the arrow passes beside the widest part of the grip. The nock is pulled
-  toward +Z as the bow is drawn. Crossbows are left as they are.
+  toward +Z as the bow is drawn.
+- **Crossbows from the cache** are their own family. Their worn models all lie the same way (prod
+  toward -Y, limbs along X, stock above the hand), so they are turned a half turn about Z, not by
+  their exported blade direction, into a crossbow contract: muzzle +Y, rail on top +Z. Their models
+  carry a string already drawn back in a V; at load the game drops those triangles and adds its own
+  string and bolt (`src/combat/CrossbowRig.ts`): straight from tip to tip when spent, back on the
+  latch (where the model's V met the stock) when cocked, with the bolt in the groove at string
+  height, ending short of the prod block or sights. A crossbow model without a drawn string (a pair
+  of crossbows, say) gets no string or bolt.

@@ -530,7 +530,7 @@
     "id": "cache-9183",
     "cacheId": 9183,
     "name": "Adamant crossbow",
-    "family": "bow",
+    "family": "crossbow",
     "file": "cache-weapons/9183.bin",
     "grip": [
       -32,
@@ -1686,7 +1686,7 @@
     "id": "cache-11785",
     "cacheId": 11785,
     "name": "Armadyl crossbow",
-    "family": "bow",
+    "family": "crossbow",
     "file": "cache-weapons/11785.bin",
     "grip": [
       -32,
@@ -1788,7 +1788,7 @@
     "id": "cache-34681",
     "cacheId": 34681,
     "name": "Ascension crossbows",
-    "family": "bow",
+    "family": "crossbow",
     "file": "cache-weapons/34681.bin",
     "grip": [
       -32,
@@ -3199,7 +3199,7 @@
     "id": "cache-9176",
     "cacheId": 9176,
     "name": "Blurite crossbow",
-    "family": "bow",
+    "family": "crossbow",
     "file": "cache-weapons/9176.bin",
     "grip": [
       -32,
@@ -3658,7 +3658,7 @@
     "id": "cache-9174",
     "cacheId": 9174,
     "name": "Bronze crossbow",
-    "family": "bow",
+    "family": "crossbow",
     "file": "cache-weapons/9174.bin",
     "grip": [
       -32,
@@ -5069,7 +5069,7 @@
     "id": "cache-837",
     "cacheId": 837,
     "name": "Crossbow",
-    "family": "bow",
+    "family": "crossbow",
     "file": "cache-weapons/837.bin",
     "grip": [
       -32,
@@ -6633,7 +6633,7 @@
     "id": "cache-8880",
     "cacheId": 8880,
     "name": "Dorgeshuun crossbow",
-    "family": "bow",
+    "family": "crossbow",
     "file": "cache-weapons/8880.bin",
     "grip": [
       -32,
@@ -6854,7 +6854,7 @@
     "id": "cache-21902",
     "cacheId": 21902,
     "name": "Dragon crossbow",
-    "family": "bow",
+    "family": "crossbow",
     "file": "cache-weapons/21902.bin",
     "grip": [
       -32,
@@ -6871,7 +6871,7 @@
     "id": "cache-28053",
     "cacheId": 28053,
     "name": "Dragon crossbow (cr)",
-    "family": "bow",
+    "family": "crossbow",
     "file": "cache-weapons/28053.bin",
     "grip": [
       -32,
@@ -7279,7 +7279,7 @@
     "id": "cache-21012",
     "cacheId": 21012,
     "name": "Dragon hunter crossbow",
-    "family": "bow",
+    "family": "crossbow",
     "file": "cache-weapons/21012.bin",
     "grip": [
       -32,
@@ -7296,7 +7296,7 @@
     "id": "cache-25918",
     "cacheId": 25918,
     "name": "Dragon hunter crossbow (b)",
-    "family": "bow",
+    "family": "crossbow",
     "file": "cache-weapons/25918.bin",
     "grip": [
       -32,
@@ -7313,7 +7313,7 @@
     "id": "cache-25916",
     "cacheId": 25916,
     "name": "Dragon hunter crossbow (t)",
-    "family": "bow",
+    "family": "crossbow",
     "file": "cache-weapons/25916.bin",
     "grip": [
       -32,
@@ -9591,7 +9591,7 @@
     "id": "cache-10156",
     "cacheId": 10156,
     "name": "Hunters' crossbow",
-    "family": "bow",
+    "family": "crossbow",
     "file": "cache-weapons/10156.bin",
     "grip": [
       -32,
@@ -9608,7 +9608,7 @@
     "id": "cache-28869",
     "cacheId": 28869,
     "name": "Hunters' sunlight crossbow",
-    "family": "bow",
+    "family": "crossbow",
     "file": "cache-weapons/28869.bin",
     "grip": [
       -32,
@@ -10169,7 +10169,7 @@
     "id": "cache-9177",
     "cacheId": 9177,
     "name": "Iron crossbow",
-    "family": "bow",
+    "family": "crossbow",
     "file": "cache-weapons/9177.bin",
     "grip": [
       -32,
@@ -10815,7 +10815,7 @@
     "id": "cache-4734",
     "cacheId": 4734,
     "name": "Karil's crossbow",
-    "family": "bow",
+    "family": "crossbow",
     "file": "cache-weapons/4734.bin",
     "grip": [
       -32,
@@ -10832,7 +10832,7 @@
     "id": "cache-4934",
     "cacheId": 4934,
     "name": "Karil's crossbow 100",
-    "family": "bow",
+    "family": "crossbow",
     "file": "cache-weapons/4934.bin",
     "grip": [
       -32,
@@ -10849,7 +10849,7 @@
     "id": "cache-4937",
     "cacheId": 4937,
     "name": "Karil's crossbow 25",
-    "family": "bow",
+    "family": "crossbow",
     "file": "cache-weapons/4937.bin",
     "grip": [
       -32,
@@ -10866,7 +10866,7 @@
     "id": "cache-4936",
     "cacheId": 4936,
     "name": "Karil's crossbow 50",
-    "family": "bow",
+    "family": "crossbow",
     "file": "cache-weapons/4936.bin",
     "grip": [
       -32,
@@ -10883,7 +10883,7 @@
     "id": "cache-4935",
     "cacheId": 4935,
     "name": "Karil's crossbow 75",
-    "family": "bow",
+    "family": "crossbow",
     "file": "cache-weapons/4935.bin",
     "grip": [
       -32,
@@ -11325,7 +11325,7 @@
     "id": "cache-28128",
     "cacheId": 28128,
     "name": "Love crossbow",
-    "family": "bow",
+    "family": "crossbow",
     "file": "cache-weapons/28128.bin",
     "grip": [
       -32,
@@ -11801,7 +11801,7 @@
     "id": "cache-9181",
     "cacheId": 9181,
     "name": "Mithril crossbow",
-    "family": "bow",
+    "family": "crossbow",
     "file": "cache-weapons/9181.bin",
     "grip": [
       -32,
@@ -13280,7 +13280,7 @@
     "id": "cache-767",
     "cacheId": 767,
     "name": "Phoenix crossbow",
-    "family": "bow",
+    "family": "crossbow",
     "file": "cache-weapons/767.bin",
     "grip": [
       -32,
@@ -13297,7 +13297,7 @@
     "id": "cache-11165",
     "cacheId": 11165,
     "name": "Phoenix crossbow",
-    "family": "bow",
+    "family": "crossbow",
     "file": "cache-weapons/11165.bin",
     "grip": [
       -32,
@@ -13314,7 +13314,7 @@
     "id": "cache-11167",
     "cacheId": 11167,
     "name": "Phoenix crossbow",
-    "family": "bow",
+    "family": "crossbow",
     "file": "cache-weapons/11167.bin",
     "grip": [
       -32,
@@ -14096,7 +14096,7 @@
     "id": "cache-9185",
     "cacheId": 9185,
     "name": "Rune crossbow",
-    "family": "bow",
+    "family": "crossbow",
     "file": "cache-weapons/9185.bin",
     "grip": [
       -32,
@@ -14113,7 +14113,7 @@
     "id": "cache-26486",
     "cacheId": 26486,
     "name": "Rune crossbow (or)",
-    "family": "bow",
+    "family": "crossbow",
     "file": "cache-weapons/26486.bin",
     "grip": [
       -32,
@@ -15966,7 +15966,7 @@
     "id": "cache-9179",
     "cacheId": 9179,
     "name": "Steel crossbow",
-    "family": "bow",
+    "family": "crossbow",
     "file": "cache-weapons/9179.bin",
     "grip": [
       -32,
@@ -18890,7 +18890,7 @@
     "id": "cache-26374",
     "cacheId": 26374,
     "name": "Zaryte crossbow",
-    "family": "bow",
+    "family": "crossbow",
     "file": "cache-weapons/26374.bin",
     "grip": [
       -32,

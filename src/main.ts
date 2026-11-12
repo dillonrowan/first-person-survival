@@ -383,8 +383,9 @@ async function main(): Promise<void> {
                 player.teleport(spawn.x + 0.5, spawn.y + 0.5, spawn.plane);
             }
         }
-        // Bow zoom (spec 16.4): narrow the view while drawn and nearly still.
-        const fov = baseFov * (1 - combat.bow.zoom * (1 - tuning.bowZoomFov));
+        // Bow and crossbow zoom: narrow the view while the right mouse is held.
+        const zoom = Math.max(combat.bow.zoom, combat.crossbow.zoom);
+        const fov = baseFov * (1 - zoom * (1 - tuning.bowZoomFov));
         if (Math.abs(camera.fov - fov) > 1e-3) {
             camera.fov = fov;
             camera.updateProjectionMatrix();
@@ -422,21 +423,38 @@ async function main(): Promise<void> {
                 combatHud.showDamage();
             },
         });
-        arrowView.update(combat.arrows, (out) => weaponView.arrowHead(out));
+        arrowView.update(combat.arrows, (out) => weaponView.launchPoint(out));
         avatar.update(dt, player, cameraRig.mode);
         weaponView.update(combat.melee, cameraRig.mode, player.ready && !player.flying, combat.kick, {
             dt,
             bowDraw: combat.bow.poseProgress,
             bowString: combat.bow.stringPull,
             arrowNocked: combat.bow.arrowNocked,
+            crossbow: {
+                lowered: combat.crossbow.lowered,
+                cocked: combat.crossbow.cocked,
+                boltSeat: combat.crossbow.boltSeat,
+                recoil: combat.crossbow.recoil,
+            },
             blocking: combat.blocking,
         });
         combatHud.update(dt, {
             health: combat.combatant.healthFraction,
             stamina: player.stamina.fraction,
             adrenaline: combat.melee.adrenaline / tuning.adrenalineMax,
-            charge: combat.weapon.family === "bow" ? combat.bow.drawProgress : combat.melee.chargeProgress,
-            weaponName: combat.weapon.family === "bow" ? `${combat.weapon.name} (${combat.bow.arrows})` : combat.weapon.name,
+            // A crossbow has no charge: it reloads on its own.
+            charge:
+                combat.weapon.family === "bow"
+                    ? combat.bow.drawProgress
+                    : combat.weapon.family === "crossbow"
+                      ? 0
+                      : combat.melee.chargeProgress,
+            weaponName:
+                combat.weapon.family === "bow"
+                    ? `${combat.weapon.name} (${combat.bow.arrows})`
+                    : combat.weapon.family === "crossbow"
+                      ? `${combat.weapon.name} (${combat.crossbow.bolts})`
+                      : combat.weapon.name,
         });
         cameraRig.update(player, weaponView.viewOffset);
         if (collisionDebug && npcs) {

@@ -1,9 +1,10 @@
 import * as THREE from "three";
 
-import { CacheWeaponInfo, cacheWeaponDrawsString } from "../world/CacheWeaponFormat";
+import type { CacheWeaponInfo } from "../world/CacheWeaponFormat";
 import type { NpcModelData } from "../world/NpcFormat";
 import { RS_UNITS_PER_TILE } from "../world/WorldFormat";
 import { BowString } from "./BowString";
+import { CrossbowRig, stringFaces } from "./CrossbowRig";
 
 /** RS units (y down, z south) to tiles in three.js axes, as the world vertex shader does. */
 const toThree = ([x, y, z]: readonly number[]) =>
@@ -17,6 +18,9 @@ const toThree = ([x, y, z]: readonly number[]) =>
  * view needs them curving back toward the archer along +Z, so for bows the model's up is +Z.
  */
 export function cacheWeaponOrientation(info: Pick<CacheWeaponInfo, "blade" | "family">): THREE.Quaternion {
+    if (info.family === "crossbow") {
+        return CROSSBOW_ORIENTATION.clone();
+    }
     const blade = toThree(info.blade).normalize();
     const facing = new THREE.Vector3(0, info.family === "bow" ? 1 : -1, 0);
     let edge = facing.clone().addScaledVector(blade, -facing.dot(blade));
@@ -32,17 +36,38 @@ export function cacheWeaponOrientation(info: Pick<CacheWeaponInfo, "blade" | "fa
 }
 
 /**
+ * Worn crossbows all lie the same way, unlike their exported blade directions: the prod toward
+ * -Y, the limbs along ±X and the stock above the hand (+Z). A half turn about Z puts the muzzle on
+ * +Y with the rail still on top, the crossbow contract (CrossbowRig).
+ */
+const CROSSBOW_ORIENTATION = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI);
+
+/**
  * The exported model as the held weapon, drawn with the world materials like NPCs. A hand-drawn bow
- * also gets a string and nocked arrow (the models have none), found by name as a `BowString`.
+ * also gets a string and nocked arrow (the models have none), found by name as a `BowString`; a
+ * crossbow loses its drawn string for a `CrossbowRig` (string and bolt), found by name too.
  */
 export function createCacheWeaponModel(
     info: CacheWeaponInfo,
     data: NpcModelData,
     materials: { opaque: THREE.Material; transparent: THREE.Material },
 ): THREE.Group {
+    const orientation = cacheWeaponOrientation(info);
+    const crossbow = info.family === "crossbow";
+    const kept: THREE.Vector3[] = [];
+    const string: THREE.Vector3[] = [];
     const model = new THREE.Group();
     model.position.copy(toThree(info.grip)).negate();
-    for (const [source, transparent] of [[data.opaque, false], [data.transparent, true]] as const) {
+    for (const [part, transparent] of [[data.opaque, false], [data.transparent, true]] as const) {
+        let source = part;
+        if (crossbow) {
+            // Drop the drawn string; the rig draws its own.
+            const points = [...contractPoints(info, part.positions, orientation)];
+            const drop = stringFaces(points, part.indices);
+            const indices = part.indices.filter((_, i) => !drop.has(Math.floor(i / 3)));
+            part.indices.forEach((v, i) => (drop.has(Math.floor(i / 3)) ? string : kept).push(points[v]));
+            source = { ...part, indices };
+        }
         if (source.indices.length === 0) continue;
         const geometry = new THREE.BufferGeometry();
         geometry.setAttribute("a_position", new THREE.BufferAttribute(source.positions, 4));
@@ -56,28 +81,31 @@ export function createCacheWeaponModel(
         mesh.renderOrder = transparent ? 2 : 1;
         model.add(mesh);
     }
-    const orientation = cacheWeaponOrientation(info);
     const held = new THREE.Group();
     held.quaternion.copy(orientation);
     held.add(model);
     const weapon = new THREE.Group();
     weapon.name = `weapon_${info.id}`;
     weapon.add(held);
-    if (cacheWeaponDrawsString(info)) {
-        const bowString = BowString.fit([...contractPoints(info, data, orientation)]);
+    if (info.family === "bow") {
+        const points = [data.opaque, data.transparent].flatMap((mesh) => [...contractPoints(info, mesh.positions, orientation)]);
+        const bowString = BowString.fit(points);
         if (bowString) {
             weapon.add(bowString);
+        }
+    } else if (crossbow) {
+        const rig = CrossbowRig.fit(kept, string);
+        if (rig) {
+            weapon.add(rig);
         }
     }
     return weapon;
 }
 
-/** The model's vertices in the weapon contract's space (tiles, grip at the origin). */
-function* contractPoints(info: CacheWeaponInfo, data: NpcModelData, orientation: THREE.Quaternion): Generator<THREE.Vector3> {
+/** A mesh's vertices in the weapon contract's space (tiles, grip at the origin). */
+function* contractPoints(info: CacheWeaponInfo, positions: Int16Array, orientation: THREE.Quaternion): Generator<THREE.Vector3> {
     const grip = toThree(info.grip);
-    for (const { positions } of [data.opaque, data.transparent]) {
-        for (let i = 0; i < positions.length; i += 4) {
-            yield toThree([positions[i], positions[i + 1], positions[i + 2]]).sub(grip).applyQuaternion(orientation);
-        }
+    for (let i = 0; i < positions.length; i += 4) {
+        yield toThree([positions[i], positions[i + 1], positions[i + 2]]).sub(grip).applyQuaternion(orientation);
     }
 }

@@ -2,6 +2,7 @@ import * as THREE from "three";
 
 import type { Arrow } from "./Bow";
 import { ARROW_LENGTH, createArrow } from "./BowString";
+import { BOLT_LENGTH, createBolt } from "./CrossbowRig";
 import { ARROW_CONVERGE } from "./WeaponView";
 
 /**
@@ -11,13 +12,14 @@ import { ARROW_CONVERGE } from "./WeaponView";
 type Launch = { offset: THREE.Vector3; from: number };
 
 /**
- * Draws arrows in flight or stuck in the world, with the same model as the nocked arrow. A new
- * arrow starts at the bow's arrow head and swoops into the line of sight, so it flies into what
- * the reticule was on.
+ * Draws arrows and crossbow bolts in flight or stuck in the world, with the models they had on the
+ * weapon. A new one starts at the head of the arrow on the bow (or the bolt on the crossbow) and
+ * swoops into the line of sight, so it flies into what the reticule was on.
  */
 export class ArrowView {
     private readonly views: THREE.Object3D[] = [];
-    private readonly template = createArrow();
+    private readonly kinds: boolean[] = [];
+    private readonly templates = { arrow: createArrow(), bolt: createBolt() };
     private readonly launches = new WeakMap<Arrow, Launch>();
     private readonly direction = new THREE.Vector3();
     private readonly head = new THREE.Vector3();
@@ -27,18 +29,26 @@ export class ArrowView {
 
     /** `launchFrom` gives the drawn arrow's head (world) for arrows that have just been shot. */
     update(arrows: readonly Arrow[], launchFrom?: (out: THREE.Vector3) => THREE.Vector3 | undefined): void {
-        while (this.views.length < arrows.length) {
-            const view = this.template.clone();
-            view.visible = true;
-            this.scene.add(view);
-            this.views.push(view);
-        }
-        this.views.forEach((view, i) => {
+        for (let i = 0; i < Math.max(arrows.length, this.views.length); i++) {
             const a = arrows[i];
+            let view = this.views[i];
+            if (a && (!view || this.kinds[i] !== !!a.bolt)) {
+                // A new arrow, or a bolt where an arrow was drawn (or the other way round).
+                view?.removeFromParent();
+                view = (a.bolt ? this.templates.bolt : this.templates.arrow).clone();
+                view.visible = true;
+                this.scene.add(view);
+                this.views[i] = view;
+                this.kinds[i] = !!a.bolt;
+            }
+            if (!view) {
+                continue;
+            }
             view.visible = a !== undefined;
             if (!a) {
-                return;
+                continue;
             }
+            const length = a.bolt ? BOLT_LENGTH : ARROW_LENGTH;
             // World (x east, y north, z up) to three.js (x, y up, -z north).
             this.head.set(a.x, a.z, -a.y);
             this.direction.set(a.vx, a.vz, -a.vy);
@@ -58,9 +68,9 @@ export class ArrowView {
                     this.direction.multiplyScalar(speed).addScaledVector(launch.offset, -speed / left).normalize();
                 }
             }
-            view.position.copy(this.head).addScaledVector(this.direction, -ARROW_LENGTH);
+            view.position.copy(this.head).addScaledVector(this.direction, -length);
             view.quaternion.setFromUnitVectors(UP, this.direction);
-        });
+        }
     }
 }
 

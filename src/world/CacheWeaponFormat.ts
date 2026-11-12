@@ -5,7 +5,7 @@
 //   cache-weapons/{cacheId}.bin gzip-compressed NpcModelData (see NpcFormat) without clips: the
 //                               item's worn model, lit like a player's, in RS units
 
-export type CacheWeaponFamily = "sword" | "daggers" | "staff" | "bow";
+export type CacheWeaponFamily = "sword" | "daggers" | "staff" | "bow" | "crossbow";
 
 export type CacheWeaponInfo = {
     id: string;
@@ -25,16 +25,15 @@ export type CacheWeaponInfo = {
     blade: [number, number, number];
 };
 
-/** A bow drawn by hand: every bow but crossbows (and the like), which are loaded, not drawn. */
-export function cacheWeaponDrawsString(info: Pick<CacheWeaponInfo, "family" | "name">): boolean {
-    return info.family === "bow" && !/crossbow|ballista/i.test(info.name);
-}
-
-/** Dagger names swing like the daggers, staffs like the staff, bows shoot; everything else is a sword. */
+/**
+ * Dagger names swing like the daggers, staffs like the staff, bows are drawn and crossbows loaded;
+ * everything else is a sword.
+ */
 export function cacheWeaponFamily(name: string): CacheWeaponFamily {
     const lower = name.toLowerCase();
     if (lower.includes("dagger")) return "daggers";
     if (lower.includes("staff")) return "staff";
+    if (lower.includes("crossbow")) return "crossbow";
     if (lower.includes("bow")) return "bow";
     return "sword";
 }

@@ -1,7 +1,9 @@
 import { units } from "../player/MoveMath";
 
 /** The move set a weapon uses (first_basic.qct has one per family). */
-export type WeaponFamily = "sword" | "daggers" | "staff" | "bow";
+export type WeaponFamily = "sword" | "daggers" | "staff" | "bow" | "crossbow";
+/** Families that swing (the bow and crossbow shoot instead). */
+export type MeleeFamily = Exclude<WeaponFamily, "bow" | "crossbow">;
 
 export type WeaponDef = {
     /** Also the model file name: public/models/weapons/<id>.glb. */
@@ -113,11 +115,13 @@ const CACHE_TEMPLATES: Record<WeaponFamily, string> = {
     daggers: "daggers",
     staff: "staff",
     bow: "bow",
+    // Crossbows hit like the bow but load instead of drawing (Crossbow.ts). [design]
+    crossbow: "bow",
 };
 
-/** A weapon exported from the cache: its name, with the moves and numbers of its family's weapon. */
+/** A weapon exported from the cache: its name and family, with the moves and numbers of its family's weapon. */
 export function cacheWeaponDef(weapon: { id: string; name: string; family: WeaponFamily }): WeaponDef {
-    return { ...weaponById(CACHE_TEMPLATES[weapon.family]), id: weapon.id, name: weapon.name };
+    return { ...weaponById(CACHE_TEMPLATES[weapon.family]), id: weapon.id, name: weapon.name, family: weapon.family };
 }
 
 export function weaponById(id: string): WeaponDef {

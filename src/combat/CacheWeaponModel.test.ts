@@ -10,7 +10,7 @@ describe("cache weapons", () => {
         expect(cacheWeaponFamily("Dragon dagger(p++)")).toBe("daggers");
         expect(cacheWeaponFamily("Staff of air")).toBe("staff");
         expect(cacheWeaponFamily("Magic shortbow")).toBe("bow");
-        expect(cacheWeaponFamily("Rune crossbow")).toBe("bow");
+        expect(cacheWeaponFamily("Rune crossbow")).toBe("crossbow");
         expect(cacheWeaponFamily("Abyssal whip")).toBe("sword");
         expect(cacheWeaponFamily("Granite maul")).toBe("sword");
     });

@@ -5,7 +5,7 @@
  * weapon orientation (blade +Y, edge +Z).
  */
 import type { PowerDirection } from "./moves";
-import type { WeaponFamily } from "./weapons";
+import type { MeleeFamily } from "./weapons";
 
 export type DmClip = { fps: number; frames: number; data: Float32Array };
 
@@ -27,7 +27,7 @@ export type DmClipSet = {
 
 const clip = (fps: number, data: number[]): DmClip => ({ fps, frames: data.length / 7, data: new Float32Array(data) });
 
-export const DM_CLIPS: Record<Exclude<WeaponFamily, "bow">, DmClipSet> = {
+export const DM_CLIPS: Record<MeleeFamily, DmClipSet> = {
     sword: {
         idle: clip(30, [0.2363, -0.3726, -0.2576, 0.0729, 0.9723, -0.2008, -0.0943]),
         quick: [
