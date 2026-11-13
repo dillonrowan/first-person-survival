@@ -1,7 +1,11 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { gunzipSync } from "node:zlib";
+import { frameAtCycle } from "../../src/npc/NpcAnimation";
 import { decodeNpcModel } from "../../src/world/NpcFormat";
-const [file, out] = process.argv.slice(2);
+// Usage: export_npc.ts <npcs/ID_ID.bin> <out.json> [attackIndex]
+// With attackIndex the JSON also carries that attack clip (every frame, converted like idle0) and
+// the frame it releases or strikes on, for checking launch points and release frames in Blender.
+const [file, out, attackArg] = process.argv.slice(2);
 const b = gunzipSync(readFileSync("public/world/" + file));
 const m = decodeNpcModel(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength));
 const U = 128; // RS units per tile
@@ -23,7 +27,21 @@ const idle = m.idle!;
 const n = m.vertexCount;
 const idle0 = Array.from({ length: n * 3 }, (_, i) => (i % 3 === 0 ? 1 : -1) * idle.positions[i] / U);
 const sk = m.skeleton!;
+let attack: object | undefined;
+if (attackArg !== undefined) {
+    const clip = m.attacks?.[Number(attackArg)];
+    if (!clip) throw new Error(`no attack ${attackArg}; the model has ${m.attacks?.length ?? 0}`);
+    const frames: number[][] = [];
+    for (let f = 0; f < clip.frameLengths.length; f++) {
+        frames.push(Array.from({ length: n * 3 }, (_, i) => (i % 3 === 0 ? 1 : -1) * clip.positions[f * n * 3 + i] / U));
+    }
+    attack = {
+        style: clip.style, seqId: clip.seqId, hitCycle: clip.hitCycle, launch: clip.launch,
+        frameLengths: Array.from(clip.frameLengths), releaseFrame: frameAtCycle(clip, clip.hitCycle), frames,
+    };
+}
 writeFileSync(out, JSON.stringify({
+    attack,
     vertexCount: n, base, idle0, meshes,
     parents: Array.from(sk.parents), partOf: Array.from(sk.partOf),
     pivots: Array.from(sk.pivots).map((v, i) => (i % 3 === 0 ? 1 : -1) * v / U),
