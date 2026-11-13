@@ -1,8 +1,10 @@
+import { SHIELDS, ShieldDef } from "../combat/Shields";
 import type { CacheWeaponInfo } from "../world/CacheWeaponFormat";
 
 export class WeaponMenu {
     private weapons: CacheWeaponInfo[] = [];
     private selected = new Set<string>();
+    private shield: ShieldDef | undefined;
     private readonly search: HTMLInputElement;
 
     constructor(
@@ -12,6 +14,8 @@ export class WeaponMenu {
         private readonly onEquip: (weapon: CacheWeaponInfo) => void,
         private readonly onClose: () => void,
         private readonly initialId?: string,
+        private readonly shieldList?: HTMLElement,
+        private readonly onShield?: (shield: ShieldDef | undefined) => void,
     ) {
         element.querySelector<HTMLButtonElement>("#weapon-menu-close")?.addEventListener("click", () => this.close());
         this.search = element.querySelector<HTMLInputElement>("#weapon-menu-search")!;
@@ -20,6 +24,35 @@ export class WeaponMenu {
         this.search.addEventListener("keydown", (event) => {
             if (event.key === "Enter") this.list.querySelector<HTMLButtonElement>(".weapon-menu-row")?.click();
         });
+        this.renderShields();
+    }
+
+    /** The shields section: one row per shield that equips or unequips it, whatever is searched. */
+    private renderShields(): void {
+        const section = this.shieldList;
+        if (!section) return;
+        section.replaceChildren();
+        const title = document.createElement("div");
+        title.className = "weapon-menu-section-title";
+        title.textContent = "Shields";
+        section.append(title);
+        for (const shield of SHIELDS) {
+            const held = this.shield === shield;
+            const row = document.createElement("button");
+            row.type = "button";
+            row.className = `weapon-menu-row${held ? " selected" : ""}`;
+            const name = document.createElement("span");
+            name.textContent = shield.name;
+            const state = document.createElement("span");
+            state.textContent = held ? "Unequip" : "Equip";
+            row.append(name, state);
+            row.addEventListener("click", () => {
+                this.shield = held ? undefined : shield;
+                this.onShield?.(this.shield);
+                this.renderShields();
+            });
+            section.append(row);
+        }
     }
 
     async load(): Promise<void> {

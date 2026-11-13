@@ -136,6 +136,21 @@ body {
     color: #9aa4ad;
 }
 
+#weapon-menu-shields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.weapon-menu-section-title {
+    grid-column: 1 / -1;
+    color: #9aa4ad;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
 #weapon-menu-list {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -318,10 +333,16 @@ kbd {
     box-shadow: 0 0 8px #b58cff;
 }
 
-#weapon-name {
+#weapon-name,
+#shield-name {
     color: #fff;
     font: 12px/1.4 system-ui, sans-serif;
     text-shadow: 0 1px 2px #000;
+}
+
+/* A shield that is held but not protecting (a bow takes both hands). */
+#shield-name.inactive {
+    opacity: 0.4;
 }
 
 #enemy-health-bars {

@@ -11,6 +11,10 @@ export type CombatHudState = {
     /** 0..1 while the attack button is held; 1 once charged. */
     charge: number;
     weaponName: string;
+    /** The shield held, if any. */
+    shieldName?: string;
+    /** False while the shield does not protect (a bow takes both hands). */
+    shieldActive?: boolean;
 };
 
 /** Health, stamina and adrenaline bars, the charge ring, hit markers and the red damage flash. */
@@ -20,6 +24,7 @@ export class CombatHud {
     private readonly hitMarker: HTMLElement;
     private readonly flash: HTMLElement;
     private readonly weapon: HTMLElement;
+    private readonly shield: HTMLElement;
     private flashTime = Infinity;
     private hitTime = Infinity;
 
@@ -40,6 +45,7 @@ export class CombatHud {
         this.hitMarker = el("hit-marker");
         this.flash = el("damage-flash");
         this.weapon = el("weapon-name");
+        this.shield = el("shield-name");
     }
 
     /** Shows a hit marker; `heavy` hits make it larger. */
@@ -66,6 +72,8 @@ export class CombatHud {
         this.charge.style.setProperty("--charge", `${Math.round(state.charge * 360)}deg`);
         this.charge.classList.toggle("charged", state.charge >= 1);
         this.weapon.textContent = state.weaponName;
+        this.shield.textContent = state.shieldName ? `Shield: ${state.shieldName}` : "";
+        this.shield.classList.toggle("inactive", state.shieldActive === false);
 
         this.hitTime += dt;
         this.hitMarker.style.opacity = this.hitTime < HIT_MARKER_TIME ? "1" : "0";
