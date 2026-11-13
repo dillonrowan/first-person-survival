@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 
-import { HUMAN_ATTACKS, PLAYER_FRAME_BASE, buildAttackIndex, chooseAttacks, isShove, NpcAttackPicker } from "./NpcAttackAnims";
+import {
+    HUMAN_ATTACKS,
+    PLAYER_FRAME_BASE,
+    buildAttackIndex,
+    chooseAttacks,
+    chooseStyledAttacks,
+    isShove,
+    NpcAttackPicker,
+} from "./NpcAttackAnims";
 
 /** Real sequence ids and their Jagex names (data/animation-names-runelite.json). */
 const NAMES = new Map<number, string>([
@@ -22,6 +30,11 @@ const NAMES = new Map<number, string>([
     [90, "DRAGON_READY"],
     [80, "DRAGON_ATTACK"],
     [81, "DRAGON_FIREBREATH_ALL_ATTACK"],
+    [86, "DRAGON_FIREBREATH_ATTACK"],
+    [89, "DRAGON_BLOCK"],
+    [711, "HUMAN_CASTSTRIKE"],
+    [1162, "HUMAN_CASTSTRIKE_STAFF"],
+    [426, "HUMAN_BOW"],
     [808, "HUMAN_READY"],
     [813, "HUMAN_STAFFREADY"],
     [2561, "HUMAN_DH_WEAPON_READY"],
@@ -80,5 +93,49 @@ describe("NpcAttackPicker", () => {
             { seqId: 423, shove: true },
         ]);
         expect(isShove(NAMES, 390)).toBe(false);
+    });
+});
+
+describe("chooseStyledAttacks", () => {
+    const dragon = [80, 81, 86, 89, 90];
+    const human = [808, 813, 390, 386, 422, 423, 711, 1162, 426];
+
+    it("gives a dragon its melee attack and its fire breath", () => {
+        const choice = chooseStyledAttacks(NAMES, 90, 4, dragon, false, ["melee", "dragonfire"], {});
+        expect(choice).toEqual([
+            { seqId: 80, style: "melee", shove: false, fallback: false },
+            { seqId: 86, style: "dragonfire", shove: false, fallback: false },
+        ]);
+    });
+
+    it("gives player-skeleton NPCs a cast or a bow shot", () => {
+        const pick = (idle: number, style: "magic" | "ranged") =>
+            chooseStyledAttacks(NAMES, idle, PLAYER_FRAME_BASE, human, false, [style], {})[0];
+        expect(pick(808, "magic")).toMatchObject({ seqId: 711, fallback: false });
+        expect(pick(813, "magic")).toMatchObject({ seqId: 1162, fallback: false });
+        expect(pick(808, "ranged")).toMatchObject({ seqId: 426, fallback: false });
+    });
+
+    it("lets an explicit sequence win", () => {
+        const choice = chooseStyledAttacks(NAMES, 90, 4, dragon, false, ["dragonfire"], { dragonfire: 84 });
+        expect(choice).toEqual([{ seqId: 84, style: "dragonfire", shove: false, fallback: false }]);
+    });
+
+    it("reuses the melee animation for a style with no sequence of its own", () => {
+        const choice = chooseStyledAttacks(NAMES, 5576, 7, zombie, false, ["melee", "ranged"], {});
+        expect(choice).toEqual([
+            { seqId: 5578, style: "melee", shove: false, fallback: false },
+            { seqId: 5578, style: "ranged", shove: false, fallback: true },
+        ]);
+    });
+
+    it("falls back to the melee animation for breath on a player skeleton", () => {
+        const choice = chooseStyledAttacks(NAMES, 808, PLAYER_FRAME_BASE, human, false, ["dragonfire"], {});
+        expect(choice).toEqual([{ seqId: 422, style: "dragonfire", shove: false, fallback: true }]);
+    });
+
+    it("is reachable through the picker", () => {
+        const picker = new NpcAttackPicker(buildAttackIndex(NAMES, (id) => (dragon.includes(id) ? 4 : undefined)));
+        expect(picker.chooseStyled(90, 4, false, ["melee", "dragonfire"], {}).map((c) => c.seqId)).toEqual([80, 86]);
     });
 });

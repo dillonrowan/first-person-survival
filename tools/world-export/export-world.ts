@@ -17,6 +17,8 @@ import { fileURLToPath } from "node:url";
 import { Worker } from "node:worker_threads";
 
 import { NpcManifest } from "../../src/world/NpcFormat";
+import { attackRulesFor } from "./NpcAttackRules";
+import type { WikiAttackRow } from "./fetch-wiki-attacks";
 import {
     REGION_SIZE,
     TEXTURE_SIZE,
@@ -39,6 +41,8 @@ const OUT_DIR = path.join(ROOT, "public", "world");
 const REGION_DIR = path.join(OUT_DIR, "regions");
 const NPC_DIR = path.join(OUT_DIR, "npcs");
 const NPC_SPAWN_FILE = path.join(ROOT, "tools", "world-export", "data", "npc-spawns-osrs.json");
+/** Attack styles of every NPC from the OSRS wiki (npm run fetch-wiki-attacks). */
+const NPC_ATTACKS_WIKI_FILE = path.join(ROOT, "tools", "world-export", "data", "npc-attacks-wiki.json");
 const ANIMATION_NAMES_FILE = path.join(ROOT, "tools", "world-export", "data", "animation-names-runelite.json");
 const NPC_MANIFEST_FILE = "npcs.json";
 
@@ -321,6 +325,19 @@ async function exportNpcs(
         return undefined;
     }
 
+    // Attack styles from the wiki: NPCs with more than melee get one clip per style.
+    const wiki = JSON.parse(fs.readFileSync(NPC_ATTACKS_WIKI_FILE, "utf8")) as Record<string, WikiAttackRow>;
+    let styled = 0;
+    for (const task of selection.appearances) {
+        const rules = attackRulesFor(wiki[task.id]);
+        if (rules) {
+            task.attackStyles = rules.infos;
+            task.styleSeqs = rules.seqs;
+            styled++;
+        }
+    }
+    console.log(`${styled} of ${selection.appearances.length} NPC appearances have attack styles beyond melee`);
+
     console.log("Indexing attack animations...");
     const attackIndex = createAttackIndex(loaders);
 
@@ -338,10 +355,17 @@ async function exportNpcs(
         (npc: NpcAppearanceTask, index): ExportTask => ({ kind: "npc", index, npc }),
     );
     let withAttacks = 0;
+    let fallbacks = 0;
     await runWorkerPool(createWorkerData(cache, attackIndex), tasks, workerCount, (result) => {
         done++;
         if (result.type === "npc") {
             withAttacks += result.attacks > 0 ? 1 : 0;
+            if (result.styles.length > 0) {
+                const task = selection.appearances[result.index];
+                const text = result.styles.map((s) => `${s.style}=${s.seqId}${s.fallback ? " (fallback)" : ""}`).join(" ");
+                fallbacks += result.styles.filter((s) => s.fallback).length;
+                console.log(`attack styles: ${task.name} (${task.id}): ${text}`);
+            }
             built.add(result.index);
             bytes += result.bytes;
             withWalk += result.hasWalk ? 1 : 0;
@@ -363,6 +387,7 @@ async function exportNpcs(
     );
     fs.writeFileSync(path.join(OUT_DIR, NPC_MANIFEST_FILE), JSON.stringify(manifest));
 
+    console.log(`${styled} NPCs with styled attacks, ${fallbacks} fallback animations`);
     const { skipped } = selection;
     console.log(
         `NPCs: ${manifest.spawns.length} spawns, ${manifest.appearances.length} appearances ` +
