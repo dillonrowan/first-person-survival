@@ -38,13 +38,19 @@ Current screenshots:
 - `npc-6709-attack-frame-4-windup`
 - `npc-6709-attack-frame-8-impact`
 
+The bird (`npc-5241-*`) is small and flies above the floor, so its tests call
+`window.__NPC_VISUAL_TEST__.frameModel()` before capturing. That moves the camera in on the pose's opaque faces
+(ground shadows are left out) until the next `select`. The other NPCs use the fixed default camera.
+
 Each capture targets the 640 by 640 canvas. Capture names are stable and unique because Argos uses them to match screenshots between builds.
 
 Tests retain Playwright canvas screenshot buffers for hash and size assertions. Argos uses those same deterministic visual states for remote baseline comparison.
 
 ## CI and pull requests
 
-[.github/workflows/ci.yml](../.github/workflows/ci.yml) runs the visual job for pull requests targeting `main`.
+[.github/workflows/ci.yml](../.github/workflows/ci.yml) runs the visual job for pull requests targeting `main`
+and for every push to `main`. The `main` builds are the Argos baselines; without them every pull request
+is compared against a stale baseline and the same diffs reappear after being approved.
 The job installs Chromium and runs:
 
 ```bash
