@@ -1,5 +1,6 @@
 import fs from "node:fs";
 
+import type { AttackStyle } from "../../src/npc/AttackStyle";
 import {
     NPC_FORMAT_VERSION,
     NpcAppearanceInfo,
@@ -15,7 +16,12 @@ import { VarManager } from "./rs/config/vartype/VarManager";
 export type NpcSpawnRecord = { id: number; name?: string; x: number; y: number; level: number };
 
 /** An appearance to bake, with the sequences the exporter needs but the game does not. */
-export type NpcAppearanceTask = NpcAppearanceInfo & { idleSeqId: number; walkSeqId: number };
+export type NpcAppearanceTask = NpcAppearanceInfo & {
+    idleSeqId: number;
+    walkSeqId: number;
+    /** Explicit attack animations by style (npc-attack-overrides), for the exporter only. */
+    styleSeqs?: Partial<Record<AttackStyle, number>>;
+};
 
 /** The NPC's right-click options (Talk-to, Attack...), left out of the manifest when it has none. */
 function menuActions(actions: (string | undefined)[] | undefined): { actions?: string[] } {
@@ -176,7 +182,7 @@ export function finalizeNpcManifest(
     selection.appearances.forEach((task, i) => {
         if (built.has(i)) {
             newIndex.set(i, appearances.length);
-            const { idleSeqId: _idle, walkSeqId: _walk, ...info } = task;
+            const { idleSeqId: _idle, walkSeqId: _walk, styleSeqs: _styleSeqs, ...info } = task;
             appearances.push(info);
         }
     });

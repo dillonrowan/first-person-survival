@@ -13,6 +13,7 @@
         "test:e2e:headed": "playwright test --headed",
         "typecheck": "tsc --noEmit && tsc --noEmit -p tools/world-export",
         "download-cache": "node scripts/download-cache.mjs",
+        "fetch-wiki-attacks": "tsx tools/world-export/fetch-wiki-attacks.ts",
         "export-cache-weapons": "tsx tools/world-export/export-cache-weapons.ts",
         "export-world": "node --max-old-space-size=16384 --import tsx tools/world-export/export-world.ts"
     },

@@ -1,7 +1,9 @@
+import type { AttackStyle } from "../../src/npc/AttackStyle";
+import { frameAtCycle } from "../../src/npc/NpcAnimation";
 import { NpcAttackClip, NpcClip, NpcMeshData, NpcModelData } from "../../src/world/NpcFormat";
 import { RS_UNITS_PER_TILE } from "../../src/world/WorldFormat";
 import { FaceColors } from "./FaceColors";
-import { ChosenAttack, PLAYER_FRAME_BASE, holdsWeapon } from "./NpcAttackAnims";
+import { ChosenAttack, PLAYER_FRAME_BASE, StyledChoice, holdsWeapon } from "./NpcAttackAnims";
 import { FrameBase, buildSkeleton } from "./NpcSkeleton";
 import { quantizeUv } from "./MeshBuilder";
 import { NpcAppearanceTask } from "./NpcSpawns";
@@ -145,6 +147,13 @@ export function buildModelMeshes(
 /** Picks an NPC's attack sequences (see NpcAttackAnims). */
 export type NpcAttackSource = {
     choose(idleSeqId: number, frameBase: number, armed: boolean): ChosenAttack[];
+    chooseStyled(
+        idleSeqId: number,
+        frameBase: number,
+        armed: boolean,
+        styles: readonly AttackStyle[],
+        seqs: Partial<Record<AttackStyle, number>>,
+    ): StyledChoice[];
 };
 
 /** Bakes an NPC appearance (lit mesh plus idle, walk and attack frames) into an NpcModelData. */
@@ -189,7 +198,7 @@ export class NpcModelBuilder {
             frameBase,
         );
 
-        const attacks = this.bakeAttacks(display, base, task.idleSeqId, skeleton);
+        const attacks = this.bakeAttacks(display, base, task, skeleton);
 
         return {
             vertexCount: base.verticesCount,
@@ -202,13 +211,17 @@ export class NpcModelBuilder {
         };
     }
 
-    /** The NPC's melee attacks from the cache, each with the moment its blow lands. */
+    /**
+     * The NPC's attacks from the cache, each with the moment its blow lands or it releases a
+     * projectile or breath: its melee clips, and for an NPC with attack styles one clip per style.
+     */
     private bakeAttacks(
         display: NpcType,
         base: Model,
-        idleSeqId: number,
+        task: NpcAppearanceTask,
         skeleton: NpcModelData["skeleton"],
     ): NpcAttackClip[] | undefined {
+        const idleSeqId = task.idleSeqId;
         const frameBase = this.attackSource && this.models.getFrameBase?.(idleSeqId)?.id;
         if (frameBase === undefined) {
             return undefined;
@@ -217,10 +230,22 @@ export class NpcModelBuilder {
             frameBase === PLAYER_FRAME_BASE &&
             holdsWeapon(base.verticesCount, base.verticesX, base.verticesY, base.verticesZ, skeleton);
         const attacks: NpcAttackClip[] = [];
-        for (const { seqId, shove } of this.attackSource!.choose(idleSeqId, frameBase, armed)) {
+        const choices: { seqId: number; shove: boolean; style: AttackStyle }[] = task.attackStyles
+            ? this.attackSource!.chooseStyled(
+                  idleSeqId,
+                  frameBase,
+                  armed,
+                  task.attackStyles.map((s) => s.style),
+                  task.styleSeqs ?? {},
+              )
+            : this.attackSource!.choose(idleSeqId, frameBase, armed).map((c) => ({ ...c, style: "melee" as const }));
+        for (const { seqId, shove, style } of choices) {
             const clip = this.bakeClip(display, base, seqId);
             if (clip) {
-                attacks.push({ ...clip, hitCycle: impactCycle(clip, base), shove });
+                const melee = style === "melee";
+                const hitCycle = melee ? impactCycle(clip, base) : releaseCycle(clip);
+                const launch: [number, number] = melee ? [0, 0] : launchPoint(clip, base, hitCycle);
+                attacks.push({ ...clip, hitCycle, shove, seqId, style, launch });
             }
         }
         return attacks.length > 0 ? attacks : undefined;
@@ -328,4 +353,52 @@ export function computeBounds(base: Model, clips: (NpcClip | undefined)[]): Floa
     const cy = (minY + maxY) / 2;
     const cz = (minZ + maxZ) / 2;
     return new Float32Array([cx, cy, cz, Math.hypot(maxX - cx, maxY - cy, maxZ - cz)]);
+}
+
+/** Fraction of a ranged, magic or breath clip at which the attack is released. [design] */
+export const RELEASE_FRACTION = 0.6;
+
+/**
+ * The launch point is the furthest-forward vertex above this fraction of the body height: high
+ * enough to leave out the feet and claws, low enough to keep a dragon snout (a quarter of the way up
+ * a dragon, below its wings). Checked in Blender (tools/blender/check_attack.py). [design]
+ */
+export const LAUNCH_MIN_HEIGHT = 0.1;
+
+/** Client cycle at which a non-melee attack releases its projectile or breath. */
+export function releaseCycle(clip: Pick<NpcClip, "frameLengths">): number {
+    const total = clip.frameLengths.reduce((sum, length) => sum + length, 0);
+    return Math.round(total * RELEASE_FRACTION);
+}
+
+/**
+ * Where a projectile or breath leaves the body at `cycle` of a clip: [forward, up] in tiles from the
+ * model origin. It is the vertex furthest forward above LAUNCH_MIN_HEIGHT of the body's height (the
+ * mouth of a dragon, the hand of a caster). RS models face -z, +y is down.
+ */
+export function launchPoint(
+    clip: NpcClip,
+    base: Pick<Model, "verticesCount" | "verticesY">,
+    cycle: number,
+): [number, number] {
+    const count = base.verticesCount;
+    let top = 0;
+    for (let v = 0; v < count; v++) {
+        top = Math.max(top, -base.verticesY[v]);
+    }
+    const frame = frameAtCycle(clip, cycle);
+    let best = -Infinity;
+    let bestV = -1;
+    for (let v = 0; v < count; v++) {
+        const i = (frame * count + v) * 3;
+        if (-clip.positions[i + 1] >= top * LAUNCH_MIN_HEIGHT && -clip.positions[i + 2] > best) {
+            best = -clip.positions[i + 2];
+            bestV = v;
+        }
+    }
+    if (bestV < 0) {
+        return [0, 0];
+    }
+    const i = (frame * count + bestV) * 3;
+    return [-clip.positions[i + 2] / RS_UNITS_PER_TILE, -clip.positions[i + 1] / RS_UNITS_PER_TILE];
 }

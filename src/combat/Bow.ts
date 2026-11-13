@@ -293,6 +293,41 @@ export function launchArrow(
 export type ObstacleTop = (minX: number, minY: number, maxX: number, maxY: number) => number;
 
 /**
+ * Where a segment first meets a wall, as a fraction t of the way along it, or undefined. A wall
+ * stops it only below its top (`obstacleTop`), so it passes over fences and low walls; without
+ * `obstacleTop` every wall is infinitely tall.
+ */
+export function firstWallHit(
+    flagsAt: FlagsAt,
+    plane: number,
+    x0: number,
+    y0: number,
+    z0: number,
+    x1: number,
+    y1: number,
+    z1: number,
+    obstacleTop?: ObstacleTop,
+    boxes: Box[] = [],
+): number | undefined {
+    boxes.length = 0;
+    collectTileBoxes(flagsAt, plane, Math.min(x0, x1), Math.min(y0, y1), Math.max(x0, x1), Math.max(y0, y1), boxes, "walls");
+    let wall: number | undefined;
+    for (const box of boxes) {
+        const t = segmentHitsBoxes2D(x0, y0, x1, y1, [box]);
+        if (t === undefined || (wall !== undefined && t >= wall)) {
+            continue;
+        }
+        // Clear over the top of what stands there (a fence, a low wall): no hit.
+        const z = z0 + (z1 - z0) * t;
+        if (obstacleTop && z > obstacleTop(box.minX, box.minY, box.maxX, box.maxY)) {
+            continue;
+        }
+        wall = t;
+    }
+    return wall;
+}
+
+/**
  * Moves arrows under gravity (sv_gravity, [inferred]) and returns the bodies they hit. Walls and
  * the ground stop them; an arrow hits each body at most once and then disappears. With
  * `obstacleTop`, a wall stops an arrow only below its top, so arrows fly over fences and low walls;
@@ -342,21 +377,7 @@ export function stepArrows<T>(
                 best = { t, body: b };
             }
         }
-        boxes.length = 0;
-        collectTileBoxes(flagsAt, a.plane, Math.min(a.x, x1), Math.min(a.y, y1), Math.max(a.x, x1), Math.max(a.y, y1), boxes, "walls");
-        let wall: number | undefined;
-        for (const box of boxes) {
-            const t = segmentHitsBoxes2D(a.x, a.y, x1, y1, [box]);
-            if (t === undefined || (wall !== undefined && t >= wall)) {
-                continue;
-            }
-            // Clear over the top of what stands there (a fence, a low wall): no hit.
-            const z = a.z + (z1 - a.z) * t;
-            if (obstacleTop && z > obstacleTop(box.minX, box.minY, box.maxX, box.maxY)) {
-                continue;
-            }
-            wall = t;
-        }
+        const wall = firstWallHit(flagsAt, a.plane, a.x, a.y, a.z, x1, y1, z1, obstacleTop, boxes);
         if (best && (wall === undefined || best.t <= wall)) {
             const speed = Math.hypot(a.vx, a.vy) || 1;
             hits.push({ body: best.body, arrow: a, dirX: a.vx / speed, dirY: a.vy / speed });

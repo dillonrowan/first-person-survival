@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { FaceColors } from "./FaceColors";
-import { NpcModelBuilder } from "./NpcModelBuilder";
+import { NpcModelBuilder, launchPoint, releaseCycle } from "./NpcModelBuilder";
 import { NpcAppearanceTask } from "./NpcSpawns";
 import { CacheInfo } from "./rs/cache/CacheInfo";
 import { NpcType } from "./rs/config/npctype/NpcType";
@@ -176,5 +176,28 @@ describe("FaceColors", () => {
         expect(plain >>> 8).not.toBe(0);
         expect(textured).toBe(0xffffffff);
         expect(colors.hslToRgba(0, 1, 0x80)).toBe(0x00000080);
+    });
+});
+
+describe("releaseCycle and launchPoint", () => {
+    it("releases a non-melee attack 60% of the way through its clip", () => {
+        expect(releaseCycle({ frameLengths: Uint16Array.from([10, 10, 10, 10, 10]) })).toBe(30);
+        expect(releaseCycle({ frameLengths: Uint16Array.from([3, 4]) })).toBe(4);
+    });
+
+    it("launches from the highest, furthest-forward vertex of the released frame", () => {
+        // Vertices (RS units, +y is down, the model faces -z): a foot, a head, a head thrust forward.
+        const base = { verticesCount: 3, verticesY: Int32Array.from([0, -256, -256]) };
+        const clip = {
+            frameLengths: Uint16Array.from([5, 5]),
+            frameStep: -1,
+            // frame 0: head straight up. frame 1: the third vertex is 256 forward and 192 up.
+            positions: Int16Array.from([0, 0, 0, 0, -256, 0, 0, -256, 0, 0, 0, 0, 0, -256, 0, 0, -192, -256]),
+        };
+
+        const [forward0, up0] = launchPoint(clip, base, 0);
+        expect(forward0).toBeCloseTo(0);
+        expect(up0).toBe(2);
+        expect(launchPoint(clip, base, 5)).toEqual([2, 1.5]);
     });
 });

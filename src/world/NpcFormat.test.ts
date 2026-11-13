@@ -74,12 +74,39 @@ describe("NPC model file", () => {
             idle: clip(2, 5),
             skeleton: { parents: Int8Array.from([-1, 0]), pivots: Int16Array.from([0, -10, 0, 0, -20, 0]), partOf: Uint8Array.from([0, 0, 1, 1, 1]) },
             attacks: [
-                { ...clip(3, 5), frameStep: -1, hitCycle: 4, shove: false },
-                { ...clip(1, 5), frameStep: -1, hitCycle: 1, shove: true },
+                { ...clip(3, 5), frameStep: -1, hitCycle: 4, shove: false, seqId: 80, style: "melee", launch: [0, 0] },
+                { ...clip(1, 5), frameStep: -1, hitCycle: 1, shove: true, seqId: 86, style: "dragonfire", launch: [0.5, 1.25] },
+                { ...clip(2, 5), frameStep: -1, hitCycle: 2, shove: false, seqId: -1, style: "icebreath", launch: [-0.25, 0] },
             ],
         });
 
         expect(plain(roundTrip(data))).toEqual(plain(data));
+    });
+
+    it("reads a version 3 file's attacks as melee clips with no sequence id or launch point", () => {
+        // Version 3 had a 4-byte attack header (hitCycle, flags). Build one from a v4 file with no attacks.
+        const base = encodeNpcModel(model({ idle: clip(2, 5) }));
+        const body = base.slice(0, base.length - 4); // drop the u32 attackCount (0)
+        const attackClip = clip(1, 5);
+        const tail = new Uint8Array(4 + 4 + 8 + 4 + 32);
+        const v = new DataView(tail.buffer);
+        v.setUint32(0, 1, true); // attackCount
+        v.setUint16(4, 7, true); // hitCycle
+        v.setUint16(6, 1, true); // flags: shove
+        v.setUint32(8, 1, true); // frameCount
+        v.setInt32(12, -1, true); // frameStep
+        v.setUint16(16, attackClip.frameLengths[0], true);
+        attackClip.positions.forEach((p, i) => v.setInt16(20 + i * 2, p, true));
+        const bytes = new Uint8Array(body.length + tail.length);
+        bytes.set(body);
+        bytes.set(tail, body.length);
+        new DataView(bytes.buffer).setUint32(4, 3, true); // version
+
+        const decoded = decodeNpcModel(bytes.buffer as ArrayBuffer);
+
+        expect(decoded.attacks).toHaveLength(1);
+        expect(decoded.attacks![0]).toMatchObject({ hitCycle: 7, shove: true, seqId: -1, style: "melee", launch: [0, 0], frameStep: -1 });
+        expect(Array.from(decoded.attacks![0].positions)).toEqual(Array.from(attackClip.positions));
     });
 
     it("round-trips a model without clips", () => {

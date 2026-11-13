@@ -30,7 +30,7 @@ import { Combatant } from "../combat/Combatant";
 import { tuning } from "../combat/tuning";
 import { Knockback, deathLaunch, findSnapTile, massForce, slideSpeedForDistance, stepKnockback } from "./NpcPhysics";
 import type { SharedNpcModel } from "./NpcModels";
-import { NpcAttacker, StrikeEvent, attacksFromClips } from "./NpcAttacks";
+import { NpcAttack, NpcAttacker, StrikeEvent, attacksFromClips, attacksFromStyles } from "./NpcAttacks";
 import { canSee } from "./NpcSenses";
 import { Ragdoll, RagdollWorld, singlePartSkeleton } from "./Ragdoll";
 import type { BodyHit } from "./BodyHits";
@@ -76,6 +76,8 @@ export type CombatContext = {
     lineOfSight?: (plane: number, x0: number, y0: number, x1: number, y1: number) => boolean;
     /** An NPC strike's impact event: the player decides whether it lands. */
     strike?: (npc: Npc, event: StrikeEvent) => void;
+    /** An NPC began an attack (before its impact): breath starts its flame here. */
+    attackStarted?: (npc: Npc, attack: NpcAttack) => void;
 };
 
 /** Which side of the NPC a hit came from. */
@@ -255,9 +257,20 @@ export class Npc {
             Math.max(tuning.npcMinHealth, appearance.combatLevel * tuning.npcHealthPerLevel),
         );
         this.group.rotation.order = "YXZ";
-        this.brain = new NpcCombatBrain(random);
         const attacks = model.data.attacks;
-        this.attacker = new NpcAttacker(random, attacks ? attacksFromClips(attacks, model.height) : undefined);
+        // An empty list would leave the NPC with no attacks; it keeps its melee clips instead.
+        const styled = appearance.attackStyles?.length ? appearance.attackStyles : undefined;
+        this.attacker = new NpcAttacker(
+            random,
+            styled
+                ? attacksFromStyles(styled, attacks ?? [], model.height)
+                : attacks
+                  ? attacksFromClips(attacks, model.height)
+                  : undefined,
+        );
+        // An NPC with no melee attack keeps its distance: it engages from 6 tiles and holds about 5.
+        const keepsDistance = !!styled && !styled.some((s) => s.style === "melee");
+        this.brain = new NpcCombatBrain(random, keepsDistance ? { engage: 6, ideal: 5 } : undefined);
         this.body = {
             x: this.fineX / RS_UNITS_PER_TILE,
             y: this.fineY / RS_UNITS_PER_TILE,
@@ -361,7 +374,7 @@ export class Npc {
     }
 
     /** Unit vector the NPC faces, in world tiles (orientation 0 faces south). */
-    private get forward(): { x: number; y: number } {
+    get forward(): { x: number; y: number } {
         const a = (this.rotation * Math.PI) / 1024;
         return { x: -Math.sin(a), y: -Math.cos(a) };
     }
@@ -553,6 +566,18 @@ export class Npc {
         return this.body.z + this.body.height * 0.9;
     }
 
+    /**
+     * Where a projectile or breath leaves the body: the clip's launch point (the mouth, the casting
+     * hand) in front of the body, or just in front of the chest when the attack has none.
+     */
+    launchPoint(): { x: number; y: number; z: number } {
+        const launch = this.attacker.current?.launch;
+        const [ahead, up] =
+            launch && (launch[0] !== 0 || launch[1] !== 0) ? launch : [this.body.radius, this.body.height * 0.9];
+        const f = this.forward;
+        return { x: this.body.x + f.x * ahead, y: this.body.y + f.y * ahead, z: this.body.z + up };
+    }
+
     updateCombat(dt: number, occupancy: Occupancy, ctx: CombatContext = {}): void {
         const c = this.combatant;
         c.update(dt);
@@ -627,7 +652,9 @@ export class Npc {
         if (this.reactions && !this.model.data.attacks) {
             // No attack animation in the cache: strikes play the generic lunge from Blender.
             const a = this.attacker.current;
-            this.reactions.setLunge(a && { time: this.attacker.elapsed, hitTime: a.hitTimes[0], total: a.total });
+            this.reactions.setLunge(
+                a?.style === "melee" ? { time: this.attacker.elapsed, hitTime: a.hitTimes[0], total: a.total } : undefined,
+            );
         }
 
         this.updatePose(dt);
@@ -700,19 +727,20 @@ export class Npc {
 
         // Strikes (spec 16.6): only while fighting in sight; the lunge replaces the combat step.
         const gap = d - this.body.radius - player.radius;
-        const strikes = this.attacker.update(
-            dt,
-            gap,
-            player.sincePlayerAttack ?? 0,
-            sees && move.mode === "fight" && this.sinceHit >= 1,
-        );
+        // Ranged and magic attacks may start while still closing in; melee only while fighting.
+        const canStart = sees && this.sinceHit >= 1 && (move.mode === "fight" || this.attacker.hasDistanceAttack);
+        const strikes = this.attacker.update(dt, gap, player.sincePlayerAttack ?? 0, canStart);
+        if (this.attacker.started) {
+            ctx.attackStarted?.(this, this.attacker.started);
+        }
         for (const event of strikes) {
             ctx.strike?.(this, event);
         }
         if (this.attacker.busy) {
             const tx = d > 1e-6 ? (player.x - x) / d : f.x;
             const ty = d > 1e-6 ? (player.y - y) / d : f.y;
-            const lunge = gap > 0.05 ? this.attacker.lungeSpeed : 0;
+            // Only a melee strike lunges; an archer, a caster or a breathing dragon stands and faces.
+            const lunge = gap > 0.05 && this.attacker.current!.style === "melee" ? this.attacker.lungeSpeed : 0;
             move.vx = tx * lunge;
             move.vy = ty * lunge;
             move.faceX = tx;

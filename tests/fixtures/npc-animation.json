@@ -14,5 +14,23 @@
         "walkFrames": [0],
         "attackFrames": [4, 8],
         "yaws": [0]
+    },
+    {
+        "id": 260,
+        "name": "Green dragon",
+        "idleFrames": [0],
+        "walkFrames": [0],
+        "attackIndex": 1,
+        "attackFrames": [6, 18],
+        "yaws": [0]
+    },
+    {
+        "id": 512,
+        "name": "Dark wizard",
+        "idleFrames": [0],
+        "walkFrames": [0],
+        "attackIndex": 0,
+        "attackFrames": [3, 8],
+        "yaws": [0]
     }
 ]

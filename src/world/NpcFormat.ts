@@ -8,9 +8,15 @@
 // the idle, walk and attack clips, so the game only copies positions and runs no RuneScape
 // animation code.
 
-export const NPC_FORMAT_VERSION = 3;
-/** Files of these versions can be read. Version 1 has no skeleton, versions 1-2 no attacks. */
-const READABLE_NPC_VERSIONS = [1, 2, 3];
+import type { AttackStyle, NpcStyledAttackInfo } from "../npc/AttackStyle";
+import { STYLE_CODES, STYLE_FROM_CODE } from "../npc/AttackStyle";
+
+export const NPC_FORMAT_VERSION = 4;
+/**
+ * Files of these versions can be read. Version 1 has no skeleton, versions 1-2 no attacks, versions
+ * 1-3 no attack style, sequence id or launch point.
+ */
+const READABLE_NPC_VERSIONS = [1, 2, 3, 4];
 
 export type NpcAppearanceInfo = {
     /** Spawn (base) NPC id. */
@@ -27,6 +33,11 @@ export type NpcAppearanceInfo = {
     file: string;
     /** Menu options such as "Talk-to" and "Attack", in the cache's order. Absent in older exports. */
     actions?: string[];
+    /**
+     * Attack styles from the OSRS wiki, for NPCs with more than melee (dragons breathe fire, archers
+     * shoot). Absent for NPCs that only melee, which keep their melee clips or the guard's strikes.
+     */
+    attackStyles?: NpcStyledAttackInfo[];
 };
 
 export type NpcSpawnInfo = {
@@ -83,12 +94,18 @@ export type NpcSkeleton = {
     pivots: Int16Array;
 };
 
-/** A melee attack animation from the cache. */
+/** An attack animation from the cache. */
 export type NpcAttackClip = NpcClip & {
-    /** Client cycles (20 ms) from the start to the blow landing: the strike's furthest reach. */
+    /** Client cycles (20 ms) from the start to the blow landing (melee: the strike's furthest reach; otherwise the release). */
     hitCycle: number;
     /** A kick or bash: the blow shoves the player. */
     shove: boolean;
+    /** Cache sequence id; -1 when unknown (version 3 files). */
+    seqId: number;
+    /** What the attack is; "melee" in version 3 files. */
+    style: AttackStyle;
+    /** Where a projectile or breath leaves the body at the release: [forward, up] in tiles from the model origin. */
+    launch: [number, number];
 };
 
 export type NpcModelData = {
@@ -102,7 +119,7 @@ export type NpcModelData = {
     walk?: NpcClip;
     /** Absent in version 1 files. */
     skeleton?: NpcSkeleton;
-    /** Melee attacks, best first. Absent before version 3 and for NPCs the cache has none for. */
+    /** Attacks, best first (melee first, then one clip per other style). Absent before version 3 and for NPCs the cache has none for. */
     attacks?: NpcAttackClip[];
 };
 
@@ -123,6 +140,10 @@ export function npcModelFileName(id: number, displayId: number): string {
 //   u8[vertexCount] partOf (+pad)
 // Version 3 appends the attacks:
 //   u32 attackCount, then per attack: u16 hitCycle, u16 flags (1 = shove), and a clip as above
+// Version 4 widens the per-attack header to 16 bytes: u16 hitCycle, u16 flags (1 = shove), i32 seqId,
+//   u8 style (STYLE_CODES), u8 0, i16 launchForward, i16 launchUp (RS units, 128 per tile), u16 0
+const ATTACK_HEADER_BYTES = 16;
+const LAUNCH_UNITS_PER_TILE = 128;
 const MAGIC = 0x4e535046; // "FPSN"
 const HEADER_BYTES = 32;
 
@@ -150,7 +171,7 @@ export function encodeNpcModel(model: NpcModelData): Uint8Array {
             ? pad4(skeleton.parents.length) + pad4(skeleton.pivots.length * 2) + pad4(skeleton.partOf.length)
             : 0) +
         4 +
-        (model.attacks ?? []).reduce((sum, clip) => sum + 4 + clipByteLength(clip), 0);
+        (model.attacks ?? []).reduce((sum, clip) => sum + ATTACK_HEADER_BYTES + clipByteLength(clip), 0);
 
     const bytes = new Uint8Array(byteLength);
     const view = new DataView(bytes.buffer);
@@ -205,7 +226,11 @@ export function encodeNpcModel(model: NpcModelData): Uint8Array {
     for (const attack of attacks) {
         view.setUint16(offset, attack.hitCycle, true);
         view.setUint16(offset + 2, attack.shove ? 1 : 0, true);
-        offset += 4;
+        view.setInt32(offset + 4, attack.seqId, true);
+        view.setUint8(offset + 8, STYLE_CODES[attack.style]);
+        view.setInt16(offset + 10, Math.round(attack.launch[0] * LAUNCH_UNITS_PER_TILE), true);
+        view.setInt16(offset + 12, Math.round(attack.launch[1] * LAUNCH_UNITS_PER_TILE), true);
+        offset += ATTACK_HEADER_BYTES;
         writeClip(attack);
     }
 
@@ -281,8 +306,21 @@ export function decodeNpcModel(buffer: ArrayBuffer): NpcModelData {
         for (let i = 0; i < count; i++) {
             const hitCycle = view.getUint16(offset, true);
             const shove = (view.getUint16(offset + 2, true) & 1) !== 0;
-            offset += 4;
-            (attacks ??= []).push({ ...readClip(), hitCycle, shove });
+            let seqId = -1;
+            let style: AttackStyle = "melee";
+            let launch: [number, number] = [0, 0];
+            if (version >= 4) {
+                seqId = view.getInt32(offset + 4, true);
+                style = STYLE_FROM_CODE[view.getUint8(offset + 8)] ?? "melee";
+                launch = [
+                    view.getInt16(offset + 10, true) / LAUNCH_UNITS_PER_TILE,
+                    view.getInt16(offset + 12, true) / LAUNCH_UNITS_PER_TILE,
+                ];
+                offset += ATTACK_HEADER_BYTES;
+            } else {
+                offset += 4;
+            }
+            (attacks ??= []).push({ ...readClip(), hitCycle, shove, seqId, style, launch });
         }
     }
     return { vertexCount, bounds, opaque, transparent, idle, walk, skeleton, attacks };

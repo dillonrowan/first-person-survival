@@ -21,6 +21,18 @@ export type CombatMove = {
 
 export type CombatMode = "chase" | "fight" | "flee";
 
+/** The Red, Green and Yellow distances of the combat steps (spec 10), tiles. */
+export type Zones = { red: number; green: number; yellow: number };
+
+/** The guard's zones, read live so they can be tuned. */
+const defaultZones = (): Zones => ({ red: tuning.zoneRed, green: tuning.zoneGreen, yellow: tuning.zoneYellow });
+
+/** Where an NPC that attacks from a distance engages and the gap it holds, tiles. */
+export type Distances = { engage: number; ideal: number };
+
+/** The zones of an NPC that holds `ideal` tiles: it closes in and settles between Red and Green. */
+export const zonesFor = ({ engage, ideal }: Distances): Zones => ({ red: ideal - 1, green: ideal + 0.5, yellow: engage });
+
 /** A combat step relative to the player: forward = towards them, side = to the NPC's left. */
 export type Step = { forward: number; side: number; length: number };
 
@@ -41,18 +53,18 @@ export function combatSteps(): Step[] {
  * back steps are judged by where they end — beyond Yellow or inside Red ×0.1, inside Green ×2.5,
  * between Green and Yellow ×0.5; sideways steps ×0.5 outside the Red–Green band.
  */
-export function stepWeight(step: Step, d: number): number {
+export function stepWeight(step: Step, d: number, zones: Zones = defaultZones()): number {
     let weight = 2;
     if (step.side !== 0) {
-        if (d <= tuning.zoneRed || d > tuning.zoneGreen) {
+        if (d <= zones.red || d > zones.green) {
             weight *= 0.5;
         }
         return weight;
     }
     const end = d - step.forward * step.length;
-    if (end > tuning.zoneYellow || end <= tuning.zoneRed) {
+    if (end > zones.yellow || end <= zones.red) {
         weight *= 0.1;
-    } else if (end <= tuning.zoneGreen) {
+    } else if (end <= zones.green) {
         weight *= 2.5;
     } else {
         weight *= 0.5;
@@ -61,8 +73,8 @@ export function stepWeight(step: Step, d: number): number {
 }
 
 /** Picks a step at random, in proportion to its weight. */
-export function chooseStep(d: number, random: () => number, steps = combatSteps()): Step {
-    const weights = steps.map((s) => stepWeight(s, d));
+export function chooseStep(d: number, random: () => number, steps = combatSteps(), zones: Zones = defaultZones()): Step {
+    const weights = steps.map((s) => stepWeight(s, d, zones));
     let pick = random() * weights.reduce((a, b) => a + b, 0);
     for (let i = 0; i < steps.length; i++) {
         pick -= weights[i];
@@ -102,9 +114,18 @@ export class NpcCombatBrain {
     private fleeLeft = 0;
     private fled = false;
 
-    constructor(private readonly random: () => number = Math.random) {}
+    constructor(
+        private readonly random: () => number = Math.random,
+        distances?: Distances,
+    ) {
+        this.fixedZones = distances && zonesFor(distances);
+    }
+
+    /** The zones of an NPC that keeps its distance; absent for the guard's. */
+    private readonly fixedZones: Zones | undefined;
 
     update(dt: number, sense: CombatSense): CombatMove {
+        const zones = this.fixedZones ?? defaultZones();
         const dx = sense.playerX - sense.x;
         const dy = sense.playerY - sense.y;
         const d = Math.hypot(dx, dy);
@@ -122,11 +143,11 @@ export class NpcCombatBrain {
         }
 
         // Hysteresis so the NPC does not flip between chasing and fighting at the Yellow edge.
-        if (this.mode !== "fight" && d <= tuning.zoneYellow) {
+        if (this.mode !== "fight" && d <= zones.yellow) {
             this.mode = "fight";
             this.step = undefined;
             this.pause = 0;
-        } else if (this.mode === "fight" && d > tuning.zoneYellow + 0.4) {
+        } else if (this.mode === "fight" && d > zones.yellow + 0.4) {
             this.mode = "chase";
         } else if (this.mode === "flee") {
             this.mode = "chase";
@@ -160,7 +181,7 @@ export class NpcCombatBrain {
         } else {
             this.pause -= dt;
             if (this.pause <= 0) {
-                this.step = chooseStep(d, this.random);
+                this.step = chooseStep(d, this.random, undefined, zones);
                 this.stepLeft = tuning.stepTime;
             }
         }

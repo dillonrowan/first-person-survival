@@ -1,6 +1,7 @@
 import { tuning } from "../combat/tuning";
 import { units } from "../player/MoveMath";
 import type { NpcAttackClip } from "../world/NpcFormat";
+import { ADJACENT, AttackStyle, BreathInfo, NpcStyledAttackInfo, ProjectileInfo, RANGED_MAX } from "./AttackStyle";
 import { CLIENT_CYCLE_SECONDS } from "./NpcAnimation";
 
 /**
@@ -24,6 +25,20 @@ export type NpcAttack = {
     breaksParry: boolean;
     /** Index of the NPC's attack clip this plays (NpcModelData.attacks); none for the guard table. */
     clip?: number;
+    style: AttackStyle;
+    /** Relative pick chance among the attacks in reach. */
+    weight: number;
+    /** Closest and furthest gap (tiles between body edges) the attack starts from. */
+    minGap: number;
+    maxGap: number;
+    /** Ranged and magic attacks, and breath that is thrown as a fireball, fly as this. */
+    projectile?: ProjectileInfo;
+    /** Dragonfire and icy breath: a cone in front of the mouth; each hit time is a damage tick. */
+    breath?: BreathInfo;
+    /** Multiplies the cooldown that follows (slower attackers wait longer). */
+    cooldownScale: number;
+    /** [forward, up] tiles from the model origin where a projectile or breath leaves the body. */
+    launch?: [number, number];
 };
 
 const attack = (
@@ -34,7 +49,21 @@ const attack = (
     rangeU: number,
     lungeU: number,
     push = false,
-): NpcAttack => ({ id, hitPow, hitTimes, total, range: units(rangeU), lunge: units(lungeU), push, breaksParry: false });
+): NpcAttack => ({
+    id,
+    hitPow,
+    hitTimes,
+    total,
+    range: units(rangeU),
+    lunge: units(lungeU),
+    push,
+    breaksParry: false,
+    style: "melee",
+    weight: 1,
+    minGap: 0,
+    maxGap: units(rangeU) + units(lungeU),
+    cooldownScale: 1,
+});
 
 /** The guard's strikes (spec 16.6). */
 export const GUARD_ATTACKS: readonly NpcAttack[] = [
@@ -72,8 +101,89 @@ export function attacksFromClips(clips: readonly NpcAttackClip[], bodyHeight: nu
             push: clip.shove,
             breaksParry: false,
             clip: i,
+            style: "melee",
+            weight: 1,
+            minGap: 0,
+            maxGap: units(60) * scale + units(40) * scale,
+            cooldownScale: 1,
         };
     });
+}
+
+/** Release time of an attack with no clip at all, client cycles. */
+const NO_CLIP_HIT_CYCLE = 30;
+
+/**
+ * Strikes for an NPC with several attack styles (NpcAppearanceInfo.attackStyles). Each style plays
+ * its own clips and splits its weight over them; a style with no clip of its own plays the first
+ * melee clip, and with no clips at all a plain 1.2 s attack that lands at 0.6 s.
+ */
+export function attacksFromStyles(
+    infos: readonly NpcStyledAttackInfo[],
+    clips: readonly NpcAttackClip[],
+    bodyHeight: number,
+): NpcAttack[] {
+    const scale = Math.min(2.5, Math.max(0.6, bodyHeight / GUARD_HEIGHT));
+    const out: NpcAttack[] = [];
+    for (const info of infos) {
+        let own = clips.flatMap((clip, i) => (clip.style === info.style ? [i] : []));
+        if (own.length === 0) {
+            const melee = clips.findIndex((clip) => clip.style === "melee");
+            own = melee >= 0 ? [melee] : clips.length > 0 ? [0] : [];
+        }
+        if (own.length === 0) {
+            out.push(styledAttack(info, undefined, -1, scale, info.weight));
+            continue;
+        }
+        for (const i of own) {
+            out.push(styledAttack(info, clips[i], i, scale, info.weight / own.length));
+        }
+    }
+    return out;
+}
+
+function styledAttack(
+    info: NpcStyledAttackInfo,
+    clip: NpcAttackClip | undefined,
+    index: number,
+    scale: number,
+    weight: number,
+): NpcAttack {
+    const cycles = clip ? clip.frameLengths.reduce((sum, length) => sum + length, 0) : 0;
+    const hitCycle = clip ? clip.hitCycle : NO_CLIP_HIT_CYCLE;
+    const release = hitCycle * CLIENT_CYCLE_SECONDS;
+    let total = clip ? Math.max(cycles, hitCycle + 1) * CLIENT_CYCLE_SECONDS : 2 * release;
+    let hitTimes = [release];
+    let hitPow = [info.hitPow];
+    if (info.breath) {
+        const { ticks, duration } = info.breath;
+        hitTimes = Array.from({ length: ticks }, (_, k) => release + (k * duration) / ticks);
+        hitPow = Array.from({ length: ticks }, () => info.hitPow / ticks);
+        total = Math.max(total, release + duration);
+    }
+    const melee = info.style === "melee";
+    const range = melee ? units(60) * scale : (info.maxGap ?? RANGED_MAX);
+    const lunge = melee ? units(40) * scale : 0;
+    const attack: NpcAttack = {
+        id: `${info.style}${index}`,
+        hitPow,
+        hitTimes,
+        total,
+        range,
+        lunge,
+        push: melee && !!clip?.shove,
+        breaksParry: !melee,
+        style: info.style,
+        weight,
+        minGap: info.minGap,
+        maxGap: melee ? range + lunge : (info.maxGap ?? RANGED_MAX),
+        cooldownScale: info.cooldownScale ?? 1,
+    };
+    if (index >= 0) attack.clip = index;
+    if (info.projectile) attack.projectile = info.projectile;
+    if (info.breath) attack.breath = info.breath;
+    if (clip && !melee) attack.launch = clip.launch;
+    return attack;
 }
 
 /**
@@ -90,9 +200,9 @@ export function npcStrikeDamage(
     return Math.max(0, (strength + weaponDamage) * hitPow - armour * 100) * difficulty;
 }
 
-/** Attacks that reach `gap` tiles (distance between the two bodies' edges) with their lunge. */
+/** Attacks that start from `gap` tiles (distance between the two bodies' edges). */
 export function attacksInReach(gap: number, attacks: readonly NpcAttack[] = GUARD_ATTACKS): NpcAttack[] {
-    return attacks.filter((a) => a.range + a.lunge >= gap);
+    return attacks.filter((a) => gap >= a.minGap && gap <= a.maxGap);
 }
 
 export type StrikeEvent = { attack: NpcAttack; hitIndex: number };
@@ -105,6 +215,8 @@ export type StrikeEvent = { attack: NpcAttack; hitIndex: number };
  */
 export class NpcAttacker {
     current: NpcAttack | undefined;
+    /** The attack that began in the latest update, if any. */
+    started: NpcAttack | undefined;
     elapsed = 0;
     berserk = false;
     private cooldown: number;
@@ -121,6 +233,11 @@ export class NpcAttacker {
 
     get busy(): boolean {
         return this.current !== undefined;
+    }
+
+    /** True if some attack starts from further than next to the player (arrows, spells, fireballs). */
+    get hasDistanceAttack(): boolean {
+        return this.attacks.some((a) => a.style !== "melee" && a.maxGap > ADJACENT);
     }
 
     /** Forward speed of the lunge right now, tiles/s. */
@@ -145,6 +262,7 @@ export class NpcAttacker {
      */
     update(dt: number, gap: number, sincePlayerAttack: number, canStart: boolean): StrikeEvent[] {
         const events: StrikeEvent[] = [];
+        this.started = undefined;
         this.rhythm -= dt;
         if (this.rhythm <= 0) {
             this.berserk = !this.berserk;
@@ -163,7 +281,7 @@ export class NpcAttacker {
             }
             if (this.elapsed >= a.total) {
                 this.current = undefined;
-                this.cooldown = this.pickCooldown();
+                this.cooldown = this.pickCooldown(a.cooldownScale);
             }
             return events;
         }
@@ -171,7 +289,8 @@ export class NpcAttacker {
         if (this.cooldown <= 0 && canStart) {
             const options = attacksInReach(gap, this.attacks);
             if (options.length > 0) {
-                this.current = options[Math.floor(this.random() * options.length)];
+                this.current = this.pick(options);
+                this.started = this.current;
                 this.elapsed = 0;
                 this.nextHit = 0;
             }
@@ -179,10 +298,24 @@ export class NpcAttacker {
         return events;
     }
 
-    private pickCooldown(): number {
-        return this.berserk
-            ? this.between(tuning.attackBerserkMin, tuning.attackBerserkMax)
-            : this.between(tuning.attackCoolMin, tuning.attackCoolMax);
+    /** A weighted random pick: with equal weights, the same as a uniform one. */
+    private pick(options: readonly NpcAttack[]): NpcAttack {
+        let r = this.random() * options.reduce((sum, a) => sum + a.weight, 0);
+        for (const a of options) {
+            r -= a.weight;
+            if (r < 0) {
+                return a;
+            }
+        }
+        return options[options.length - 1];
+    }
+
+    private pickCooldown(scale = 1): number {
+        return (
+            (this.berserk
+                ? this.between(tuning.attackBerserkMin, tuning.attackBerserkMax)
+                : this.between(tuning.attackCoolMin, tuning.attackCoolMax)) * scale
+        );
     }
 
     private between(a: number, b: number): number {

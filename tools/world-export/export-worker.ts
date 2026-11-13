@@ -32,7 +32,15 @@ export type ExportResult =
     | { type: "ready" }
     | { type: "region"; mapX: number; mapY: number; bytes: number; stats: RegionStats }
     | { type: "empty"; mapX: number; mapY: number }
-    | { type: "npc"; index: number; bytes: number; hasWalk: boolean; attacks: number }
+    | {
+          type: "npc";
+          index: number;
+          bytes: number;
+          hasWalk: boolean;
+          attacks: number;
+          /** Non-melee attacks baked, for the export log. fallback: reuses the melee animation. */
+          styles: { style: string; seqId: number; fallback: boolean }[];
+      }
     | { type: "npc-empty"; index: number }
     | { type: "error"; label: string; message: string };
 
@@ -78,7 +86,17 @@ function exportNpc(index: number, npc: NpcAppearanceTask): ExportResult {
     }
     const file = gzipSync(encodeNpcModel(model), { level: 6 });
     fs.writeFileSync(path.join(data.npcDir, path.basename(npc.file)), file);
-    return { type: "npc", index, bytes: file.length, hasWalk: model.walk !== undefined, attacks: model.attacks?.length ?? 0 };
+    const attacks = model.attacks ?? [];
+    const styles = npc.attackStyles
+        ? attacks
+              .filter((a) => a.style !== "melee")
+              .map((a) => ({
+                  style: a.style,
+                  seqId: a.seqId,
+                  fallback: attacks.some((m) => m.style === "melee" && m.seqId === a.seqId),
+              }))
+        : [];
+    return { type: "npc", index, bytes: file.length, hasWalk: model.walk !== undefined, attacks: attacks.length, styles };
 }
 
 port.on("message", (task: ExportTask) => {

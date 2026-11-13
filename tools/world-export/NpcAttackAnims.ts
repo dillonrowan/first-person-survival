@@ -2,6 +2,7 @@ import fs from "node:fs";
 
 import { HIT_BONES } from "../../src/npc/HitClips";
 import { BodyRig } from "../../src/npc/HitPose";
+import type { AttackStyle } from "../../src/npc/AttackStyle";
 import type { NpcSkeleton } from "../../src/world/NpcFormat";
 import { RS_UNITS_PER_TILE } from "../../src/world/WorldFormat";
 
@@ -139,6 +140,17 @@ export class NpcAttackPicker {
         const { seqIds } = chooseAttacks(this.names, idleSeqId, frameBase, this.byBase.get(frameBase) ?? [], armed);
         return seqIds.map((seqId) => ({ seqId, shove: isShove(this.names, seqId) }));
     }
+
+    /** The attacks for an NPC with several styles: its melee clips, then one clip per other style. */
+    chooseStyled(
+        idleSeqId: number,
+        frameBase: number,
+        armed: boolean,
+        styles: readonly AttackStyle[],
+        seqs: Partial<Record<AttackStyle, number>>,
+    ): StyledChoice[] {
+        return chooseStyledAttacks(this.names, idleSeqId, frameBase, this.byBase.get(frameBase) ?? [], armed, styles, seqs);
+    }
 }
 
 /** Indexes every named, frame-animated sequence by its frame base. */
@@ -208,4 +220,95 @@ export function chooseAttacks(
     }
     const top = matching[0].score;
     return { seqIds: matching.filter((s) => s.score >= top - 0.05).slice(0, 2).map((s) => s.id), reason: `matches ${idleName}` };
+}
+
+export type StyledChoice = { seqId: number; style: AttackStyle; shove: boolean; fallback: boolean };
+
+/** Name words that say a sequence is an attack of that style. */
+const STYLE_KEYWORDS: Partial<Record<AttackStyle, string[]>> = {
+    magic: ["CAST", "CASTING", "MAGIC", "SPELL", "MAGE", "DISCORD"],
+    ranged: ["RANGE", "RANGED", "SHOOT", "THROW", "BOW", "XBOW", "SPIT"],
+    dragonfire: ["FIREBREATH", "BREATH", "FIRE"],
+    icebreath: ["BREATH", "ICE", "FIREBREATH"],
+};
+/** Sequences of an effect, a reaction or a pose, never the attack itself. */
+const NOT_AN_ATTACK = new Set([
+    "DEATH", "DIE", "BLOCK", "DEF", "DEFEND", "WALK", "READY", "SPOTANIM", "SPOT", "TRAVEL", "IMPACT", "PROJANIM", "CHATHEAD", "TALK",
+]);
+
+/** Player-skeleton sequences of a cast and a bow shot. */
+const HUMAN_CAST = 711; // HUMAN_CASTSTRIKE
+const HUMAN_CAST_STAFF = 1162; // HUMAN_CASTSTRIKE_STAFF
+const HUMAN_BOW = 426; // HUMAN_BOW
+
+/** The best sequence on `sameBase` for a style: named for it, then an "ATTACK", then like the idle. */
+function chooseStyleSequence(
+    names: AnimationNames,
+    idleSeqId: number,
+    sameBase: readonly number[],
+    style: AttackStyle,
+): number | undefined {
+    const keywords = STYLE_KEYWORDS[style];
+    if (!keywords) {
+        return undefined;
+    }
+    const idle = parts(names.get(idleSeqId) ?? "");
+    const candidates = sameBase
+        .map((id) => ({ id, name: names.get(id) ?? "" }))
+        .filter(({ name }) => {
+            const w = words(name);
+            if (w.some((x) => NOT_AN_ATTACK.has(x))) {
+                return false;
+            }
+            return keywords.some((k) => w.includes(k) || (k.length >= 5 && name.includes(k)));
+        })
+        .map((s) => ({ ...s, attack: words(s.name).includes("ATTACK") ? 1 : 0, score: nameScore(idle, s.name) }))
+        .sort((a, b) => b.attack - a.attack || b.score - a.score || a.id - b.id);
+    return candidates[0]?.id;
+}
+
+/**
+ * The attacks of an NPC with several styles, in `styles` order. Melee is what chooseAttacks picks;
+ * every other style gets one sequence: an explicit one from the overrides, a player cast or bow shot
+ * on the player's skeleton, or the best one named for it on the creature's skeleton. A style with
+ * none reuses the first melee sequence (`fallback`), so the attack still works with that animation.
+ */
+export function chooseStyledAttacks(
+    names: AnimationNames,
+    idleSeqId: number,
+    frameBase: number,
+    sameBase: readonly number[],
+    armed: boolean,
+    styles: readonly AttackStyle[],
+    seqs: Partial<Record<AttackStyle, number>>,
+): StyledChoice[] {
+    const melee = chooseAttacks(names, idleSeqId, frameBase, sameBase, armed).seqIds;
+    const idleName = names.get(idleSeqId) ?? "";
+    const out: StyledChoice[] = [];
+    for (const style of styles) {
+        const explicit = seqs[style];
+        if (explicit !== undefined) {
+            out.push({ seqId: explicit, style, shove: false, fallback: false });
+            continue;
+        }
+        if (style === "melee") {
+            for (const seqId of melee) {
+                out.push({ seqId, style, shove: isShove(names, seqId), fallback: false });
+            }
+            continue;
+        }
+        let seqId: number | undefined;
+        if (frameBase === PLAYER_FRAME_BASE) {
+            const human = style === "magic" ? (/STAFF/.test(idleName) ? HUMAN_CAST_STAFF : HUMAN_CAST) : style === "ranged" ? HUMAN_BOW : undefined;
+            seqId = human !== undefined && sameBase.includes(human) ? human : undefined;
+        } else {
+            seqId = chooseStyleSequence(names, idleSeqId, sameBase, style);
+        }
+        if (seqId !== undefined) {
+            out.push({ seqId, style, shove: false, fallback: false });
+        } else if (melee.length > 0) {
+            out.push({ seqId: melee[0], style, shove: false, fallback: true });
+        }
+    }
+    return out;
 }

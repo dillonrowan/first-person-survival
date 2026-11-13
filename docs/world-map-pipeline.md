@@ -86,9 +86,9 @@ flowchart TD
 
 **NPCs.** The cache says what an NPC looks like but not where it stands, so spawn positions
 come from `tools/world-export/data/npc-spawns-osrs.json`. Spawns inside the exported regions
-are matched to their NPC definition, each distinct appearance is lit and its idle and walk
-animations are baked frame by frame into `npcs/{id}_{displayId}.bin`, and the spawns are
-written to `npcs.json`. The game plays the baked frames back and wanders the NPCs itself.
+are matched to their NPC definition, each distinct appearance is lit and its idle, walk and
+attack animations are baked frame by frame into `npcs/{id}_{displayId}.bin`, and the spawns are
+written to `npcs.json` (with the attack styles of NPCs that use more than melee, from the OSRS wiki). The game plays the baked frames back and wanders the NPCs itself.
 
 Besides the regions, the export writes `textures.png` (every texture in one image) and
 `world.json` (the list of regions, the spawn point and texture settings). The 1,636 regions

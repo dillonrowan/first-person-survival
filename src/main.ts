@@ -6,7 +6,11 @@ import { createNpcActionHandler, npcTargetSource } from "./interaction/targets";
 import { CollisionDebug } from "./physics/CollisionDebug";
 import { Npcs } from "./npc/Npcs";
 import type { Npc } from "./npc/Npc";
-import type { StrikeEvent } from "./npc/NpcAttacks";
+import type { NpcAttack, StrikeEvent } from "./npc/NpcAttacks";
+import { BreathView } from "./npc/BreathView";
+import { inBreathCone } from "./npc/Breath";
+import { NpcProjectileView } from "./npc/NpcProjectileView";
+import { NpcProjectile, ProjectileTarget, launchNpcProjectile, stepNpcProjectiles } from "./npc/NpcProjectiles";
 import { presenceFor } from "./npc/NpcSenses";
 import { ArrowView } from "./combat/ArrowView";
 import { Avatar } from "./avatar/Avatar";
@@ -194,6 +198,11 @@ async function main(): Promise<void> {
             combat.equipWeapon(cacheWeaponDef(weapon));
         },
         () => undefined,
+        undefined,
+        document.getElementById("weapon-menu-shields")!,
+        (shield) => {
+            combat.shield = shield;
+        },
     );
     await weaponMenu.load().catch((error) => {
         document.getElementById("weapon-menu-status")!.textContent =
@@ -221,9 +230,12 @@ async function main(): Promise<void> {
             hitFeel.impact(impactStrength(result));
         }
     };
-    combat.onStruck = ({ outcome }) => {
+    combat.onStruck = ({ outcome, style, shielded }) => {
         if (outcome === "hit") {
             combatHud.showDamage();
+            if (style === "dragonfire") {
+                ui.showMessage(shielded ? "You manage to resist some of the dragon fire!" : "You're horribly burnt by the dragon fire!");
+            }
         } else if (outcome === "parried") {
             ui.showMessage("Parried!");
         }
@@ -237,9 +249,21 @@ async function main(): Promise<void> {
         }
     };
     const arrowView = new ArrowView(scene);
+    /** Arrows, spells, rocks, spit and fireballs NPCs have shot, and the flames they breathe. */
+    const npcProjectiles: NpcProjectile[] = [];
+    const projectileView = new NpcProjectileView(scene);
+    const breathView = new BreathView(scene);
     const spawn = spawnFromUrl(manifest.spawn);
     let deadFor = 0;
-    /** An NPC strike's impact: it lands if the player is in reach and in front of the NPC (spec 16.8). */
+    /** The player as a projectile sees them, or undefined while dead or flying. */
+    const playerTarget = (): ProjectileTarget | undefined => {
+        const b = player.footprint();
+        return b && { x: b.x, y: b.y, z: b.z, radius: b.radius, height: b.height, plane: b.plane };
+    };
+    /**
+     * An NPC strike's impact (spec 16.8). A melee blow lands if the player is in reach and in front
+     * of the NPC; breath hits if the player is inside its cone; an arrow or spell flies from the NPC.
+     */
     const strike = (npc: Npc, event: StrikeEvent) => {
         const body = player.footprint();
         if (!body) {
@@ -247,19 +271,45 @@ async function main(): Promise<void> {
         }
         const gap = Math.hypot(body.x - npc.body.x, body.y - npc.body.y) - body.radius - npc.body.radius;
         const a = event.attack;
-        combat.receiveStrike(
-            player,
-            {
-                fromX: npc.body.x,
-                fromY: npc.body.y,
-                gap,
-                range: a.range,
-                hitPow: a.hitPow[event.hitIndex],
-                push: a.push,
-                breaksParry: a.breaksParry,
-            },
-            npc.facingCos(body.x, body.y) >= Math.cos(tuning.npcStrikeCone),
-        );
+        const hitPow = a.hitPow[event.hitIndex];
+        if (a.style === "melee") {
+            combat.receiveStrike(
+                player,
+                {
+                    fromX: npc.body.x,
+                    fromY: npc.body.y,
+                    gap,
+                    range: a.range,
+                    hitPow,
+                    push: a.push,
+                    breaksParry: a.breaksParry,
+                    style: "melee",
+                },
+                npc.facingCos(body.x, body.y) >= Math.cos(tuning.npcStrikeCone),
+            );
+        } else if (a.breath) {
+            const f = npc.forward;
+            if (inBreathCone(npc.body.x, npc.body.y, f.x, f.y, body.x, body.y, gap, a.breath)) {
+                combat.receiveStrike(
+                    player,
+                    { fromX: npc.body.x, fromY: npc.body.y, gap, range: a.range, hitPow, push: false, breaksParry: true, style: a.style, direct: true },
+                    true,
+                );
+            }
+        } else if (a.projectile) {
+            const target = playerTarget();
+            if (target) {
+                npcProjectiles.push(
+                    launchNpcProjectile({ ...npc.launchPoint(), plane: npc.plane }, target, a.projectile, a.style, hitPow),
+                );
+            }
+        }
+    };
+    /** An NPC began an attack: breath starts its flame, timed to the first damage tick. */
+    const attackStarted = (npc: Npc, a: NpcAttack) => {
+        if (a.breath) {
+            breathView.start(npc, a.breath, a.hitTimes[0]);
+        }
     };
     combat.onKick = ({ outcome }) => {
         if (outcome === "hit") {
@@ -379,6 +429,7 @@ async function main(): Promise<void> {
             deadFor += dt;
             if (deadFor >= tuning.deathFade) {
                 deadFor = 0;
+                npcProjectiles.length = 0;
                 combat.combatant.reset();
                 player.stamina.value = player.stamina.max;
                 player.teleport(spawn.x + 0.5, spawn.y + 0.5, spawn.plane);
@@ -406,7 +457,25 @@ async function main(): Promise<void> {
             presence: presenceFor({ ...player, speed: player.speed }),
             sincePlayerAttack: combat.sinceAttack,
             strike,
+            attackStarted,
         });
+        // Arrows and spells in flight hit the player at the moment they arrive.
+        for (const p of stepNpcProjectiles(
+            npcProjectiles,
+            npcDt,
+            alive ? playerTarget() : undefined,
+            (plane, x, y) => world.collisionFlags(plane, x, y),
+            (plane, x, y) => world.groundHeight(plane, x, y),
+            (minX, minY, maxX, maxY) => world.obstacleTop(minX, minY, maxX, maxY),
+        )) {
+            combat.receiveStrike(
+                player,
+                { fromX: p.fromX, fromY: p.fromY, gap: 0, range: 0, hitPow: p.hitPow, push: false, breaksParry: true, style: p.style, direct: true },
+                true,
+            );
+        }
+        projectileView.update(npcProjectiles);
+        breathView.update(npcDt);
         const playerBody = alive ? player.footprint() : undefined;
         props.update(dt, {
             player: playerBody && {
@@ -452,6 +521,8 @@ async function main(): Promise<void> {
                     : combat.weapon.family === "crossbow"
                       ? 0
                       : combat.melee.chargeProgress,
+            shieldName: combat.shield?.name,
+            shieldActive: combat.shieldActive,
             weaponName:
                 combat.weapon.family === "bow"
                     ? `${combat.weapon.name} (${combat.bow.arrows})`

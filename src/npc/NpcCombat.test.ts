@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { tuning } from "../combat/tuning";
-import { NpcCombatBrain, combatSteps, stepWeight } from "./NpcCombat";
+import { NpcCombatBrain, chooseStep, combatSteps, stepWeight, zonesFor } from "./NpcCombat";
 import { slideSpeedForDistance, stepKnockback } from "./NpcPhysics";
 
 describe("combat step weights", () => {
@@ -47,6 +47,46 @@ describe("NpcCombatBrain", () => {
         const flee = brain.update(0.02, { ...sense(1.5), healthFraction: 0.1 });
         expect(flee.mode).toBe("flee");
         expect(flee.vy).toBeLessThan(0);
+    });
+});
+
+describe("an NPC that keeps its distance", () => {
+    const sense = (d: number) => ({ x: 0, y: -d, playerX: 0, playerY: 0, playerYaw: 0, healthFraction: 1 });
+    const distances = { engage: 6, ideal: 5 };
+
+    it("settles into a fight from 6 tiles and chases from further", () => {
+        const brain = new NpcCombatBrain(() => 0.5, distances);
+
+        expect(brain.update(0.02, sense(7)).mode).toBe("chase");
+        expect(brain.update(0.02, sense(5.8)).mode).toBe("fight");
+        // Hysteresis: it keeps fighting until 0.4 tiles past the engage distance.
+        expect(brain.update(0.02, sense(6.3)).mode).toBe("fight");
+        expect(brain.update(0.02, sense(6.5)).mode).toBe("chase");
+    });
+
+    it("steps in when too far, out when too close, around its ideal distance", () => {
+        const zones = zonesFor(distances);
+        const fwd = combatSteps().find((s) => s.forward === 1 && s.length === tuning.stepLengths[0])!;
+        const back = combatSteps().find((s) => s.forward === -1 && s.length === tuning.stepLengths[0])!;
+
+        expect(stepWeight(fwd, 5.45, zones)).toBeGreaterThan(stepWeight(back, 5.45, zones));
+        expect(stepWeight(back, zones.red + 0.05, zones)).toBeGreaterThan(stepWeight(fwd, zones.red + 0.05, zones));
+        // Over a few hundred picks it never steps from beyond 6 tiles outwards.
+        let outward = 0;
+        let seed = 1;
+        const random = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+        for (let i = 0; i < 300; i++) {
+            const step = chooseStep(5.9, random, undefined, zones);
+            outward += step.forward < 0 ? 1 : 0;
+        }
+        expect(outward).toBeLessThan(60);
+    });
+
+    it("leaves the guard's zones alone", () => {
+        const brain = new NpcCombatBrain(() => 0.5);
+
+        expect(brain.update(0.02, sense(tuning.zoneYellow + 1)).mode).toBe("chase");
+        expect(brain.update(0.02, sense(tuning.zoneYellow - 0.1)).mode).toBe("fight");
     });
 });
 

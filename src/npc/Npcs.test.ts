@@ -638,3 +638,83 @@ describe("NPC combat movement and kicks", () => {
         expect(furthest).toBeLessThan(3219);
     });
 });
+
+describe("NPCs with several attack styles", () => {
+    const attackClip = (style: "melee" | "magic" | "dragonfire", seqId: number) => ({
+        frameLengths: Uint16Array.from([5, 5]),
+        frameStep: -1,
+        positions: new Int16Array(2 * 3 * 3),
+        hitCycle: 15,
+        shove: false,
+        seqId,
+        style,
+        launch: [0.5, 1] as [number, number],
+    });
+
+    async function styledNpc(attackStyles: NonNullable<NpcManifest["appearances"][number]["attackStyles"]>, styles: ("melee" | "magic" | "dragonfire")[]) {
+        const world = fakeWorld();
+        const styled = { ...manifest, appearances: [{ ...APPEARANCE, actions: ["Attack"], attackStyles }] };
+        // mulberry32: the plain LCG of the other tests starts with tiny values that always pick the first step.
+        let seed = 12345;
+        const random = () => {
+            seed = (seed + 0x6d2b79f5) | 0;
+            let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+            t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+        const load = async () => ({ ...modelData(), attacks: styles.map((s, i) => attackClip(s, 80 + i)) });
+        const npcs = new Npcs(styled, world, new THREE.Scene(), materials, load, random);
+        world.load(50, 50);
+        await flush();
+        return { npcs, npc: npcs.all()[0] };
+    }
+    const playerAt = (x: number, y: number) => ({ x, y, z: 0, radius: 0.3, height: 1.4, plane: 0, owner: null });
+    const orb = { kind: "orb" as const, speed: 9, color: 0 };
+
+    it("lets a caster strike from a distance and keep it", async () => {
+        const { npcs, npc } = await styledNpc(
+            [{ style: "magic", weight: 1, hitPow: 0.7, minGap: 0, maxGap: 8, projectile: orb }],
+            ["magic"],
+        );
+        const player = playerAt(3222.5, 3222.5); // 4 tiles north
+        npc.takeHit(0, 1, 0, player.x, player.y);
+        const styles = new Set<string>();
+        const gaps: number[] = [];
+        const strike = (n: typeof npc, e: { attack: { style: string } }) => {
+            styles.add(e.attack.style);
+            gaps.push(Math.hypot(n.body.x - player.x, n.body.y - player.y));
+        };
+        for (let i = 0; i < 600; i++) {
+            npcs.update(0.05, player, 0, { strike });
+        }
+
+        expect([...styles]).toEqual(["magic"]);
+        expect(gaps.length).toBeGreaterThan(3);
+        expect(Math.min(...gaps)).toBeGreaterThan(2.5);
+    });
+
+    it("lets a dragon next to the player both melee and breathe", async () => {
+        const breath = { length: 3, halfAngle: 0.5, duration: 0.8, ticks: 4, element: "fire" as const };
+        const { npcs, npc } = await styledNpc(
+            [
+                { style: "melee", weight: 5, hitPow: 0.7, minGap: 0 },
+                { style: "dragonfire", weight: 1, hitPow: 2, minGap: 0, maxGap: 1, breath },
+            ],
+            ["melee", "dragonfire"],
+        );
+        const player = playerAt(3222.5, 3219.9);
+        npc.takeHit(0, 1, 0, player.x, player.y);
+        const styles = new Set<string>();
+        const started: string[] = [];
+        for (let i = 0; i < 2400; i++) {
+            npcs.update(0.05, player, 0, {
+                strike: (_n, e) => styles.add(e.attack.style),
+                attackStarted: (_n, a) => started.push(a.style),
+            });
+        }
+
+        expect(styles.has("melee")).toBe(true);
+        expect(styles.has("dragonfire")).toBe(true);
+        expect(started).toContain("dragonfire");
+    });
+});
