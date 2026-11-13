@@ -190,7 +190,7 @@ export class Npcs implements BodySource<Npc> {
         dt: number,
         player?: Body,
         playerYaw = 0,
-        senses: Omit<NonNullable<CombatContext["player"]>, keyof Body | "yaw"> & Pick<CombatContext, "strike"> = {},
+        senses: Omit<NonNullable<CombatContext["player"]>, keyof Body | "yaw"> & Pick<CombatContext, "strike" | "attackStarted"> = {},
     ): void {
         this.playerBody = player;
         this.syncPlayerTiles(player);
@@ -222,6 +222,7 @@ export class Npcs implements BodySource<Npc> {
                     collect: this.collectWithPlayer,
                     lineOfSight: this.lineOfSight,
                     strike: senses.strike,
+                    attackStarted: senses.attackStarted,
                 });
                 npc.sync();
             }
