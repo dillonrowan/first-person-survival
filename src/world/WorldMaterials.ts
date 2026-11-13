@@ -94,6 +94,12 @@ export type WorldMaterials = {
     ceiling: THREE.RawShaderMaterial;
     opaque: THREE.RawShaderMaterial;
     transparent: THREE.RawShaderMaterial;
+    /**
+     * The alpha pass drawn over everything: no depth test or write. For effects on held weapons
+     * (a magic bow's shimmer), which would otherwise cut into the weapon, its string and the world.
+     * Shares the uniforms, so its textures scroll with the rest.
+     */
+    overlay: THREE.RawShaderMaterial;
     setTime(seconds: number): void;
 };
 
@@ -129,6 +135,7 @@ export function createWorldMaterials(
         ceiling: create(THREE.BackSide, false, { CEILING: "" }),
         opaque: create(THREE.FrontSide, false),
         transparent: create(THREE.FrontSide, true),
+        overlay: Object.assign(create(THREE.DoubleSide, true), { depthTest: false, depthWrite: false }),
         setTime(seconds: number) {
             uniforms.u_time.value = seconds;
         },

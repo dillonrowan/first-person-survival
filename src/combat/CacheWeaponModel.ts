@@ -42,6 +42,9 @@ export function cacheWeaponOrientation(info: Pick<CacheWeaponInfo, "blade" | "fa
  */
 const CROSSBOW_ORIENTATION = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), Math.PI);
 
+/** After every other transparent (world alpha faces use 2), so the depth-test-free effect lands on top. */
+const WEAPON_EFFECT_RENDER_ORDER = 100;
+
 /**
  * The exported model as the held weapon, drawn with the world materials like NPCs. A hand-drawn bow
  * also gets a string and nocked arrow (the models have none), found by name as a `BowString`; a
@@ -51,8 +54,11 @@ const CROSSBOW_ORIENTATION = new THREE.Quaternion().setFromAxisAngle(new THREE.V
 export function createCacheWeaponModel(
     info: CacheWeaponInfo,
     data: NpcModelData,
-    materials: { opaque: THREE.Material; transparent: THREE.Material },
+    materials: { opaque: THREE.Material; transparent: THREE.Material; overlay?: THREE.Material },
 ): THREE.Group {
+    // Alpha faces on a held weapon are effects (a magic bow's scrolling shimmer): drawn over
+    // everything, last, so the bow, its string and nearby walls never cut into them.
+    const effect = materials.overlay ?? materials.transparent;
     const orientation = cacheWeaponOrientation(info);
     const crossbow = info.family === "crossbow";
     const parts = [
@@ -93,8 +99,8 @@ export function createCacheWeaponModel(
         // No `position` attribute for three.js to measure, so supply culling bounds.
         const [cx, cy, cz, radius] = data.bounds;
         geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(cx, cy, cz), radius);
-        const result = new THREE.Mesh(geometry, transparent ? materials.transparent : materials.opaque);
-        result.renderOrder = transparent ? 2 : 1;
+        const result = new THREE.Mesh(geometry, transparent ? effect : materials.opaque);
+        result.renderOrder = transparent ? WEAPON_EFFECT_RENDER_ORDER : 1;
         return result;
     };
     /** Meshes in RS model space, turned into the contract (grip at the origin). */
@@ -113,7 +119,10 @@ export function createCacheWeaponModel(
     weapon.name = `weapon_${info.id}`;
     weapon.add(held);
     if (info.family === "bow") {
-        const points = [data.opaque, data.transparent].flatMap((mesh) => [...contractPoints(info, mesh.positions, orientation)]);
+        // Fit the string to the solid bow: effect faces (a magic bow's shimmer panels) stand off
+        // the limbs and would pull the string back into them.
+        const solid = data.opaque.indices.length > 0 ? [data.opaque] : [data.opaque, data.transparent];
+        const points = solid.flatMap((mesh) => [...contractPoints(info, mesh.positions, orientation)]);
         const bowString = BowString.fit(points);
         if (bowString) {
             weapon.add(bowString);

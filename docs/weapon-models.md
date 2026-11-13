@@ -39,7 +39,12 @@ The weapon ids live in `src/combat/weapons.ts`:
   an arrow (`src/combat/BowString.ts`): from the nock the string runs to each limb tip along the
   archer side (+Z) of the limb's outline, so it lies over recurves and flared tips instead of
   passing through them, and the arrow passes beside the widest part of the grip. The nock is pulled
-  toward +Z as the bow is drawn.
+  toward +Z as the bow is drawn. Only the model's opaque faces shape the string.
+- **Effect faces on cache weapons** (the alpha-blended faces, such as the scrolling sparkle panels
+  on the magic shortbow (i)) are drawn with the world's `overlay` material
+  (`src/world/WorldMaterials.ts`). It has no depth test or depth write and draws after every other
+  transparent object, so the weapon, its string and nearby walls never cut into the effect. Its
+  texture scrolls with the world clock, like other animated textures.
 - **Crossbows from the cache** are their own family. Their worn models all lie the same way (prod
   toward -Y, limbs along X, stock above the hand), so they are turned a half turn about Z, not by
   their exported blade direction, into a crossbow contract: muzzle +Y, rail on top +Z. Their models
