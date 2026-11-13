@@ -55,6 +55,8 @@ describe("attackRulesFor", () => {
     it("returns undefined for melee-only and unknown NPCs", () => {
         expect(attackRulesFor(row("Goblin", [["melee", 2]]))).toBeUndefined();
         expect(attackRulesFor(undefined)).toBeUndefined();
+        // A wiki row that lists no attack style keeps the guard's strikes, not an empty list.
+        expect(attackRulesFor(row("Skeleton (Forthos Ruin)", []))).toBeUndefined();
     });
 
     it("clamps hitPow and falls back to 0.7 without max hits", () => {

@@ -258,7 +258,8 @@ export class Npc {
         );
         this.group.rotation.order = "YXZ";
         const attacks = model.data.attacks;
-        const styled = appearance.attackStyles;
+        // An empty list would leave the NPC with no attacks; it keeps its melee clips instead.
+        const styled = appearance.attackStyles?.length ? appearance.attackStyles : undefined;
         this.attacker = new NpcAttacker(
             random,
             styled

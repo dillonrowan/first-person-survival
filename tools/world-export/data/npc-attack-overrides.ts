@@ -48,6 +48,9 @@ export const OVERRIDES: Record<string, NpcAttackOverride> = {
     Arrg: { styles: { ranged: { minGap: A, projectile: "rock", color: ROCK_GREY } } },
     "General Graardor": { styles: { ranged: { minGap: A, projectile: "rock", color: ROCK_GREY } } },
     "The Inadequacy": { styles: { ranged: { minGap: A, projectile: "rock", color: ROCK_GREY } } },
+    // Own animations found with list-npc-seqs.ts (the Suqah has no cast, so it keeps its melee one).
+    Tortoise: { styles: { ranged: { seq: 3954 } } }, // BATTLE_TORTOISE_ARCHER_ATTACK
+    "Chaos Elemental": { styles: { ranged: { seq: 3148 }, magic: { seq: 3149 } } }, // DISCORD, CASTING
     "Commander Zilyana": { styles: { magic: { minGap: A } } },
     "K'ril Tsutsaroth": { styles: { magic: { minGap: A } } },
     "Vet'ion": {

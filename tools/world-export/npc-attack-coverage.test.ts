@@ -48,7 +48,7 @@ describe.skipIf(!hasWorld)("NPC attack styles in the export", () => {
         let checked = 0;
         for (const a of manifest.appearances) {
             const row = wiki[a.id];
-            if (!row || (row.styles.length === 1 && row.styles[0].style === "melee")) {
+            if (!row || row.styles.length === 0 || (row.styles.length === 1 && row.styles[0].style === "melee")) {
                 expect(a.attackStyles, `${a.name} (${a.id}) melee-only`).toBeUndefined();
                 continue;
             }
@@ -67,15 +67,24 @@ describe.skipIf(!hasWorld)("NPC attack styles in the export", () => {
         }
     });
 
-    it("bakes a clip for every non-melee style", () => {
+    it("bakes a clip for every non-melee style, except for NPCs with skeletal animations", () => {
+        // Callisto and Vet'ion animate with skeletons, which the exporter cannot bake (no frame
+        // base): they have no clips and attack with the plain timed attack of the runtime.
+        const skeletal = new Set([6609, 6611]);
+        const unbaked: number[] = [];
         for (const a of manifest.appearances.filter((x) => x.attackStyles)) {
             const bytes = gunzipSync(fs.readFileSync(path.join(WORLD_DIR, a.file)));
             const data = decodeNpcModel(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer);
-            const baked = new Set((data.attacks ?? []).map((c) => c.style));
+            if ((data.attacks ?? []).length === 0) {
+                unbaked.push(a.id);
+                continue;
+            }
+            const baked = new Set(data.attacks!.map((c) => c.style));
             for (const s of a.attackStyles!.filter((x) => x.style !== "melee")) {
                 expect(baked.has(s.style), `${a.name} (${a.id}) bakes ${s.style}`).toBe(true);
             }
         }
+        expect(new Set(unbaked.filter((id) => !skeletal.has(id)))).toEqual(new Set());
     });
 
     it("gives dragons their own breath animation, not the melee one", () => {

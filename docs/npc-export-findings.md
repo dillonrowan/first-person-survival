@@ -105,11 +105,15 @@ flowchart LR
 ## Result of the full export
 
 ```
-NPCs: 12083 spawns, 3472 appearances (3111 can walk), 85 MiB; skipped 11694 outside the area,
+NPCs: 12083 spawns, 3472 appearances (3111 can walk, 3160 with attacks), 135 MiB; skipped 11694 outside the area,
 237 name mismatches, 0 without model, 127 without idle animation
 ```
 
-`public/world/npcs/` is about 94 MB on disk.
+125 appearances have attack styles beyond melee (from the wiki); 10 of their extra styles reuse the
+melee animation because the cache has none of its own (the Suqah has no cast, for example), and
+Callisto and Vet'ion have skeletal animations, so they have no clips at all.
+
+`public/world/npcs/` is about 140 MB on disk.
 
 ### Why spawns were skipped
 

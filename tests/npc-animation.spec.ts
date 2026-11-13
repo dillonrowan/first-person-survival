@@ -10,6 +10,8 @@ const fixtures = JSON.parse(
     idleFrames: number[];
     walkFrames: number[];
     attackFrames?: number[];
+    /** Which of the NPC's attack clips attackFrames are of (default 0). */
+    attackIndex?: number;
     yaws: number[];
 }>;
 
@@ -113,3 +115,26 @@ test("renders Lumbridge guard attack frames", async ({ page }) => {
         element: page.locator("canvas"),
     });
 });
+
+// NPCs with a second attack style: the dragon's breath (clip 1) and the wizard's cast (clip 0), at
+// the wind-up and at the frame the breath or spell is released.
+for (const id of [260, 512]) {
+    test(`renders NPC ${id} styled attack frames`, async ({ page }) => {
+        await page.goto("/tests/fixtures/npc-animation.html");
+        await page.locator("[data-npc-visual-status=ready]").waitFor({ timeout: 30_000 });
+        const fixture = fixtures.find((f) => f.id === id)!;
+        await page.evaluate(async (npc) => window.__NPC_VISUAL_TEST__?.select(npc), fixture.id);
+        await page.evaluate(() => window.__NPC_VISUAL_TEST__?.setPose("attack"));
+        await page.evaluate((index) => window.__NPC_VISUAL_TEST__?.setAttack(index), fixture.attackIndex ?? 0);
+
+        const hashes: string[] = [];
+        for (const frame of fixture.attackFrames!) {
+            await page.evaluate((f) => window.__NPC_VISUAL_TEST__?.setFrame(f), frame);
+            await page.evaluate(() => window.__NPC_VISUAL_TEST__?.render());
+            await expect.poll(() => page.evaluate(() => window.__NPC_VISUAL_TEST__?.frame())).toBe(frame);
+            hashes.push(createHash("sha256").update(await page.locator("canvas").screenshot()).digest("hex"));
+            await argosScreenshot(page, `npc-${id}-attack-frame-${frame}`, { element: page.locator("canvas") });
+        }
+        expect(hashes[0]).not.toBe(hashes[1]);
+    });
+}

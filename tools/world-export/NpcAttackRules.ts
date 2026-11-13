@@ -51,14 +51,14 @@ function projectileFor(style: AttackStyle, rule: StyleRule, page: string): Proje
 }
 
 /**
- * The attacks of an NPC from its wiki row, or undefined when it has no row or only melees (it then
- * keeps its melee clips, or the guard's strikes).
+ * The attacks of an NPC from its wiki row, or undefined when it has no row, no styles (the wiki
+ * lists none) or only melees (it then keeps its melee clips, or the guard's strikes).
  */
 export function attackRulesFor(
     row: WikiAttackRow | undefined,
     overrides: Record<string, NpcAttackOverride> = OVERRIDES,
 ): StyleRules | undefined {
-    if (!row || (row.styles.length === 1 && row.styles[0].style === "melee")) {
+    if (!row || row.styles.length === 0 || (row.styles.length === 1 && row.styles[0].style === "melee")) {
         return undefined;
     }
     const override = overrides[row.page]?.styles ?? {};

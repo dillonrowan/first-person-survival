@@ -358,6 +358,13 @@ export function computeBounds(base: Model, clips: (NpcClip | undefined)[]): Floa
 /** Fraction of a ranged, magic or breath clip at which the attack is released. [design] */
 export const RELEASE_FRACTION = 0.6;
 
+/**
+ * The launch point is the furthest-forward vertex above this fraction of the body height: high
+ * enough to leave out the feet and claws, low enough to keep a dragon snout (a quarter of the way up
+ * a dragon, below its wings). Checked in Blender (tools/blender/check_attack.py). [design]
+ */
+export const LAUNCH_MIN_HEIGHT = 0.1;
+
 /** Client cycle at which a non-melee attack releases its projectile or breath. */
 export function releaseCycle(clip: Pick<NpcClip, "frameLengths">): number {
     const total = clip.frameLengths.reduce((sum, length) => sum + length, 0);
@@ -366,7 +373,7 @@ export function releaseCycle(clip: Pick<NpcClip, "frameLengths">): number {
 
 /**
  * Where a projectile or breath leaves the body at `cycle` of a clip: [forward, up] in tiles from the
- * model origin. It is the vertex furthest forward among the top 40% of the body's height (the
+ * model origin. It is the vertex furthest forward above LAUNCH_MIN_HEIGHT of the body's height (the
  * mouth of a dragon, the hand of a caster). RS models face -z, +y is down.
  */
 export function launchPoint(
@@ -384,7 +391,7 @@ export function launchPoint(
     let bestV = -1;
     for (let v = 0; v < count; v++) {
         const i = (frame * count + v) * 3;
-        if (-clip.positions[i + 1] >= top * 0.6 && -clip.positions[i + 2] > best) {
+        if (-clip.positions[i + 1] >= top * LAUNCH_MIN_HEIGHT && -clip.positions[i + 2] > best) {
             best = -clip.positions[i + 2];
             bestV = v;
         }
