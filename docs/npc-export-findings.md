@@ -124,8 +124,13 @@ NPCs: 12083 spawns, 3472 appearances (3111 can walk), 85 MiB; skipped 11694 outs
 
 - Skeletal animations (about 4 surface NPC types) show the base pose.
 - Per-frame alpha changes are not baked; faces keep their base alpha.
-- NPCs are solid for the player (cylinder collision, see `src/physics/Bodies.ts`), but there is
-  no combat or death animation (those are not in the cache).
+- NPCs are solid for the player (cylinder collision, see `src/physics/Bodies.ts`). Attack
+  animations are baked since format 3 (melee) and, since format 4, one per extra attack style
+  (breath, cast, bow shot, spit) for the NPCs the OSRS wiki gives several styles; the cache has no
+  death animation, so deaths are ragdolls. Which styles an NPC uses is not in the cache (server
+  data): `npm run fetch-wiki-attacks` refreshes `data/npc-attacks-wiki.json` from the wiki, and
+  `tools/world-export/list-npc-seqs.ts <npcId>` lists the named sequences of an NPC's skeleton
+  when an attack needs an explicit sequence in `data/npc-attack-overrides.ts`.
 - Wandering is client-side only and uses a simplified size-N footprint rule.
 - The spawn list is from 2023. Newer content has no spawns until the list is updated.
 - Ground items are still not exported.

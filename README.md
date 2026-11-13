@@ -168,6 +168,12 @@ longer match the cache are skipped and counted in the export log).
   and NPCs on the player's skeleton fight like players, with their stance's weapon attacks (or
   punches and kicks when they hold nothing). NPCs the cache has no attack for lunge with a generic
   attack made in Blender (`tools/blender/lunge_clip.py`).
+- NPCs that use more than melee (dragons breathe fire, archers shoot, mages cast) get one baked
+  clip per attack style. The styles come from the OSRS wiki, not the cache:
+  `npm run fetch-wiki-attacks` saves them to `tools/world-export/data/npc-attacks-wiki.json`, and
+  `data/npc-attack-overrides.ts` holds the rules the wiki does not give (see section 16.8 of
+  `docs/combat-movement-spec.md`). `tools/blender/check_attack.py` loads an attack into Blender
+  to check its release frame and launch point.
 - `npm run export-world -- --no-npcs` skips them; `--npcs-only` re-bakes the NPCs of the exported
   map without exporting it again.
 
@@ -188,7 +194,7 @@ Defined in `src/world/WorldFormat.ts`, shared by the exporter and the game.
   the three meshes (16 bytes per vertex), corner heights per level, render flags, floor
   masks and OSRS collision flags per tile.
 - `public/world/npcs.json` and `public/world/npcs/{id}_{displayId}.bin`: NPC spawns, and one
-  gzip-compressed model per NPC appearance (lit mesh plus baked idle and walk frames). Defined
+  gzip-compressed model per NPC appearance (lit mesh plus baked idle, walk and attack frames). Defined
   in `src/world/NpcFormat.ts`. Absent when exported with `--no-npcs`.
 
 Coordinates are OSRS world tiles (`x` east, `y` north; Lumbridge is 3222, 3218). In three.js

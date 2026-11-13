@@ -790,16 +790,32 @@ Event 2152 (weapon swoosh) comes 0.15–0.25 s before the impact; that is the vi
 
 ### 16.8 What this project does with it `[design]`
 
-- Every NPC with an Attack option uses the guard's perception, attack table, strength (7) and
-  short sword (`WDmg` 2); the OSRS data has no per-NPC equivalents. NPC health stays combat-level
-  based.
+- Every NPC with an Attack option uses the guard's perception, strength (7) and short sword
+  (`WDmg` 2); the OSRS data has no per-NPC equivalents. NPC health stays combat-level based. A
+  strike does `max(0, 9 × hitPow − 1)`: 0.7 (about 5.3 damage) for the primary style, scaled for
+  the others by the ratio of the OSRS max hits (clamped to 0.3–2.5), and 2.0 in all for a breath.
+- Attack styles: the OSRS wiki lists the styles of every monster (melee, ranged, magic,
+  dragonfire, icy breath), which the cache does not. `npm run fetch-wiki-attacks` saves them to
+  `tools/world-export/data/npc-attacks-wiki.json`; the exporter turns them into
+  `NpcAppearanceInfo.attackStyles` in `npcs.json` (weights, gap ranges, hitPow, projectile or
+  breath) with `data/npc-attack-overrides.ts` for what the wiki does not encode (breath only next
+  to the player, ranged only when not adjacent, dragons that breathe from range as fireballs).
+  NPCs that only melee keep the guard's table or their melee clips.
 - No lighting model: `playerVisibility` is 1 (crouching still applies the stealth cone, range and
   8 s delay). Line of sight uses the tile walls; NPCs on another floor cannot see the player.
-- Attack choice: at random among the guard attacks whose range + root motion reaches the player.
-  NPC strike hits if the player is within the attack's range + root motion + both radii, inside a
-  ±60° frontal cone.
-- Player block: hold right mouse. A hit from inside the weapon's parry cone (6) is parried
-  (no damage) unless the attack breaks parries.
+- Attack choice: at random, weighted, among the attacks whose gap range holds (melee: range + root
+  motion; ranged and magic: up to 8 tiles, often only when not adjacent; breath: next to the
+  player). A dragon is about five parts melee to one part breath. After an attack the cooldown is
+  scaled by the wiki attack speed over 4 ticks. A melee strike hits if the player is within the
+  attack's range + root motion + both radii, inside a ±60° frontal cone. A breath hits at each of
+  its four damage ticks while the player is inside a 30° half-angle cone 3 tiles long. Arrows,
+  spells, rocks, spit and fireballs fly in a straight line at where the player was when they were
+  shot (8–14 tiles/s, no lead), so they can be sidestepped, and walls and the ground stop them.
+  An NPC that only shoots or casts engages from 6 tiles and holds about 5.
+- Player block: hold right mouse. A melee hit from inside the weapon's parry cone (6) is parried
+  (no damage) unless the attack breaks parries. Arrows, spells and breath cannot be parried.
+- Anti-dragon shield (menu key `I`, Shields): dragonfire does a tenth of its damage, but not icy
+  breath, and not while a bow takes both hands.
 - Death: after 4 s (`mm_player_death_fadeout_duration`) the player respawns with full health.
 
 ## 17. Directional swings

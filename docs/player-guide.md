@@ -74,7 +74,9 @@ Press `I` to open the cache weapon menu and equip any listed weapon; type in its
 filter the list by name, then click a weapon or press `Enter` to equip the first match. The selected weapon remains active
 until another weapon is equipped or selected with the mouse wheel. A weapon whose name contains
 "dagger" fights like the daggers, "staff" like the staff, "crossbow" like a crossbow and "bow" like the
-bow; every other weapon fights like the sword.
+bow; every other weapon fights like the sword. The menu also has a Shields section: equip the
+anti-dragon shield there (and unequip it by clicking again). It cuts dragonfire to a tenth of its
+damage, but not icy breath, and stops protecting while you hold a bow, which takes both hands.
 
 - Sword: balanced melee weapon.
 - Daggers: fast attacks and close-range stepping attacks.
@@ -86,8 +88,9 @@ bow; every other weapon fights like the sword.
 - Crossbow: ranged attacks with no draw to hold; it reloads between shots and reaches as far as a
   longbow.
 
-Hold `Mouse 2` to block during melee. Blocking can stop or weaken incoming attacks and can leave
-the attacker exposed to a follow-up. Weapon reach, speed, damage, and parry behavior vary by weapon.
+Hold `Mouse 2` to block during melee. Blocking can stop or weaken incoming melee attacks and can
+leave the attacker exposed to a follow-up. Weapon reach, speed, damage, and parry behavior vary by
+weapon. Arrows, spells and dragon breath cannot be blocked.
 
 To use the bow, aim with the mouse, hold the attack button to draw, then release to shoot while
 arrows remain available. With a bow from the weapon menu, an arrow sits on the string and the string pulls back
@@ -136,6 +139,11 @@ Available actions depend on the target. NPCs can offer actions such as `Talk-to`
 NPCs never start a fight on their own: they leave you alone until you hit, kick or shoot them (or
 knock them down with a thrown prop), and only the NPC you attacked fights back. Attacking an NPC
 may cause it to react, flee, retreat, or fight depending on its state and health.
+
+Some NPCs fight in more than one way. Dragons sometimes breathe fire in a cone in front of them
+when you stand next to them, so step out of the cone or behind them (or wear the anti-dragon
+shield). Archers and mages keep their distance and shoot arrows or cast spells at where you were
+standing, so strafing out of the way or putting a wall between you works.
 
 Some NPCs provide services or dialogue rather than combat. The exact actions shown in the screen
 prompt are authoritative.
