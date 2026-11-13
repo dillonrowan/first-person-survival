@@ -8,7 +8,9 @@ import { PlayerCombat, type CombatTarget } from "./PlayerCombat";
 import { pushDirection, rayDirection, sweepDirection, traceRay, viewToWorld } from "./SwingRay";
 import { MOVE_SETS, Ray } from "./moves";
 import { tuning } from "./tuning";
+import { ANTI_DRAGON_SHIELD } from "./Shields";
 import { WEAPONS, weaponById } from "./weapons";
+import type { AttackStyle } from "../npc/AttackStyle";
 
 const target = (x: number, y: number, radius = 0.35, height = 1.7): Body<string> => ({
     x,
@@ -288,7 +290,7 @@ describe("Combatant", () => {
             stamina: { value: 10, spend: () => true },
             applyImpulse: () => {},
         };
-        const strike = { fromX: 100.5, fromY: 101.5, gap: 0, range: 1, hitPow: 100, breaksParry: false, push: false };
+        const strike = { fromX: 100.5, fromY: 101.5, gap: 0, range: 1, hitPow: 100, breaksParry: false, push: false, style: "melee" as const };
         const before = tuning.playerUnlimitedHealth;
         try {
             tuning.playerUnlimitedHealth = true;
@@ -327,6 +329,81 @@ describe("Combatant", () => {
         c.hurt(1, "push");
         expect(c.reactionTime).toBeCloseTo(tuning.longHitTime, 9);
         expect(c.incapacitated).toBe(true);
+    });
+});
+
+describe("NPC attack styles against the player", () => {
+    function setup() {
+        const combat = new PlayerCombat(source([]) as never, noWalls);
+        const pushes: number[] = [];
+        const player = {
+            ...attacker,
+            z: 0,
+            eyeHeight: 1.25,
+            sprinting: false,
+            grounded: true,
+            verticalSpeed: 0,
+            stamina: { value: 10, spend: () => true },
+            applyImpulse: (x: number, y: number) => pushes.push(Math.hypot(x, y)),
+        };
+        combat.update(0.01, player, { attackDown: false, forward: 0, strafe: 0 });
+        return { combat, player, pushes };
+    }
+    // 0.5 hitPow is 3.5 damage: (7 + 2) * 0.5 - 1.
+    const strike = (style: AttackStyle, extra: object = {}) => ({
+        fromX: 100.5, fromY: 101.5, gap: 0, range: 1, hitPow: 0.5, breaksParry: style !== "melee", push: false, style, ...extra,
+    });
+
+    it("hits an arrow, spell or breath that already arrived without a gap or cone test", () => {
+        const { combat, player } = setup();
+        const far = strike("ranged", { gap: 10, direct: true });
+
+        expect(combat.receiveStrike(player, far, false)).toMatchObject({ outcome: "hit", style: "ranged" });
+        expect(combat.receiveStrike(player, { ...far, direct: false }, false).outcome).toBe("miss");
+    });
+
+    it("does not parry anything but a melee blow", () => {
+        for (const style of ["ranged", "magic", "dragonfire", "icebreath"] as const) {
+            const { combat, player } = setup();
+            combat.blocking = true;
+            expect(combat.receiveStrike(player, strike(style, { breaksParry: false, direct: true }), true).outcome).toBe("hit");
+        }
+    });
+
+    it("cuts dragonfire to a tenth with an anti-dragon shield, but not icy breath", () => {
+        const bare = setup();
+        expect(bare.combat.receiveStrike(bare.player, strike("dragonfire", { direct: true }), true).damage).toBeCloseTo(3.5);
+
+        const shielded = setup();
+        shielded.combat.shield = ANTI_DRAGON_SHIELD;
+        const fire = shielded.combat.receiveStrike(shielded.player, strike("dragonfire", { direct: true }), true);
+        expect(fire.damage).toBeCloseTo(0.35);
+        expect(fire.shielded).toBe(true);
+        const ice = shielded.combat.receiveStrike(shielded.player, strike("icebreath", { direct: true }), true);
+        expect(ice.damage).toBeCloseTo(3.5);
+        expect(ice.shielded).toBe(false);
+    });
+
+    it("loses the shield while a bow takes both hands", () => {
+        const { combat, player } = setup();
+        combat.shield = ANTI_DRAGON_SHIELD;
+        expect(combat.shieldActive).toBe(true);
+        combat.equipWeapon(WEAPONS.find((w) => w.family === "bow")!);
+
+        expect(combat.shieldActive).toBe(false);
+        expect(combat.receiveStrike(player, strike("dragonfire", { direct: true }), true).damage).toBeCloseTo(3.5);
+    });
+
+    it("pushes a little for arrows and spells, not at all for breath", () => {
+        const melee = setup();
+        melee.combat.receiveStrike(melee.player, strike("melee"), true);
+        const arrow = setup();
+        arrow.combat.receiveStrike(arrow.player, strike("ranged", { direct: true }), true);
+        const fire = setup();
+        fire.combat.receiveStrike(fire.player, strike("dragonfire", { direct: true }), true);
+
+        expect(arrow.pushes[0]).toBeCloseTo(melee.pushes[0] * tuning.npcProjectilePush);
+        expect(fire.pushes).toEqual([]);
     });
 });
 

@@ -61,6 +61,8 @@ export const tuning = {
     knockdownDuration: 2.0,
     /** NPC hits push the player. [data ai.PlayerPushOnHit 250 u/s] */
     playerPushOnHit: units(250),
+    /** An NPC arrow or spell pushes the player this fraction of playerPushOnHit. [design] */
+    npcProjectilePush: 0.3,
 
     // --- 8 Adrenaline ---
     /** [data player_adrenaline_base_max / _needed] */

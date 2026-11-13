@@ -9,7 +9,9 @@ import { MeleeController, MeleeInput } from "./MeleeController";
 import type { MoveDef } from "./moves";
 import { tuning } from "./tuning";
 import { WEAPONS, WeaponDef } from "./weapons";
+import type { AttackStyle } from "../npc/AttackStyle";
 import { npcStrikeDamage } from "../npc/NpcAttacks";
+import type { ShieldDef } from "./Shields";
 import { isRepeaterCrossbow } from "../world/CacheWeaponFormat";
 import { Arrow, BowController, ObstacleTop, launchArrow, rangedProfile, stepArrows } from "./Bow";
 import { CrossbowController } from "./Crossbow";
@@ -77,7 +79,14 @@ export type CombatInput = {
 export type HitReport = { target: CombatTarget; result: DamageResult; move: MoveDef };
 export type KickReport = { target?: CombatTarget; outcome: "dodged" | "hit" | "miss" };
 /** An NPC strike that reached the player. */
-export type StrikeReport = { outcome: "parried" | "hit" | "miss"; damage: number; punch: number };
+export type StrikeReport = {
+    outcome: "parried" | "hit" | "miss";
+    damage: number;
+    punch: number;
+    style: AttackStyle;
+    /** A shield cut the damage (dragonfire against an anti-dragon shield). */
+    shielded: boolean;
+};
 
 /** What the player needs to know about an incoming NPC strike. */
 export type IncomingStrike = {
@@ -89,6 +98,9 @@ export type IncomingStrike = {
     hitPow: number;
     push: boolean;
     breaksParry: boolean;
+    style: AttackStyle;
+    /** An arrow, spell or breath tick that already reached the player: no gap or cone test. */
+    direct?: boolean;
 };
 
 /**
@@ -110,6 +122,8 @@ export class PlayerCombat {
     blocking = false;
     /** Seconds since the player last attacked (NPCs go berserk after 2 s, spec 10.1). */
     sinceAttack = Infinity;
+    /** The shield held, if any. */
+    shield: ShieldDef | undefined = undefined;
 
     readonly bow = new BowController();
     readonly crossbow = new CrossbowController();
@@ -145,6 +159,11 @@ export class PlayerCombat {
         return this.melee.weapon;
     }
 
+    /** A shield protects only with a free off hand: not with a bow, which takes both. */
+    get shieldActive(): boolean {
+        return !!this.shield && this.weapon.family !== "bow";
+    }
+
     /** Cycles weapons by `step` (mouse wheel). Drops any swing in progress. */
     switchWeapon(step: number): void {
         if (step === 0) {
@@ -175,27 +194,41 @@ export class PlayerCombat {
      * player 250 u/s away from the attacker.
      */
     receiveStrike(player: CombatPlayer, strike: IncomingStrike, inCone: boolean): StrikeReport {
-        if (this.combatant.dead || strike.gap > strike.range || !inCone) {
-            return { outcome: "miss", damage: 0, punch: 0 };
+        const none = { damage: 0, punch: 0, style: strike.style, shielded: false };
+        if (this.combatant.dead || (!strike.direct && (strike.gap > strike.range || !inCone))) {
+            return { outcome: "miss", ...none };
         }
         const dx = player.x - strike.fromX;
         const dy = player.y - strike.fromY;
         const d = Math.hypot(dx, dy) || 1;
         // Parry angle test (spec 6): the attack must come from the front within acos(parry_cos).
         const facing = (-Math.sin(player.yaw) * -dx + Math.cos(player.yaw) * -dy) / d;
-        if (this.blocking && !strike.breaksParry && facing >= this.weapon.parryCos) {
-            const report: StrikeReport = { outcome: "parried", damage: 0, punch: tuning.punchParrying };
+        // Only a melee blow can be parried: arrows, spells and breath fly past a raised weapon.
+        if (strike.style === "melee" && this.blocking && !strike.breaksParry && facing >= this.weapon.parryCos) {
+            const report: StrikeReport = { ...none, outcome: "parried", punch: tuning.punchParrying };
             this.onStruck?.(report);
             return report;
         }
-        const damage = npcStrikeDamage(strike.hitPow);
+        let damage = npcStrikeDamage(strike.hitPow);
+        const shielded = strike.style === "dragonfire" && this.shieldActive;
+        if (shielded) {
+            damage *= this.shield!.dragonfireFactor;
+        }
         this.combatant.hurt(damage, "flinch");
-        const push = tuning.playerPushOnHit;
-        player.applyImpulse((dx / d) * push, (dy / d) * push);
+        // A melee blow shoves hard, an arrow or spell a little, breath not at all.
+        const push =
+            strike.style === "melee"
+                ? tuning.playerPushOnHit
+                : strike.style === "ranged" || strike.style === "magic"
+                  ? tuning.playerPushOnHit * tuning.npcProjectilePush
+                  : 0;
+        if (push > 0) {
+            player.applyImpulse((dx / d) * push, (dy / d) * push);
+        }
         if (this.combatant.reaction !== "flinch") {
             this.melee.cancel();
         }
-        const report: StrikeReport = { outcome: "hit", damage, punch: tuning.punch };
+        const report: StrikeReport = { outcome: "hit", damage, punch: tuning.punch, style: strike.style, shielded };
         this.onStruck?.(report);
         return report;
     }
