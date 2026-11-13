@@ -1,10 +1,10 @@
 import * as THREE from "three";
 
-import type { CacheWeaponInfo } from "../world/CacheWeaponFormat";
+import { isRepeaterCrossbow, type CacheWeaponInfo } from "../world/CacheWeaponFormat";
 import type { NpcModelData } from "../world/NpcFormat";
 import { RS_UNITS_PER_TILE } from "../world/WorldFormat";
 import { BowString } from "./BowString";
-import { CrossbowRig, stringFaces } from "./CrossbowRig";
+import { CrossbowRig, magazineFaces, stringFaces } from "./CrossbowRig";
 
 /** RS units (y down, z south) to tiles in three.js axes, as the world vertex shader does. */
 const toThree = ([x, y, z]: readonly number[]) =>
@@ -45,7 +45,8 @@ const CROSSBOW_ORIENTATION = new THREE.Quaternion().setFromAxisAngle(new THREE.V
 /**
  * The exported model as the held weapon, drawn with the world materials like NPCs. A hand-drawn bow
  * also gets a string and nocked arrow (the models have none), found by name as a `BowString`; a
- * crossbow loses its drawn string for a `CrossbowRig` (string and bolt), found by name too.
+ * crossbow loses its drawn string for a `CrossbowRig` (string and bolt), found by name too. A
+ * repeating crossbow's magazine box is split off into the rig, which slides it along the rail.
  */
 export function createCacheWeaponModel(
     info: CacheWeaponInfo,
@@ -54,36 +55,60 @@ export function createCacheWeaponModel(
 ): THREE.Group {
     const orientation = cacheWeaponOrientation(info);
     const crossbow = info.family === "crossbow";
+    const parts = [
+        { part: data.opaque, transparent: false },
+        { part: data.transparent, transparent: true },
+    ].map((p) => ({ ...p, points: crossbow ? [...contractPoints(info, p.part.positions, orientation)] : [] }));
+    // Crossbows: drop the drawn string (the rig draws its own).
     const kept: THREE.Vector3[] = [];
     const string: THREE.Vector3[] = [];
-    const model = new THREE.Group();
-    model.position.copy(toThree(info.grip)).negate();
-    for (const [part, transparent] of [[data.opaque, false], [data.transparent, true]] as const) {
-        let source = part;
-        if (crossbow) {
-            // Drop the drawn string; the rig draws its own.
-            const points = [...contractPoints(info, part.positions, orientation)];
-            const drop = stringFaces(points, part.indices);
-            const indices = part.indices.filter((_, i) => !drop.has(Math.floor(i / 3)));
-            part.indices.forEach((v, i) => (drop.has(Math.floor(i / 3)) ? string : kept).push(points[v]));
-            source = { ...part, indices };
-        }
-        if (source.indices.length === 0) continue;
+    const strung = parts.map(({ part, points }) => {
+        if (!crossbow) return part.indices;
+        const drop = stringFaces(points, part.indices);
+        part.indices.forEach((v, i) => (drop.has(Math.floor(i / 3)) ? string : kept).push(points[v]));
+        return part.indices.filter((_, i) => !drop.has(Math.floor(i / 3)));
+    });
+    // A repeater: split the magazine box, standing over the string, from the rest.
+    const stringTop = Math.max(-Infinity, ...string.map((p) => p.z));
+    const repeater = crossbow && isRepeaterCrossbow(info.name) && string.length > 0;
+    const magazineBounds = new THREE.Box3();
+    const split = parts.map(({ points }, n) => {
+        const indices = strung[n];
+        if (!repeater) return { body: indices, magazine: new Uint32Array(0) };
+        const box = magazineFaces(points, indices, stringTop);
+        indices.forEach((v, i) => box.has(Math.floor(i / 3)) && magazineBounds.expandByPoint(points[v]));
+        return {
+            body: indices.filter((_, i) => !box.has(Math.floor(i / 3))),
+            magazine: indices.filter((_, i) => box.has(Math.floor(i / 3))),
+        };
+    });
+    const mesh = (n: number, indices: Uint32Array): THREE.Mesh | undefined => {
+        const { part, transparent } = parts[n];
+        if (indices.length === 0) return undefined;
         const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute("a_position", new THREE.BufferAttribute(source.positions, 4));
-        geometry.setAttribute("a_color", new THREE.BufferAttribute(source.colors, 4, true));
-        geometry.setAttribute("a_uv", new THREE.BufferAttribute(source.uvs, 2));
-        geometry.setIndex(new THREE.BufferAttribute(source.indices, 1));
+        geometry.setAttribute("a_position", new THREE.BufferAttribute(part.positions, 4));
+        geometry.setAttribute("a_color", new THREE.BufferAttribute(part.colors, 4, true));
+        geometry.setAttribute("a_uv", new THREE.BufferAttribute(part.uvs, 2));
+        geometry.setIndex(new THREE.BufferAttribute(indices, 1));
         // No `position` attribute for three.js to measure, so supply culling bounds.
         const [cx, cy, cz, radius] = data.bounds;
         geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(cx, cy, cz), radius);
-        const mesh = new THREE.Mesh(geometry, transparent ? materials.transparent : materials.opaque);
-        mesh.renderOrder = transparent ? 2 : 1;
-        model.add(mesh);
-    }
-    const held = new THREE.Group();
-    held.quaternion.copy(orientation);
-    held.add(model);
+        const result = new THREE.Mesh(geometry, transparent ? materials.transparent : materials.opaque);
+        result.renderOrder = transparent ? 2 : 1;
+        return result;
+    };
+    /** Meshes in RS model space, turned into the contract (grip at the origin). */
+    const contract = (meshes: (THREE.Mesh | undefined)[]): THREE.Group => {
+        const model = new THREE.Group();
+        model.position.copy(toThree(info.grip)).negate();
+        for (const m of meshes) if (m) model.add(m);
+        const held = new THREE.Group();
+        held.quaternion.copy(orientation);
+        held.add(model);
+        return held;
+    };
+    const held = contract(split.map(({ body }, n) => mesh(n, body)));
+    const magazine = repeater && !magazineBounds.isEmpty() ? contract(split.map((s, n) => mesh(n, s.magazine))) : undefined;
     const weapon = new THREE.Group();
     weapon.name = `weapon_${info.id}`;
     weapon.add(held);
@@ -96,7 +121,10 @@ export function createCacheWeaponModel(
     } else if (crossbow) {
         const rig = CrossbowRig.fit(kept, string);
         if (rig) {
+            if (magazine) rig.attachMagazine(magazine, magazineBounds);
             weapon.add(rig);
+        } else if (magazine) {
+            weapon.add(magazine);
         }
     }
     return weapon;

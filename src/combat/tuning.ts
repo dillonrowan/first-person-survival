@@ -309,6 +309,14 @@ export const tuning = {
     crossbowReloadTime: 1.8,
     /** Crossbow: seconds of recoil after a shot before the reload starts. [design] */
     crossbowRecoilTime: 0.3,
+    /** Repeating crossbow (Karil's): bolts its magazine holds. [design] */
+    repeaterMagazine: 7,
+    /** Repeater: seconds of one lever stroke, spanning the string and dropping the next bolt. [design] */
+    repeaterCycleTime: 0.32,
+    /** Repeater: seconds of recoil after a shot before the lever stroke starts. [design] */
+    repeaterRecoilTime: 0.1,
+    /** Repeater: seconds to lower it, drop a full magazine of bolts in and raise it again. [design] */
+    repeaterReloadTime: 2.6,
     boltsStart: 30,
     arrowsMax: 99,
 

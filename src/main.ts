@@ -436,6 +436,8 @@ async function main(): Promise<void> {
                 cocked: combat.crossbow.cocked,
                 boltSeat: combat.crossbow.boltSeat,
                 recoil: combat.crossbow.recoil,
+                slide: combat.crossbow.magazineSlide,
+                loading: combat.crossbow.refill.next,
             },
             blocking: combat.blocking,
         });
@@ -454,7 +456,9 @@ async function main(): Promise<void> {
                 combat.weapon.family === "bow"
                     ? `${combat.weapon.name} (${combat.bow.arrows})`
                     : combat.weapon.family === "crossbow"
-                      ? `${combat.weapon.name} (${combat.crossbow.bolts})`
+                      ? combat.crossbow.repeater
+                          ? `${combat.weapon.name} (${combat.crossbow.loadedCount}/${combat.crossbow.magazineSize} · ${combat.crossbow.bolts})`
+                          : `${combat.weapon.name} (${combat.crossbow.bolts})`
                       : combat.weapon.name,
         });
         cameraRig.update(player, weaponView.viewOffset);

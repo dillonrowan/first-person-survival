@@ -48,3 +48,11 @@ The weapon ids live in `src/combat/weapons.ts`:
   latch (where the model's V met the stock) when cocked, with the bolt in the groove at string
   height, ending short of the prod block or sights. A crossbow model without a drawn string (a pair
   of crossbows, say) gets no string or bolt.
+- **Repeating crossbows** (Karil's crossbow, `isRepeaterCrossbow`) carry a magazine box over the
+  rail. At load, the parts of the model that stand clear above the drawn string and lie over the
+  stock (not out along the prod) are split off as the magazine (`magazineFaces`) and handed to the
+  rig (`CrossbowRig.attachMagazine`). The rig adds a fork under the magazine's back end that holds the
+  string on the latch, a loading slot on top, and a lever (laid out against Karil's model in
+  Blender): two arms pivoted on the stock under the magazine's front, through pins near its back
+  end, joined by a handle behind it. In each lever stroke the magazine slides forward until the fork
+  reaches the spent string, then back to the latch, and the next bolt drops out of it onto the rail.

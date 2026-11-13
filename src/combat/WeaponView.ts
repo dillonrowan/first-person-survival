@@ -163,6 +163,23 @@ function kickBack(pose: Pose, recoil: number): Pose {
     };
 }
 
+/**
+ * A repeater's lever stroke (`slide` 0..1, the magazine pushed forward): the stock rocks against the
+ * shoulder as the handle is thrown forward and hauled back, the muzzle dipping. [design]
+ */
+const LEVER_ROCK = { pitch: -0.05, roll: 0.035, drop: 0.012 };
+
+function workLever(pose: Pose, slide: number): Pose {
+    if (slide <= 0) {
+        return pose;
+    }
+    const rock = new THREE.Quaternion().setFromEuler(new THREE.Euler(LEVER_ROCK.pitch * slide, 0, LEVER_ROCK.roll * slide));
+    return {
+        pos: pose.pos.clone().add(new THREE.Vector3(0, -LEVER_ROCK.drop * slide, 0)),
+        quat: rock.multiply(pose.quat),
+    };
+}
+
 const clipLength = (clip: DmClip) => (clip.frames - 1) / clip.fps;
 
 /** The clip's pose at `time` seconds, held at the ends or looped. */
@@ -347,8 +364,11 @@ export class WeaponView {
             bowString?: number;
             /** An arrow is on the string. */
             arrowNocked?: boolean;
-            /** The held crossbow's reload and recoil (CrossbowController), each 0..1. */
-            crossbow?: { lowered: number; cocked: number; boltSeat: number; recoil: number };
+            /**
+             * The held crossbow's reload and recoil (CrossbowController), each 0..1; a repeater's
+             * magazine slide (its lever stroke) and the bolt being dropped into its magazine.
+             */
+            crossbow?: { lowered: number; cocked: number; boltSeat: number; recoil: number; slide?: number; loading?: number };
             blocking?: boolean;
         } = {},
     ): void {
@@ -377,7 +397,7 @@ export class WeaponView {
         this.holder.visible = true;
         this.bowString?.update(extra.bowString ?? 0, extra.arrowNocked ?? false);
         const crossbow = extra.crossbow ?? { lowered: 0, cocked: 0, boltSeat: 0, recoil: 0 };
-        this.crossbowRig?.update(crossbow.cocked, crossbow.boltSeat);
+        this.crossbowRig?.update(crossbow.cocked, crossbow.boltSeat, crossbow.slide ?? 0, crossbow.loading ?? 0);
         const ready = this.crossbowRig ? crossbow.boltSeat >= 1 : (extra.arrowNocked ?? false);
         if (this.holder.parent !== parent) {
             parent.add(this.holder);
@@ -401,6 +421,7 @@ export class WeaponView {
                 pose = aimAlong(pose, this.crossbowRig.boltNock, this.crossbowRig.boltFront, 1 - smooth(crossbow.lowered));
             }
             pose = kickBack(pose, crossbow.recoil);
+            pose = workLever(pose, crossbow.slide ?? 0);
         } else {
             pose = this.animate(dt, weapon.family, melee, extra.blocking ?? false);
         }

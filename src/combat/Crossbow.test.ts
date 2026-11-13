@@ -1,9 +1,15 @@
+/// <reference types="node" />
+// Node for reading Karil's crossbow from the exported cache.
+import { readFileSync } from "node:fs";
+import { gunzipSync } from "node:zlib";
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 
-import { cacheWeaponFamily } from "../world/CacheWeaponFormat";
+import { cacheWeaponFamily, isRepeaterCrossbow, type CacheWeaponInfo } from "../world/CacheWeaponFormat";
+import { decodeNpcModel } from "../world/NpcFormat";
+import { createCacheWeaponModel } from "./CacheWeaponModel";
 import { CrossbowController } from "./Crossbow";
-import { CrossbowRig, stringFaces } from "./CrossbowRig";
+import { CrossbowRig, magazineFaces, stringFaces } from "./CrossbowRig";
 import { cacheWeaponDef } from "./weapons";
 import { tuning } from "./tuning";
 
@@ -84,6 +90,142 @@ describe("CrossbowController", () => {
         const def = cacheWeaponDef({ id: "cache-9185", name: "Rune crossbow", family: "crossbow" });
         expect(def.family).toBe("crossbow");
         expect(def.damage).toBe(cacheWeaponDef({ id: "x", name: "Bow", family: "bow" }).damage);
+    });
+});
+
+describe("repeating crossbow", () => {
+    const repeater = () => {
+        const crossbow = new CrossbowController();
+        crossbow.setMagazine(tuning.repeaterMagazine);
+        run(crossbow, tuning.repeaterReloadTime + tuning.repeaterCycleTime + 0.05, false);
+        return crossbow;
+    };
+    const shotTime = tuning.repeaterRecoilTime + tuning.repeaterCycleTime;
+
+    it("is Karil's crossbow, in every state of repair", () => {
+        expect(isRepeaterCrossbow("Karil's crossbow")).toBe(true);
+        expect(isRepeaterCrossbow("Karil's crossbow 25")).toBe(true);
+        expect(isRepeaterCrossbow("Rune crossbow")).toBe(false);
+    });
+
+    it("fills its magazine of 7, then shoots all 7 while the button is held before it reloads", () => {
+        const crossbow = repeater();
+        expect(crossbow.state).toBe("loaded");
+        expect(crossbow.magazine).toBe(7);
+        // Holding the button empties the magazine, a bolt per lever stroke.
+        expect(run(crossbow, 7 * shotTime + 0.05, true)).toBe(7);
+        expect(crossbow.magazine).toBe(0);
+        expect(crossbow.bolts).toBe(tuning.boltsStart - 7);
+        expect(crossbow.state).toBe("reloading");
+        // No more until it is refilled.
+        expect(run(crossbow, tuning.repeaterReloadTime - 0.2, true)).toBe(0);
+        run(crossbow, 0.2 + tuning.repeaterCycleTime + 0.02, false);
+        expect(crossbow.state).toBe("loaded");
+        expect(crossbow.magazine).toBe(7);
+    });
+
+    it("shoots several times as fast as a crossbow loaded bolt by bolt", () => {
+        expect(shotTime * 4).toBeLessThan(tuning.crossbowRecoilTime + tuning.crossbowReloadTime);
+    });
+
+    it("needs the button let go after equipping before it shoots on a hold", () => {
+        const crossbow = repeater();
+        crossbow.reset();
+        expect(run(crossbow, 1, true)).toBe(0);
+        expect(run(crossbow, 0.05, false)).toBe(0);
+        expect(run(crossbow, 0.05, true)).toBe(1);
+    });
+
+    it("pushes the magazine forward onto the spent string, then hauls it back to the latch and drops a bolt", () => {
+        const crossbow = repeater();
+        run(crossbow, 0.01, true);
+        run(crossbow, tuning.repeaterRecoilTime + 0.02, false);
+        expect(crossbow.state).toBe("cycling");
+        const at = (share: number) => {
+            const c = new CrossbowController();
+            c.setMagazine(7);
+            c.magazine = 3;
+            c.reset();
+            run(c, share * tuning.repeaterCycleTime, false);
+            return { slide: c.magazineSlide, cocked: c.cocked, seat: c.boltSeat };
+        };
+        expect(at(0.2)).toMatchObject({ cocked: 0, seat: 0 });
+        expect(at(0.2).slide).toBeGreaterThan(0.2);
+        expect(at(0.4).slide).toBeCloseTo(1, 1);
+        const pulling = at(0.6);
+        expect(pulling.cocked).toBeCloseTo(1 - pulling.slide, 6); // the string rides the catch back
+        expect(pulling.cocked).toBeGreaterThan(0.2);
+        expect(pulling.seat).toBe(0);
+        const dropping = at(0.8);
+        expect(dropping.seat).toBeGreaterThan(0);
+        expect(dropping.seat).toBeLessThan(1);
+        expect(crossbow.lowered).toBe(0); // worked at the shoulder, not lowered
+    });
+
+    it("drops the bolts into the magazine one by one while it is lowered", () => {
+        const crossbow = new CrossbowController();
+        crossbow.setMagazine(7);
+        run(crossbow, 0.5 * tuning.repeaterReloadTime, false);
+        expect(crossbow.lowered).toBe(1);
+        const { done, next } = crossbow.refill;
+        expect(done).toBeGreaterThan(0);
+        expect(done).toBeLessThan(7);
+        expect(next).toBeGreaterThanOrEqual(0);
+        expect(crossbow.loadedCount).toBe(done);
+    });
+
+    it("loads only the bolts left when fewer than a magazine remain", () => {
+        const crossbow = new CrossbowController();
+        crossbow.bolts = 3;
+        crossbow.setMagazine(7);
+        run(crossbow, tuning.repeaterReloadTime + tuning.repeaterCycleTime + 0.05, false);
+        expect(crossbow.magazine).toBe(3);
+        expect(run(crossbow, 4 * shotTime, true)).toBe(3);
+        expect(crossbow.state).toBe("empty");
+    });
+
+    it("splits Karil's magazine from the model and works it with a lever", () => {
+        const info = (
+            JSON.parse(readFileSync("public/world/cache-weapons.json", "utf8")) as CacheWeaponInfo[]
+        ).find((w) => w.cacheId === 4734)!;
+        const raw = readFileSync(`public/world/${info.file}`);
+        const data = decodeNpcModel(new Uint8Array(gunzipSync(raw)).buffer);
+        const material = new THREE.MeshBasicMaterial();
+        const weapon = createCacheWeaponModel(info, data, {
+            opaque: material,
+            transparent: material,
+        });
+        const rig = weapon.getObjectByName("crossbow_rig") as CrossbowRig;
+        expect(rig.isRepeater).toBe(true);
+        const magazine = rig.getObjectByName("crossbow_magazine")!;
+        const handle = (slide: number) => {
+            rig.update(slide === 0 ? 1 : 0, 0, slide);
+            return { y: magazine.position.y, handle: rig.leverHandle(new THREE.Vector3())! };
+        };
+        const back = handle(0);
+        const forward = handle(1);
+        expect(back.y).toBe(0);
+        // Forward by the string's travel from the latch to slack.
+        expect(forward.y).toBeGreaterThan(0.1);
+        // The handle, behind the magazine, swings forward and up.
+        expect(back.handle.y).toBeLessThan(0);
+        expect(forward.handle.y).toBeGreaterThan(back.handle.y);
+        expect(forward.handle.z).toBeGreaterThan(back.handle.z);
+    });
+
+    it("finds a box standing over the string, but not the prod or stock", () => {
+        const v = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
+        const points = [
+            // A box face over the rail.
+            v(-0.04, 0, 0.11),
+            v(0.04, 0, 0.11),
+            v(0.04, 0.2, 0.27),
+            // A limb running out from the stock, touching the same height at its top.
+            v(0, 0.1, 0.04),
+            v(0.3, 0.2, 0.11),
+            v(0.3, 0.1, 0.11),
+        ];
+        expect([...magazineFaces(points, [0, 1, 2, 3, 4, 5], 0.078)]).toEqual([0]);
     });
 });
 

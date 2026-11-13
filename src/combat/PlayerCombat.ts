@@ -10,6 +10,7 @@ import type { MoveDef } from "./moves";
 import { tuning } from "./tuning";
 import { WEAPONS, WeaponDef } from "./weapons";
 import { npcStrikeDamage } from "../npc/NpcAttacks";
+import { isRepeaterCrossbow } from "../world/CacheWeaponFormat";
 import { Arrow, BowController, ObstacleTop, launchArrow, rangedProfile, stepArrows } from "./Bow";
 import { CrossbowController } from "./Crossbow";
 import type { HitEvent } from "./moves";
@@ -225,6 +226,8 @@ export class PlayerCombat {
         if (this.weapon.family === "crossbow") {
             this.melee.cancel();
             this.bow.cancel();
+            // A repeater (Karil's) shoots from its magazine; any other crossbow loads bolt by bolt.
+            this.crossbow.setMagazine(isRepeaterCrossbow(this.weapon.name) ? tuning.repeaterMagazine : 0);
             if (input.kickPressed && player.grounded && this.crossbow.state !== "recoil") {
                 this.kick.tryStart(player.stamina.value, player.pitch);
             }

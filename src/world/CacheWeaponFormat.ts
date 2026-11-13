@@ -37,3 +37,11 @@ export function cacheWeaponFamily(name: string): CacheWeaponFamily {
     if (lower.includes("bow")) return "bow";
     return "sword";
 }
+
+/**
+ * Crossbows built as repeaters (a Chu-ko-nu): a magazine over the rail, worked by a lever. Karil's
+ * crossbow, in every state of repair, is one; its model carries the magazine box.
+ */
+export function isRepeaterCrossbow(name: string): boolean {
+    return name.toLowerCase().startsWith("karil's crossbow");
+}

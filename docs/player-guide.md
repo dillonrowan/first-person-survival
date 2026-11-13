@@ -103,6 +103,13 @@ aim. Once it is back at the aim it is loaded, and a click shoots at once. The st
 while the crossbow is spent and drawn back while it is loaded; the shot kicks the crossbow up and
 back. The weapon name shows the bolts left.
 
+Karil's crossbow is a repeater: a magazine on top holds 7 bolts. After each shot its lever pushes
+the magazine forward to catch the string, hauls it back to the latch and drops the next bolt onto
+the rail, all at the shoulder, so it shoots about twice a second. Hold the attack button and it
+keeps shooting until the magazine is empty; it is then lowered and the bolts are dropped into the
+magazine one by one before it is raised again. The weapon name shows the bolts in the magazine,
+then the bolts left in all (for example `(5/7 · 23)`).
+
 ## Health, Stamina, and Adrenaline
 
 The three bars at the lower-left corner of the screen are:
