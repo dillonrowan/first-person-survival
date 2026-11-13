@@ -1,17 +1,21 @@
 import { describe, expect, it } from "vitest";
 
 import type { NpcAttackClip } from "../world/NpcFormat";
+import type { AttackStyle, NpcStyledAttackInfo } from "./AttackStyle";
 import { CLIENT_CYCLE_SECONDS, frameAtCycle } from "./NpcAnimation";
-import { GUARD_ATTACKS, NpcAttacker, attacksFromClips } from "./NpcAttacks";
+import { GUARD_ATTACKS, NpcAttacker, attacksFromClips, attacksFromStyles, attacksInReach } from "./NpcAttacks";
 import { BodyRig, HitReactions } from "./HitPose";
 import { LUNGE_CLIP } from "./HitClips";
 
-const attackClip = (frameLengths: number[], hitCycle: number, shove = false): NpcAttackClip => ({
+const attackClip = (frameLengths: number[], hitCycle: number, shove = false, style: AttackStyle = "melee"): NpcAttackClip => ({
     frameLengths: Uint16Array.from(frameLengths),
     frameStep: -1,
     positions: new Int16Array(frameLengths.length * 3),
     hitCycle,
     shove,
+    seqId: -1,
+    style,
+    launch: [0.5, 1.5],
 });
 
 describe("attacks from cache clips", () => {
@@ -88,5 +92,130 @@ describe("generic lunge", () => {
         reactions.update(0.016);
         reactions.update(0.016);
         expect(reactions.active).toBe(false);
+    });
+});
+
+const BREATH = { length: 3, halfAngle: 0.5, duration: 0.8, ticks: 4, element: "fire" as const };
+const DRAGON: NpcStyledAttackInfo[] = [
+    { style: "melee", weight: 5, hitPow: 0.7, minGap: 0 },
+    { style: "dragonfire", weight: 1, hitPow: 2, minGap: 0, maxGap: 1, breath: BREATH },
+];
+const dragonClips = () => [attackClip([4, 4, 6, 8], 11), attackClip([5, 5, 5, 5, 5], 15, false, "dragonfire")];
+
+/** A small seeded generator, so the weighted picks are reproducible. */
+function seeded(seed: number): () => number {
+    let a = seed;
+    return () => {
+        a = (a + 0x6d2b79f5) | 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+}
+
+/** Starts `count` attacks at `gap` and tallies their styles. */
+function tally(attacks: ReturnType<typeof attacksFromStyles>, gap: number, count: number, random = seeded(7)) {
+    const attacker = new NpcAttacker(random, attacks);
+    const counts: Record<string, number> = {};
+    for (let i = 0; i < count; i++) {
+        attacker.update(10, gap, 0, true); // the cooldown runs out: an attack starts
+        const style = attacker.started?.style;
+        if (style) counts[style] = (counts[style] ?? 0) + 1;
+        attacker.update(10, gap, 0, true); // it plays out
+    }
+    return counts;
+}
+
+describe("attacks from styles", () => {
+    it("play each style's own clip; breath hits in ticks from the release", () => {
+        const [melee, fire] = attacksFromStyles(DRAGON, dragonClips(), 1.5);
+
+        expect(melee).toMatchObject({ style: "melee", clip: 0, weight: 5, maxGap: melee.range + melee.lunge });
+        expect(fire).toMatchObject({ style: "dragonfire", clip: 1, weight: 1, breaksParry: true, lunge: 0, maxGap: 1 });
+        expect(fire.launch).toEqual([0.5, 1.5]);
+        expect(fire.hitTimes).toHaveLength(4);
+        expect(fire.hitTimes[0]).toBeCloseTo(15 * CLIENT_CYCLE_SECONDS);
+        expect(fire.hitTimes[3] - fire.hitTimes[0]).toBeCloseTo(0.6);
+        expect(fire.hitPow).toEqual([0.5, 0.5, 0.5, 0.5]);
+        expect(fire.total).toBeCloseTo(15 * CLIENT_CYCLE_SECONDS + 0.8);
+    });
+
+    it("split a style's weight over its clips and fall back to the melee clip", () => {
+        const clips = [attackClip([10], 5), attackClip([10], 5, false, "ranged"), attackClip([10], 6, false, "ranged")];
+        const attacks = attacksFromStyles(
+            [
+                { style: "melee", weight: 1, hitPow: 0.7, minGap: 0 },
+                { style: "ranged", weight: 2, hitPow: 0.5, minGap: 0, maxGap: 8, projectile: { kind: "arrow", speed: 14, color: 0 } },
+                { style: "magic", weight: 1, hitPow: 0.5, minGap: 0, maxGap: 8 },
+            ],
+            clips,
+            1.5,
+        );
+
+        expect(attacks.filter((a) => a.style === "ranged").map((a) => [a.clip, a.weight])).toEqual([[1, 1], [2, 1]]);
+        expect(attacks.find((a) => a.style === "magic")!.clip).toBe(0);
+    });
+
+    it("play a plain 1.2 s attack when the model has no clip at all", () => {
+        const [attack] = attacksFromStyles([{ style: "magic", weight: 1, hitPow: 0.7, minGap: 0, maxGap: 8 }], [], 1.5);
+
+        expect(attack.clip).toBeUndefined();
+        expect(attack.hitTimes).toEqual([0.6]);
+        expect(attack.total).toBeCloseTo(1.2);
+    });
+
+    it("breathe about one attack in six when next to the player", () => {
+        const counts = tally(attacksFromStyles(DRAGON, dragonClips(), 1.5), 0.5, 6000);
+
+        expect(counts.dragonfire / 6000).toBeGreaterThan(1 / 6 - 0.02);
+        expect(counts.dragonfire / 6000).toBeLessThan(1 / 6 + 0.02);
+        expect(counts.dragonfire + counts.melee).toBe(6000);
+    });
+
+    it("start only the attacks whose gap range holds", () => {
+        const dragon = attacksFromStyles(DRAGON, dragonClips(), 1.5);
+        const rune = attacksFromStyles(
+            [DRAGON[0], { ...DRAGON[1], maxGap: 8, projectile: { kind: "fireball", speed: 9, color: 0 }, breath: undefined }],
+            dragonClips(),
+            1.5,
+        );
+        const shaman = attacksFromStyles(
+            [DRAGON[0], { style: "ranged", weight: 1, hitPow: 0.5, minGap: 1, maxGap: 8 }],
+            [attackClip([10], 5), attackClip([10], 5, false, "ranged")],
+            1.5,
+        );
+
+        expect(attacksInReach(0.5, dragon).map((a) => a.style)).toEqual(["melee", "dragonfire"]);
+        expect(attacksInReach(1.5, dragon).map((a) => a.style)).toEqual(["melee"]);
+        expect(attacksInReach(3, dragon)).toEqual([]);
+        expect(attacksInReach(3, rune).map((a) => a.style)).toEqual(["dragonfire"]);
+        expect(attacksInReach(0.5, shaman).map((a) => a.style)).toEqual(["melee"]);
+        expect(attacksInReach(3, shaman).map((a) => a.style)).toEqual(["ranged"]);
+    });
+
+    it("wait longer after a slow attacker's strike", () => {
+        const slow = attacksFromStyles([{ style: "melee", weight: 1, hitPow: 0.7, minGap: 0, cooldownScale: 2 }], [attackClip([10], 5)], 1.5);
+        const fast = attacksFromStyles([{ style: "melee", weight: 1, hitPow: 0.7, minGap: 0, cooldownScale: 1 }], [attackClip([10], 5)], 1.5);
+        const wait = (attacks: typeof slow) => {
+            const attacker = new NpcAttacker(() => 0.5, attacks);
+            attacker.update(10, 0.5, 0, true);
+            attacker.update(10, 0.5, 0, true); // finished: the cooldown restarts
+            let t = 0;
+            while (!attacker.started && t < 100) {
+                attacker.update(0.1, 0.5, 0, true);
+                t += 0.1;
+            }
+            return t;
+        };
+
+        expect(wait(slow)).toBeGreaterThan(wait(fast) * 1.8);
+    });
+
+    it("know whether an NPC attacks from a distance", () => {
+        expect(new NpcAttacker(Math.random, attacksFromStyles(DRAGON, dragonClips(), 1.5)).hasDistanceAttack).toBe(false);
+        expect(
+            new NpcAttacker(Math.random, attacksFromStyles([{ style: "magic", weight: 1, hitPow: 0.5, minGap: 0, maxGap: 8 }], [], 1.5)).hasDistanceAttack,
+        ).toBe(true);
+        expect(new NpcAttacker().hasDistanceAttack).toBe(false);
     });
 });
