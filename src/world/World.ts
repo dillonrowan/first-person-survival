@@ -2,6 +2,7 @@ import * as THREE from "three";
 
 import { FlagEdit, PersistentEdits, applyFlagEdit } from "./CollisionEdits";
 import { gunzip } from "./gunzip";
+import { buildObstacleTops, obstacleTopIn } from "./ObstacleTops";
 import { WorldMaterials } from "./WorldMaterials";
 import {
     InteractiveLoc,
@@ -43,6 +44,8 @@ type LoadedRegion = {
     water: Uint8Array;
     interactives: InteractiveLoc[];
     doorGeometries: DoorGeometry[];
+    /** Highest loc geometry per cell (ObstacleTops). */
+    obstacleTops: Int16Array;
 };
 
 const regionKey = (mapX: number, mapY: number) => (mapX << 8) | mapY;
@@ -222,6 +225,31 @@ export class World {
         return region.floors[(level * REGION_SIZE + lx) * REGION_SIZE + ly] !== 0;
     }
 
+    /**
+     * Highest point (tiles, up positive) of the walls, fences, trees and other loc models over a
+     * box of world tiles, or -Infinity if nothing stands there. Unloaded ground counts as infinitely
+     * tall, as its collision counts as blocked.
+     */
+    obstacleTop(minX: number, minY: number, maxX: number, maxY: number): number {
+        let top = -Infinity;
+        const mapX0 = Math.floor(minX / REGION_SIZE);
+        const mapX1 = Math.floor(maxX / REGION_SIZE);
+        const mapY0 = Math.floor(minY / REGION_SIZE);
+        const mapY1 = Math.floor(maxY / REGION_SIZE);
+        for (let mapX = mapX0; mapX <= mapX1; mapX++) {
+            for (let mapY = mapY0; mapY <= mapY1; mapY++) {
+                const region = this.regions.get(regionKey(mapX, mapY));
+                if (!region) {
+                    return Infinity;
+                }
+                const ox = mapX * REGION_SIZE;
+                const oy = mapY * REGION_SIZE;
+                top = Math.max(top, obstacleTopIn(region.obstacleTops, minX - ox, minY - oy, maxX - ox, maxY - oy));
+            }
+        }
+        return top;
+    }
+
     /** OSRS collision flags of a tile, see CollisionFlag. Unloaded tiles are fully blocked. */
     collisionFlags(plane: number, tileX: number, tileY: number): number {
         const region = this.getRegion(tileX, tileY);
@@ -300,6 +328,7 @@ export class World {
                 water: data.water?.slice() ?? new Uint8Array(LEVELS * REGION_SIZE * REGION_SIZE),
                 interactives: data.interactives,
                 doorGeometries,
+                obstacleTops: buildObstacleTops([data.opaque, data.transparent]),
             });
             // Doors the player has used keep their collision after the square streams back in.
             for (const edit of this.edits.forRegion(mapX, mapY)) {

@@ -20,6 +20,17 @@
         <div id="prompt"></div>
         <div id="message"></div>
         <div id="hud"></div>
+        <div id="weapon-menu" class="hidden" role="dialog" aria-label="Weapon menu">
+            <div class="weapon-menu-panel">
+                <div class="weapon-menu-heading">
+                    <h1>Weapons</h1>
+                    <button id="weapon-menu-close" type="button">Close</button>
+                </div>
+                <input id="weapon-menu-search" type="search" placeholder="Search weapons" aria-label="Search weapons" autocomplete="off">
+                <div id="weapon-menu-status"></div>
+                <div id="weapon-menu-list"></div>
+            </div>
+        </div>
         <div id="overlay">
             <div class="panel">
                 <h1>First-Person Survival</h1>
@@ -30,6 +41,7 @@
                     <li><kbd>Mouse 1</kbd> attack: tap to strike, hold to charge (direction keys pick the swing)</li>
                     <li><kbd>F</kbd> kick (costs stamina)</li>
                     <li><kbd>Wheel</kbd> switch weapon</li>
+                    <li><kbd>I</kbd> open cache weapon menu</li>
                     <li><kbd>Shift</kbd> sprint, <kbd>Alt</kbd> walk, <kbd>C</kbd> crouch</li>
                     <li><kbd>Space</kbd> jump</li>
                     <li><kbd>N</kbd> toggle flying (<kbd>Space</kbd>/<kbd>C</kbd> up/down)</li>

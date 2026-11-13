@@ -1,6 +1,6 @@
 import { units } from "../player/MoveMath";
 import { tuning } from "./tuning";
-import type { WeaponFamily } from "./weapons";
+import type { MeleeFamily, WeaponFamily } from "./weapons";
 
 /**
  * One hit event of a move (docs/combat-movement-spec.md 12). Impact direction is in the attacker's
@@ -84,6 +84,12 @@ export const COMBOS: Record<WeaponFamily, ComboRules> = {
         holdToCharge: tuning.chargeThreshold,
     },
     bow: {
+        next: () => 0,
+        endAfter: {},
+        windup: sameWindup(0.5),
+        holdToCharge: tuning.chargeThreshold,
+    },
+    crossbow: {
         next: () => 0,
         endAfter: {},
         windup: sameWindup(0.5),
@@ -277,7 +283,7 @@ function withTimes(
 /** Move sets per weapon family, from first_basic.qct (no-shield variants), with their timelines. */
 export const MOVE_SETS: Record<WeaponFamily, MoveSet> = {} as Record<WeaponFamily, MoveSet>;
 
-const BASE_SETS: Record<Exclude<WeaponFamily, "bow">, MoveSet> = {
+const BASE_SETS: Record<MeleeFamily, MoveSet> = {
     sword: {
         quick: quickMoves(),
         power: {
@@ -380,3 +386,4 @@ MOVE_SETS.staff = withTimes(BASE_SETS.staff, {
 });
 // The bow's melee is the kick; its "moves" reuse the sword set so melee code stays total. [design]
 MOVE_SETS.bow = MOVE_SETS.sword;
+MOVE_SETS.crossbow = MOVE_SETS.sword;

@@ -80,6 +80,68 @@ class NpcMeshBuilder {
     }
 }
 
+/**
+ * A lit model's faces as opaque and transparent meshes in the world vertex format, or undefined
+ * when no face is drawn. Same face rules as RegionBuilder.addModel.
+ */
+export function buildModelMeshes(
+    model: Model,
+    colors: FaceColors,
+    textureLoader: Pick<TextureLoader, "isTransparent">,
+    priorityBias: number,
+): { opaque: NpcMeshData; transparent: NpcMeshData } | undefined {
+    const opaque = new NpcMeshBuilder();
+    const transparent = new NpcMeshBuilder();
+    for (let f = 0; f < model.faceCount; f++) {
+        if (model.faceColors3[f] === -2) {
+            continue;
+        }
+        const textureId = model.faceTextures ? model.faceTextures[f] : -1;
+        let alpha = 0xff;
+        if (model.faceAlphas && textureId === -1) {
+            alpha = 0xff - (model.faceAlphas[f] & 0xff);
+        }
+        if (alpha === 0 || alpha === 1) {
+            continue;
+        }
+        const isTransparent = alpha < 0xff || (textureId !== -1 && textureLoader.isTransparent(textureId));
+        const mesh = isTransparent ? transparent : opaque;
+
+        const layer = colors.textureLayer(textureId);
+        const priority = (model.faceRenderPriorities ? model.faceRenderPriorities[f] : 0) + 1 + priorityBias;
+        const info = (layer & 0xff) | ((priority & 0x1f) << 8);
+
+        const hslA = model.faceColors1[f];
+        let hslB = model.faceColors2[f];
+        let hslC = model.faceColors3[f];
+        if (hslC === -1) {
+            hslC = hslB = hslA;
+        }
+
+        const uvs = model.uvs;
+        const hasUv = uvs !== undefined && layer !== 0;
+        const vertices = [model.indices1[f], model.indices2[f], model.indices3[f]];
+        const hsls = [hslA, hslB, hslC];
+        const ids = vertices.map((vertex, i) =>
+            mesh.addVertex(
+                vertex,
+                model.verticesX[vertex],
+                model.verticesY[vertex],
+                model.verticesZ[vertex],
+                colors.hslToRgba(hsls[i], layer, alpha),
+                hasUv ? uvs[f * 6 + i * 2] : 0,
+                hasUv ? uvs[f * 6 + i * 2 + 1] : 0,
+                info,
+            ),
+        );
+        mesh.addTriangle(ids[0], ids[1], ids[2]);
+    }
+    if (opaque.isEmpty && transparent.isEmpty) {
+        return undefined;
+    }
+    return { opaque: opaque.build(), transparent: transparent.build() };
+}
+
 /** Picks an NPC's attack sequences (see NpcAttackAnims). */
 export type NpcAttackSource = {
     choose(idleSeqId: number, frameBase: number, armed: boolean): ChosenAttack[];
@@ -105,10 +167,8 @@ export class NpcModelBuilder {
             return undefined;
         }
 
-        const opaque = new NpcMeshBuilder();
-        const transparent = new NpcMeshBuilder();
-        this.addFaces(base, opaque, transparent);
-        if (opaque.isEmpty && transparent.isEmpty) {
+        const meshes = buildModelMeshes(base, this.colors, this.textureLoader, PRIORITY_NPC);
+        if (!meshes) {
             return undefined;
         }
 
@@ -134,8 +194,7 @@ export class NpcModelBuilder {
         return {
             vertexCount: base.verticesCount,
             bounds: computeBounds(base, [idle, walk, ...(attacks ?? [])]),
-            opaque: opaque.build(),
-            transparent: transparent.build(),
+            ...meshes,
             idle,
             walk,
             skeleton,
@@ -165,56 +224,6 @@ export class NpcModelBuilder {
             }
         }
         return attacks.length > 0 ? attacks : undefined;
-    }
-
-    // Same face rules as RegionBuilder.addModel.
-    private addFaces(model: Model, opaque: NpcMeshBuilder, transparent: NpcMeshBuilder): void {
-        for (let f = 0; f < model.faceCount; f++) {
-            if (model.faceColors3[f] === -2) {
-                continue;
-            }
-            const textureId = model.faceTextures ? model.faceTextures[f] : -1;
-            let alpha = 0xff;
-            if (model.faceAlphas && textureId === -1) {
-                alpha = 0xff - (model.faceAlphas[f] & 0xff);
-            }
-            if (alpha === 0 || alpha === 1) {
-                continue;
-            }
-            const isTransparent =
-                alpha < 0xff || (textureId !== -1 && this.textureLoader.isTransparent(textureId));
-            const mesh = isTransparent ? transparent : opaque;
-
-            const layer = this.colors.textureLayer(textureId);
-            const priority =
-                (model.faceRenderPriorities ? model.faceRenderPriorities[f] : 0) + 1 + PRIORITY_NPC;
-            const info = (layer & 0xff) | ((priority & 0x1f) << 8);
-
-            const hslA = model.faceColors1[f];
-            let hslB = model.faceColors2[f];
-            let hslC = model.faceColors3[f];
-            if (hslC === -1) {
-                hslC = hslB = hslA;
-            }
-
-            const uvs = model.uvs;
-            const hasUv = uvs !== undefined && layer !== 0;
-            const vertices = [model.indices1[f], model.indices2[f], model.indices3[f]];
-            const hsls = [hslA, hslB, hslC];
-            const ids = vertices.map((vertex, i) =>
-                mesh.addVertex(
-                    vertex,
-                    model.verticesX[vertex],
-                    model.verticesY[vertex],
-                    model.verticesZ[vertex],
-                    this.colors.hslToRgba(hsls[i], layer, alpha),
-                    hasUv ? uvs[f * 6 + i * 2] : 0,
-                    hasUv ? uvs[f * 6 + i * 2 + 1] : 0,
-                    info,
-                ),
-            );
-            mesh.addTriangle(ids[0], ids[1], ids[2]);
-        }
     }
 
     private bakeClip(display: NpcType, base: Model, seqId: number): NpcClip | undefined {
@@ -285,7 +294,8 @@ export function impactCycle(clip: NpcClip, base: Pick<Model, "verticesCount" | "
     return cycle + Math.ceil(clip.frameLengths[bestFrame] / 2);
 }
 
-function computeBounds(base: Model, clips: (NpcClip | undefined)[]): Float32Array {
+/** Bounding sphere of a model (and its baked clips) in tiles, three.js axes: x, y, z, radius. */
+export function computeBounds(base: Model, clips: (NpcClip | undefined)[]): Float32Array {
     let minX = Infinity;
     let minY = Infinity;
     let minZ = Infinity;

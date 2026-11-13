@@ -8,7 +8,7 @@ Argos stores visual baselines remotely and compares screenshots from pull-reques
 [playwright.config.ts](../playwright.config.ts) contains the browser configuration.
 
 - Tests live in [tests/](../tests/).
-- The NPC visual showcase is [npc-animation-test.html](../npc-animation-test.html).
+- The NPC visual fixture is [npc-animation.html](../tests/fixtures/npc-animation.html).
 - Chromium runs in headless mode with SwiftShader WebGL.
 - Text-rendering flags reduce differences between local machines and CI.
 - The `list` or `dot` reporter controls terminal output.

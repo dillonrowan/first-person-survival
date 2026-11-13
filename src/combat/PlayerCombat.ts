@@ -10,7 +10,9 @@ import type { MoveDef } from "./moves";
 import { tuning } from "./tuning";
 import { WEAPONS, WeaponDef } from "./weapons";
 import { npcStrikeDamage } from "../npc/NpcAttacks";
-import { Arrow, BowController, launchArrow, stepArrows } from "./Bow";
+import { isRepeaterCrossbow } from "../world/CacheWeaponFormat";
+import { Arrow, BowController, ObstacleTop, launchArrow, rangedProfile, stepArrows } from "./Bow";
+import { CrossbowController } from "./Crossbow";
 import type { HitEvent } from "./moves";
 
 /** layer_bowattack_shoot (spec 16.4): HitPow 1.5, impact along the arrow, +2 adrenaline. */
@@ -55,9 +57,6 @@ export type CombatPlayer = {
     eyeHeight: number;
     sprinting: boolean;
     grounded: boolean;
-    /** Actual horizontal velocity, tiles/s (the bow zooms when nearly still). */
-    velocityX?: number;
-    velocityY?: number;
     verticalSpeed: number;
     stamina: { value: number; spend(amount: number): boolean };
     applyImpulse(x: number, y: number, z?: number): void;
@@ -113,10 +112,13 @@ export class PlayerCombat {
     sinceAttack = Infinity;
 
     readonly bow = new BowController();
+    readonly crossbow = new CrossbowController();
     /** Arrows in flight or stuck in the world. */
     readonly arrows: Arrow[] = [];
     /** Ground height for arrows; without it they only stop at walls. */
     groundHeight?: (plane: number, x: number, y: number) => number;
+    /** How tall the walls and fences are; without it arrows treat every wall as reaching the sky. */
+    obstacleTop?: ObstacleTop;
 
     private readonly hitThisSwing: Set<Body<CombatTarget>>[] = [];
     private clock = 0;
@@ -129,8 +131,14 @@ export class PlayerCombat {
         this.melee = new MeleeController(WEAPONS[0]);
     }
 
+    /** The weapon arrows and bolts hit with: the held bow or crossbow, else the plain bow. */
     private get bowWeapon(): WeaponDef {
-        return this.weapon.family === "bow" ? this.weapon : WEAPONS.find((w) => w.family === "bow")!;
+        return this.ranged ? this.weapon : WEAPONS.find((w) => w.family === "bow")!;
+    }
+
+    /** A bow or crossbow is held: no melee, no parry. */
+    get ranged(): boolean {
+        return this.weapon.family === "bow" || this.weapon.family === "crossbow";
     }
 
     get weapon(): WeaponDef {
@@ -146,6 +154,18 @@ export class PlayerCombat {
         this.melee.weapon = WEAPONS[this.weaponIndex];
         this.melee.cancel();
         this.bow.cancel();
+        this.bow.profile = rangedProfile(this.weapon);
+    }
+
+    equipWeapon(weapon: WeaponDef): void {
+        const index = WEAPONS.indexOf(weapon);
+        if (index >= 0) {
+            this.weaponIndex = index;
+        }
+        this.melee.weapon = weapon;
+        this.melee.cancel();
+        this.bow.cancel();
+        this.bow.profile = rangedProfile(weapon);
     }
 
     /**
@@ -194,15 +214,45 @@ export class PlayerCombat {
         }
         // Parry stance: only between swings, and never with the bow.
         this.blocking =
-            !!input.blockDown && !this.melee.busy && !this.kick.active && this.weapon.family !== "bow";
+            !!input.blockDown && !this.melee.busy && !this.kick.active && !this.ranged;
         if (this.blocking) {
             this.melee.cancel();
             return reports;
         }
-        if (this.melee.busy || this.kick.active || this.bow.state === "shooting") {
+        if (this.melee.busy || this.kick.active || this.bow.state === "shooting" || this.crossbow.state === "recoil") {
             this.sinceAttack = 0;
         }
         this.updateArrows(dt, player);
+        if (this.weapon.family === "crossbow") {
+            this.melee.cancel();
+            this.bow.cancel();
+            // A repeater (Karil's) shoots from its magazine; any other crossbow loads bolt by bolt.
+            this.crossbow.setMagazine(isRepeaterCrossbow(this.weapon.name) ? tuning.repeaterMagazine : 0);
+            if (input.kickPressed && player.grounded && this.crossbow.state !== "recoil") {
+                this.kick.tryStart(player.stamina.value, player.pitch);
+            }
+            if (this.kick.active) {
+                if (this.kick.update(dt)) {
+                    this.resolveKick(player);
+                }
+                return reports;
+            }
+            // Right mouse, the melee block, zooms ranged weapons.
+            const aimDown = !!input.blockDown;
+            if (this.crossbow.update(dt, { attackDown: input.attackDown && !this.combatant.incapacitated, aimDown })) {
+                const bolt = launchArrow(
+                    { x: player.x, y: player.y, z: player.z + player.eyeHeight, plane: player.plane },
+                    player.yaw,
+                    player.pitch,
+                    rangedProfile(this.weapon),
+                );
+                bolt.bolt = true;
+                this.arrows.push(bolt);
+            }
+            return reports;
+        }
+        // Not held: the next time it is, the crossbow starts with a reload.
+        this.crossbow.reset();
         if (this.weapon.family === "bow") {
             this.melee.cancel();
             // The bow's kick (layer_bow_kick_*) works like the melee kick (spec 7).
@@ -215,14 +265,15 @@ export class PlayerCombat {
                 }
                 return reports;
             }
-            const speed = Math.hypot(player.velocityX ?? 0, player.velocityY ?? 0);
-            if (this.bow.update(dt, { attackDown: input.attackDown && !this.combatant.incapacitated, speed })) {
+            const aimDown = !!input.blockDown;
+            if (this.bow.update(dt, { attackDown: input.attackDown && !this.combatant.incapacitated, aimDown })) {
                 const [swayYaw, swayPitch] = this.bow.sway(this.clock);
                 this.arrows.push(
                     launchArrow(
                         { x: player.x, y: player.y, z: player.z + player.eyeHeight, plane: player.plane },
                         player.yaw + swayYaw,
                         player.pitch + swayPitch,
+                        this.bow.profile,
                     ),
                 );
             }
@@ -330,7 +381,7 @@ export class PlayerCombat {
             return;
         }
         const ground = this.groundHeight ?? (() => -Infinity);
-        for (const hit of stepArrows(this.arrows, dt, this.bodies, this.flagsAt, ground)) {
+        for (const hit of stepArrows(this.arrows, dt, this.bodies, this.flagsAt, ground, this.obstacleTop)) {
             const target = hit.body.owner;
             if (!target.attackable) {
                 continue;

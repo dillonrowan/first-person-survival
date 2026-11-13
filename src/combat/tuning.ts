@@ -251,13 +251,6 @@ export const tuning = {
     hearingHeightClip: units(300),
     /** Hearing reaction delay; none for sprint-level sounds. [delayhear, NoDelayHearAbovePresence] */
     hearingDelay: 1,
-    /** Seen this close, the NPC plays its surprised step back first. [cvar mm_ai_dist_surprised] */
-    surprisedDistance: units(314),
-    surprisedTime: 1.17,
-    surprisedStep: units(78),
-    /** Allies within this range join a fight, at most callForHelpMax of them. [data] */
-    callForHelpDistance: units(700),
-    callForHelpMax: 3,
     /** Search after losing sight. [cvar mm_ai_search_time; data SearchRadius] */
     searchTime: 10,
     searchRadius: units(600),
@@ -289,8 +282,20 @@ export const tuning = {
     bowShootTime: 0.233,
     bowReleaseAt: 0.033,
     bowLowerTime: 0.667,
-    /** Zoom once drawn and slower than this. [cvar mm_speed_to_bow_zoom 10] */
-    bowZoomSpeed: units(10),
+    /**
+     * Shortbows (any bow named "shortbow"; every other bow is a longbow, drawn as above): a quicker
+     * draw and re-draw, and a slower arrow, so it drops sooner and carries less far. [design]
+     */
+    shortbowDrawReady: 0.95,
+    shortbowReloadReady: 0.6,
+    shortbowArrowSpeed: units(1470),
+    /**
+     * Longbow and crossbow shots fall under this share of gravity: besides flying faster than a
+     * shortbow's they stay up longer, so they carry further and hang in the air longer. [design]
+     */
+    longbowGravityScale: 0.6,
+    /** Seconds an arrow or bolt stays stuck in a wall or the ground before it disappears. [design] */
+    arrowStuckTime: 10,
     /** Field-of-view scale when zoomed. [design] */
     bowZoomFov: 0.5,
     /** Steady-aim window after the draw. [cvar mm_time_bow_stabilisation] */
@@ -300,6 +305,19 @@ export const tuning = {
     bowHitPow: 1.5,
     bowAdrenaline: 2,
     arrowsStart: 30,
+    /** Crossbow: seconds to span the string and seat a bolt, after each shot and on equipping. [design] */
+    crossbowReloadTime: 1.8,
+    /** Crossbow: seconds of recoil after a shot before the reload starts. [design] */
+    crossbowRecoilTime: 0.3,
+    /** Repeating crossbow (Karil's): bolts its magazine holds. [design] */
+    repeaterMagazine: 7,
+    /** Repeater: seconds of one lever stroke, spanning the string and dropping the next bolt. [design] */
+    repeaterCycleTime: 0.32,
+    /** Repeater: seconds of recoil after a shot before the lever stroke starts. [design] */
+    repeaterRecoilTime: 0.1,
+    /** Repeater: seconds to lower it, drop a full magazine of bolts in and raise it again. [design] */
+    repeaterReloadTime: 2.6,
+    boltsStart: 30,
     arrowsMax: 99,
 
     // --- 19 Physics props ---

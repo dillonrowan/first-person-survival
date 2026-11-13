@@ -21,6 +21,9 @@ import { WeaponView } from "./combat/WeaponView";
 import type { BodySource } from "./physics/Bodies";
 import { CombatHud } from "./ui/CombatHud";
 import { EnemyHealthBars } from "./ui/EnemyHealthBars";
+import { WeaponMenu } from "./ui/WeaponMenu";
+import { cacheWeaponDef } from "./combat/weapons";
+import { createCacheWeaponModel } from "./combat/CacheWeaponModel";
 import "./style.css";
 import { NpcManifest, decodeNpcModel } from "./world/NpcFormat";
 import { WorldInteractives } from "./world/Interactives";
@@ -170,10 +173,44 @@ async function main(): Promise<void> {
         camera,
         import.meta.env.BASE_URL,
         avatar.root.getObjectByName("socket_hand_r") ?? undefined,
+        (weaponId) => {
+            const info = weaponMenu.find(weaponId);
+            return info && (async () => {
+                const response = await fetch(`${WORLD_URL}${info.file}`);
+                if (!response.ok) {
+                    throw new Error(`${info.file}: HTTP ${response.status}`);
+                }
+                const data = decodeNpcModel(await gunzip(await response.arrayBuffer()));
+                return createCacheWeaponModel(info, data, materials);
+            })();
+        },
     );
+    const weaponMenuElement = document.getElementById("weapon-menu")!;
+    const weaponMenu = new WeaponMenu(
+        weaponMenuElement,
+        document.getElementById("weapon-menu-list")!,
+        document.getElementById("weapon-menu-status")!,
+        (weapon) => {
+            combat.equipWeapon(cacheWeaponDef(weapon));
+        },
+        () => undefined,
+    );
+    await weaponMenu.load().catch((error) => {
+        document.getElementById("weapon-menu-status")!.textContent =
+            error instanceof Error ? error.message : String(error);
+    });
+    window.addEventListener("keydown", (event) => {
+        // Typing an "i" into the weapon search must not close the menu.
+        if (!event.repeat && event.code === "KeyI" && !(event.target instanceof HTMLInputElement)) {
+            // Opening focuses the search box; keep this "i" from being typed into it.
+            event.preventDefault();
+            weaponMenu.toggle();
+        }
+    });
     const combatHud = new CombatHud(document.body);
     const enemyHealthBars = npcs ? new EnemyHealthBars(document.body, npcs, camera) : undefined;
     combat.groundHeight = (plane, x, y) => world.groundHeight(plane, x, y);
+    combat.obstacleTop = (minX, minY, maxX, maxY) => world.obstacleTop(minX, minY, maxX, maxY);
     const hitFeel = new HitFeel();
     combat.onHit = ({ result, move }) => {
         combatHud.showHit(result.reaction !== "none" && result.reaction !== "flinch");
@@ -347,8 +384,9 @@ async function main(): Promise<void> {
                 player.teleport(spawn.x + 0.5, spawn.y + 0.5, spawn.plane);
             }
         }
-        // Bow zoom (spec 16.4): narrow the view while drawn and nearly still.
-        const fov = baseFov * (1 - combat.bow.zoom * (1 - tuning.bowZoomFov));
+        // Bow and crossbow zoom: narrow the view while the right mouse is held.
+        const zoom = Math.max(combat.bow.zoom, combat.crossbow.zoom);
+        const fov = baseFov * (1 - zoom * (1 - tuning.bowZoomFov));
         if (Math.abs(camera.fov - fov) > 1e-3) {
             camera.fov = fov;
             camera.updateProjectionMatrix();
@@ -386,19 +424,42 @@ async function main(): Promise<void> {
                 combatHud.showDamage();
             },
         });
-        arrowView.update(combat.arrows);
+        arrowView.update(combat.arrows, (out) => weaponView.launchPoint(out));
         avatar.update(dt, player, cameraRig.mode);
         weaponView.update(combat.melee, cameraRig.mode, player.ready && !player.flying, combat.kick, {
             dt,
-            bowDraw: combat.bow.drawProgress,
+            bowDraw: combat.bow.poseProgress,
+            bowString: combat.bow.stringPull,
+            arrowNocked: combat.bow.arrowNocked,
+            crossbow: {
+                lowered: combat.crossbow.lowered,
+                cocked: combat.crossbow.cocked,
+                boltSeat: combat.crossbow.boltSeat,
+                recoil: combat.crossbow.recoil,
+                slide: combat.crossbow.magazineSlide,
+                loading: combat.crossbow.refill.next,
+            },
             blocking: combat.blocking,
         });
         combatHud.update(dt, {
             health: combat.combatant.healthFraction,
             stamina: player.stamina.fraction,
             adrenaline: combat.melee.adrenaline / tuning.adrenalineMax,
-            charge: combat.weapon.family === "bow" ? combat.bow.drawProgress : combat.melee.chargeProgress,
-            weaponName: combat.weapon.family === "bow" ? `${combat.weapon.name} (${combat.bow.arrows})` : combat.weapon.name,
+            // A crossbow has no charge: it reloads on its own.
+            charge:
+                combat.weapon.family === "bow"
+                    ? combat.bow.drawProgress
+                    : combat.weapon.family === "crossbow"
+                      ? 0
+                      : combat.melee.chargeProgress,
+            weaponName:
+                combat.weapon.family === "bow"
+                    ? `${combat.weapon.name} (${combat.bow.arrows})`
+                    : combat.weapon.family === "crossbow"
+                      ? combat.crossbow.repeater
+                          ? `${combat.weapon.name} (${combat.crossbow.loadedCount}/${combat.crossbow.magazineSize} · ${combat.crossbow.bolts})`
+                          : `${combat.weapon.name} (${combat.crossbow.bolts})`
+                      : combat.weapon.name,
         });
         cameraRig.update(player, weaponView.viewOffset);
         if (collisionDebug && npcs) {

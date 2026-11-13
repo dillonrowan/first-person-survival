@@ -228,9 +228,6 @@ export class Npcs implements BodySource<Npc> {
         }
         this.collideBodies();
         this.limitCorpses();
-        if (player) {
-            this.callForHelp(player);
-        }
     }
 
     /**
@@ -290,34 +287,6 @@ export class Npcs implements BodySource<Npc> {
         corpses.sort((a, b) => b.deadFor - a.deadFor);
         for (const npc of corpses.slice(0, corpses.length - tuning.ragdollMax)) {
             npc.removeCorpse(this.occupancy);
-        }
-    }
-
-    /** NPCs that just turned hostile alert up to 3 calm allies within 700 u (spec 16.7). */
-    private callForHelp(player: Body): void {
-        const all = this.all();
-        for (const caller of all) {
-            if (!caller.justAlerted) {
-                continue;
-            }
-            caller.justAlerted = false;
-            let called = 0;
-            for (const other of all) {
-                if (called >= tuning.callForHelpMax) {
-                    break;
-                }
-                if (
-                    other !== caller &&
-                    !other.alerted &&
-                    other.attackable &&
-                    other.plane === caller.plane &&
-                    Math.hypot(other.body.x - caller.body.x, other.body.y - caller.body.y) <= tuning.callForHelpDistance
-                ) {
-                    other.becomeAlerted(player.x, player.y);
-                    other.justAlerted = false;
-                    called++;
-                }
-            }
         }
     }
 

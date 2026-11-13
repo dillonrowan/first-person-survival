@@ -32,7 +32,7 @@ declare global {
 test.use({ viewport: { width: 640, height: 640 }, deviceScaleFactor: 1 });
 
 test("renders deterministic NPC idle frames", async ({ page }) => {
-    await page.goto("/npc-animation-test.html");
+    await page.goto("/tests/fixtures/npc-animation.html");
     await expect(page.locator("[data-npc-visual-status]")).toHaveAttribute(
         "data-npc-visual-status",
         "ready",
@@ -72,7 +72,7 @@ test("renders deterministic NPC idle frames", async ({ page }) => {
 });
 
 test("renders walk pose and facing changes", async ({ page }) => {
-    await page.goto("/npc-animation-test.html");
+    await page.goto("/tests/fixtures/npc-animation.html");
     await page.locator("[data-npc-visual-status=ready]").waitFor({ timeout: 30_000 });
     const fixture = fixtures[0];
     await page.evaluate(async (id) => window.__NPC_VISUAL_TEST__?.select(id), fixture.id);
@@ -88,7 +88,7 @@ test("renders walk pose and facing changes", async ({ page }) => {
 });
 
 test("renders Lumbridge guard attack frames", async ({ page }) => {
-    await page.goto("/npc-animation-test.html");
+    await page.goto("/tests/fixtures/npc-animation.html");
     await page.locator("[data-npc-visual-status=ready]").waitFor({ timeout: 30_000 });
     const fixture = fixtures.find(({ id }) => id === 6709)!;
     await page.evaluate(async (id) => window.__NPC_VISUAL_TEST__?.select(id), fixture.id);

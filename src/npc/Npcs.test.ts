@@ -551,6 +551,18 @@ describe("NPC combat movement and kicks", () => {
     }
     const playerAt = (x: number, y: number) => ({ x, y, z: 0, radius: 0.3, height: 1.4, plane: 0, owner: null });
 
+    it("never starts a fight on its own, only once the player attacks it", async () => {
+        const { npcs, npc } = await oneNpc();
+        // Close in front of it (it faces south) and running: in plain sight and earshot.
+        const player = playerAt(3222.5, 3216.5);
+        for (let i = 0; i < 250; i++) {
+            npcs.update(0.02, player, 0, { presence: tuning.presenceSprint });
+        }
+        expect(npc.inCombat).toBe(false);
+        npc.takeHit(0, 1, 0, player.x, player.y);
+        expect(npc.inCombat).toBe(true);
+    });
+
     it("runs in from afar, then holds its distance with short steps instead of walking into the player", async () => {
         const { npcs, npc } = await oneNpc();
         const player = playerAt(3222.5, 3230.5); // 12 tiles north

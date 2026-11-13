@@ -1,6 +1,8 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
+import { BowString } from "./BowString";
+import { CrossbowRig } from "./CrossbowRig";
 import { DM_CLIPS, DmClip } from "./DmKeyframes";
 import type { KickController } from "./Kick";
 import type { MeleeController } from "./MeleeController";
@@ -13,6 +15,20 @@ import type { WeaponDef } from "./weapons";
 type Pose = { pos: THREE.Vector3; quat: THREE.Quaternion };
 
 /** A pose from a position and YXZ Euler angles (radians). */
+/**
+ * A pose from a position and where the weapon's +Y (blade, muzzle) and +Z (edge, rail) point;
+ * `up` is made square to `forward`.
+ */
+function axes(px: number, py: number, pz: number, forward: THREE.Vector3, up: THREE.Vector3): Pose {
+    const y = forward.clone().normalize();
+    const z = up.clone().addScaledVector(y, -up.dot(y)).normalize();
+    const x = new THREE.Vector3().crossVectors(y, z);
+    return {
+        pos: new THREE.Vector3(px, py, pz),
+        quat: new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, y, z)),
+    };
+}
+
 function euler(px: number, py: number, pz: number, rx: number, ry: number, rz: number): Pose {
     return {
         pos: new THREE.Vector3(px, py, pz),
@@ -22,7 +38,30 @@ function euler(px: number, py: number, pz: number, rx: number, ry: number, rz: n
 
 const KICK_ASIDE = euler(0.42, -0.45, -0.35, -0.6, -0.3, -0.6);
 const BOW_REST = euler(0.2, -0.35, -0.5, -0.3, 0.3, 0.4);
-const BOW_DRAWN = euler(0.02, -0.08, -0.55, 0, 0, 0.15);
+/** Canted clockwise about the grip, below the reticule, so the upper limb clears the aim point. */
+const BOW_DRAWN = euler(0.05, -0.08, -0.55, 0, 0, -0.4);
+
+/**
+ * Crossbow (contract: muzzle +Y, rail +Z) at the aim: shouldered low on the right, the rail angled
+ * in so the bolt runs toward the reticule (aimAlong does the rest), muzzle forward.
+ */
+const CROSSBOW_AIM = euler(0.13, -0.2, -0.44, -Math.PI / 2, 0, 0);
+/**
+ * Spanning: lowered in front, muzzle tipped down and away, turned over so the rail faces the eye and
+ * the string is seen pulled back toward the butt, and the bolt laid in its groove.
+ */
+const CROSSBOW_RELOAD = axes(0.06, -0.18, -0.5, new THREE.Vector3(-0.15, -0.6, -0.78), new THREE.Vector3(0, -0.78, 0.6));
+/** A shot's kick: the muzzle flips up (radians) and the stock jolts back (tiles) at full recoil. [design] */
+const CROSSBOW_KICK = { pitch: 0.16, back: 0.05 };
+
+/**
+ * The drawn arrow's (or loaded bolt's) line crosses the line of sight this far ahead (tiles), so
+ * from the eye it points straight into the reticule; a shot closes onto its true flight over the
+ * same distance. [design]
+ */
+export const ARROW_CONVERGE = 8;
+/** How long (s) the last nocked arrow or loaded bolt's position counts as where a shot leaves. */
+const NOCK_MEMORY = 0.15;
 
 /** Crossfade between animation layers, and the slower settle back to the idle pose. */
 const BLEND = 0.1;
@@ -93,6 +132,54 @@ function lerpPose(a: Pose, b: Pose, t: number): Pose {
     return { pos: a.pos.clone().lerp(b.pos, s), quat: a.quat.clone().slerp(b.quat, s) };
 }
 
+/**
+ * Turns the held weapon about the projectile's back end `back` (the archer's anchor, the bolt's
+ * nock) so the projectile, from `back` to `front` (weapon space), points along the line of sight,
+ * crossing it ARROW_CONVERGE tiles ahead; `weight` 0 leaves the pose as it is.
+ */
+function aimAlong(pose: Pose, back: THREE.Vector3, front: THREE.Vector3, weight: number): Pose {
+    if (weight <= 0) {
+        return pose;
+    }
+    const nock = back.clone().applyQuaternion(pose.quat).add(pose.pos);
+    const current = front.clone().sub(back).applyQuaternion(pose.quat).normalize();
+    const wanted = new THREE.Vector3(0, 0, -ARROW_CONVERGE).sub(nock).normalize();
+    const turn = new THREE.Quaternion().slerp(new THREE.Quaternion().setFromUnitVectors(current, wanted), weight);
+    return {
+        pos: pose.pos.clone().sub(nock).applyQuaternion(turn).add(nock),
+        quat: turn.multiply(pose.quat),
+    };
+}
+
+/** A crossbow shot's recoil (0..1): the muzzle flips up about the grip and the stock jolts back. */
+function kickBack(pose: Pose, recoil: number): Pose {
+    if (recoil <= 0) {
+        return pose;
+    }
+    const flip = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), CROSSBOW_KICK.pitch * recoil);
+    return {
+        pos: pose.pos.clone().add(new THREE.Vector3(0, 0, CROSSBOW_KICK.back * recoil)),
+        quat: flip.multiply(pose.quat),
+    };
+}
+
+/**
+ * A repeater's lever stroke (`slide` 0..1, the magazine pushed forward): the stock rocks against the
+ * shoulder as the handle is thrown forward and hauled back, the muzzle dipping. [design]
+ */
+const LEVER_ROCK = { pitch: -0.05, roll: 0.035, drop: 0.012 };
+
+function workLever(pose: Pose, slide: number): Pose {
+    if (slide <= 0) {
+        return pose;
+    }
+    const rock = new THREE.Quaternion().setFromEuler(new THREE.Euler(LEVER_ROCK.pitch * slide, 0, LEVER_ROCK.roll * slide));
+    return {
+        pos: pose.pos.clone().add(new THREE.Vector3(0, -LEVER_ROCK.drop * slide, 0)),
+        quat: rock.multiply(pose.quat),
+    };
+}
+
 const clipLength = (clip: DmClip) => (clip.frames - 1) / clip.fps;
 
 /** The clip's pose at `time` seconds, held at the ends or looped. */
@@ -148,6 +235,12 @@ export class WeaponView {
     private readonly loading = new Set<string>();
     private current: THREE.Object3D | undefined;
     private currentId = "";
+    /** The held bow's string and nocked arrow, when its model has one. */
+    private bowString: BowString | undefined;
+    /** The held crossbow's string and bolt, when its model has one. */
+    private crossbowRig: CrossbowRig | undefined;
+    private readonly lastArrowHead = new THREE.Vector3();
+    private sinceNocked = Infinity;
     private readonly boot = createBoot();
     /** Added to the first-person camera's rotation: the view following the swing and shaking on impact. */
     readonly viewOffset: ViewOffset = { pitch: 0, yaw: 0, roll: 0 };
@@ -168,11 +261,12 @@ export class WeaponView {
     private swingCount = 0;
     /** The quick strike that last played, to pick the combo end layer. */
     private lastQuick = -1;
-
     constructor(
         private readonly camera: THREE.Camera,
         private readonly baseUrl: string,
         private readonly handSocket?: THREE.Object3D,
+        /** The model of a weapon exported from the cache, undefined for other weapons. */
+        private readonly loadCacheModel?: (weaponId: string) => Promise<THREE.Object3D> | undefined,
     ) {
         this.holder.rotation.order = "YXZ";
         camera.add(this.holder);
@@ -185,9 +279,24 @@ export class WeaponView {
         if (!model) {
             model = createPlaceholderWeapon(weapon);
             this.models.set(weapon.id, model);
-            this.tryLoadGltf(weapon);
+            const cacheModel = this.loadCacheModel?.(weapon.id);
+            if (cacheModel) {
+                cacheModel
+                    .then((loaded) => this.replaceModel(weapon.id, loaded))
+                    .catch((e) => console.warn(`Cache weapon ${weapon.id} could not be loaded`, e));
+            } else {
+                this.tryLoadGltf(weapon);
+            }
         }
         return model;
+    }
+
+    /** Swaps a weapon's placeholder for its loaded model, on screen too if it is held. */
+    private replaceModel(id: string, model: THREE.Object3D): void {
+        const old = this.models.get(id);        this.models.set(id, model);
+        if (old && old === this.current) {
+            this.attach(model);
+        }
     }
 
     private tryLoadGltf(weapon: WeaponDef): void {
@@ -203,18 +312,37 @@ export class WeaponView {
                 return;
             }
             const gltf = await new GLTFLoader().parseAsync(await response.arrayBuffer(), "");
-            const old = this.models.get(weapon.id);
-            this.models.set(weapon.id, gltf.scene);
-            if (old && old === this.current) {
-                this.attach(gltf.scene);
-            }
+            this.replaceModel(weapon.id, gltf.scene);
         })().catch((e) => console.warn(`Weapon model ${url} could not be loaded`, e));
     }
 
     private attach(model: THREE.Object3D): void {
         this.current?.removeFromParent();
         this.current = model;
+        const bowString = model.getObjectByName("bow_string");
+        this.bowString = bowString instanceof BowString ? bowString : undefined;
+        const rig = model.getObjectByName("crossbow_rig");
+        this.crossbowRig = rig instanceof CrossbowRig ? rig : undefined;
         this.holder.add(model);
+    }
+
+    /**
+     * World position of the nocked arrow's (or loaded bolt's) head the last time it was ready on
+     * the weapon, where a shot is seen to leave it; undefined when none has been ready lately.
+     */
+    launchPoint(out: THREE.Vector3): THREE.Vector3 | undefined {
+        return this.sinceNocked <= NOCK_MEMORY ? out.copy(this.lastArrowHead) : undefined;
+    }
+
+    private recordLaunchPoint(ready: boolean, dt: number): void {
+        if (ready && (this.bowString || this.crossbowRig)) {
+            this.holder.updateWorldMatrix(true, true);
+            if (this.bowString) this.bowString.arrowHead(this.lastArrowHead);
+            else this.crossbowRig?.boltHead(this.lastArrowHead);
+            this.sinceNocked = 0;
+        } else {
+            this.sinceNocked += dt;
+        }
     }
 
     /** A melee strike landed: the blade stalls in the target for a moment and the view jolts. 0..1. */
@@ -228,7 +356,21 @@ export class WeaponView {
         mode: "first" | "third",
         visible: boolean,
         kick?: KickController,
-        extra: { dt?: number; bowDraw?: number; blocking?: boolean } = {},
+        extra: {
+            dt?: number;
+            /** 0..1 how far into the draw the bow is held (the view pose). */
+            bowDraw?: number;
+            /** String pull, 1 at full draw (BowController.stringPull). */
+            bowString?: number;
+            /** An arrow is on the string. */
+            arrowNocked?: boolean;
+            /**
+             * The held crossbow's reload and recoil (CrossbowController), each 0..1; a repeater's
+             * magazine slide (its lever stroke) and the bolt being dropped into its magazine.
+             */
+            crossbow?: { lowered: number; cocked: number; boltSeat: number; recoil: number; slide?: number; loading?: number };
+            blocking?: boolean;
+        } = {},
     ): void {
         const dt = extra.dt ?? 0;
         this.clock += dt;
@@ -249,26 +391,46 @@ export class WeaponView {
         const parent = firstPerson ? this.camera : this.handSocket;
         if (!parent || !visible) {
             this.holder.visible = false;
+            this.sinceNocked = Infinity;
             return;
         }
         this.holder.visible = true;
+        this.bowString?.update(extra.bowString ?? 0, extra.arrowNocked ?? false);
+        const crossbow = extra.crossbow ?? { lowered: 0, cocked: 0, boltSeat: 0, recoil: 0 };
+        this.crossbowRig?.update(crossbow.cocked, crossbow.boltSeat, crossbow.slide ?? 0, crossbow.loading ?? 0);
+        const ready = this.crossbowRig ? crossbow.boltSeat >= 1 : (extra.arrowNocked ?? false);
         if (this.holder.parent !== parent) {
             parent.add(this.holder);
         }
         if (!firstPerson) {
             this.holder.position.set(0, 0, 0);
             this.holder.rotation.set(Math.PI / 2, 0, 0);
+            this.recordLaunchPoint(ready, dt);
             return;
         }
-        let pose =
-            weapon.family === "bow"
-                ? lerpPose(BOW_REST, BOW_DRAWN, extra.bowDraw ?? 0)
-                : this.animate(dt, weapon.family, melee, extra.blocking ?? false);
+        let pose: Pose;
+        if (weapon.family === "bow") {
+            pose = lerpPose(BOW_REST, BOW_DRAWN, extra.bowDraw ?? 0);
+            if (this.bowString && extra.arrowNocked) {
+                const weight = smooth(Math.min(1, Math.max(0, extra.bowDraw ?? 0)));
+                pose = aimAlong(pose, this.bowString.nock, this.bowString.arrowRest, weight);
+            }
+        } else if (weapon.family === "crossbow") {
+            pose = lerpPose(CROSSBOW_AIM, CROSSBOW_RELOAD, crossbow.lowered);
+            if (this.crossbowRig) {
+                pose = aimAlong(pose, this.crossbowRig.boltNock, this.crossbowRig.boltFront, 1 - smooth(crossbow.lowered));
+            }
+            pose = kickBack(pose, crossbow.recoil);
+            pose = workLever(pose, crossbow.slide ?? 0);
+        } else {
+            pose = this.animate(dt, weapon.family, melee, extra.blocking ?? false);
+        }
         if (kick?.active) {
             pose = lerpPose(pose, KICK_ASIDE, Math.min(1, (kick.elapsed ?? 0) / 0.1));
         }
         this.holder.position.copy(pose.pos);
         this.holder.quaternion.copy(pose.quat);
+        this.recordLaunchPoint(ready, dt);
         if (this.freeze > 0) {
             // Stuck in the target: a fine judder rather than a dead stop.
             this.holder.position.x += Math.sin(this.clock * 190) * 0.004;

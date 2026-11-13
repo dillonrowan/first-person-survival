@@ -70,18 +70,45 @@ attack. The adrenaline bar decays gradually if it is not used.
 ## Weapons and Blocking
 
 Use the mouse wheel to switch between available weapons.
+Press `I` to open the cache weapon menu and equip any listed weapon; type in its search box to
+filter the list by name, then click a weapon or press `Enter` to equip the first match. The selected weapon remains active
+until another weapon is equipped or selected with the mouse wheel. A weapon whose name contains
+"dagger" fights like the daggers, "staff" like the staff, "crossbow" like a crossbow and "bow" like the
+bow; every other weapon fights like the sword.
 
 - Sword: balanced melee weapon.
 - Daggers: fast attacks and close-range stepping attacks.
 - Club: heavier melee weapon.
 - Staff: longer reach and defensive weapon.
-- Bow: ranged attacks where available.
+- Bow: ranged attacks where available. A bow whose name contains "shortbow" draws faster, but its
+  arrows fly slower and drop sooner; every other bow is a longbow: a slower draw, and arrows that fly
+  further and stay in the air longer.
+- Crossbow: ranged attacks with no draw to hold; it reloads between shots and reaches as far as a
+  longbow.
 
 Hold `Mouse 2` to block during melee. Blocking can stop or weaken incoming attacks and can leave
 the attacker exposed to a follow-up. Weapon reach, speed, damage, and parry behavior vary by weapon.
 
 To use the bow, aim with the mouse, hold the attack button to draw, then release to shoot while
-arrows remain available.
+arrows remain available. With a bow from the weapon menu, an arrow sits on the string and the string pulls back
+as you draw; at full draw the arrow points into the reticule, and a shot arrow leaves the bow and
+curves into the line of sight within its first 8 tiles. Let go before the bow is fully drawn and it eases back without shooting. With a bow or crossbow,
+hold `Mouse 2` to zoom the view; let go and it zooms back out. Arrows and bolts fly in an arc and clear fences, low
+walls and anything else lower than their path; they stick only in what they actually reach. They never vanish in flight; one that has stuck
+disappears after 10 seconds.
+
+A crossbow has no charge. When you equip it, and after every shot, it plays a reload: it is lowered,
+the string is spanned back onto the latch and a bolt is laid on the rail, then it is raised to the
+aim. Once it is back at the aim it is loaded, and a click shoots at once. The string is straight
+while the crossbow is spent and drawn back while it is loaded; the shot kicks the crossbow up and
+back. The weapon name shows the bolts left.
+
+Karil's crossbow is a repeater: a magazine on top holds 7 bolts. After each shot its lever pushes
+the magazine forward to catch the string, hauls it back to the latch and drops the next bolt onto
+the rail, all at the shoulder, so it shoots about twice a second. Hold the attack button and it
+keeps shooting until the magazine is empty; it is then lowered and the bolts are dropped into the
+magazine one by one before it is raised again. The weapon name shows the bolts in the magazine,
+then the bolts left in all (for example `(5/7 · 23)`).
 
 ## Health, Stamina, and Adrenaline
 
@@ -106,8 +133,9 @@ Aim at an NPC or interactive object and approach within interaction range. When 
 | `R` | Use the second available action, when present |
 
 Available actions depend on the target. NPCs can offer actions such as `Talk-to` or `Attack`.
-Attacking NPCs may cause them to react, flee, retreat, or fight depending on their state and
-health.
+NPCs never start a fight on their own: they leave you alone until you hit, kick or shoot them (or
+knock them down with a thrown prop), and only the NPC you attacked fights back. Attacking an NPC
+may cause it to react, flee, retreat, or fight depending on its state and health.
 
 Some NPCs provide services or dialogue rather than combat. The exact actions shown in the screen
 prompt are authoritative.
@@ -164,7 +192,7 @@ Combat is unavailable while flying. Target interaction is also unavailable in fl
 | `W A S D` | Move |
 | Mouse | Look |
 | `Mouse 1` | Quick attack; hold and release for charged attack |
-| `Mouse 2` | Block |
+| `Mouse 2` | Block; with a bow or crossbow, hold to zoom |
 | `F` | Kick |
 | Mouse wheel | Switch weapon |
 | `Shift` | Sprint or fly faster |
