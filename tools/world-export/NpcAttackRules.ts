@@ -22,6 +22,8 @@ const SPEED: Record<ProjectileKind, number> = { arrow: 14, orb: 9, rock: 8, spit
 /** The primary style's hitPow: a guard's 0.7 (about 5.3 damage). */
 const PRIMARY_HIT_POW = 0.7;
 const BREATH_HIT_POW = 2.0;
+/** Melee weight of an NPC that breathes (breath weighs 1): one attack in three is a breath. [design] */
+const BREATHER_MELEE_WEIGHT = 2;
 const BREATH: Omit<BreathInfo, "element"> = { length: 3, halfAngle: (30 * Math.PI) / 180, duration: 0.8, ticks: 4 };
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
@@ -90,7 +92,7 @@ export function attackRulesFor(
 
         const info: NpcStyledAttackInfo = {
             style: s.style,
-            weight: rule.weight ?? (s.style === "melee" && breathes ? 5 : 1),
+            weight: rule.weight ?? (s.style === "melee" && breathes ? BREATHER_MELEE_WEIGHT : 1),
             hitPow: Math.round(hitPow * 1000) / 1000,
             minGap: rule.minGap ?? 0,
             cooldownScale,

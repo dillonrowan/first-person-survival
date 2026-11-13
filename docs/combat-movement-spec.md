@@ -805,7 +805,7 @@ Event 2152 (weapon swoosh) comes 0.15–0.25 s before the impact; that is the vi
   8 s delay). Line of sight uses the tile walls; NPCs on another floor cannot see the player.
 - Attack choice: at random, weighted, among the attacks whose gap range holds (melee: range + root
   motion; ranged and magic: up to 8 tiles, often only when not adjacent; breath: next to the
-  player). A dragon is about five parts melee to one part breath. After an attack the cooldown is
+  player). A dragon is two parts melee to one part breath. After an attack the cooldown is
   scaled by the wiki attack speed over 4 ticks. A melee strike hits if the player is within the
   attack's range + root motion + both radii, inside a ±60° frontal cone. A breath hits at each of
   its four damage ticks while the player is inside a 30° half-angle cone 3 tiles long. Arrows,

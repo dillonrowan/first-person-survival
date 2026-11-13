@@ -11,10 +11,10 @@ const row = (page: string, styles: [string, number?][], speedTicks = 4): WikiAtt
 });
 
 describe("attackRulesFor", () => {
-    it("gives a green dragon melee (5) and a dragonfire breath cone at melee distance", () => {
+    it("gives a green dragon melee (2) and a dragonfire breath cone at melee distance", () => {
         const { infos } = attackRulesFor(row("Green dragon", [["melee", 8], ["dragonfire", 50]]))!;
         expect(infos.map((i) => i.style)).toEqual(["melee", "dragonfire"]);
-        expect(infos[0]).toMatchObject({ weight: 5, hitPow: 0.7, minGap: 0 });
+        expect(infos[0]).toMatchObject({ weight: 2, hitPow: 0.7, minGap: 0 });
         expect(infos[0].maxGap).toBeUndefined();
         expect(infos[1]).toMatchObject({ weight: 1, hitPow: 2, maxGap: ADJACENT });
         expect(infos[1].breath).toMatchObject({ length: 3, ticks: 4, element: "fire" });
