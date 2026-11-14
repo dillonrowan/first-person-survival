@@ -430,6 +430,22 @@ describe("NPC attack styles against the player", () => {
         expect(pushes).toHaveLength(1);
     });
 
+    it("lands or splashes a curse without damage, and marks a spell's report", () => {
+        const landed = setup(scripted(0, 0.99, 0.5));
+        const curse = landed.combat.receiveStrike(landed.player, { ...strike("magic", { direct: true }), spell: "curse" }, true);
+        expect(curse).toMatchObject({ outcome: "hit", damage: 0, missed: false, spell: "curse" });
+        expect(landed.combat.combatant.health).toBe(landed.combat.combatant.maxHealth);
+
+        const splashed = setup(scripted(0.999));
+        const miss = splashed.combat.receiveStrike(splashed.player, { ...strike("magic", { direct: true }), spell: "curse" }, true);
+        expect(miss).toMatchObject({ damage: 0, missed: true, spell: "curse" });
+
+        const hit = setup(scripted(0, 0.99, 0.5));
+        const water = hit.combat.receiveStrike(hit.player, { ...strike("magic", { direct: true }), spell: "damaging" }, true);
+        expect(water.spell).toBe("damaging");
+        expect(water.damage).toBeGreaterThan(0);
+    });
+
     it("rolls damage from 0 to the max hit", () => {
         const zero = setup(scripted(0, 0, 0.5));
         expect(zero.combat.receiveStrike(zero.player, strike("melee"), true).damage).toBe(0);

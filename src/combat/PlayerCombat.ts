@@ -126,6 +126,8 @@ export type StrikeReport = {
     missed: boolean;
     /** The strike poisoned the player. */
     poisoned?: boolean;
+    /** It was a spell (as IncomingStrike.spell): a miss is a splash, shown with no hitsplat. */
+    spell?: "damaging" | "curse";
 };
 
 /** What the player needs to know about an incoming NPC strike. */
@@ -147,6 +149,11 @@ export type IncomingStrike = {
     rate?: number;
     /** Share of the style max hit this impact carries (a breath splits its hit over its ticks). */
     share?: number;
+    /**
+     * A spell from an NPC's spell list. A curse (Confuse, Weaken) is rolled for accuracy but deals
+     * no damage and does not poison.
+     */
+    spell?: "damaging" | "curse";
 };
 
 /**
@@ -470,6 +477,11 @@ export class PlayerCombat {
             ),
         );
         const success = this.random() < chance;
+        if (strike.spell === "curse") {
+            const report: StrikeReport = { ...none, outcome: "hit", missed: !success, spell: "curse" };
+            this.onStruck?.(report);
+            return report;
+        }
         const shielded = strike.style === "dragonfire" && this.shieldActive;
         let max = Math.ceil(npcMaxHit(npc, strike.style) * (strike.share ?? 1));
         if (shielded) {
@@ -507,6 +519,7 @@ export class PlayerCombat {
             shielded,
             missed: !success,
             ...(poisoned ? { poisoned: true } : {}),
+            ...(strike.spell ? { spell: strike.spell } : {}),
         };
         this.onStruck?.(report);
         return report;

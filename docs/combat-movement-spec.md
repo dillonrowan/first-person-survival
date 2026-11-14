@@ -301,6 +301,15 @@ once, 100 RS units above the target's feet `[design: the height is server data]`
 cast graphic plays once at the hands, 0.45 scale, 0.9 tiles ahead of and 0.45 below the eye
 `[design: at full size round the caster it would fill a first-person view]`.
 
+**NPC spells.** NPCs with a spell list (`NPC_SPELLS` in `src/npc/NpcSpells.ts`) cast one of its
+spells, picked at random, per magic attack `[design: the wiki gives no frequencies]`: dark wizards
+level 7 (512, 5086, 5087) Water Strike and Confuse, level 20 (510, 5088, 5089) Earth Strike and Weaken
+`[wiki: Dark wizard]`. The cast graphic plays on the NPC 92 RS units up `[design]`, the projectile flies
+with its OSRS model, and on reaching the player the impact (or the splash, on a miss) plays at the
+player's hands as for their own casts. A curse (Confuse, Weaken, spot animations 102 to 107) is rolled
+for accuracy like any spell but deals no damage and does not poison; the stat drain is not modelled.
+A splashed or cursing spell shows no hitsplat. Other magic NPCs still fire their exported orb.
+
 ### 5.3 Reaction size
 
 Section 15 adds what each reaction looks like and how long it lasts.

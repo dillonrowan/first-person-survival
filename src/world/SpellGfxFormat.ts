@@ -31,7 +31,14 @@ export const SPELL_GRAPHICS: Record<string, SpellGraphics> = {
     "water-surge": { cast: 1458, projectile: 1459, impact: 1460 },
     "earth-surge": { cast: 1461, projectile: 1462, impact: 1463 },
     "fire-surge": { cast: 1464, projectile: 1465, impact: 1466 },
+    // Curses, cast by NPCs such as dark wizards.
+    confuse: { cast: 102, projectile: 103, impact: 104 },
+    weaken: { cast: 105, projectile: 106, impact: 107 },
+    curse: { cast: 108, projectile: 109, impact: 110 },
 };
+
+/** Height above the caster's feet (RS units) where an NPC's cast graphic plays. [design] */
+export const CAST_HEIGHT = 92;
 
 /** The blue cloud shown on the target when a spell misses (splashes). */
 export const SPLASH_GRAPHIC = 85;

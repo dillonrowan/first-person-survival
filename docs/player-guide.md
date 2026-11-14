@@ -150,7 +150,9 @@ ones greyed out with their level. Click an unlocked spell to equip it; one is eq
 is saved. Press `G` to cast it with any weapon, or `Mouse 2` while holding a staff or wand. Spells
 look as they do in OSRS (the models and animations come from the game cache): the cast swirl plays
 at your hands, the spell flies straight and stops at walls, and on a hit its impact bursts on the
-target. A spell that misses splashes: a blue-grey cloud, and no hitsplat. Each cast uses its runes from the inventory (shown on the spell),
+target. A spell that misses splashes: a blue-grey cloud, and no hitsplat. Dark wizards cast their
+OSRS spells at you the same way: the level 7 ones Water Strike and Confuse, the level 20 ones Earth
+Strike and Weaken. Confuse and Weaken do no damage (their stat drains are not in the game yet). Each cast uses its runes from the inventory (shown on the spell),
 except the runes an elemental staff or wand supplies for free (a Staff of air never uses air runes).
 You start with 999 of every rune.
 

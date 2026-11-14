@@ -20,6 +20,8 @@ export type NpcProjectile = {
     attacker?: NpcCombatStats;
     rate: number;
     share: number;
+    /** A spell from NPC_SPELLS: drawn with its OSRS graphics; a curse deals no damage. */
+    spell?: { id: string; damaging: boolean };
     /** Where it was shot from, for the push direction. */
     fromX: number;
     fromY: number;

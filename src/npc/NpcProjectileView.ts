@@ -1,5 +1,7 @@
 import * as THREE from "three";
 
+import { SpellGfxObject, type SpellGfxLibrary } from "../combat/SpellGfxView";
+import { SPELL_GRAPHICS } from "../world/SpellGfxFormat";
 import type { ProjectileKind } from "./AttackStyle";
 import type { NpcProjectile } from "./NpcProjectiles";
 
@@ -47,16 +49,24 @@ export class NpcProjectileView {
     private readonly keys: string[] = [];
     private readonly direction = new THREE.Vector3();
 
-    constructor(private readonly scene: THREE.Scene) {}
+    /** With `spellGfx`, projectiles carrying a spell are drawn with its OSRS projectile graphic. */
+    constructor(
+        private readonly scene: THREE.Scene,
+        private readonly spellGfx?: SpellGfxLibrary,
+    ) {}
 
     update(projectiles: readonly NpcProjectile[]): void {
         for (let i = 0; i < Math.max(projectiles.length, this.views.length); i++) {
             const p = projectiles[i];
             let view = this.views[i];
-            const key = p ? `${p.kind}:${p.color}` : undefined;
-            if (p && (!view || this.keys[i] !== key)) {
+            const key = p ? `${p.kind}:${p.color}:${p.spell?.id ?? ""}` : undefined;
+            // A placeholder drawn while the spell graphic loaded is replaced once it has.
+            const upgrade = !!p?.spell && !!view?.userData.fallback;
+            if (p && (!view || this.keys[i] !== key || upgrade)) {
                 view?.removeFromParent();
-                view = createProjectile(p.kind, p.color);
+                const id = p.spell ? SPELL_GRAPHICS[p.spell.id]?.projectile : undefined;
+                view = (id !== undefined ? this.spellGfx?.create(id) : undefined) ?? createProjectile(p.kind, p.color);
+                view.userData.fallback = id !== undefined && !(view instanceof SpellGfxObject) && !!this.spellGfx;
                 this.scene.add(view);
                 this.views[i] = view;
                 this.keys[i] = key!;
@@ -71,7 +81,13 @@ export class NpcProjectileView {
             // World (x east, y north, z up) to three.js (x, y up, -z north).
             view.position.set(p.x, p.z, -p.y);
             this.direction.set(p.vx, p.vz, -p.vy).normalize();
-            view.quaternion.setFromUnitVectors(UP, this.direction);
+            if (view instanceof SpellGfxObject) {
+                // The OSRS projectile: its front (local +z) along the flight, animation looping.
+                view.rotation.set(-Math.asin(this.direction.y), Math.atan2(this.direction.x, this.direction.z), 0, "YXZ");
+                view.setTime(p.age, true);
+            } else {
+                view.quaternion.setFromUnitVectors(UP, this.direction);
+            }
         }
     }
 
