@@ -1,7 +1,6 @@
 import * as THREE from "three";
 
 import { SpellGfxObject, type SpellGfxLibrary } from "../combat/SpellGfxView";
-import { SPELL_GRAPHICS } from "../world/SpellGfxFormat";
 import type { ProjectileKind } from "./AttackStyle";
 import type { NpcProjectile } from "./NpcProjectiles";
 
@@ -59,13 +58,17 @@ export class NpcProjectileView {
         for (let i = 0; i < Math.max(projectiles.length, this.views.length); i++) {
             const p = projectiles[i];
             let view = this.views[i];
-            const key = p ? `${p.kind}:${p.color}:${p.spell?.id ?? ""}` : undefined;
-            // A placeholder drawn while the spell graphic loaded is replaced once it has.
-            const upgrade = !!p?.spell && !!view?.userData.fallback;
+            const key = p ? `${p.kind}:${p.color}:${p.gfx ? (p.gfx.projectile ?? "none") : ""}` : undefined;
+            // A placeholder drawn while the graphic loaded is replaced once it has.
+            const upgrade = !!p?.gfx && !!view?.userData.fallback;
             if (p && (!view || this.keys[i] !== key || upgrade)) {
                 view?.removeFromParent();
-                const id = p.spell ? SPELL_GRAPHICS[p.spell.id]?.projectile : undefined;
-                view = (id !== undefined ? this.spellGfx?.create(id) : undefined) ?? createProjectile(p.kind, p.color);
+                const id = p.gfx?.projectile;
+                // An attack with graphics but no projectile (a god spell, Vet'ion's lightning) flies unseen.
+                view =
+                    p.gfx && id === undefined
+                        ? new THREE.Group()
+                        : ((id !== undefined ? this.spellGfx?.create(id) : undefined) ?? createProjectile(p.kind, p.color));
                 view.userData.fallback = id !== undefined && !(view instanceof SpellGfxObject) && !!this.spellGfx;
                 this.scene.add(view);
                 this.views[i] = view;

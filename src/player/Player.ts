@@ -176,6 +176,9 @@ export class Player {
         }
     }
 
+    /** Seconds the player cannot walk for (bound by a spell). */
+    boundFor = 0;
+
     update(dt: number, input: PlayerInput): void {
         const [lookX, lookY] = input.consumeLook();
         this.yaw -= lookX * MOUSE_SENSITIVITY;
@@ -198,8 +201,11 @@ export class Player {
             this.setFlying(!this.flying);
         }
 
-        const forward = input.axis("KeyW", "KeyS");
-        const strafe = input.axis("KeyD", "KeyA");
+        // Bound by a spell (Bind, a chaos druid's snare): the feet stay put, the view still turns.
+        const bound = this.boundFor > 0 && !this.flying;
+        this.boundFor = Math.max(0, this.boundFor - dt);
+        const forward = bound ? 0 : input.axis("KeyW", "KeyS");
+        const strafe = bound ? 0 : input.axis("KeyD", "KeyA");
         const startX = this.x;
         const startY = this.y;
         if (this.flying) {

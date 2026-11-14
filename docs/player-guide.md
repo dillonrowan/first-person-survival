@@ -152,7 +152,15 @@ look as they do in OSRS (the models and animations come from the game cache): th
 at your hands, the spell flies straight and stops at walls, and on a hit its impact bursts on the
 target. A spell that misses splashes: a blue-grey cloud, and no hitsplat. Dark wizards cast their
 OSRS spells at you the same way: the level 7 ones Water Strike and Confuse, the level 20 ones Earth
-Strike and Weaken. Confuse and Weaken do no damage (their stat drains are not in the game yet). Each cast uses its runes from the inventory (shown on the spell),
+Strike and Weaken. Every ranged and magic monster fires its OSRS projectile: archers' arrows, guards'
+crossbow bolts, trolls' rocks, lizardmen's spit, and the bosses' own attacks.
+
+**Stat drains.** Some attacks lower your stats for a while, as in OSRS: Confuse and Weaken lower
+Melee, Curse and Vulnerability lower Defence (they do no damage), and some monsters drain on every
+hit: aberrant spectres (wear a nose peg), banshees (wear earmuffs), leeches, Loar shades, feral
+vampyres and the Mourner's vial. A drained skill shows as current/base in red in the Skills tab
+(`K`), and your attacks and spells use the drained level. Each drained skill comes back one level a
+minute, also after a reload. A chaos druid's Bind holds you in place for a moment. Each cast uses its runes from the inventory (shown on the spell),
 except the runes an elemental staff or wand supplies for free (a Staff of air never uses air runes).
 You start with 999 of every rune.
 

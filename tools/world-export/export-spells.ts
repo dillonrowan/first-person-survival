@@ -13,6 +13,7 @@ import { fileURLToPath } from "node:url";
 
 import { gzipSync } from "fflate";
 
+import { npcGraphicIds } from "../../src/npc/NpcSpells";
 import { SPELL_GRAPHICS, SPLASH_GRAPHIC, SpellGfxManifest, encodeSpellGfx } from "../../src/world/SpellGfxFormat";
 import { readCacheFiles } from "./cache-files";
 import { FaceColors } from "./FaceColors";
@@ -29,7 +30,8 @@ const loaders = createWorldLoaders(cache);
 const spots = new ArchiveSpotAnimTypeLoader(loaders.info, loaders.configIndex.getArchive(ConfigType.DAT2.spotAnims));
 const faceColors = new FaceColors(loaders.textureLoader);
 
-const ids = new Set<number>([SPLASH_GRAPHIC]);
+// The splash, the spells, and the NPC attack graphics (arrows, rocks, spit, boss attacks).
+const ids = new Set<number>([SPLASH_GRAPHIC, ...npcGraphicIds()]);
 for (const g of Object.values(SPELL_GRAPHICS)) {
     ids.add(g.cast).add(g.projectile).add(g.impact);
 }
@@ -45,7 +47,8 @@ for (const id of [...ids].sort((a, b) => a - b)) {
         continue;
     }
     const file = `${id}.bin`;
-    const data = gzipSync(encodeSpellGfx(gfx), { level: 9 });
+    // A fixed timestamp, so an unchanged graphic exports to the same bytes.
+    const data = gzipSync(encodeSpellGfx(gfx), { level: 9, mtime: 0 });
     fs.writeFileSync(path.join(OUT_DIR, file), data);
     manifest.files[id] = file;
     bytes += data.length;

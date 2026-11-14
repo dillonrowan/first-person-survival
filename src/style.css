@@ -551,6 +551,11 @@ kbd {
     text-align: left;
 }
 
+/* A drained skill: current/base in red, as the OSRS skills tab shows it. */
+.skill-row strong.drained {
+    color: #ff5b4a;
+}
+
 .skill-row small,
 .spell-row small {
     grid-column: 1 / -1;

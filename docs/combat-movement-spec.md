@@ -301,14 +301,31 @@ once, 100 RS units above the target's feet `[design: the height is server data]`
 cast graphic plays once at the hands, 0.45 scale, 0.9 tiles ahead of and 0.45 below the eye
 `[design: at full size round the caster it would fill a first-person view]`.
 
-**NPC spells.** NPCs with a spell list (`NPC_SPELLS` in `src/npc/NpcSpells.ts`) cast one of its
-spells, picked at random, per magic attack `[design: the wiki gives no frequencies]`: dark wizards
-level 7 (512, 5086, 5087) Water Strike and Confuse, level 20 (510, 5088, 5089) Earth Strike and Weaken
-`[wiki: Dark wizard]`. The cast graphic plays on the NPC 92 RS units up `[design]`, the projectile flies
-with its OSRS model, and on reaching the player the impact (or the splash, on a miss) plays at the
-player's hands as for their own casts. A curse (Confuse, Weaken, spot animations 102 to 107) is rolled
-for accuracy like any spell but deals no damage and does not poison; the stat drain is not modelled.
-A splashed or cursing spell shows no hitsplat. Other magic NPCs still fire their exported orb.
+**NPC attack graphics and effects** (`NPC_EFFECTS` in `src/npc/NpcSpells.ts`). The cache has
+every graphic but not which NPC uses which (server data), so each ranged and magic NPC is matched to
+Jagex's spot animation names (RuneLite's gameval `SpotanimID`, e.g. `LIZARDMAN_SPIT`) and to the wiki's
+description of its attacks; entries the sources leave open are marked `[design]` in the table. A
+caster with a spell list casts one, picked at random, per magic attack `[design: the wiki gives no
+frequencies]` (dark wizards: Water Strike and Confuse at level 7, Earth Strike and Weaken at 20; the
+elemental wizards their Strike and Weaken; Skeleton Mage Fire Strike and Vulnerability; Suqah Ice
+Barrage and Water Wave; Battle mages their god spell, which has no projectile, only the impact). Ranged
+NPCs fire their arrows, bolts, rocks or spit; bosses (Callisto, Venenatis, Vet'ion, Vorkath, the Chaos
+Elemental) their own projectiles. The cast graphic plays on the NPC 92 RS units up `[design]`; the
+projectile flies with its OSRS model; on reaching the player the impact (a missed spell: the splash)
+plays at the player's hands. NPCs not in the table keep their exported placeholder.
+
+**Temporary skill drains** `[wiki: Temporary skill drain]`. Each skill but Hitpoints has a current
+level that drains lower; combat rolls and spell casting use it, equipment requirements the base
+level. It restores one level every 60 s, is shown as current/base in red in the Skills tab, and is
+saved. Attack and Strength drains both lower Melee. A curse (Confuse, Weaken, Curse, Vulnerability)
+is rolled for accuracy, deals no damage and does not poison; landed, it drains (dark wizards and
+Invrigar 5 levels, the Necromancers floor(5%) + 1 and not again until restored, other casters 5%, or
+10% for Vulnerability). The chaos druid's Bind holds the player in place for 1.8 s `[design: "very
+briefly"]`. On-hit drains: Aberrant spectre (Attack, Strength, Ranged, Magic -80%, Defence -40%, unless
+a nose peg or Slayer helmet is worn), Banshee (-20% and -10%, unless earmuffs or a Slayer helmet),
+Leech (1 level from 1 to 4 skills), Loar Shade (Strength -1, 1/20 on a damaging hit), Feral Vampyre
+(Strength -1, 1/8 `[design]`), Mourner (all combat stats to 20, once a fight `[design: on its first
+hit]`). Splashed and cursing spells show no hitsplat.
 
 ### 5.3 Reaction size
 

@@ -285,10 +285,10 @@ export class PlayerCombat {
         this.lastAttackAt = this.time;
         const rolls =
             kind === "melee"
-                ? playerMeleeAttack(this.skills.level("melee"), style, bonuses)
+                ? playerMeleeAttack(this.skills.current("melee"), style, bonuses)
                 : kind === "ranged"
-                  ? playerRangedAttack(this.skills.level("ranged"), style, bonuses, this.weapon.family === "crossbow")
-                  : playerMagicAttack(this.skills.level("magic"), bonuses, spell ?? this.spellbook.equipped);
+                  ? playerRangedAttack(this.skills.current("ranged"), style, bonuses, this.weapon.family === "crossbow")
+                  : playerMagicAttack(this.skills.current("magic"), bonuses, spell ?? this.spellbook.equipped);
         const poisonSeverity =
             kind === "melee"
                 ? weaponPoisonSeverity(this.gear.weaponName(), "melee")
@@ -365,7 +365,7 @@ export class PlayerCombat {
         ) {
             return;
         }
-        const spell = this.spellbook.castable(this.skills.level("magic"));
+        const spell = this.spellbook.castable(this.skills.current("magic"));
         if (!spell) {
             this.onCastFailed?.("You need a higher Magic level to cast that spell.");
             return;
@@ -469,8 +469,8 @@ export class PlayerCombat {
         const chance = hitChance(
             npcAttackRoll(npc, accuracy),
             playerDefenceRoll(
-                this.skills.level("defence"),
-                this.skills.level("magic"),
+                this.skills.current("defence"),
+                this.skills.current("magic"),
                 this.equipmentBonuses,
                 defenceType,
                 this.style.defence,

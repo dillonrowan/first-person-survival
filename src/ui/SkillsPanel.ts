@@ -20,7 +20,10 @@ export class SkillsPanel {
             const name = document.createElement("span");
             name.textContent = SKILL_NAMES[id];
             const lvl = document.createElement("strong");
-            lvl.textContent = String(level);
+            // Drained skills show their current level over the base level, as in OSRS.
+            const current = this.skills.current(id);
+            lvl.textContent = current === level ? String(level) : `${current}/${level}`;
+            lvl.classList.toggle("drained", current < level);
             const detail = document.createElement("small");
             detail.textContent = `${Math.floor(xp).toLocaleString()} xp · ${next}`;
             row.append(name, lvl, detail);

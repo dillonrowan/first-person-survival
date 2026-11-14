@@ -10,7 +10,8 @@ import type { NpcAttack, StrikeEvent } from "./npc/NpcAttacks";
 import { BreathView } from "./npc/BreathView";
 import { inBreathCone } from "./npc/Breath";
 import { NpcProjectileView } from "./npc/NpcProjectileView";
-import { pickNpcSpell } from "./npc/NpcSpells";
+import { NPC_EFFECTS, npcGraphicIds, pickNpcSpell } from "./npc/NpcSpells";
+import { applyDrain, curseMessage, runHitEffects } from "./npc/NpcHitEffects";
 import { NpcProjectile, ProjectileTarget, launchNpcProjectile, stepNpcProjectiles } from "./npc/NpcProjectiles";
 import { presenceFor } from "./npc/NpcSenses";
 import { ArrowView } from "./combat/ArrowView";
@@ -184,6 +185,8 @@ async function main(): Promise<void> {
     // OSRS spell graphics (cast, projectile, impact, splash), small enough to fetch up front.
     const spellGfx = await SpellGfxLibrary.load(import.meta.env.BASE_URL, materials);
     spellGfx.preload([SPLASH_GRAPHIC, ...Object.values(SPELL_GRAPHICS).flatMap((g) => [g.cast, g.projectile, g.impact])]);
+    // NPC arrows, rocks, spit and boss attacks too, in the background, so a first shot is not a placeholder.
+    spellGfx.preload(npcGraphicIds());
     const spellEffects = new SpellEffects(scene, spellGfx);
     const npcManifest = await loadNpcManifest(manifest);
     const npcs = npcManifest
@@ -406,7 +409,7 @@ async function main(): Promise<void> {
         const a = event.attack;
         const hitPow = a.hitPow[event.hitIndex];
         if (a.style === "melee") {
-            combat.receiveStrike(
+            const struck = combat.receiveStrike(
                 player,
                 {
                     fromX: npc.body.x,
@@ -423,6 +426,9 @@ async function main(): Promise<void> {
                 },
                 npc.facingCos(body.x, body.y) >= Math.cos(tuning.npcStrikeCone),
             );
+            if (struck.outcome === "hit") {
+                npcHitEffects(npc, struck);
+            }
         } else if (a.breath) {
             const f = npc.forward;
             if (inBreathCone(npc.body.x, npc.body.y, f.x, f.y, body.x, body.y, gap, a.breath)) {
@@ -458,21 +464,44 @@ async function main(): Promise<void> {
                     event.rate,
                     1 / a.hitTimes.length,
                 );
-                // A caster with a known spell list (dark wizards) casts one of its OSRS spells.
-                const spell = a.style === "magic" ? pickNpcSpell(npc.appearance.id, Math.random) : undefined;
-                const graphics = spell && SPELL_GRAPHICS[spell.id];
-                if (spell && graphics) {
-                    projectile.spell = spell;
-                    const f = npc.forward;
-                    spellEffects.play(
-                        graphics.cast,
-                        () => ({ x: npc.body.x, y: npc.body.y, z: npc.body.z, yaw: Math.atan2(-f.x, f.y) }),
-                        CAST_HEIGHT / 128,
-                    );
+                // Its OSRS look: a caster with a spell list casts one of its spells; arrows, rocks and
+                // boss attacks use their graphics from NPC_EFFECTS.
+                const effects = NPC_EFFECTS[npc.appearance.id];
+                const spell =
+                    a.style === "magic" ? pickNpcSpell(npc.appearance.id, Math.random, (s) => skills.drained(s)) : undefined;
+                const gfx = spell ? spell.gfx : a.style === "ranged" ? effects?.ranged : undefined;
+                projectile.shooter = npc;
+                if (spell) projectile.npcSpell = spell;
+                if (gfx) {
+                    projectile.gfx = gfx;
+                    if (gfx.cast !== undefined) {
+                        const f = npc.forward;
+                        spellEffects.play(
+                            gfx.cast,
+                            () => ({ x: npc.body.x, y: npc.body.y, z: npc.body.z, yaw: Math.atan2(-f.x, f.y) }),
+                            CAST_HEIGHT / 128,
+                        );
+                    }
                 }
                 npcProjectiles.push(projectile);
             }
         }
+    };
+    /** NPCs whose once-a-fight effect (the Mourner's vial) has fired. */
+    const usedOnce = new WeakSet<Npc>();
+    /** The head-slot item's name: earmuffs and nose pegs block some drains. */
+    const headItem = () => {
+        const head = items.equipment.get("head");
+        return head ? itemDb.get(head.id)?.name : undefined;
+    };
+    /** An NPC strike reached the player: its on-hit drains [wiki: Temporary skill drain]. */
+    const npcHitEffects = (npc: Npc, struck: { missed: boolean; damage: number }) => {
+        const effects = NPC_EFFECTS[npc.appearance.id]?.onHit;
+        if (!effects) return;
+        const { messages, firedOnce } = runHitEffects(effects, struck, skills, Math.random, headItem(), usedOnce.has(npc));
+        if (firedOnce) usedOnce.add(npc);
+        for (const message of messages) ui.showMessage(message);
+        skillsChanged();
     };
     /** An NPC began an attack: breath starts its flame, timed to the first damage tick. */
     const attackStarted = (npc: Npc, a: NpcAttack) => {
@@ -493,6 +522,11 @@ async function main(): Promise<void> {
         spellbookPanel.refresh();
     };
     combat.onXp = (_gains, ups) => xpGained(ups);
+    /** A drain or its restore changed current levels: redraw the skills and spellbook. */
+    const skillsChanged = () => {
+        skillsPanel.refresh();
+        spellbookPanel.refresh();
+    };
     const killed = (npc: Npc) => {
         xpGained(skills.addXp(npc.xpLedger.drain()));
         for (const stack of rollDrops(npc.appearance.drops ?? [], Math.random)) {
@@ -744,7 +778,7 @@ async function main(): Promise<void> {
             const struck = combat.receiveStrike(
                 player,
                 {
-                    ...(p.spell ? { spell: p.spell.damaging ? ("damaging" as const) : ("curse" as const) } : {}),
+                    ...(p.npcSpell ? { spell: p.npcSpell.damaging ? ("damaging" as const) : ("curse" as const) } : {}),
                     fromX: p.fromX,
                     fromY: p.fromY,
                     gap: 0,
@@ -760,11 +794,26 @@ async function main(): Promise<void> {
                 },
                 true,
             );
-            const graphics = p.spell && SPELL_GRAPHICS[p.spell.id];
-            if (graphics && struck.outcome === "hit") {
-                // The impact (or the splash, on a miss) on the player, drawn where the hands are so
+            if (struck.outcome === "hit") {
+                // The impact on the player (a missed spell: the splash), drawn where the hands are so
                 // it shows in first person, like the player's own cast graphic.
-                spellEffects.play(struck.missed ? SPLASH_GRAPHIC : graphics.impact, atHands, 0, CAST_VIEW_SCALE);
+                const impact = struck.missed ? (p.npcSpell ? SPLASH_GRAPHIC : undefined) : p.gfx?.impact;
+                if (impact !== undefined) {
+                    spellEffects.play(impact, atHands, 0, CAST_VIEW_SCALE);
+                }
+                const spell = p.npcSpell;
+                if (spell && !struck.missed) {
+                    // A landed curse drains or binds [wiki: Temporary skill drain].
+                    const taken = spell.drain ? applyDrain(skills, spell.drain) : {};
+                    if (spell.bind) player.boundFor = Math.max(player.boundFor, spell.bind);
+                    if (Object.keys(taken).length > 0 || spell.bind) {
+                        ui.showMessage(curseMessage(spell));
+                        skillsChanged();
+                    }
+                }
+                if (p.shooter) {
+                    npcHitEffects(p.shooter as Npc, struck);
+                }
             }
         }
         projectileView.update(npcProjectiles);
@@ -825,7 +874,7 @@ async function main(): Promise<void> {
             healthText: `${Math.ceil(combat.combatant.health)} / ${combat.combatant.maxHealth}`,
             poisoned: combat.combatant.poison.active,
             styleName: `Style: ${combat.style.name}`,
-            spellName: `Spell: ${spellbook.equipped.name}${spellbook.castable(skills.level("magic")) ? "" : " (locked)"}`,
+            spellName: `Spell: ${spellbook.equipped.name}${spellbook.castable(skills.current("magic")) ? "" : " (locked)"}`,
             weaponName:
                 combat.weapon.family === "bow"
                     ? `${combat.weapon.name} (${combat.bow.arrows})`
@@ -855,6 +904,10 @@ async function main(): Promise<void> {
             }
         }
         hitsplats.update(dt);
+        // Drained levels come back one a minute.
+        if (skills.update(dt)) {
+            skillsChanged();
+        }
         spellEffects.update(dt);
         renderer.render(scene, camera);
 

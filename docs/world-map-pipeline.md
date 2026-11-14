@@ -39,7 +39,8 @@ max hits and attack styles; `npm run fetch-wiki-items` for drop tables, item spa
 `npm run export-hitsplats` writes the OSRS hitsplat sprites and their digits from the cache to
 `public/ui/` (outside `public/world/`, so the exports above never delete it).
 `npm run export-spells` bakes the OSRS spell graphics (the cast, projectile and impact spot
-animations of the 20 combat spells, the Confuse, Weaken and Curse curses, and the splash) frame by frame from the cache to
+animations of the 20 combat spells, the Confuse, Weaken and Curse curses, the splash, and every
+NPC ranged and magic attack graphic in `NPC_EFFECTS`) frame by frame from the cache to
 `public/spells/`, in seconds; it also stays outside `public/world/`. It uses the texture atlas
 from `export-world`.
 | 3. Play     | `npm run dev`            | Every time you play                           | No                | The world, in the browser |
