@@ -251,6 +251,16 @@ export class PlayerItems implements CombatGear {
         this.changed();
     }
 
+    weaponName(): string | undefined {
+        const weapon = this.equipment.get("weapon");
+        return weapon && this.db.get(weapon.id)?.name;
+    }
+
+    ammoName(): string | undefined {
+        const ammo = this.equipment.get("ammo");
+        return ammo && this.db.get(ammo.id)?.name;
+    }
+
     // ---------------------------------------------------------------- saving
 
     private changed(): void {

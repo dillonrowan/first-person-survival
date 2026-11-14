@@ -34,6 +34,10 @@ max hits and attack styles; `npm run fetch-wiki-items` for drop tables, item spa
 `export-world`, which clears `public/world/`, run `npm run export-cache-weapons` and
 `npm run export-items` (the item models and `items.json`). The order is: `fetch-wiki-attacks`,
 `fetch-wiki-items`, `export-world`, `export-cache-weapons`, `export-items`.
+`npm run export-world -- --npc-data-only` refreshes only the NPC stats, poison and drop tables in
+`npcs.json` after new wiki data, in seconds, without re-baking the NPC models.
+`npm run export-hitsplats` writes the OSRS hitsplat sprites and their digits from the cache to
+`public/ui/` (outside `public/world/`, so the exports above never delete it).
 | 3. Play     | `npm run dev`            | Every time you play                           | No                | The world, in the browser |
 
 ## 1. Download the cache

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { WikiAttackRow, parseMaxHits, rowToEntry } from "./fetch-wiki-attacks";
+import { WikiAttackRow, parseMaxHits, parsePoisonous, rowToEntry } from "./fetch-wiki-attacks";
 
 const styles = (...names: string[]): WikiAttackRow["styles"] => names.map((s) => ({ style: s as never, raw: s }));
 
@@ -69,5 +69,25 @@ describe("rowToEntry", () => {
     it("reads stats given as arrays of strings", () => {
         const e = rowToEntry({ page_name: "X", attack_style: "Slash", hitpoints: ["12"] });
         expect(e.stats?.hitpoints).toBe(12);
+    });
+
+    it("reads the poison of a monster and its immunity", () => {
+        const e = rowToEntry({ page_name: "Tribesman", attack_style: "Stab", poisonous: "Yes (11)", poison_resistance: "100" });
+        expect(e.stats?.poisonous).toBe(11);
+        expect(e.stats?.poisonImmune).toBe(true);
+        const plain = rowToEntry({ page_name: "Goblin", attack_style: "Crush", poisonous: "No", poison_resistance: "0" });
+        expect(plain.stats?.poisonous).toBeUndefined();
+        expect(plain.stats?.poisonImmune).toBeUndefined();
+    });
+});
+
+describe("parsePoisonous", () => {
+    it("reads Yes (N) only", () => {
+        expect(parsePoisonous("Yes (11)")).toBe(11);
+        expect(parsePoisonous(["Yes (6) (Members worlds only)"])).toBe(6);
+        expect(parsePoisonous("Yes")).toBeUndefined();
+        expect(parsePoisonous("Yes ([[venom]])")).toBeUndefined();
+        expect(parsePoisonous("[[Disease]] (5)")).toBeUndefined();
+        expect(parsePoisonous(undefined)).toBeUndefined();
     });
 });

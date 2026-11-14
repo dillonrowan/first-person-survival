@@ -1,3 +1,4 @@
+import { Poison } from "./Poison";
 import { tuning } from "./tuning";
 
 /**
@@ -20,6 +21,10 @@ export class Combatant {
     standUpTime = tuning.standUpFront;
     /** Hits still cause reactions but take no health. */
     unlimitedHealth = false;
+    /** OSRS poison: hits on its own timer while active. */
+    readonly poison = new Poison();
+    /** Poison damage dealt since the game last read it (for hitsplats); the reader clears it. */
+    poisonHits: number[] = [];
 
     constructor(public maxHealth: number) {
         this.health = maxHealth;
@@ -78,6 +83,16 @@ export class Combatant {
 
     update(dt: number): void {
         this.sinceHurt += dt;
+        if (this.dead) {
+            this.poison.cure();
+        } else {
+            const poison = this.poison.update(dt);
+            if (poison > 0) {
+                // Poison does not stagger: no reaction, only the damage.
+                this.hurt(poison, "none");
+                this.poisonHits.push(poison);
+            }
+        }
         if (this.reactionTime > 0) {
             this.reactionTime = Math.max(0, this.reactionTime - dt);
             if (this.reactionTime === 0) {
@@ -92,6 +107,8 @@ export class Combatant {
     }
 
     reset(): void {
+        this.poison.cure();
+        this.poisonHits = [];
         this.health = this.maxHealth;
         this.reaction = "none";
         this.reactionTime = 0;

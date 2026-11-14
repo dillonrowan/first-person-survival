@@ -43,6 +43,10 @@ export type NpcCombatStats = {
     speedTicks: number;
     /** Wiki max hit per style; styles without one use the formula in Osrs.ts. */
     maxHit: Partial<Record<AttackStyle, number>>;
+    /** OSRS poison severity its attacks can poison with (5 x the starting damage); absent: none. */
+    poisonSeverity?: number;
+    /** Poison cannot be applied to it (wiki poison resistance 100 or more). */
+    poisonImmune?: boolean;
 };
 
 /** One entry of an NPC drop table (OSRS wiki): `rolls` rolls of `chance`, a quantity from `min` to `max`. */

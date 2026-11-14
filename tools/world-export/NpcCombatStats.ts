@@ -63,5 +63,8 @@ export function combatStatsFor(npc: CombatNpc, wiki?: WikiAttackRow): NpcCombatS
         meleeType,
         speedTicks: wiki?.speedTicks ?? 4,
         maxHit,
+        // The wiki gives the starting damage; damage is floor((severity + 4) / 5), so 5 x damage.
+        ...(w.poisonous ? { poisonSeverity: 5 * w.poisonous } : {}),
+        ...(w.poisonImmune ? { poisonImmune: true } : {}),
     };
 }

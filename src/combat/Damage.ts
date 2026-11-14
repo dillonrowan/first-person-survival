@@ -41,6 +41,10 @@ export type DamageResult = {
     killed: boolean;
     /** The attack was rolled and missed: no damage, but the target still reacts. */
     missed: boolean;
+    /** The damage roll was the attack's max hit (OSRS shows the max hit splat). */
+    maxHit?: boolean;
+    /** The hit poisoned the target. */
+    poisoned?: boolean;
 };
 
 /**

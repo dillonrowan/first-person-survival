@@ -442,6 +442,21 @@ describe("NPC attack styles against the player", () => {
         expect(combat.receiveStrike(player, strike("melee", { rate: 0.5 }), true).damage).toBe(2);
     });
 
+    it("lets a poisonous monster poison the player, hit or miss, but not with breath", () => {
+        const poisonous = { ...attackerStats(maxHits), poisonSeverity: 30 };
+        // Miss (0.999), then the poison roll (0.1 < 1/4).
+        const missed = setup(scripted(0.999, 0.1));
+        const report = missed.combat.receiveStrike(missed.player, strike("melee", { attacker: poisonous }), true);
+        expect(report).toMatchObject({ missed: true, poisoned: true });
+        expect(missed.combat.combatant.poison.severity).toBe(30);
+        // A failed poison roll (0.9).
+        const lucky = setup(scripted(0.999, 0.9));
+        expect(lucky.combat.receiveStrike(lucky.player, strike("melee", { attacker: poisonous }), true).poisoned).toBeUndefined();
+        const breath = setup(scripted(0.999, 0.1));
+        breath.combat.receiveStrike(breath.player, strike("dragonfire", { attacker: poisonous, direct: true }), true);
+        expect(breath.combat.combatant.poison.active).toBe(false);
+    });
+
     it("splits a breath max hit over its ticks", () => {
         const { combat, player } = setup(scripted(0, 0.99, 0.5));
         const tick = combat.receiveStrike(player, strike("dragonfire", { direct: true, share: 0.25 }), true);
@@ -503,6 +518,30 @@ describe("OSRS damage from the player", () => {
         const xp = ledger.drain();
         expect(xp.melee).toBeCloseTo(4 * dealt);
         expect(xp.hitpoints).toBeCloseTo((4 * dealt) / 3);
+    });
+
+    it("poisons with a poisoned weapon on a damaging hit, but not an immune monster", () => {
+        const swing = (immune: boolean) => {
+            const { target, bodies } = dummy(1000);
+            (target as { combatStats: object }).combatStats = { ...target.combatStats!, poisonImmune: immune };
+            // Hit, top roll, round up, no stun (0.99; a flinch has no fall roll), then the poison roll (0).
+            const combat = new PlayerCombat(bodies, noWalls, scripted(0, 0.99, 0, 0.99, 0), new PlayerSkills(), new Spellbook(), {
+                ...NO_GEAR,
+                weaponName: () => "Bronze dagger(p)",
+            });
+            combat.melee.weapon = sword;
+            let poisoned = false;
+            combat.onHit = ({ result }) => (poisoned ||= !!result.poisoned);
+            for (let t = 0; t < 0.8; t += 0.01) {
+                combat.update(0.01, player, { attackDown: t < 0.03, forward: 0, strafe: 0 });
+            }
+            return { poisoned, severity: target.combatant.poison.severity };
+        };
+        const hit = swing(false);
+        expect(hit.poisoned).toBe(true);
+        // Bronze dagger(p): severity 20, and the first poison hit (4) lands at once.
+        expect(hit.severity).toBeGreaterThanOrEqual(19);
+        expect(swing(true).poisoned).toBe(false);
     });
 
     it("a missed swing deals 0 but the target still reacts", () => {

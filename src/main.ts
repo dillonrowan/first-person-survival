@@ -37,6 +37,7 @@ import { ItemIcons } from "./items/ItemIcons";
 import { PlayerItems } from "./items/PlayerItems";
 import { weaponDefFor } from "./items/weaponDef";
 import { SidePanel } from "./ui/SidePanel";
+import { HitsplatLayer, loadHitsplatArt, splatKind } from "./ui/Hitsplats";
 import { SkillsPanel } from "./ui/SkillsPanel";
 import { SpellbookPanel } from "./ui/SpellbookPanel";
 import "./style.css";
@@ -300,13 +301,14 @@ async function main(): Promise<void> {
     });
     syncWeapon();
     const combatHud = new CombatHud(document.body);
+    const hitsplats = new HitsplatLayer(document.body, camera, await loadHitsplatArt(import.meta.env.BASE_URL));
     const enemyHealthBars = npcs ? new EnemyHealthBars(document.body, npcs, camera) : undefined;
     combat.groundHeight = (plane, x, y) => world.groundHeight(plane, x, y);
     combat.obstacleTop = (minX, minY, maxX, maxY) => world.obstacleTop(minX, minY, maxX, maxY);
     const hitFeel = new HitFeel();
     combat.onHit = ({ result, move, target }) => {
         if (target.combatStats) {
-            combatHud.showSplat(result.amount, result.missed);
+            hitsplats.addNpc(target as unknown as Npc, splatKind(result), result.amount);
         }
         combatHud.showHit(!result.missed && result.reaction !== "none" && result.reaction !== "flinch");
         if (combat.melee.swing?.move === move) {
@@ -317,9 +319,13 @@ async function main(): Promise<void> {
         }
     };
     combat.onCastFailed = (message) => ui.showMessage(message);
-    combat.onStruck = ({ outcome, style, shielded, damage, missed }) => {
+    combat.onStruck = ({ outcome, style, shielded, damage, missed, poisoned }) => {
         if (outcome === "hit") {
             combatHud.showDamage(damage, missed);
+            hitsplats.addPlayer(splatKind({ missed, amount: damage }), damage);
+            if (poisoned) {
+                ui.showMessage("You have been poisoned!");
+            }
             if (style === "dragonfire") {
                 ui.showMessage(shielded ? "You manage to resist some of the dragon fire!" : "You're horribly burnt by the dragon fire!");
             }
@@ -334,6 +340,7 @@ async function main(): Promise<void> {
             const hurt = environmentDamage(damage, combat.combatant.maxHealth);
             combat.combatant.hurt(hurt, "flinch");
             combatHud.showDamage(hurt);
+            hitsplats.addPlayer("damage", hurt);
         }
     };
     const arrowView = new ArrowView(scene);
@@ -569,7 +576,7 @@ async function main(): Promise<void> {
         Object.assign(window, {
             game: {
                 renderer, scene, camera, world, player, npcs, props, cameraRig, avatar, interaction, interactives, combat, tuning,
-                skills, spellbook, items, db: itemDb, groundItems, sidePanel,
+                skills, spellbook, items, db: itemDb, groundItems, sidePanel, hitsplats,
             },
         });
     }
@@ -713,11 +720,15 @@ async function main(): Promise<void> {
                 pitch: player.pitch,
             },
             npcs: npcs?.all() ?? [],
-            onNpcHit: (_npc, _damage, reaction) => combatHud.showHit(reaction !== "flinch"),
+            onNpcHit: (npc, damage, reaction) => {
+                combatHud.showHit(reaction !== "flinch");
+                hitsplats.addNpc(npc as unknown as Npc, "damage", Math.round(damage));
+            },
             onPlayerHit: (damage) => {
                 const hurt = environmentDamage(damage, combat.combatant.maxHealth);
                 combat.combatant.hurt(hurt, "flinch");
                 combatHud.showDamage(hurt);
+                hitsplats.addPlayer("damage", hurt);
             },
         });
         groundItems.update(dt, player.x, player.y, player.plane);
@@ -752,6 +763,7 @@ async function main(): Promise<void> {
             shieldName: combat.shield?.name,
             shieldActive: combat.shieldActive,
             healthText: `${Math.ceil(combat.combatant.health)} / ${combat.combatant.maxHealth}`,
+            poisoned: combat.combatant.poison.active,
             styleName: `Style: ${combat.style.name}`,
             spellName: `Spell: ${spellbook.equipped.name}${spellbook.castable(skills.level("magic")) ? "" : " (locked)"}`,
             weaponName:
@@ -769,6 +781,20 @@ async function main(): Promise<void> {
         }
         materials.setTime(now / 1000);
         enemyHealthBars?.update(player.x, player.y, player.plane);
+        // Poison hits land on their own timers: show them as green hitsplats.
+        for (const damage of combat.combatant.poisonHits) {
+            hitsplats.addPlayer("poison", damage);
+        }
+        combat.combatant.poisonHits = [];
+        for (const npc of npcs?.all() ?? []) {
+            if (npc.combatant.poisonHits.length > 0) {
+                for (const damage of npc.combatant.poisonHits) {
+                    hitsplats.addNpc(npc, "poison", damage);
+                }
+                npc.combatant.poisonHits = [];
+            }
+        }
+        hitsplats.update(dt);
         renderer.render(scene, camera);
 
         frames++;

@@ -124,8 +124,10 @@ Hitpoints at 10, which is your maximum health. Press `K` for the skills tab (lev
 next level, and your combat level). Skills are saved in the browser.
 
 - Every attack rolls to hit against the target's defence for that style and then rolls its damage
-  from 0 up to your max hit. A miss shows a blue 0 and the target still flinches; your hits show
-  red. Incoming hits show next to the health bar the same way.
+  from 0 up to your max hit. Hits show as OSRS hitsplats over the NPC that was hit (up to four at
+  once): red with the damage, blue 0 for a miss (the target still flinches), the trimmed max hit
+  splat when you roll your max hit, and green for poison. Hits on you show the same splats near the
+  bottom centre of the screen.
 - Your max hit and accuracy come from your skill and the bonuses of everything you wear. Swinging
   faster than the weapon's OSRS speed does not add damage per second: a swing made sooner than that
   speed hits for proportionally less.
@@ -135,6 +137,12 @@ next level, and your combat level). Skills are saved in the browser.
 - Press `Q` to cycle your attack style: melee accurate, aggressive or defensive; ranged accurate,
   rapid (a tick faster) or longrange (half the XP to Defence).
 - Health comes back by eating food (below) and by one point a minute.
+- **Poison.** Some monsters are poisonous (the OSRS wiki's list, for example tribesmen) and can poison
+  you with any attack, hit or miss: the message "You have been poisoned!" shows and the health bar
+  turns green. Poison hits every 18 seconds, starting at the monster's poison damage and dropping
+  by one every five hits until it wears off. Weapons and ammunition with (p), (p+) or (p++) in the
+  name poison what they hit: a melee hit that deals damage poisons 1 time in 4 (starting at 4, 5
+  or 6), an arrow or bolt 1 time in 8 (starting at 2, 3 or 4). Some monsters are immune.
 
 **Spells.** Press `B` for the spellbook: the 20 combat spells from Wind Strike to Fire Surge, locked
 ones greyed out with their level. Click an unlocked spell to equip it; one is equipped at a time and

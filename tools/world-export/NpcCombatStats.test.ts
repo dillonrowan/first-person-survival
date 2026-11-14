@@ -57,6 +57,13 @@ describe("combatStatsFor", () => {
         expect(s.speedTicks).toBe(6);
     });
 
+    it("turns the wiki starting poison damage into a severity, and keeps immunity", () => {
+        const s = combatStatsFor(npc(), row({ stats: { poisonous: 11, poisonImmune: true } }));
+        expect(s.poisonSeverity).toBe(55);
+        expect(s.poisonImmune).toBe(true);
+        expect(combatStatsFor(npc(), row()).poisonSeverity).toBeUndefined();
+    });
+
     it("falls back to the combat level for hitpoints", () => {
         const s = combatStatsFor(npc({ combatLevel: 13 }));
         expect(s.hitpoints).toBe(13);

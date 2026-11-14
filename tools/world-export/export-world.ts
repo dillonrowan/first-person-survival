@@ -6,6 +6,7 @@
 //   npm run export-world -- --workers 4
 //   npm run export-world -- --no-npcs            skip the NPC models and spawns
 //   npm run export-world -- --npcs-only          re-bake only the NPCs of the exported map
+//   npm run export-world -- --npc-data-only      only refresh NPC stats and drops in npcs.json (seconds)
 //
 // The cache decoders live in rs/; RegionBuilder turns each decoded map square into the meshes
 // and collision data the game loads.
@@ -121,10 +122,11 @@ function defaultWorkerCount(): number {
     return Math.max(1, Math.min(6, byCores, byMemory));
 }
 
-function parseArgs(argv: string[]): { area: Area; workers: number; npcs: boolean; npcsOnly: boolean } {
+function parseArgs(argv: string[]): { area: Area; workers: number; npcs: boolean; npcsOnly: boolean; npcDataOnly: boolean } {
     let area = AREAS.surface;
     let npcs = true;
     let npcsOnly = false;
+    let npcDataOnly = false;
     let workers = defaultWorkerCount();
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
@@ -149,6 +151,8 @@ function parseArgs(argv: string[]): { area: Area; workers: number; npcs: boolean
             npcs = false;
         } else if (arg === "--npcs-only") {
             npcsOnly = true;
+        } else if (arg === "--npc-data-only") {
+            npcDataOnly = true;
         } else if (arg === "--workers" && value) {
             i++;
             workers = Math.max(1, Number(value) | 0);
@@ -156,7 +160,34 @@ function parseArgs(argv: string[]): { area: Area; workers: number; npcs: boolean
             throw new Error(`Unknown argument "${arg}"`);
         }
     }
-    return { area, workers, npcs, npcsOnly };
+    return { area, workers, npcs, npcsOnly, npcDataOnly };
+}
+
+/**
+ * Recomputes the combat stats and drop tables of every appearance in the exported npcs.json from
+ * the cache and the wiki data, keeping its models, spawns and attacks. For changes to those two
+ * only, it saves re-baking every NPC model.
+ */
+function refreshNpcData(loaders: ReturnType<typeof createWorldLoaders>): void {
+    const file = path.join(OUT_DIR, NPC_MANIFEST_FILE);
+    if (!fs.existsSync(file)) {
+        throw new Error(`No ${NPC_MANIFEST_FILE} in ${OUT_DIR}; run export-world (or --npcs-only) first`);
+    }
+    const manifest = JSON.parse(fs.readFileSync(file, "utf8")) as NpcManifest;
+    const wiki = JSON.parse(fs.readFileSync(NPC_ATTACKS_WIKI_FILE, "utf8")) as Record<string, WikiAttackRow>;
+    const wikiDrops = readJsonIfPresent<Record<string, WikiDrop[]>>(WIKI_DROPS_FILE, {});
+    const idOf = itemIdsByName(loaders);
+    let poisonous = 0;
+    for (const appearance of manifest.appearances) {
+        const row = wiki[appearance.displayId] ?? wiki[appearance.id];
+        appearance.combat = combatStatsFor(loaders.npcTypeLoader.load(appearance.displayId), row);
+        const drops = dropsFor(row, wikiDrops, idOf);
+        if (drops) appearance.drops = drops;
+        else delete appearance.drops;
+        if (appearance.combat.poisonSeverity) poisonous++;
+    }
+    fs.writeFileSync(file, JSON.stringify(manifest));
+    console.log(`Done: stats and drops of ${manifest.appearances.length} NPC appearances refreshed (${poisonous} poisonous)`);
 }
 
 function exportTextures(textureLoader: TextureLoader): WorldManifest["textures"] {
@@ -465,7 +496,7 @@ async function exportNpcs(
 }
 
 async function main() {
-    const { area, workers, npcs, npcsOnly } = parseArgs(process.argv.slice(2));
+    const { area, workers, npcs, npcsOnly, npcDataOnly } = parseArgs(process.argv.slice(2));
 
     console.log("Reading cache...");
     const cache = readCacheFiles(CACHE_DIR);
@@ -475,6 +506,11 @@ async function main() {
     );
 
     const loaders = createWorldLoaders(cache);
+
+    if (npcDataOnly) {
+        refreshNpcData(loaders);
+        return;
+    }
 
     if (npcsOnly) {
         // Keep the map; re-bake the NPCs standing on it.

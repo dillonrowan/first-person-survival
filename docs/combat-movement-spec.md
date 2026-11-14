@@ -270,6 +270,21 @@ per damage plus its base XP, also for a miss.
 **Levels.** `xp(L) = floor(1/4 × Σ floor(l + 300 × 2^(l/7)))`; combat level
 `floor((Defence + Hitpoints)/4 + max(13/40 × 2 × Melee, 13/40 × floor(1.5 × Ranged), 13/40 × floor(1.5 × Magic)))`.
 
+**Poison** `[wiki: Poison]`. A poison has a severity S; every 30 ticks (18 s) it hits for
+`floor((S + 4) / 5)` and S drops by one, so the damage falls by one every five hits until S is 0.
+The first hit lands when the poison takes hold `[design]`. Weapons and ammunition named (p), (p+),
+(p++) or (kp) have severity 20, 25, 30, 30, minus 14 for ranged; a successful hit that deals damage
+poisons with chance 1/4 (melee) or 1/8 (ranged), unless the monster is immune (wiki poison
+resistance 100). A poisonous monster (wiki "Yes (N)": severity 5N) poisons with any strike that
+reaches the player, hit or miss, with chance 1/4 `[design: the wiki gives none]`; breath does not
+poison. A stronger poison replaces a weaker one. Poison hits do not stagger and give no XP.
+
+**Hitsplats** `[cache: hitsplat configs, archive 32; sprites 1358, 1359, 1360, 1632, 3571; font
+p11_full]`. Damage is red, a 0 is blue, a max-hit roll is the trimmed red, poison is green, each
+with its number in white over a black shadow. They show over the NPC hit, halfway up its body, at
+a fixed pixel size, up to four at once in the OSRS slots (middle; 20 px above; 15 px left and right,
+10 px above), for 50 client cycles (1 s). The player's own show near the bottom centre of the screen.
+
 **Spells.** The 20 standard-spellbook combat spells (Wind Strike to Fire Surge) with their OSRS
 level, max hit at unlock, XP and runes; one spell is equipped at a time and costs its runes from the
 inventory (an elemental staff or wand supplies its element's runes endlessly). A spell flies at

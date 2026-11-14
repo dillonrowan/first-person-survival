@@ -63,6 +63,9 @@ export type PlayerAttack = {
     rate: number;
     style: CombatStyleDef;
     spellXp?: number;
+    /** Weapon poison severity this attack can apply, and its chance on a damaging hit. */
+    poisonSeverity?: number;
+    poisonChance?: number;
 };
 
 type Rolls = { attackRoll: number; maxHit: number; defenceType: DefenceType };

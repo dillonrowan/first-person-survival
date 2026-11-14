@@ -14,6 +14,9 @@ export interface CombatGear {
     useAmmo(): void;
     hasRunes(cost: readonly RuneCost[]): boolean;
     useRunes(cost: readonly RuneCost[]): void;
+    /** Names of the wielded weapon and the ammunition, for weapon poison. */
+    weaponName(): string | undefined;
+    ammoName(): string | undefined;
 }
 
 /** No items at all: no bonuses, plenty of ammunition and runes (tests, and before items load). */
@@ -24,6 +27,8 @@ export const NO_GEAR: CombatGear = {
     useAmmo: () => undefined,
     hasRunes: () => true,
     useRunes: () => undefined,
+    weaponName: () => undefined,
+    ammoName: () => undefined,
 };
 
 export function sumBonuses(...list: readonly EquipmentBonuses[]): EquipmentBonuses {

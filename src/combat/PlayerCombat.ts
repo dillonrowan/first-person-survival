@@ -35,6 +35,7 @@ import {
 import { PlayerSkills } from "./Skills";
 import { SPELL_TICKS, SpellDef, Spellbook } from "./Spells";
 import type { XpLedger } from "./XpLedger";
+import { NPC_POISON_CHANCE, WEAPON_POISON_CHANCE, weaponPoisonSeverity } from "./Poison";
 import { isRepeaterCrossbow } from "../world/CacheWeaponFormat";
 import { Arrow, BowController, ObstacleTop, launchArrow, rangedProfile, stepArrows } from "./Bow";
 import { CrossbowController } from "./Crossbow";
@@ -117,6 +118,8 @@ export type StrikeReport = {
     shielded: boolean;
     /** The strike was rolled and missed: 0 damage, but the player still flinches. */
     missed: boolean;
+    /** The strike poisoned the player. */
+    poisoned?: boolean;
 };
 
 /** What the player needs to know about an incoming NPC strike. */
@@ -271,7 +274,22 @@ export class PlayerCombat {
                 : kind === "ranged"
                   ? playerRangedAttack(this.skills.level("ranged"), style, bonuses, this.weapon.family === "crossbow")
                   : playerMagicAttack(this.skills.level("magic"), bonuses, spell ?? this.spellbook.equipped);
-        return { kind, ...rolls, rate, style, ...(spell ? { spellXp: spell.xp } : {}) };
+        const poisonSeverity =
+            kind === "melee"
+                ? weaponPoisonSeverity(this.gear.weaponName(), "melee")
+                : kind === "ranged"
+                  ? weaponPoisonSeverity(this.gear.ammoName(), "ranged")
+                  : 0;
+        return {
+            kind,
+            ...rolls,
+            rate,
+            style,
+            ...(spell ? { spellXp: spell.xp } : {}),
+            ...(poisonSeverity > 0
+                ? { poisonSeverity, poisonChance: kind === "melee" ? WEAPON_POISON_CHANCE.melee : WEAPON_POISON_CHANCE.ranged }
+                : {}),
+        };
     }
 
     /**
@@ -291,6 +309,20 @@ export class PlayerCombat {
             minReaction: "flinch",
             missed: !success,
         });
+        if (success && base === attack.maxHit && amount > 0) {
+            result.maxHit = true;
+        }
+        // Weapon poison: only a successful hit that deals damage, and not on immune monsters.
+        if (
+            amount > 0 &&
+            attack.poisonSeverity &&
+            !stats.poisonImmune &&
+            !target.combatant.dead &&
+            this.random() < (attack.poisonChance ?? 0) &&
+            target.combatant.poison.apply(attack.poisonSeverity)
+        ) {
+            result.poisoned = true;
+        }
         target.xpLedger?.add(xpForDamage(attack.style, Math.min(amount, before), attack.spellXp));
         return result;
     }
@@ -428,6 +460,14 @@ export class PlayerCombat {
         const base = success ? Math.floor(this.random() * (max + 1)) : 0;
         const damage = success ? stochasticRound(base * clamp(strike.rate ?? 1, 0, 1), this.random) : 0;
         this.combatant.hurt(damage, "flinch");
+        // A poisonous monster can poison with any strike that reaches the player, hit or miss [wiki];
+        // breath does not poison.
+        const severity = npc.poisonSeverity ?? 0;
+        const poisoned =
+            severity > 0 &&
+            (strike.style === "melee" || strike.style === "ranged" || strike.style === "magic") &&
+            this.random() < NPC_POISON_CHANCE &&
+            this.combatant.poison.apply(severity);
         // A melee blow shoves hard, an arrow or spell a little, breath not at all.
         const push =
             strike.style === "melee"
@@ -448,6 +488,7 @@ export class PlayerCombat {
             style: strike.style,
             shielded,
             missed: !success,
+            ...(poisoned ? { poisoned: true } : {}),
         };
         this.onStruck?.(report);
         return report;

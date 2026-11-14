@@ -88,6 +88,8 @@ If something really is missing, choose the cheapest command that fixes it:
 | Need                                                        | Command                                                                                                                        |
 | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | NPC data only (models, attacks, stats, drops, ground items) | `npm run export-world -- --npcs-only` (keeps the map, needs a `world.json`)                                                    |
+| NPC stats, poison and drops only (no models)                | `npm run export-world -- --npc-data-only` (seconds; rewrites only `npcs.json`)                                                 |
+| Hitsplat sprites                                            | `npm run export-hitsplats` (seconds; writes `public/ui/hitsplats.*`, deletes nothing)                                          |
 | Map of one area for a quick check                           | `npm run export-world -- --area x1,y1,x2,y2` (still wipes everything else in `public/world/`; say so)                          |
 | Items only                                                  | `npm run export-items`                                                                                                         |
 | Weapon menu only                                            | `npm run export-cache-weapons`                                                                                                 |

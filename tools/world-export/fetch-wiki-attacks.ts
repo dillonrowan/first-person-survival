@@ -31,7 +31,17 @@ export type WikiMonsterStats = {
     defLight?: number;
     defStandard?: number;
     defHeavy?: number;
+    /** Starting poison damage of a poisonous monster ("Yes (11)"); absent when it does not poison. */
+    poisonous?: number;
+    /** Poison resistance 100 or more: poison cannot be applied. */
+    poisonImmune?: boolean;
 };
+
+/** "Yes (11)" to 11; "No", a plain "Yes", venom and disease give undefined. */
+export function parsePoisonous(raw: unknown): number | undefined {
+    const m = /^yes\s*\((\d+)\)/i.exec(String(Array.isArray(raw) ? raw[0] : (raw ?? "")).trim());
+    return m ? Number(m[1]) : undefined;
+}
 
 export type WikiAttackRow = {
     page: string;
@@ -43,7 +53,7 @@ export type WikiAttackRow = {
 };
 
 /** Bucket field of each WikiMonsterStats entry. */
-const STAT_FIELDS: Record<keyof WikiMonsterStats, string> = {
+const STAT_FIELDS: Record<Exclude<keyof WikiMonsterStats, "poisonous" | "poisonImmune">, string> = {
     hitpoints: "hitpoints",
     attack: "attack_level",
     strength: "strength_level",
@@ -132,11 +142,15 @@ export function rowToEntry(row: BucketRow): WikiAttackRow {
     const speed = Number(arr(row.attack_speed)[0]);
     const level = Number(row.combat_level);
     const stats: WikiMonsterStats = {};
-    for (const [key, field] of Object.entries(STAT_FIELDS) as [keyof WikiMonsterStats, string][]) {
+    for (const [key, field] of Object.entries(STAT_FIELDS) as [Exclude<keyof WikiMonsterStats, "poisonous" | "poisonImmune">, string][]) {
         const raw = arr(row[field] as string | number | (string | number)[] | null | undefined)[0];
         const value = raw === undefined || raw === "" ? NaN : Number(raw);
         if (Number.isFinite(value)) stats[key] = value;
     }
+    const poisonous = parsePoisonous(row["poisonous"]);
+    if (poisonous !== undefined) stats.poisonous = poisonous;
+    const resistance = Number(arr(row["poison_resistance"] as string | number | null | undefined)[0]);
+    if (Number.isFinite(resistance) && resistance >= 100) stats.poisonImmune = true;
     return {
         page: row.page_name ?? "",
         ...(row.version_anchor ? { anchor: row.version_anchor } : {}),
@@ -153,7 +167,7 @@ async function fetchPage(offset: number): Promise<BucketRow[]> {
         Object.values(STAT_FIELDS)
             .map((f) => `'${f}'`)
             .join(",") +
-        ")" +
+        ",'poisonous','poison_resistance')" +
         `.limit(${PAGE_SIZE}).offset(${offset}).run()`;
     const url = `${API}?action=bucket&format=json&query=${encodeURIComponent(query)}`;
     const response = await fetch(url, { headers: { "User-Agent": "first-person-survival-dev" } });
