@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 
 import { Combatant } from "../combat/Combatant";
+import { environmentDamage } from "../combat/Osrs";
 import { tuning } from "../combat/tuning";
 import type { Body } from "../physics/Bodies";
 import { PropNpc, PropsWorld, WorldProps } from "./Props";
@@ -91,7 +92,7 @@ describe("world props (spec 19)", () => {
         props.throwHeld(0, tuning.throwPitchDown);
         expect(props.held).toBeUndefined();
         step(props, 0.5, { npcs: [npc] });
-        expect(npc.combatant.health).toBe(200 - tuning.propDamageMedium * tuning.strengthScale);
+        expect(npc.combatant.health).toBe(200 - environmentDamage(tuning.propDamageMedium * tuning.strengthScale, 200));
         expect(npc.combatant.reaction).toBe("knockdown");
         expect(npc.hits).toEqual([2]);
     });

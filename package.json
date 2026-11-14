@@ -14,7 +14,9 @@
         "typecheck": "tsc --noEmit && tsc --noEmit -p tools/world-export",
         "download-cache": "node scripts/download-cache.mjs",
         "fetch-wiki-attacks": "tsx tools/world-export/fetch-wiki-attacks.ts",
+        "fetch-wiki-items": "tsx tools/world-export/fetch-wiki-items.ts",
         "export-cache-weapons": "tsx tools/world-export/export-cache-weapons.ts",
+        "export-items": "node --max-old-space-size=8192 --import tsx tools/world-export/export-items.ts",
         "export-world": "node --max-old-space-size=16384 --import tsx tools/world-export/export-world.ts"
     },
     "dependencies": {

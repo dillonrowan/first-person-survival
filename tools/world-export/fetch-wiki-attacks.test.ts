@@ -48,4 +48,26 @@ describe("rowToEntry", () => {
         const e = rowToEntry({ page_name: "X", attack_style: "Typeless" });
         expect(e.styles).toEqual([{ style: "melee", raw: "Typeless" }]);
     });
+
+    it("reads the monster stats and bonuses", () => {
+        const e = rowToEntry({
+            page_name: "Goblin",
+            attack_style: "Crush",
+            hitpoints: 5,
+            attack_level: 1,
+            attack_bonus: -21,
+            strength_bonus: -15,
+            stab_defence_bonus: -15,
+            standard_range_defence_bonus: -15,
+        });
+        expect(e.stats?.hitpoints).toBe(5);
+        expect(e.stats?.attackBonus).toBe(-21);
+        expect(e.stats?.defStandard).toBe(-15);
+        expect(e.stats?.defMagic).toBeUndefined();
+    });
+
+    it("reads stats given as arrays of strings", () => {
+        const e = rowToEntry({ page_name: "X", attack_style: "Slash", hitpoints: ["12"] });
+        expect(e.stats?.hitpoints).toBe(12);
+    });
 });

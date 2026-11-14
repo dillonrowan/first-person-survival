@@ -36,7 +36,7 @@ export type DoorInstance = {
     partner?: DoorInstance;
 };
 
-type RegionInteractives = { doors: DoorInstance[]; climbs: InteractiveLoc[] };
+type RegionInteractives = { doors: DoorInstance[]; climbs: InteractiveLoc[]; banks: InteractiveLoc[] };
 
 const regionKey = (mapX: number, mapY: number) => (mapX << 8) | mapY;
 const doorKey = (loc: InteractiveLoc) => `${loc.plane}:${loc.tileX}:${loc.tileY}:${loc.id}`;
@@ -182,6 +182,24 @@ export class WorldInteractives {
                         });
                     }
                 }
+                for (const loc of region.banks) {
+                    if (loc.plane !== ray.plane || !near(loc, ray.ox, ray.oy, reach)) {
+                        continue;
+                    }
+                    const ground = this.world.groundHeight(loc.plane, loc.tileX + 0.5, loc.tileY + 0.5);
+                    Object.assign(box, {
+                        minX: loc.tileX,
+                        minY: loc.tileY,
+                        maxX: loc.tileX + loc.sizeX,
+                        maxY: loc.tileY + loc.sizeY,
+                        minZ: ground,
+                        maxZ: ground + Math.max(loc.height, MIN_CLIMB_TARGET_HEIGHT),
+                    });
+                    const t = rayBox(ray.ox, ray.oy, ray.oz, ray.dx, ray.dy, ray.dz, box, ray.range);
+                    if (t !== undefined) {
+                        consider({ kind: "bank", label: loc.name, actions: ["Bank"], distance: t, ref: loc });
+                    }
+                }
                 for (const loc of region.climbs) {
                     if (loc.plane !== ray.plane || !near(loc, ray.ox, ray.oy, reach)) {
                         continue;
@@ -231,11 +249,13 @@ export class WorldInteractives {
         if (!data || this.regions.has(key)) {
             return;
         }
-        const region: RegionInteractives = { doors: [], climbs: [] };
+        const region: RegionInteractives = { doors: [], climbs: [], banks: [] };
         const byIndex = new Map<number, DoorInstance>();
         data.locs.forEach((loc, index) => {
             if (loc.kind === "climb") {
                 region.climbs.push(loc);
+            } else if (loc.kind === "bank") {
+                region.banks.push(loc);
             } else if (loc.door) {
                 const door = this.createDoor(loc, mapX, mapY, data.doorGeometries[loc.door.mesh]);
                 region.doors.push(door);

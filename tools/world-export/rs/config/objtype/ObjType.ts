@@ -33,6 +33,21 @@ export class ObjType extends Type {
     placeholderTemplate = -1;
     boughtTemplate = -1;
     params?: ParamsMap;
+    /** Stacks in the inventory. */
+    stackable = false;
+    examine = "";
+    /** Inventory icon camera: zoom, the three angles (2048 per turn) and the 2D offsets. */
+    zoom2d = 2000;
+    xan2d = 0;
+    yan2d = 0;
+    zan2d = 0;
+    xOffset2d = 0;
+    yOffset2d = 0;
+    /** Inventory and ground model scale, 128 = 1. */
+    resizeX = 128;
+    resizeY = 128;
+    resizeZ = 128;
+    value = 1;
 
     constructor(id: number, cacheInfo: CacheInfo) {
         super(id, cacheInfo);
@@ -48,12 +63,23 @@ export class ObjType extends Type {
             this.inventoryModel = buffer.readUnsignedShort();
         } else if (opcode === 2) {
             this.name = this.readString(buffer);
-        } else if (opcode === 3 || opcode === 9) {
-            // Examine text / bank filler name.
+        } else if (opcode === 3) {
+            this.examine = this.readString(buffer);
+        } else if (opcode === 9) {
+            // Bank filler name.
             this.readString(buffer);
-        } else if (opcode >= 4 && opcode <= 8) {
-            // 2D zoom, angles and offsets.
-            buffer.readUnsignedShort();
+        } else if (opcode === 4) {
+            this.zoom2d = buffer.readUnsignedShort();
+        } else if (opcode === 5) {
+            this.xan2d = buffer.readUnsignedShort();
+        } else if (opcode === 6) {
+            this.yan2d = buffer.readUnsignedShort();
+        } else if (opcode === 7) {
+            const v = buffer.readUnsignedShort();
+            this.xOffset2d = v > 32767 ? v - 65536 : v;
+        } else if (opcode === 8) {
+            const v = buffer.readUnsignedShort();
+            this.yOffset2d = v > 32767 ? v - 65536 : v;
         } else if (opcode === 44) {
             this.inventoryModel = buffer.readInt();
         } else if (opcode === 45) {
@@ -70,11 +96,13 @@ export class ObjType extends Type {
             // Female worn models and head models with int ids (revision 242+). Sizes inferred
             // from the cache: every obj decodes with no bytes left over.
             buffer.readInt();
-        } else if (opcode === 11 || opcode === 15 || opcode === 16 || opcode === 65 || opcode === 160 ||
+        } else if (opcode === 11) {
+            this.stackable = true;
+        } else if (opcode === 15 || opcode === 16 || opcode === 65 || opcode === 160 ||
             opcode === 161 || opcode === 251) {
-            // Flags: stackable, members, tradeable and newer ones without a payload.
+            // Flags: members, tradeable and newer ones without a payload.
         } else if (opcode === 12) {
-            buffer.readInt();
+            this.value = buffer.readInt();
         } else if (opcode === 13) {
             this.wearPos1 = buffer.readUnsignedByte();
         } else if (opcode === 14) {
@@ -126,8 +154,10 @@ export class ObjType extends Type {
             this.maleModel2 = buffer.readUnsignedShort();
         } else if (opcode === 94) {
             this.category = buffer.readUnsignedShort();
-        } else if (opcode === 79 || (opcode >= 90 && opcode <= 95)) {
-            // Female third model, head models, zan2d.
+        } else if (opcode === 95) {
+            this.zan2d = buffer.readUnsignedShort();
+        } else if (opcode === 79 || (opcode >= 90 && opcode <= 94)) {
+            // Female third model, head models.
             buffer.readUnsignedShort();
         } else if (opcode === 97) {
             buffer.readUnsignedShort();
@@ -138,7 +168,10 @@ export class ObjType extends Type {
             buffer.readUnsignedShort();
         } else if (opcode >= 110 && opcode <= 112) {
             // Ground/inventory model resize; worn models are not resized.
-            buffer.readUnsignedShort();
+            const v = buffer.readUnsignedShort();
+            if (opcode === 110) this.resizeX = v;
+            else if (opcode === 111) this.resizeY = v;
+            else this.resizeZ = v;
         } else if (opcode === 113) {
             this.ambient = buffer.readByte();
         } else if (opcode === 114) {

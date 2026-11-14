@@ -1,6 +1,7 @@
 import type { Body, BodySource } from "../physics/Bodies";
 import { segmentHitsBoxes2D } from "../physics/Bodies";
 import { Box, FlagsAt, collectTileBoxes } from "../physics/TileColliders";
+import type { PlayerAttack } from "./Osrs";
 import { tuning } from "./tuning";
 
 /** Seconds to ease the string back to brace after an early release. [design] */
@@ -251,6 +252,10 @@ export type Arrow = {
     gravity?: number;
     /** A crossbow bolt rather than an arrow (drawn differently, flies the same). */
     bolt?: boolean;
+    /** A spell rather than an arrow: drawn as an orb, no gravity, gone when it meets a wall. */
+    spell?: { color: number };
+    /** The rolls made when it was shot; hits on NPCs with stats use them. */
+    attack?: PlayerAttack;
 };
 
 /** Where an arrow hit a body. */

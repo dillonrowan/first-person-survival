@@ -18,7 +18,7 @@ type Launch = { offset: THREE.Vector3; from: number };
  */
 export class ArrowView {
     private readonly views: THREE.Object3D[] = [];
-    private readonly kinds: boolean[] = [];
+    private readonly kinds: string[] = [];
     private readonly templates = { arrow: createArrow(), bolt: createBolt() };
     private readonly launches = new WeakMap<Arrow, Launch>();
     private readonly direction = new THREE.Vector3();
@@ -32,20 +32,30 @@ export class ArrowView {
         for (let i = 0; i < Math.max(arrows.length, this.views.length); i++) {
             const a = arrows[i];
             let view = this.views[i];
-            if (a && (!view || this.kinds[i] !== !!a.bolt)) {
-                // A new arrow, or a bolt where an arrow was drawn (or the other way round).
+            const kind = a ? (a.spell ? `spell:${a.spell.color}` : a.bolt ? "bolt" : "arrow") : "";
+            if (a && (!view || this.kinds[i] !== kind)) {
+                // A new arrow, or a bolt or spell where an arrow was drawn (or any other swap).
                 view?.removeFromParent();
-                view = (a.bolt ? this.templates.bolt : this.templates.arrow).clone();
+                view = a.spell
+                    ? createSpellOrb(a.spell.color)
+                    : (a.bolt ? this.templates.bolt : this.templates.arrow).clone();
                 view.visible = true;
                 this.scene.add(view);
                 this.views[i] = view;
-                this.kinds[i] = !!a.bolt;
+                this.kinds[i] = kind;
             }
             if (!view) {
                 continue;
             }
             view.visible = a !== undefined;
             if (!a) {
+                continue;
+            }
+            if (a.spell) {
+                // An orb: no model direction, and hidden for the first instants so it does not
+                // fill the screen at the eye it is cast from.
+                view.position.set(a.x, a.z, -a.y);
+                view.visible = a.age > SPELL_HIDDEN_FOR;
                 continue;
             }
             const length = a.bolt ? BOLT_LENGTH : ARROW_LENGTH;
@@ -77,3 +87,17 @@ export class ArrowView {
 const UP = new THREE.Vector3(0, 1, 0);
 /** An arrow younger than this (s) is still leaving the bow. */
 const JUST_SHOT = 0.1;
+/** A spell younger than this (s) is not drawn yet. */
+const SPELL_HIDDEN_FOR = 0.03;
+
+/** A glowing orb of the spell colour. */
+export function createSpellOrb(color: number): THREE.Object3D {
+    const orb = new THREE.Group();
+    const glow = (c: number, radius: number, opacity: number) =>
+        new THREE.Mesh(
+            new THREE.SphereGeometry(radius, 12, 8),
+            new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false }),
+        );
+    orb.add(glow(color, 0.1, 1), glow(color, 0.18, 0.35));
+    return orb;
+}

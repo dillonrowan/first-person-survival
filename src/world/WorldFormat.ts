@@ -79,9 +79,9 @@ export type PropData = {
     radius: number;
 };
 
-/** A door, gate, ladder, staircase or physics prop the player can act on. */
+/** A door, gate, ladder, staircase, bank booth or physics prop the player can act on. */
 export type InteractiveLoc = {
-    kind: "door" | "climb" | "prop";
+    kind: "door" | "climb" | "prop" | "bank";
     /** Loc id in the cache. */
     id: number;
     name: string;
@@ -151,6 +151,14 @@ export type WorldManifest = {
     textures: { file: string; tileSize: number; columns: number; layers: TextureLayer[] };
     /** NPC spawn list (an NpcManifest file); absent in exports made without NPCs. */
     npcs?: { file: string; spawns: number; appearances: number };
+    /** Items lying in the world (a GroundItemManifest file); absent in exports without item data. */
+    groundItems?: { file: string; spawns: number };
+};
+
+/** public/world/ground-items.json: where items lie when the world starts. */
+export type GroundItemManifest = {
+    format: 1;
+    spawns: { item: number; qty: number; x: number; y: number; plane: number }[];
 };
 
 /** Told when the game streams a region in or out. */

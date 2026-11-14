@@ -17,7 +17,12 @@ import { fileURLToPath } from "node:url";
 import { Worker } from "node:worker_threads";
 
 import { NpcManifest } from "../../src/world/NpcFormat";
+import { PREFERRED_ITEM_IDS } from "../../src/world/ItemFormat";
 import { attackRulesFor } from "./NpcAttackRules";
+import { combatStatsFor } from "./NpcCombatStats";
+import { dropsFor } from "./NpcDrops";
+import { groundItemSpawns } from "./GroundItemExport";
+import type { WikiDrop, WikiItemSpawn } from "./fetch-wiki-items";
 import type { WikiAttackRow } from "./fetch-wiki-attacks";
 import {
     REGION_SIZE,
@@ -43,6 +48,51 @@ const NPC_DIR = path.join(OUT_DIR, "npcs");
 const NPC_SPAWN_FILE = path.join(ROOT, "tools", "world-export", "data", "npc-spawns-osrs.json");
 /** Attack styles of every NPC from the OSRS wiki (npm run fetch-wiki-attacks). */
 const NPC_ATTACKS_WIKI_FILE = path.join(ROOT, "tools", "world-export", "data", "npc-attacks-wiki.json");
+const WIKI_DROPS_FILE = path.join(ROOT, "tools", "world-export", "data", "wiki-drops.json");
+const WIKI_ITEM_SPAWNS_FILE = path.join(ROOT, "tools", "world-export", "data", "wiki-item-spawns.json");
+const GROUND_ITEMS_FILE = "ground-items.json";
+
+/** Lowercase item name to the lowest id of a named, non-template item with an inventory model. */
+function itemIdsByName(loaders: ReturnType<typeof createWorldLoaders>): (name: string) => number | undefined {
+    const byName = new Map<string, number>();
+    for (let id = 0; id < loaders.objTypeLoader.getCount(); id++) {
+        const obj = loaders.objTypeLoader.load(id);
+        if (obj.isTemplated || obj.name === "null" || obj.inventoryModel === -1) continue;
+        const key = obj.name.toLowerCase();
+        if (!byName.has(key)) byName.set(key, id);
+    }
+    return (name) => {
+        const key = name.toLowerCase();
+        const preferred = PREFERRED_ITEM_IDS[key];
+        return preferred !== undefined && byName.has(key) ? preferred : byName.get(key);
+    };
+}
+
+function readJsonIfPresent<T>(file: string, fallback: T): T {
+    if (fs.existsSync(file)) return JSON.parse(fs.readFileSync(file, "utf8")) as T;
+    console.warn(`${path.relative(ROOT, file)} not found: run npm run fetch-wiki-items`);
+    return fallback;
+}
+
+/** Writes ground-items.json from the wiki spawn lines; undefined when there is no item data. */
+function exportGroundItems(
+    loaders: ReturnType<typeof createWorldLoaders>,
+    exportedRegions: [number, number][],
+): NonNullable<WorldManifest["groundItems"]> | undefined {
+    if (!fs.existsSync(WIKI_ITEM_SPAWNS_FILE)) {
+        console.warn("No wiki item spawns: world exported without ground items (npm run fetch-wiki-items)");
+        return undefined;
+    }
+    const lines = JSON.parse(fs.readFileSync(WIKI_ITEM_SPAWNS_FILE, "utf8")) as WikiItemSpawn[];
+    const monsters = new Set(
+        Object.values(JSON.parse(fs.readFileSync(NPC_ATTACKS_WIKI_FILE, "utf8")) as Record<string, WikiAttackRow>).map((r) => r.page),
+    );
+    const keys = new Set(exportedRegions.map(([x, y]) => (x << 8) | y));
+    const spawns = groundItemSpawns(lines, itemIdsByName(loaders), monsters, (mapX, mapY) => keys.has((mapX << 8) | mapY));
+    fs.writeFileSync(path.join(OUT_DIR, GROUND_ITEMS_FILE), JSON.stringify({ format: 1, spawns }));
+    console.log(`Ground items: ${spawns.length} spawns`);
+    return { file: GROUND_ITEMS_FILE, spawns: spawns.length };
+}
 const ANIMATION_NAMES_FILE = path.join(ROOT, "tools", "world-export", "data", "animation-names-runelite.json");
 const NPC_MANIFEST_FILE = "npcs.json";
 
@@ -338,6 +388,18 @@ async function exportNpcs(
     }
     console.log(`${styled} of ${selection.appearances.length} NPC appearances have attack styles beyond melee`);
 
+    // Levels, bonuses and max hits: the cache's stat opcodes and params, filled in from the wiki.
+    // Drop tables come from the wiki too.
+    const wikiDrops = readJsonIfPresent<Record<string, WikiDrop[]>>(WIKI_DROPS_FILE, {});
+    const idOf = itemIdsByName(loaders);
+    for (const task of selection.appearances) {
+        const display = loaders.npcTypeLoader.load(task.displayId);
+        const row = wiki[task.displayId] ?? wiki[task.id];
+        task.combat = combatStatsFor(display, row);
+        const drops = dropsFor(row, wikiDrops, idOf);
+        if (drops) task.drops = drops;
+    }
+
     console.log("Indexing attack animations...");
     const attackIndex = createAttackIndex(loaders);
 
@@ -422,6 +484,7 @@ async function main() {
         }
         const world: WorldManifest = JSON.parse(fs.readFileSync(worldFile, "utf8"));
         world.npcs = await exportNpcs(cache, loaders, world.regions, workers);
+        world.groundItems = exportGroundItems(loaders, world.regions);
         fs.writeFileSync(worldFile, JSON.stringify(world));
         console.log("Done: NPCs re-exported");
         return;
@@ -479,6 +542,7 @@ async function main() {
         spawn,
         textures,
         npcs: npcInfo,
+        groundItems: exportGroundItems(loaders, exported),
     };
     fs.writeFileSync(path.join(OUT_DIR, "world.json"), JSON.stringify(manifest));
 

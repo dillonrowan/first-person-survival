@@ -6,6 +6,8 @@
 - [Getting Around](#getting-around)
 - [Combat](#combat)
 - [Weapons and Blocking](#weapons-and-blocking)
+- [Skills, Spells, and Attack Styles](#skills-spells-and-attack-styles)
+- [Inventory, Equipment, and Bank](#inventory-equipment-and-bank)
 - [Health, Stamina, and Adrenaline](#health-stamina-and-adrenaline)
 - [NPCs and Interaction](#npcs-and-interaction)
 - [Props](#props)
@@ -69,14 +71,13 @@ attack. The adrenaline bar decays gradually if it is not used.
 
 ## Weapons and Blocking
 
-Use the mouse wheel to switch between available weapons.
-Press `I` to open the cache weapon menu and equip any listed weapon; type in its search box to
-filter the list by name, then click a weapon or press `Enter` to equip the first match. The selected weapon remains active
-until another weapon is equipped or selected with the mouse wheel. A weapon whose name contains
-"dagger" fights like the daggers, "staff" like the staff, "crossbow" like a crossbow and "bow" like the
-bow; every other weapon fights like the sword. The menu also has a Shields section: equip the
-anti-dragon shield there (and unequip it by clicking again). It cuts dragonfire to a tenth of its
-damage, but not icy breath, and stops protecting while you hold a bow, which takes both hands.
+Use the mouse wheel to wield the next weapon in your inventory. You fight with the item in your
+weapon slot (fists with none): wield one from the inventory (see below). A weapon whose name
+contains "dagger" fights like the daggers, "staff" or "wand" like the staff, "crossbow" like a
+crossbow and "bow" like the bow; every other weapon fights like the sword. The anti-dragon shield
+cuts dragonfire's damage to a tenth, but not icy breath's, and stops protecting while you hold a
+bow, which takes both hands. In development builds `I` opens a cheat menu that gives any cache
+weapon, shield or item (click for one, shift-click for a hundred).
 
 - Sword: balanced melee weapon.
 - Daggers: fast attacks and close-range stepping attacks.
@@ -90,17 +91,19 @@ damage, but not icy breath, and stops protecting while you hold a bow, which tak
 
 Hold `Mouse 2` to block during melee. Blocking can stop or weaken incoming melee attacks and can
 leave the attacker exposed to a follow-up. Weapon reach, speed, damage, and parry behavior vary by
-weapon. Arrows, spells and dragon breath cannot be blocked.
+weapon. Arrows, spells and dragon breath cannot be blocked. A staff or wand cannot parry: `Mouse 2`
+casts with it instead.
+
 
 To use the bow, aim with the mouse, hold the attack button to draw, then release to shoot while
-arrows remain available. With a bow from the weapon menu, an arrow sits on the string and the string pulls back
+arrows remain available. With a bow wielded, an arrow sits on the string and the string pulls back
 as you draw; at full draw the arrow points into the reticule, and a shot arrow leaves the bow and
 curves into the line of sight within its first 8 tiles. Let go before the bow is fully drawn and it eases back without shooting. With a bow or crossbow,
 hold `Mouse 2` to zoom the view; let go and it zooms back out. Arrows and bolts fly in an arc and clear fences, low
 walls and anything else lower than their path; they stick only in what they actually reach. They never vanish in flight; one that has stuck
 disappears after 10 seconds.
 
-A crossbow has no charge. When you equip it, and after every shot, it plays a reload: it is lowered,
+Each shot uses one arrow or bolt from the ammunition slot. A crossbow has no charge. When you equip it, and after every shot, it plays a reload: it is lowered,
 the string is spanned back onto the latch and a bolt is laid on the rail, then it is raised to the
 aim. Once it is back at the aim it is loaded, and a click shoots at once. The string is straight
 while the crossbow is spent and drawn back while it is loaded; the shot kicks the crossbow up and
@@ -113,18 +116,64 @@ keeps shooting until the magazine is empty; it is then lowered and the bolts are
 magazine one by one before it is raised again. The weapon name shows the bolts in the magazine,
 then the bolts left in all (for example `(5/7 · 23)`).
 
+## Skills, Spells, and Attack Styles
+
+Damage follows the Old School RuneScape rules. You have five skills: **Melee** (Attack and Strength
+in one), **Defence**, **Ranged**, **Magic** and **Hitpoints**. Every skill starts at level 1 except
+Hitpoints at 10, which is your maximum health. Press `K` for the skills tab (level, XP and XP to the
+next level, and your combat level). Skills are saved in the browser.
+
+- Every attack rolls to hit against the target's defence for that style and then rolls its damage
+  from 0 up to your max hit. A miss shows a blue 0 and the target still flinches; your hits show
+  red. Incoming hits show next to the health bar the same way.
+- Your max hit and accuracy come from your skill and the bonuses of everything you wear. Swinging
+  faster than the weapon's OSRS speed does not add damage per second: a swing made sooner than that
+  speed hits for proportionally less.
+- XP is earned when the NPC you damaged dies: 4 per damage to the skill of your attack style and
+  1.33 to Hitpoints (a spell gives 2 Magic per damage plus its base XP). A level-up shows a
+  message and gives the extra health.
+- Press `Q` to cycle your attack style: melee accurate, aggressive or defensive; ranged accurate,
+  rapid (a tick faster) or longrange (half the XP to Defence).
+- Health comes back by eating food (below) and by one point a minute.
+
+**Spells.** Press `B` for the spellbook: the 20 combat spells from Wind Strike to Fire Surge, locked
+ones greyed out with their level. Click an unlocked spell to equip it; one is equipped at a time and
+is saved. Press `G` to cast it with any weapon, or `Mouse 2` while holding a staff or wand. The orb
+flies straight and stops at walls. Each cast uses its runes from the inventory (shown on the spell),
+except the runes an elemental staff or wand supplies for free (a Staff of air never uses air runes).
+You start with 999 of every rune.
+
+## Inventory, Equipment, and Bank
+
+Press `Tab` for the side panel: **Inventory** (28 slots; items that stack, such as runes, arrows,
+coins, rune essence and pure essence, take one slot), **Equipment** (head, cape, neck, ammunition,
+weapon, body, shield, legs, hands, feet and ring, with the total bonuses), **Skills** and **Spellbook**.
+
+- Left click an item to use its first action (Wield, Wear or Eat); right click for the menu (Wield,
+  Wear, Eat, Drop, Examine). Drag items to move them. Click a worn item to take it off.
+- Items have skill requirements (a message says what is missing), and a two-handed weapon takes the
+  shield off. Only weapons are drawn on the player; armour counts for its bonuses only.
+- Food heals its OSRS amount; you can eat again after 1.8 seconds.
+- You start with the runes, a bronze sword wielded, arrows in the ammunition slot, and a few spare
+  weapons. Items you drop lie on the ground for 3 minutes. Killed NPCs drop what their OSRS drop
+  table says. Items also lie around the world and come back a minute after you take them.
+- Press `E` on an item on the ground to take it. Press `E` on a bank booth or chest, or use a banker's
+  Bank option, to open the bank: click an item to move one, right click for 5, 10 or all, search by
+  name, or deposit everything you carry or wear. The bank has no slot limit and stacks everything.
+- Inventory, bank and equipment are saved in the browser and kept when you die.
+
 ## Health, Stamina, and Adrenaline
 
 The three bars at the lower-left corner of the screen are:
 
 | Bar | Meaning |
 | --- | --- |
-| Red | Health. Taking damage reduces it; reaching zero causes death and respawning. |
+| Red | Health (the number is shown above the bar). Taking damage reduces it; reaching zero causes death and respawning. |
 | Yellow | Stamina. Used by sprinting and actions such as kicking. |
 | Blue | Adrenaline. Filled by successful hits; full produces the next huge attack when charged and released. |
 
 When health reaches zero, the player dies and fades back in after the death sequence, with health
-reset and stamina restored.
+reset and stamina restored. Items and skills are kept.
 
 ## NPCs and Interaction
 
@@ -200,16 +249,19 @@ Combat is unavailable while flying. Target interaction is also unavailable in fl
 | `W A S D` | Move |
 | Mouse | Look |
 | `Mouse 1` | Quick attack; hold and release for charged attack |
-| `Mouse 2` | Block; with a bow or crossbow, hold to zoom |
+| `Mouse 2` | Block; with a bow or crossbow, hold to zoom; with a staff or wand, cast |
 | `F` | Kick |
-| Mouse wheel | Switch weapon |
+| `G` | Cast the equipped spell |
+| `Q` | Cycle attack style |
+| `Tab` / `K` / `B` | Inventory and equipment / skills / spellbook |
+| Mouse wheel | Wield the next weapon in the inventory |
 | `Shift` | Sprint or fly faster |
 | `Alt` | Walk slowly |
 | `C` | Crouch or descend while flying |
 | `Space` | Jump or rise while flying |
 | `N` | Toggle flying |
 | `E` / `R` | First / second target action |
-| `E` | Pick up or drop a held prop |
+| `E` | Pick up or drop a held prop; take an item from the ground; use a bank |
 | `Mouse 1` while carrying | Throw prop |
 | `Esc` | Release mouse |
 | `V` | Third-person camera in development builds |

@@ -57,4 +57,18 @@ describe("ArrowView", () => {
         shown.updateMatrixWorld();
         expect(headOf(shown).distanceTo(new THREE.Vector3(0, 1.25, 0))).toBeLessThan(1e-6);
     });
+
+    it("draws a spell as an orb at its position, hidden for the first instants", () => {
+        const scene = new THREE.Scene();
+        const view = new ArrowView(scene);
+        const spell: Arrow = {
+            x: 2, y: 3, z: 1.2, vx: 0, vy: 18, vz: 0, plane: 0, age: 0.01, stuck: false, gravity: 0, spell: { color: 0xff7a1a },
+        };
+        view.update([spell]);
+        expect(scene.children[0].visible).toBe(false);
+        spell.age = 0.1;
+        view.update([spell]);
+        expect(scene.children[0].visible).toBe(true);
+        expect(scene.children[0].position.toArray()).toEqual([2, 1.2, -3]);
+    });
 });

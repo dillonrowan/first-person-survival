@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { areGateLeaves, doorStates, gateLeafStates, hingeCorner, isClimbable, placedDoorState, wallFlags } from "./Interactives";
+import { areGateLeaves, doorStates, gateLeafStates, hingeCorner, isBank, isClimbable, placedDoorState, wallFlags } from "./Interactives";
 
 describe("door classification", () => {
     it("tells closed and open doors apart by their action", () => {
@@ -129,5 +129,14 @@ describe("gates", () => {
             expect(gateLeafStates(...lowTile, rotation, false).hinge).toEqual(lowEnd);
             expect(gateLeafStates(...highTile, rotation, true).hinge).toEqual(highEnd);
         }
+    });
+});
+
+describe("isBank", () => {
+    it("finds bank booths and chests but not deposit boxes", () => {
+        expect(isBank("Bank booth", ["Bank", undefined, "Collect"])).toBe(true);
+        expect(isBank("Bank chest", ["Use"])).toBe(true);
+        expect(isBank("Bank deposit box", ["Deposit"])).toBe(false);
+        expect(isBank("Door", ["Open"])).toBe(false);
     });
 });

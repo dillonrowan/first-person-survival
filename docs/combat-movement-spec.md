@@ -218,25 +218,62 @@ Our implementation `[design]`:
 | Unaware NPC | ×3 damage (`mul_damages_Npc_Not_alerted 3`) `[data: mm_game_settings → ai]` |
 | Difficulty | easy NPC damage ×1.2, player ×0.8; hard 0.8 / 1.2; hardcore 0.6 / 1.4 `[data: ai.Difficulty*]` |
 
-NPC health is `npc_health` (guard 200) `[data]`. In this project it scales from `combatLevel`
-`[design]`.
+NPC health is `npc_health` (guard 200) `[data]`. In this project it is the NPC's Hitpoints level
+(stat opcode 77 of its cache definition, the wiki's value when the cache has none), and the player's
+maximum health is their Hitpoints level (10 to start) `[design: OSRS]`. The weapon, HitPow, armour and
+difficulty inputs above are the Dark Messiah ones: 5.2 says what replaced them.
 
 ### 5.2 Formula
 
-The arithmetic combining these was not found. What the search established:
-- The weapon parser stores `WPiercing` at weapon offset `0x11a8` (default 0.25 when missing),
-  `rangeattack` at `0x1130` (default 80), `parry_cos` at `0x116c`, `stunmultiplicator` at `0x1148`
-  and `speed_attack` at `0x11b4` `[gh: 0x224d7320]`. `WCritHit` defaults to 15.
-- The player parser stores `armordefenderbase` at player offset `0x22fc` `[gh: 0x22415830]`.
-- The only direct x87 readers of the piercing and armour fields are unused getters. The damage code
-  reaches them through virtual calls, which static scanning could not follow.
+The Dark Messiah arithmetic was never found (the weapon parser stores `WPiercing` at weapon offset
+`0x11a8`, `rangeattack` at `0x1130`, `parry_cos` at `0x116c`, `stunmultiplicator` at `0x1148` and
+`speed_attack` at `0x11b4` `[gh: 0x224d7320]`; the damage code reaches them through virtual calls
+static scanning could not follow). The project's own formula was `WDmg × HitPow × 10 × ...`.
 
-Our formula `[design]`:
+Damage is now OSRS's `[design, from oldschool.runescape.wiki: Damage per second, Combat level,
+Experience]`, in `src/combat/Osrs.ts`. The skills are **Melee** (OSRS Attack and Strength in one),
+Defence, Ranged, Magic and Hitpoints; they start at level 1 (Hitpoints 10), are saved in
+`localStorage` and level up by the OSRS XP table.
 
-`damage = WDmg × HitPow × strengthScale × hitbox × (1 − armour × (1 − WPiercing)) × awarenessMul × difficultyMul`
+**Player attack.** Rolled when the attack starts (melee swing, arrow, bolt or spell):
 
-We use `strengthScale = 10`, so a long-sword quick strike (3 × 0.7 × 10) does 21 and a power slash
-does 45, against a guard's 200 health.
+| Style | Attack roll | Max hit | NPC defence it meets |
+| --- | --- | --- | --- |
+| Melee | `(Melee + styleAccuracy + 8) × (attackBonus + 64)` for the weapon's best of stab, slash, crush | `floor(((Melee + styleStrength + 8) × (meleeStrength + 64) + 320) / 640)` | the NPC's stab, slash or crush defence |
+| Ranged | `(Ranged + styleAccuracy + 8) × (rangedAttack + 64)` | `floor(0.5 + (Ranged + styleStrength + 8) × (rangedStrength + 64) / 640)` (ammunition strength included) | standard, or heavy for a crossbow |
+| Magic | `(Magic + 9) × (magicAttack + 64)` | `floor(spellMaxHit × (1 + magicDamage%))` | magic |
+
+The bonuses are the sums over the 11 equipment slots (cache item params 0-4, 10, 12, 189, 299).
+Styles: melee accurate (+3 attack), aggressive (+3 strength), defensive (+3 defence); ranged accurate
+(+3 attack and strength), rapid (one tick faster), longrange (+3 defence); a spell has no style bonus.
+
+**Resolving a hit.** An NPC's defence roll is `(defenceLevel + 9) × (defenceBonus + 64)` (its Magic
+level for spells). The hit chance is `1 − (D + 2) / (2 (A + 1))` when the attack roll A beats D, else
+`A / (2 (D + 1))`. A miss deals 0 **but the target still reacts** (at least a flinch, and the XP is
+not paid). A hit rolls uniformly from 0 to the max hit, and 0 becomes 1. The roll is then scaled
+by `rate × move × hit zone × awareness`, at most ×3 (`tuning.osrsMaxDamageMultiplier`):
+
+- `rate` is the share of the weapon's OSRS attack interval (cache param 14 ticks of 0.6 s; spells
+  5 ticks) that has passed since the previous attack, at most 1. The game keeps its real-time swing
+  rates, so quick swings add up to the damage per second of the OSRS interval.
+- `move` is the move's HitPow over a quick strike's 0.7, between 0.5 and 2 (melee only); hit zone is
+  16.5's head ×3, chest ×0.5, stomach ×1, legs ×1.25; unaware NPCs take ×3.
+
+Fractions round up with that probability. Thrown props, falls, wall slams and flying bodies keep
+their own damage, but as a share of 100 health applied to the target's own maximum health
+(`environmentDamage`).
+
+**XP.** Damage dealt is banked per NPC and paid out when it dies: 4 per damage to the style's skill
+(longrange: 2 Ranged and 2 Defence; defensive: Defence) and 4/3 to Hitpoints; a spell gives 2 Magic
+per damage plus its base XP, also for a miss.
+
+**Levels.** `xp(L) = floor(1/4 × Σ floor(l + 300 × 2^(l/7)))`; combat level
+`floor((Defence + Hitpoints)/4 + max(13/40 × 2 × Melee, 13/40 × floor(1.5 × Ranged), 13/40 × floor(1.5 × Magic)))`.
+
+**Spells.** The 20 standard-spellbook combat spells (Wind Strike to Fire Surge) with their OSRS
+level, max hit at unlock, XP and runes; one spell is equipped at a time and costs its runes from the
+inventory (an elemental staff or wand supplies its element's runes endlessly). A spell flies at
+18 tiles/s without gravity and is gone at a wall.
 
 ### 5.3 Reaction size
 
@@ -405,6 +442,7 @@ any ──(health ≤ 0)──▶ dead
 ## 11. Death and respawn
 
 `mm_player_death_fadeout_duration 4` s `[cvar]`, then respawn (`mm_player_respawn_after_death 1`).
+In this project the player respawns with full health and keeps their items and skills.
 
 ## 12. Per-attack table (sword, no shield) `[data: first_basic.qct]`
 
@@ -738,6 +776,7 @@ then × EasyDifficultyNPCDmgMul / HardDifficultyNPCDmgMul when those cvars are s
 - Guard with a short sword (`WDmg` 2): HitPow 0.7 strikes do **5.3**; `attack_Fast` does 2.6 twice.
 - Player health: Source's `CBasePlayer` default 100 `[source]`; "extra health" skill levels add to it.
 - NPC hits push the player at 250 u/s `[data PlayerPushOnHit]`.
+- **Replaced in this project** by OSRS damage: see 5.2 and 16.8.
 
 ### 16.6 Guard attacks `[data: npc_guard.qct; mdl: npc_guard_combat_animations.mdl, 24 fps]`
 
@@ -790,10 +829,19 @@ Event 2152 (weapon swoosh) comes 0.15–0.25 s before the impact; that is the vi
 
 ### 16.8 What this project does with it `[design]`
 
-- Every NPC with an Attack option uses the guard's perception, strength (7) and short sword
-  (`WDmg` 2); the OSRS data has no per-NPC equivalents. NPC health stays combat-level based. A
-  strike does `max(0, 9 × hitPow − 1)`: 0.7 (about 5.3 damage) for the primary style, scaled for
-  the others by the ratio of the OSRS max hits (clamped to 0.3–2.5), and 2.0 in all for a breath.
+- Every NPC with an Attack option uses the guard's perception; its damage and health are OSRS's.
+  The exporter writes `NpcAppearanceInfo.combat`: levels from the cache's stat opcodes 74-79
+  (attack, defence, strength, hitpoints, ranged, magic), bonuses from the NPC params (the item
+  bonus ids), the rest and the max hit of each style from the wiki (`data/npc-attacks-wiki.json`,
+  refreshed by `npm run fetch-wiki-attacks`), the melee type (stab, slash or crush) and the attack
+  speed in ticks. An NPC without exported stats uses its combat level for every level.
+- An NPC strike rolls the NPC's attack roll (`(level + 9) × (bonus + 64)` for its style, magic for
+  dragonfire and icy breath) against the player's defence roll for that style: `(Defence + 8 (+3
+  defensive)) × (defence bonus + 64)`, or for magic `(floor(0.7 × Magic + 0.3 × Defence) + 8) ×
+  (magic defence + 64)`. A miss deals 0 and still shoves and flinches the player. A hit rolls 0 to
+  the style's wiki max hit (the OSRS formula from its levels without one), scaled by the share of
+  its attack interval that has passed since its previous attack. A breath splits its max hit over its
+  four damage ticks. `hitPow` now only sizes the NPC's flinch and push.
 - Attack styles: the OSRS wiki lists the styles of every monster (melee, ranged, magic,
   dragonfire, icy breath), which the cache does not. `npm run fetch-wiki-attacks` saves them to
   `tools/world-export/data/npc-attacks-wiki.json`; the exporter turns them into
@@ -814,9 +862,13 @@ Event 2152 (weapon swoosh) comes 0.15–0.25 s before the impact; that is the vi
   An NPC that only shoots or casts engages from 6 tiles and holds about 5.
 - Player block: hold right mouse. A melee hit from inside the weapon's parry cone (6) is parried
   (no damage) unless the attack breaks parries. Arrows, spells and breath cannot be parried.
-- Anti-dragon shield (menu key `I`, Shields): dragonfire does a tenth of its damage, but not icy
-  breath, and not while a bow takes both hands.
-- Death: after 4 s (`mm_player_death_fadeout_duration`) the player respawns with full health.
+- Anti-dragon shield (worn in the shield slot): dragonfire's max hit is a tenth, but not icy
+  breath's, and not while a bow takes both hands. Its defence bonuses count like any shield's.
+- Death: after 4 s (`mm_player_death_fadeout_duration`) the player respawns with full health,
+  keeping items and skills.
+- Items: a 28-slot inventory, a bank, 11 equipment slots, NPC drops from the wiki drop tables
+  and items lying in the world (docs/player-guide.md); the equipment bonuses, attack speed and
+  skill requirements come from the cache item params.
 
 ## 17. Directional swings
 
@@ -921,7 +973,8 @@ Sources: the player state handlers `[gh: 0x22446a40 sword idle, 0x224473c0 sword
   releases only; wind-ups, rush, falling, trample and huge attacks keep their own speed `[data]`.
 - Hit zones scale damage on NPCs (16.5, `hitboxes_modifier`): head ×3, chest ×0.5, stomach ×1,
   limbs ×1.25 `[data: npc_guard]`. Here the zone comes from where the ray meets the body's height:
-  top 15% head, next 25% chest, next 15% stomach, the rest legs `[design]`.
+  top 15% head, next 25% chest, next 15% stomach, the rest legs `[design]`. The zone multiplies the
+  rolled OSRS damage (5.2).
 
 ## 19. Physics: props, impacts and falls
 
@@ -1074,9 +1127,11 @@ model) that keeps a full 3D orientation for drawing:
 
 ### 19.11 Damage scale
 
-As with weapon damage (5.2, `strengthScale` 10), prop damage to NPCs is the data value × 10, so a
-thrown 40 kg crate does 50 to an NPC. Impact damage to props and to the player uses the data values
-unchanged (prop health and the player's 100 health are in the game's own units).
+Prop damage to NPCs is the data value × 10, so a thrown 40 kg crate does 50 of a 100-health
+body. Damage from props, falls, wall slams and flying bodies was tuned for 100 health, so it is
+applied as that share of the target's own maximum health (`environmentDamage` in `Osrs.ts`): 50 is
+half of an NPC's health and, for a player at the starting 10 health, 5. Impact damage to props uses
+the data values unchanged (prop health is in the game's own units).
 
 ## 20. Ragdolls
 

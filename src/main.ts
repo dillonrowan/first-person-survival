@@ -26,15 +26,26 @@ import type { BodySource } from "./physics/Bodies";
 import { CombatHud } from "./ui/CombatHud";
 import { EnemyHealthBars } from "./ui/EnemyHealthBars";
 import { WeaponMenu } from "./ui/WeaponMenu";
-import { cacheWeaponDef } from "./combat/weapons";
 import { createCacheWeaponModel } from "./combat/CacheWeaponModel";
+import { environmentDamage } from "./combat/Osrs";
+import { PlayerSkills, SKILL_NAMES } from "./combat/Skills";
+import { Spellbook } from "./combat/Spells";
+import { GroundItems, GroundEntry } from "./items/GroundItems";
+import { rollDrops } from "./items/Drops";
+import { ItemDb } from "./items/ItemDb";
+import { ItemIcons } from "./items/ItemIcons";
+import { PlayerItems } from "./items/PlayerItems";
+import { weaponDefFor } from "./items/weaponDef";
+import { SidePanel } from "./ui/SidePanel";
+import { SkillsPanel } from "./ui/SkillsPanel";
+import { SpellbookPanel } from "./ui/SpellbookPanel";
 import "./style.css";
 import { NpcManifest, decodeNpcModel } from "./world/NpcFormat";
 import { WorldInteractives } from "./world/Interactives";
 import { PropInstance, WorldProps } from "./world/Props";
 import { fallDamage } from "./physics/ImpactDamage";
 import { World } from "./world/World";
-import { InteractiveLoc, REGION_SIZE, WorldManifest } from "./world/WorldFormat";
+import { GroundItemManifest, InteractiveLoc, REGION_SIZE, WorldManifest } from "./world/WorldFormat";
 import { gunzip } from "./world/gunzip";
 import { createWorldMaterials } from "./world/WorldMaterials";
 import { loadWorldTextures } from "./world/WorldTextures";
@@ -96,8 +107,37 @@ async function loadNpcManifest(manifest: WorldManifest): Promise<NpcManifest | u
     }
 }
 
+/** The ground item spawn list, or undefined if the world was exported without item data. */
+async function loadGroundItems(manifest: WorldManifest): Promise<GroundItemManifest | undefined> {
+    if (!manifest.groundItems) {
+        return undefined;
+    }
+    try {
+        const response = await fetch(`${WORLD_URL}${manifest.groundItems.file}`);
+        const contentType = response.headers.get("content-type") ?? "";
+        if (!response.ok || !contentType.includes("json")) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        return await response.json();
+    } catch (e) {
+        console.warn("Ground items could not be loaded, continuing without them", e);
+        return undefined;
+    }
+}
+
+/** localStorage, or undefined where it is blocked (private windows, previews). */
+function browserStorage(): Storage | undefined {
+    try {
+        return window.localStorage;
+    } catch {
+        return undefined;
+    }
+}
+
 async function main(): Promise<void> {
     const manifest = await loadManifest();
+    const itemDb = await ItemDb.load(`${WORLD_URL}items.json`);
+    const groundItemManifest = await loadGroundItems(manifest);
 
     const renderer = new THREE.WebGLRenderer({
         canvas,
@@ -172,7 +212,30 @@ async function main(): Promise<void> {
     scene.add(sun);
     const avatar = new Avatar(await loadAvatarAsset(`${import.meta.env.BASE_URL}models/player.glb`));
     scene.add(avatar.root);
-    const combat = new PlayerCombat(solidBodies, (plane, x, y) => world.collisionFlags(plane, x, y));
+    const skills = new PlayerSkills(browserStorage());
+    const spellbook = new Spellbook(browserStorage());
+    const items = new PlayerItems(itemDb, skills, browserStorage());
+    const combat = new PlayerCombat(
+        solidBodies,
+        (plane, x, y) => world.collisionFlags(plane, x, y),
+        Math.random,
+        skills,
+        spellbook,
+        items,
+        () => items.equipment.get("shield")?.id,
+    );
+    const loadItemModel = async (file: string) => {
+        const response = await fetch(`${WORLD_URL}${file}`);
+        if (!response.ok) {
+            throw new Error(`${file}: HTTP ${response.status}`);
+        }
+        return decodeNpcModel(await gunzip(await response.arrayBuffer()));
+    };
+    const groundItems = new GroundItems(scene, materials, itemDb, loadItemModel, world);
+    if (groundItemManifest) {
+        groundItems.addSpawns(groundItemManifest);
+    }
+    const itemIcons = new ItemIcons(renderer, materials, loadItemModel);
     const weaponView = new WeaponView(
         camera,
         import.meta.env.BASE_URL,
@@ -190,39 +253,62 @@ async function main(): Promise<void> {
         },
     );
     const weaponMenuElement = document.getElementById("weapon-menu")!;
+    /** Wields the first inventory slot holding this item, or says where it went. */
+    const wieldItem = (id: number) => {
+        const slot = items.inventory.slots.findIndex((stack) => stack?.id === id);
+        if (slot < 0) {
+            ui.showMessage("Added to your bank.");
+            return;
+        }
+        const problem = items.wield(slot);
+        if (problem) {
+            ui.showMessage(problem);
+        }
+    };
+    // The developer cheat menu (I, dev builds only): any cache weapon, shield or item into the inventory.
     const weaponMenu = new WeaponMenu(
         weaponMenuElement,
         document.getElementById("weapon-menu-list")!,
         document.getElementById("weapon-menu-status")!,
         (weapon) => {
-            combat.equipWeapon(cacheWeaponDef(weapon));
+            items.give(weapon.cacheId, 1);
+            wieldItem(weapon.cacheId);
         },
         () => undefined,
         undefined,
         document.getElementById("weapon-menu-shields")!,
         (shield) => {
-            combat.shield = shield;
+            if (shield) {
+                items.give(shield.cacheId, 1);
+                wieldItem(shield.cacheId);
+            } else {
+                items.unequip("shield");
+            }
         },
+        { db: itemDb, list: document.getElementById("weapon-menu-items")!, give: (id, qty) => items.give(id, qty) },
     );
+    /** The weapon of the weapon slot is the weapon in hand. */
+    const syncWeapon = () => {
+        const def = weaponDefFor(items.equipment.get("weapon"), itemDb, weaponMenu.all);
+        if (combat.weapon.id !== def.id) {
+            combat.equipWeapon(def);
+        }
+    };
     await weaponMenu.load().catch((error) => {
         document.getElementById("weapon-menu-status")!.textContent =
             error instanceof Error ? error.message : String(error);
     });
-    window.addEventListener("keydown", (event) => {
-        // Typing an "i" into the weapon search must not close the menu.
-        if (!event.repeat && event.code === "KeyI" && !(event.target instanceof HTMLInputElement)) {
-            // Opening focuses the search box; keep this "i" from being typed into it.
-            event.preventDefault();
-            weaponMenu.toggle();
-        }
-    });
+    syncWeapon();
     const combatHud = new CombatHud(document.body);
     const enemyHealthBars = npcs ? new EnemyHealthBars(document.body, npcs, camera) : undefined;
     combat.groundHeight = (plane, x, y) => world.groundHeight(plane, x, y);
     combat.obstacleTop = (minX, minY, maxX, maxY) => world.obstacleTop(minX, minY, maxX, maxY);
     const hitFeel = new HitFeel();
-    combat.onHit = ({ result, move }) => {
-        combatHud.showHit(result.reaction !== "none" && result.reaction !== "flinch");
+    combat.onHit = ({ result, move, target }) => {
+        if (target.combatStats) {
+            combatHud.showSplat(result.amount, result.missed);
+        }
+        combatHud.showHit(!result.missed && result.reaction !== "none" && result.reaction !== "flinch");
         if (combat.melee.swing?.move === move) {
             // A melee blow (not an arrow): power and finishing strikes land heavier. The blade
             // stalls and the view jolts; the struck bodies hold for a moment.
@@ -230,9 +316,10 @@ async function main(): Promise<void> {
             hitFeel.impact(impactStrength(result));
         }
     };
-    combat.onStruck = ({ outcome, style, shielded }) => {
+    combat.onCastFailed = (message) => ui.showMessage(message);
+    combat.onStruck = ({ outcome, style, shielded, damage, missed }) => {
         if (outcome === "hit") {
-            combatHud.showDamage();
+            combatHud.showDamage(damage, missed);
             if (style === "dragonfire") {
                 ui.showMessage(shielded ? "You manage to resist some of the dragon fire!" : "You're horribly burnt by the dragon fire!");
             }
@@ -244,8 +331,9 @@ async function main(): Promise<void> {
     player.onLanded = (speed) => {
         const damage = fallDamage(speed);
         if (damage > 0 && !combat.combatant.dead) {
-            combat.combatant.hurt(damage, "flinch");
-            combatHud.showDamage();
+            const hurt = environmentDamage(damage, combat.combatant.maxHealth);
+            combat.combatant.hurt(hurt, "flinch");
+            combatHud.showDamage(hurt);
         }
     };
     const arrowView = new ArrowView(scene);
@@ -284,6 +372,9 @@ async function main(): Promise<void> {
                     push: a.push,
                     breaksParry: a.breaksParry,
                     style: "melee",
+                    attacker: npc.combatStats,
+                    rate: event.rate,
+                    share: 1 / a.hitTimes.length,
                 },
                 npc.facingCos(body.x, body.y) >= Math.cos(tuning.npcStrikeCone),
             );
@@ -292,7 +383,20 @@ async function main(): Promise<void> {
             if (inBreathCone(npc.body.x, npc.body.y, f.x, f.y, body.x, body.y, gap, a.breath)) {
                 combat.receiveStrike(
                     player,
-                    { fromX: npc.body.x, fromY: npc.body.y, gap, range: a.range, hitPow, push: false, breaksParry: true, style: a.style, direct: true },
+                    {
+                        fromX: npc.body.x,
+                        fromY: npc.body.y,
+                        gap,
+                        range: a.range,
+                        hitPow,
+                        push: false,
+                        breaksParry: true,
+                        style: a.style,
+                        direct: true,
+                        attacker: npc.combatStats,
+                        rate: event.rate,
+                        share: 1 / a.hitTimes.length,
+                    },
                     true,
                 );
             }
@@ -300,7 +404,16 @@ async function main(): Promise<void> {
             const target = playerTarget();
             if (target) {
                 npcProjectiles.push(
-                    launchNpcProjectile({ ...npc.launchPoint(), plane: npc.plane }, target, a.projectile, a.style, hitPow),
+                    launchNpcProjectile(
+                        { ...npc.launchPoint(), plane: npc.plane },
+                        target,
+                        a.projectile,
+                        a.style,
+                        hitPow,
+                        npc.combatStats,
+                        event.rate,
+                        1 / a.hitTimes.length,
+                    ),
                 );
             }
         }
@@ -309,6 +422,23 @@ async function main(): Promise<void> {
     const attackStarted = (npc: Npc, a: NpcAttack) => {
         if (a.breath) {
             breathView.start(npc, a.breath, a.hitTimes[0]);
+        }
+    };
+    /** An NPC died: pay out the XP of the damage the player dealt it and drop what it carried. */
+    const killed = (npc: Npc) => {
+        const ups = skills.addXp(npc.xpLedger.drain());
+        if (ups.length > 0) {
+            combat.syncMaxHealth();
+            ui.showMessage(
+                ups.map((u) => `Congratulations, your ${SKILL_NAMES[u.skill]} level is now ${u.level}.`).join(" "),
+            );
+        }
+        skillsPanel.refresh();
+        spellbookPanel.refresh();
+        for (const stack of rollDrops(npc.appearance.drops ?? [], Math.random)) {
+            groundItems.add(stack, Math.floor(npc.body.x), Math.floor(npc.body.y), npc.plane, {
+                despawnIn: tuning.groundItemDespawn,
+            });
         }
     };
     combat.onKick = ({ outcome }) => {
@@ -338,6 +468,17 @@ async function main(): Promise<void> {
             if (!interactives.toggle(door)) {
                 ui.showMessage("Something is in the way.");
             }
+        } else if (target.kind === "bank") {
+            sidePanel.openBank();
+        } else if (target.kind === "ground-item") {
+            const entry = target.ref as GroundEntry;
+            const want = entry.stack.qty;
+            const left = items.pickUp(entry.stack.id, want);
+            if (left === want) {
+                ui.showMessage("You don't have enough inventory space.");
+            } else {
+                groundItems.take(entry, want - left);
+            }
         } else if (target.kind === "prop") {
             props.pickUp(target.ref as PropInstance);
         } else if (target.kind === "climb") {
@@ -353,10 +494,72 @@ async function main(): Promise<void> {
     };
     const interaction = new Interaction(
         (plane, x, y) => world.collisionFlags(plane, x, y),
-        [...(npcs ? [npcTargetSource(npcs)] : []), interactives.targetSource(), props.targetSource()],
+        [...(npcs ? [npcTargetSource(npcs)] : []), interactives.targetSource(), props.targetSource(), groundItems.targetSource()],
         ui,
-        createNpcActionHandler(player, ui, handleWorldAction),
+        createNpcActionHandler(player, ui, handleWorldAction, () => sidePanel.openBank()),
     );
+    let eatCooldown = 0;
+    const skillsPanel = new SkillsPanel(document.getElementById("tab-skills")!, skills);
+    const spellbookPanel = new SpellbookPanel(document.getElementById("tab-spellbook")!, spellbook, skills, (spell) =>
+        ui.showMessage(`Spell equipped: ${spell.name}`),
+    );
+    const sidePanel = new SidePanel(
+        document.getElementById("side-panel")!,
+        document.getElementById("bank-panel")!,
+        document.getElementById("item-menu")!,
+        items,
+        itemDb,
+        itemIcons,
+        { skills: skillsPanel, spellbook: spellbookPanel },
+        {
+            eat: (slot) => {
+                if (eatCooldown > 0 || combat.combatant.dead) {
+                    return;
+                }
+                const message = items.eat(slot, combat.combatant);
+                if (message) {
+                    eatCooldown = tuning.eatDelay;
+                    ui.showMessage(message);
+                }
+            },
+            drop: (stack) =>
+                groundItems.add(stack, Math.floor(player.x), Math.floor(player.y), player.plane, {
+                    despawnIn: tuning.groundItemDespawn,
+                }),
+            message: (text) => ui.showMessage(text),
+            closed: () => {
+                if (player.ready) {
+                    input.lock();
+                }
+                // If the mouse could not be taken back, show the "Click to play" panel again.
+                setTimeout(() => overlay.classList.toggle("hidden", input.locked), 250);
+            },
+        },
+    );
+    items.onChange = () => {
+        syncWeapon();
+        sidePanel.refresh();
+    };
+    window.addEventListener("keydown", (event) => {
+        if (event.repeat || event.target instanceof HTMLInputElement) {
+            return;
+        }
+        if (event.code === "Tab") {
+            event.preventDefault();
+            sidePanel.toggle("inventory");
+        } else if (event.code === "KeyK") {
+            sidePanel.toggle("skills");
+        } else if (event.code === "KeyB") {
+            sidePanel.toggle("spellbook");
+        } else if (event.code === "KeyQ" && input.locked) {
+            combat.cycleStyle();
+            ui.showMessage(`Attack style: ${combat.style.name}`);
+        } else if (import.meta.env.DEV && event.code === "KeyI") {
+            // Opening focuses the search box; keep this "i" from being typed into it.
+            event.preventDefault();
+            weaponMenu.toggle();
+        }
+    });
     const collisionDebug =
         import.meta.env.DEV && npcs && new URLSearchParams(location.search).get("debug") === "collision"
             ? new CollisionDebug(scene)
@@ -364,7 +567,10 @@ async function main(): Promise<void> {
     if (import.meta.env.DEV) {
         // Handy from the devtools console, e.g. `game.player.x = 3165`.
         Object.assign(window, {
-            game: { renderer, scene, camera, world, player, npcs, props, cameraRig, avatar, interaction, interactives, combat, tuning },
+            game: {
+                renderer, scene, camera, world, player, npcs, props, cameraRig, avatar, interaction, interactives, combat, tuning,
+                skills, spellbook, items, db: itemDb, groundItems, sidePanel,
+            },
         });
     }
 
@@ -375,7 +581,7 @@ async function main(): Promise<void> {
     };
     playButton.addEventListener("click", play);
     canvas.addEventListener("click", play);
-    input.onLockChange = (locked) => overlay.classList.toggle("hidden", locked);
+    input.onLockChange = (locked) => overlay.classList.toggle("hidden", locked || sidePanel.isOpen);
 
     window.addEventListener("resize", () => {
         camera.aspect = window.innerWidth / window.innerHeight;
@@ -411,13 +617,19 @@ async function main(): Promise<void> {
         }
         const carrying = props.held !== undefined || propHandled;
         const wheel = input.consumeWheel();
-        combat.switchWeapon(carrying ? 0 : wheel);
+        eatCooldown = Math.max(0, eatCooldown - dt);
+        const wheelProblem = items.cycleWeapon(carrying ? 0 : wheel);
+        if (wheelProblem) {
+            ui.showMessage(wheelProblem);
+        }
         combat.update(dt, player, {
             // A tap that went down and up between frames still counts as down for this one.
             attackDown: fighting && !carrying && (input.isDown("Mouse0") || input.wasPressed("Mouse0")),
             attackPressed: fighting && !carrying && input.wasPressed("Mouse0"),
             blockDown: fighting && !carrying && input.isDown("Mouse2"),
             kickPressed: fighting && !carrying && input.wasPressed("KeyF"),
+            castPressed:
+                fighting && !carrying && (input.wasPressed("KeyG") || (combat.holdsCaster && input.wasPressed("Mouse2"))),
             forward: input.axis("KeyW", "KeyS"),
             strafe: input.axis("KeyD", "KeyA"),
         });
@@ -458,6 +670,7 @@ async function main(): Promise<void> {
             sincePlayerAttack: combat.sinceAttack,
             strike,
             attackStarted,
+            killed,
         });
         // Arrows and spells in flight hit the player at the moment they arrive.
         for (const p of stepNpcProjectiles(
@@ -470,7 +683,20 @@ async function main(): Promise<void> {
         )) {
             combat.receiveStrike(
                 player,
-                { fromX: p.fromX, fromY: p.fromY, gap: 0, range: 0, hitPow: p.hitPow, push: false, breaksParry: true, style: p.style, direct: true },
+                {
+                    fromX: p.fromX,
+                    fromY: p.fromY,
+                    gap: 0,
+                    range: 0,
+                    hitPow: p.hitPow,
+                    push: false,
+                    breaksParry: true,
+                    style: p.style,
+                    direct: true,
+                    ...(p.attacker ? { attacker: p.attacker } : {}),
+                    rate: p.rate,
+                    share: p.share,
+                },
                 true,
             );
         }
@@ -489,10 +715,12 @@ async function main(): Promise<void> {
             npcs: npcs?.all() ?? [],
             onNpcHit: (_npc, _damage, reaction) => combatHud.showHit(reaction !== "flinch"),
             onPlayerHit: (damage) => {
-                combat.combatant.hurt(damage, "flinch");
-                combatHud.showDamage();
+                const hurt = environmentDamage(damage, combat.combatant.maxHealth);
+                combat.combatant.hurt(hurt, "flinch");
+                combatHud.showDamage(hurt);
             },
         });
+        groundItems.update(dt, player.x, player.y, player.plane);
         arrowView.update(combat.arrows, (out) => weaponView.launchPoint(out));
         avatar.update(dt, player, cameraRig.mode);
         weaponView.update(combat.melee, cameraRig.mode, player.ready && !player.flying, combat.kick, {
@@ -523,6 +751,9 @@ async function main(): Promise<void> {
                       : combat.melee.chargeProgress,
             shieldName: combat.shield?.name,
             shieldActive: combat.shieldActive,
+            healthText: `${Math.ceil(combat.combatant.health)} / ${combat.combatant.maxHealth}`,
+            styleName: `Style: ${combat.style.name}`,
+            spellName: `Spell: ${spellbook.equipped.name}${spellbook.castable(skills.level("magic")) ? "" : " (locked)"}`,
             weaponName:
                 combat.weapon.family === "bow"
                     ? `${combat.weapon.name} (${combat.bow.arrows})`

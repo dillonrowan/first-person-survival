@@ -11,13 +11,32 @@
         <div id="crosshair"></div>
         <div id="charge-ring"></div>
         <div id="hit-marker"></div>
+        <div id="hit-splat"></div>
+        <div id="damage-splat"></div>
         <div id="combat-hud">
             <div id="weapon-name"></div>
             <div id="shield-name"></div>
+            <div id="combat-style"></div>
+            <div id="spell-name"></div>
+            <div id="health-text"></div>
             <div class="bar" title="Health"><div id="bar-health"></div></div>
             <div class="bar" title="Stamina"><div id="bar-stamina"></div></div>
             <div class="bar" title="Adrenaline"><div id="bar-adrenaline"></div></div>
         </div>
+        <div id="side-panel" class="hidden" role="dialog" aria-label="Inventory">
+            <div class="tabs">
+                <button type="button" data-tab="inventory">Inventory</button>
+                <button type="button" data-tab="equipment">Equipment</button>
+                <button type="button" data-tab="skills">Skills</button>
+                <button type="button" data-tab="spellbook">Spellbook</button>
+            </div>
+            <div id="tab-inventory"></div>
+            <div id="tab-equipment" class="hidden"></div>
+            <div id="tab-skills" class="hidden"></div>
+            <div id="tab-spellbook" class="hidden"></div>
+        </div>
+        <div id="bank-panel" class="hidden" role="dialog" aria-label="Bank"></div>
+        <div id="item-menu" class="hidden"></div>
         <div id="prompt"></div>
         <div id="message"></div>
         <div id="hud"></div>
@@ -31,6 +50,7 @@
                 <div id="weapon-menu-shields"></div>
                 <div id="weapon-menu-status"></div>
                 <div id="weapon-menu-list"></div>
+                <div id="weapon-menu-items"></div>
             </div>
         </div>
         <div id="overlay">
@@ -42,12 +62,15 @@
                     <li><kbd>Mouse</kbd> look</li>
                     <li><kbd>Mouse 1</kbd> attack: tap to strike, hold to charge (direction keys pick the swing)</li>
                     <li><kbd>F</kbd> kick (costs stamina)</li>
-                    <li><kbd>Wheel</kbd> switch weapon</li>
-                    <li><kbd>I</kbd> open cache weapon menu</li>
+                    <li><kbd>Wheel</kbd> switch to the next weapon in your inventory</li>
+                    <li><kbd>Tab</kbd> inventory and equipment, <kbd>K</kbd> skills, <kbd>B</kbd> spellbook</li>
+                    <li><kbd>Q</kbd> cycle attack style</li>
+                    <li><kbd>G</kbd> cast your spell (or <kbd>Mouse 2</kbd> while holding a staff or wand)</li>
+                    <li><kbd>I</kbd> developer cheat menu (weapons and items)</li>
                     <li><kbd>Shift</kbd> sprint, <kbd>Alt</kbd> walk, <kbd>C</kbd> crouch</li>
                     <li><kbd>Space</kbd> jump</li>
                     <li><kbd>N</kbd> toggle flying (<kbd>Space</kbd>/<kbd>C</kbd> up/down)</li>
-                    <li><kbd>E</kbd> / <kbd>R</kbd> interact with what you look at</li>
+                    <li><kbd>E</kbd> / <kbd>R</kbd> interact with what you look at (take items, use banks)</li>
                     <li><kbd>Esc</kbd> release the mouse</li>
                 </ul>
                 <p id="status">Loading world...</p>

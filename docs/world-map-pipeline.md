@@ -28,6 +28,12 @@ flowchart LR
 | ----------- | ------------------------ | --------------------------------------------- | ----------------- | ------------------------- |
 | 1. Download | `npm run download-cache` | Once, or to get a newer OSRS revision         | Fetches it        | `cache/` (~240 MB)        |
 | 2. Export   | `npm run export-world`   | Once after downloading, or after code changes | Yes, the only one | `public/world/` (~1.5 GB) |
+
+The export also needs the OSRS wiki data once (`npm run fetch-wiki-attacks` for NPC levels, bonuses,
+max hits and attack styles; `npm run fetch-wiki-items` for drop tables, item spawns and food). After
+`export-world`, which clears `public/world/`, run `npm run export-cache-weapons` and
+`npm run export-items` (the item models and `items.json`). The order is: `fetch-wiki-attacks`,
+`fetch-wiki-items`, `export-world`, `export-cache-weapons`, `export-items`.
 | 3. Play     | `npm run dev`            | Every time you play                           | No                | The world, in the browser |
 
 ## 1. Download the cache
@@ -109,5 +115,5 @@ ground (or on a bridge or upper floor), and its collision stops the player at wa
 | You changed...                                                     | Re-run                                   |
 | ------------------------------------------------------------------ | ---------------------------------------- |
 | Want a newer OSRS update                                           | `download-cache`, then `export-world`    |
-| The exporter (`tools/world-export/`) or `src/world/WorldFormat.ts` | `export-world`                           |
+| The exporter (`tools/world-export/`) or `src/world/WorldFormat.ts` | `export-world`, then `export-cache-weapons` and `export-items` |
 | Only the game (`src/`)                                             | Nothing; the dev server reloads the page |

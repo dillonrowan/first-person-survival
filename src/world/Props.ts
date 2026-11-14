@@ -1,6 +1,7 @@
 import * as THREE from "three";
 
 import { Combatant, Reaction } from "../combat/Combatant";
+import { environmentDamage } from "../combat/Osrs";
 import type { CombatTarget } from "../combat/PlayerCombat";
 import { tuning } from "../combat/tuning";
 import type { Target, TargetSource } from "../interaction/Interaction";
@@ -572,7 +573,7 @@ export class WorldProps implements BodySource<CombatTarget> {
 
         const m = b.mass;
         const base = m < tuning.propMediumMass ? tuning.propDamageSmall : m < tuning.propBigMass ? tuning.propDamageMedium : tuning.propDamageBig;
-        const damage = base * tuning.strengthScale;
+        const damage = environmentDamage(base * tuning.strengthScale, npc.combatant.maxHealth);
         const energy = kineticJoules(m, speed);
         const reaction: Reaction = energy < tuning.propEnergySmall ? "flinch" : energy < tuning.propEnergyMedium ? "stagger" : "knockdown";
         npc.combatant.hurt(damage, reaction, false, tuning.knockdownPhysics);

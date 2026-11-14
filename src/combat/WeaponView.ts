@@ -9,7 +9,7 @@ import type { MeleeController } from "./MeleeController";
 import type { MoveDef, PowerDirection } from "./moves";
 import { createPlaceholderWeapon } from "./PlaceholderWeapons";
 import { tuning } from "./tuning";
-import type { WeaponDef } from "./weapons";
+import { UNARMED, type WeaponDef } from "./weapons";
 
 /** Position (camera space, tiles) and orientation of the held weapon. */
 type Pose = { pos: THREE.Vector3; quat: THREE.Quaternion };
@@ -276,6 +276,11 @@ export class WeaponView {
 
     private modelFor(weapon: WeaponDef): THREE.Object3D {
         let model = this.models.get(weapon.id);
+        if (!model && weapon.id === UNARMED.id) {
+            // Fists: nothing is drawn in the hand.
+            model = new THREE.Group();
+            this.models.set(weapon.id, model);
+        }
         if (!model) {
             model = createPlaceholderWeapon(weapon);
             this.models.set(weapon.id, model);

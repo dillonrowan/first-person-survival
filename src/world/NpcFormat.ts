@@ -18,6 +18,36 @@ export const NPC_FORMAT_VERSION = 4;
  */
 const READABLE_NPC_VERSIONS = [1, 2, 3, 4];
 
+export type MeleeType = "stab" | "slash" | "crush";
+export type DefenceType = MeleeType | "magic" | "light" | "standard" | "heavy";
+
+/** What an NPC fights with, from the cache (levels, bonuses) and the OSRS wiki (max hits, speed). */
+export type NpcCombatStats = {
+    hitpoints: number;
+    attack: number;
+    strength: number;
+    defence: number;
+    ranged: number;
+    magic: number;
+    attackBonus: number;
+    strengthBonus: number;
+    rangedAttack: number;
+    rangedStrength: number;
+    magicAttack: number;
+    /** Percent. */
+    magicDamage: number;
+    defenceBonus: Record<DefenceType, number>;
+    /** Which of the player's melee defences the NPC's melee hits are rolled against. */
+    meleeType: MeleeType;
+    /** OSRS attack speed in 0.6 s ticks. */
+    speedTicks: number;
+    /** Wiki max hit per style; styles without one use the formula in Osrs.ts. */
+    maxHit: Partial<Record<AttackStyle, number>>;
+};
+
+/** One entry of an NPC drop table (OSRS wiki): `rolls` rolls of `chance`, a quantity from `min` to `max`. */
+export type NpcDrop = { item: number; min: number; max: number; chance: number; rolls: number };
+
 export type NpcAppearanceInfo = {
     /** Spawn (base) NPC id. */
     id: number;
@@ -38,6 +68,10 @@ export type NpcAppearanceInfo = {
      * shoot). Absent for NPCs that only melee, which keep their melee clips or the guard's strikes.
      */
     attackStyles?: NpcStyledAttackInfo[];
+    /** Levels, bonuses and max hits. Absent in older exports: the game falls back to the combat level. */
+    combat?: NpcCombatStats;
+    /** What the NPC drops when it dies (wiki drop table); absent when it drops nothing. */
+    drops?: NpcDrop[];
 };
 
 export type NpcSpawnInfo = {

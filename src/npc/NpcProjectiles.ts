@@ -1,5 +1,6 @@
 import { firstWallHit, ObstacleTop, segmentCircle } from "../combat/Bow";
 import type { Box, FlagsAt } from "../physics/TileColliders";
+import type { NpcCombatStats } from "../world/NpcFormat";
 import { AttackStyle, ProjectileInfo, ProjectileKind, RANGED_MAX } from "./AttackStyle";
 
 /** An arrow, spell, rock, spit or fireball an NPC has shot at the player. Positions in tiles. */
@@ -15,6 +16,10 @@ export type NpcProjectile = {
     color: number;
     style: AttackStyle;
     hitPow: number;
+    /** The shooter stats, its attack rate and the share of its max hit this carries. */
+    attacker?: NpcCombatStats;
+    rate: number;
+    share: number;
     /** Where it was shot from, for the push direction. */
     fromX: number;
     fromY: number;
@@ -39,6 +44,9 @@ export function launchNpcProjectile(
     info: ProjectileInfo,
     style: AttackStyle,
     hitPow: number,
+    attacker?: NpcCombatStats,
+    rate = 1,
+    share = 1,
 ): NpcProjectile {
     const dx = target.x - from.x;
     const dy = target.y - from.y;
@@ -57,6 +65,9 @@ export function launchNpcProjectile(
         color: info.color,
         style,
         hitPow,
+        ...(attacker ? { attacker } : {}),
+        rate,
+        share,
         fromX: from.x,
         fromY: from.y,
         age: 0,

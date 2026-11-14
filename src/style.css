@@ -375,3 +375,289 @@ kbd {
     height: auto;
     background: #65b84d;
 }
+
+/* --- Hitsplats, health text, style and spell lines --- */
+#health-text,
+#combat-style,
+#spell-name {
+    color: #fff;
+    font: 12px/1.4 system-ui, sans-serif;
+    text-shadow: 0 1px 2px #000;
+}
+
+#hit-splat,
+#damage-splat {
+    position: fixed;
+    z-index: 5;
+    min-width: 22px;
+    padding: 2px 6px;
+    border-radius: 12px;
+    opacity: 0;
+    pointer-events: none;
+    background: #c4302b;
+    color: #fff;
+    font: bold 15px/1.2 system-ui, sans-serif;
+    text-align: center;
+    text-shadow: 0 1px 1px #000;
+    box-shadow: 0 0 0 2px rgb(0 0 0 / 0.5);
+}
+
+#hit-splat {
+    left: 50%;
+    top: calc(50% - 56px);
+    transform: translateX(-50%);
+}
+
+#damage-splat {
+    left: 260px;
+    bottom: 12px;
+}
+
+#hit-splat.miss,
+#damage-splat.miss {
+    background: #2a5bd7;
+}
+
+/* --- Side panel (Tab), bank and item menu --- */
+#side-panel {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 20;
+    width: 312px;
+    box-sizing: border-box;
+    padding: 12px;
+    border: 1px solid #59616a;
+    border-radius: 8px;
+    background: rgba(18, 22, 26, 0.96);
+    color: #eee;
+    font: 13px/1.4 system-ui, sans-serif;
+}
+
+#side-panel.hidden,
+#bank-panel.hidden,
+#item-menu.hidden,
+#side-panel .hidden {
+    display: none;
+}
+
+#side-panel .tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 10px;
+}
+
+#side-panel .tabs button,
+#bank-panel button {
+    flex: 1;
+    padding: 5px 4px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: #272c31;
+    color: #eee;
+    cursor: pointer;
+}
+
+#side-panel .tabs button.active {
+    border-color: #8aa4bd;
+    background: #354250;
+}
+
+.grid {
+    display: grid;
+    gap: 4px;
+}
+
+.inventory-grid {
+    grid-template-columns: repeat(4, 72px);
+    justify-content: center;
+}
+
+.bank-grid {
+    grid-template-columns: repeat(8, 72px);
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.slot {
+    position: relative;
+    box-sizing: border-box;
+    width: 72px;
+    height: 64px;
+    border-radius: 3px;
+    background: #272c31;
+    cursor: pointer;
+}
+
+.slot.empty {
+    cursor: default;
+    background: #1e2226;
+}
+
+.slot img {
+    display: block;
+    width: 72px;
+    height: 64px;
+    image-rendering: pixelated;
+}
+
+.slot .qty {
+    position: absolute;
+    left: 3px;
+    top: 1px;
+    color: #ffff00;
+    font: bold 13px/1 system-ui, sans-serif;
+    text-shadow: 1px 1px 0 #000;
+}
+
+.slot .qty.thousand {
+    color: #fff;
+}
+
+.slot .qty.million {
+    color: #00ff80;
+}
+
+.equipment-layout {
+    display: grid;
+    grid-template-columns: repeat(3, 72px);
+    gap: 4px;
+    justify-content: center;
+}
+
+.equipment-layout .slot.empty::after {
+    content: attr(data-slot);
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #59616a;
+    font-size: 11px;
+    text-transform: capitalize;
+}
+
+.bonus-table {
+    margin-top: 10px;
+    font-size: 12px;
+}
+
+.bonus-table div {
+    display: flex;
+    justify-content: space-between;
+    padding: 2px 0;
+}
+
+.skill-row,
+.spell-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0 8px;
+    padding: 6px 8px;
+    margin-bottom: 4px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: #272c31;
+    color: #eee;
+    text-align: left;
+}
+
+.skill-row small,
+.spell-row small {
+    grid-column: 1 / -1;
+    color: #aab;
+}
+
+.spell-row {
+    grid-template-columns: 12px 1fr;
+    width: 100%;
+    cursor: pointer;
+}
+
+.spell-row i {
+    align-self: center;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.spell-row small {
+    grid-column: 2;
+}
+
+.spell-row.locked {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.spell-row.selected {
+    border-color: #8aa4bd;
+    background: #354250;
+}
+
+.skill-combat {
+    margin-top: 8px;
+    color: #cfd8e0;
+    text-align: center;
+}
+
+#tab-spellbook {
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+#bank-panel {
+    position: fixed;
+    left: 16px;
+    top: 16px;
+    z-index: 20;
+    box-sizing: border-box;
+    width: calc(100vw - 360px);
+    max-width: 640px;
+    padding: 12px;
+    border: 1px solid #59616a;
+    border-radius: 8px;
+    background: rgba(18, 22, 26, 0.96);
+    color: #eee;
+    font: 13px/1.4 system-ui, sans-serif;
+}
+
+.bank-heading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.bank-heading input {
+    flex: 1;
+    padding: 4px 6px;
+}
+
+.bank-heading div {
+    display: flex;
+    gap: 4px;
+}
+
+#item-menu {
+    position: fixed;
+    z-index: 30;
+    display: grid;
+    min-width: 120px;
+    border: 1px solid #59616a;
+    border-radius: 4px;
+    background: rgba(18, 22, 26, 0.98);
+}
+
+#item-menu button {
+    padding: 5px 10px;
+    border: 0;
+    background: transparent;
+    color: #eee;
+    text-align: left;
+    cursor: pointer;
+}
+
+#item-menu button:hover {
+    background: #354250;
+}

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { tuning } from "../combat/tuning";
 import { units } from "../player/MoveMath";
-import { GUARD_ATTACKS, NpcAttacker, attacksInReach, npcStrikeDamage } from "./NpcAttacks";
+import { GUARD_ATTACKS, NpcAttacker, attacksInReach } from "./NpcAttacks";
 import { SenseInput, canHear, canSee, presenceFor, sightDelay } from "./NpcSenses";
 
 /** NPC at the origin facing north, player straight ahead at `d` tiles. */
@@ -67,9 +67,17 @@ describe("NPC hearing (spec 16.7)", () => {
 });
 
 describe("NPC strikes (spec 16.5, 16.6)", () => {
-    it("deal (7 + 2) × HitPow − 1", () => {
-        expect(npcStrikeDamage(0.7)).toBeCloseTo(5.3);
-        expect(npcStrikeDamage(0.4)).toBeCloseTo(2.6);
+    it("hit for the share of the attack interval that has passed since the last attack", () => {
+        // 4 ticks = 2.4 s. A berserk NPC swings again as soon as the 1.5 s "left" strike ends.
+        const attacker = new NpcAttacker(() => 0, GUARD_ATTACKS, 4);
+        const rates: number[] = [];
+        for (let t = 0; t < 5; t += 0.05) {
+            for (const e of attacker.update(0.05, 0, 10, true)) rates.push(e.rate);
+        }
+        expect(rates[0]).toBe(1);
+        expect(rates.length).toBeGreaterThan(1);
+        expect(rates[1]).toBeGreaterThan(0.5);
+        expect(rates[1]).toBeLessThan(0.75);
     });
 
     it("only picks attacks whose range plus lunge reach", () => {

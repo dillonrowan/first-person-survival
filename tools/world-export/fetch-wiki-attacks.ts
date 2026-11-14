@@ -9,12 +9,60 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { AttackStyle, styleFromWiki } from "../../src/npc/AttackStyle";
 
+/** Combat levels and bonuses from the wiki's infobox_monster bucket (all optional). */
+export type WikiMonsterStats = {
+    hitpoints?: number;
+    attack?: number;
+    strength?: number;
+    defence?: number;
+    ranged?: number;
+    magic?: number;
+    attackBonus?: number;
+    strengthBonus?: number;
+    magicAttack?: number;
+    /** Percent. */
+    magicDamage?: number;
+    rangedAttack?: number;
+    rangedStrength?: number;
+    defStab?: number;
+    defSlash?: number;
+    defCrush?: number;
+    defMagic?: number;
+    defLight?: number;
+    defStandard?: number;
+    defHeavy?: number;
+};
+
 export type WikiAttackRow = {
     page: string;
     anchor?: string;
     level?: number;
     speedTicks?: number;
     styles: { style: AttackStyle; raw: string; maxHit?: number }[];
+    stats?: WikiMonsterStats;
+};
+
+/** Bucket field of each WikiMonsterStats entry. */
+const STAT_FIELDS: Record<keyof WikiMonsterStats, string> = {
+    hitpoints: "hitpoints",
+    attack: "attack_level",
+    strength: "strength_level",
+    defence: "defence_level",
+    ranged: "ranged_level",
+    magic: "magic_level",
+    attackBonus: "attack_bonus",
+    strengthBonus: "strength_bonus",
+    magicAttack: "magic_attack_bonus",
+    magicDamage: "magic_damage_bonus",
+    rangedAttack: "range_attack_bonus",
+    rangedStrength: "range_strength_bonus",
+    defStab: "stab_defence_bonus",
+    defSlash: "slash_defence_bonus",
+    defCrush: "crush_defence_bonus",
+    defMagic: "magic_defence_bonus",
+    defLight: "light_range_defence_bonus",
+    defStandard: "standard_range_defence_bonus",
+    defHeavy: "heavy_range_defence_bonus",
 };
 
 const API = "https://oldschool.runescape.wiki/api.php";
@@ -69,7 +117,7 @@ type BucketRow = {
     attack_speed?: string | number | (string | number)[];
     combat_level?: string | number;
     version_anchor?: string;
-};
+} & Partial<Record<string, string | number | (string | number)[] | null>>;
 
 /** One wiki row as the entry each of its ids gets. */
 export function rowToEntry(row: BucketRow): WikiAttackRow {
@@ -83,18 +131,29 @@ export function rowToEntry(row: BucketRow): WikiAttackRow {
     parseMaxHits(arr(row.max_hit).map(String), styles);
     const speed = Number(arr(row.attack_speed)[0]);
     const level = Number(row.combat_level);
+    const stats: WikiMonsterStats = {};
+    for (const [key, field] of Object.entries(STAT_FIELDS) as [keyof WikiMonsterStats, string][]) {
+        const raw = arr(row[field] as string | number | (string | number)[] | null | undefined)[0];
+        const value = raw === undefined || raw === "" ? NaN : Number(raw);
+        if (Number.isFinite(value)) stats[key] = value;
+    }
     return {
         page: row.page_name ?? "",
         ...(row.version_anchor ? { anchor: row.version_anchor } : {}),
         ...(Number.isFinite(level) && level > 0 ? { level } : {}),
         ...(Number.isFinite(speed) && speed > 0 ? { speedTicks: speed } : {}),
         styles,
+        ...(Object.keys(stats).length > 0 ? { stats } : {}),
     };
 }
 
 async function fetchPage(offset: number): Promise<BucketRow[]> {
     const query =
-        "bucket('infobox_monster').select('page_name','id','attack_style','max_hit','attack_speed','combat_level','version_anchor')" +
+        "bucket('infobox_monster').select('page_name','id','attack_style','max_hit','attack_speed','combat_level','version_anchor'," +
+        Object.values(STAT_FIELDS)
+            .map((f) => `'${f}'`)
+            .join(",") +
+        ")" +
         `.limit(${PAGE_SIZE}).offset(${offset}).run()`;
     const url = `${API}?action=bucket&format=json&query=${encodeURIComponent(query)}`;
     const response = await fetch(url, { headers: { "User-Agent": "first-person-survival-dev" } });

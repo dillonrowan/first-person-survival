@@ -135,9 +135,22 @@ Callisto and Vet'ion have skeletal animations, so they have no clips at all.
   data): `npm run fetch-wiki-attacks` refreshes `data/npc-attacks-wiki.json` from the wiki, and
   `tools/world-export/list-npc-seqs.ts <npcId>` lists the named sequences of an NPC's skeleton
   when an attack needs an explicit sequence in `data/npc-attack-overrides.ts`.
+- Combat stats: the cache's NPC definitions carry the combat levels in opcodes 74-79 (attack,
+  defence, strength, hitpoints, ranged, magic), and the NPC `params` carry some bonuses with the same
+  ids as item bonuses (5-8 defence; the attack bonus and often the ranged defence are missing). The
+  exporter fills the gaps from the wiki's `infobox_monster` bucket (`npm run fetch-wiki-attacks`)
+  and writes them as `NpcAppearanceInfo.combat`, with drop tables (the wiki's `dropsline` bucket)
+  as `drops`.
+- Items: item definitions carry the examine text (opcode 3), the stackable flag (11), the inventory
+  icon camera (4-8 and 95) and scale (110-112), and the equipment bonuses, attack speed (param 14)
+  and skill requirements (params 434-437) as params: 0-4 attack, 5-9 defence, 10 melee strength,
+  12 ranged strength on ammunition, 189 on weapons, 299 magic damage in tenths of a percent.
+  `npm run export-items` writes each inventory model like an NPC model plus `items.json`; the game
+  renders the icons itself with the OSRS sprite camera.
 - Wandering is client-side only and uses a simplified size-N footprint rule.
 - The spawn list is from 2023. Newer content has no spawns until the list is updated.
-- Ground items are still not exported.
+- Ground items come from the wiki's item spawn lines (`npm run fetch-wiki-items`), written to
+  `ground-items.json`; bank booths and chests are exported as `bank` interactives.
 
 ## Tests
 

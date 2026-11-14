@@ -39,6 +39,8 @@ export type DamageResult = {
     /** Push level on the defender: 0 none, 1 medium, 2 long, 3 huge. */
     push: number;
     killed: boolean;
+    /** The attack was rolled and missed: no damage, but the target still reacts. */
+    missed: boolean;
 };
 
 /**
@@ -87,13 +89,30 @@ export function applyHit(
     ctx: DamageContext = {},
     random: () => number = Math.random,
 ): DamageResult {
-    const amount = damageAmount(weapon, hit, ctx);
+    return applyDamage(defender, damageAmount(weapon, hit, ctx), hit, weapon.stunMultiplier, random);
+}
+
+/**
+ * Applies `amount` damage from a hit: the reaction by its share of max health, the stun and fall
+ * rolls and the push. `minReaction` makes even a 0 (a miss) flinch the defender.
+ */
+export function applyDamage(
+    defender: Combatant,
+    amount: number,
+    hit: HitEvent,
+    stunMultiplier: number,
+    random: () => number = Math.random,
+    opts: { minReaction?: "flinch"; missed?: boolean } = {},
+): DamageResult {
     let reaction = reactionFor(amount / defender.maxHealth, hit);
+    if (reaction === "none" && opts.minReaction) {
+        reaction = opts.minReaction;
+    }
     if (reaction === "knockdown" && !(random() < hit.fallChance)) {
         reaction = hit.push ? "push" : "stagger";
     }
     const stunned =
-        reaction !== "knockdown" && random() < hit.stunChance * tuning.stunChanceMultiplier * weapon.stunMultiplier;
+        reaction !== "knockdown" && random() < hit.stunChance * tuning.stunChanceMultiplier * stunMultiplier;
     defender.hurt(amount, reaction, stunned);
 
     // Push level: 0 none, 1 medium slide, 2 long slide, 3 huge. The target turns it into a distance
@@ -114,5 +133,6 @@ export function applyHit(
         knockedDown: reaction === "knockdown",
         push,
         killed: defender.dead,
+        missed: opts.missed ?? false,
     };
 }

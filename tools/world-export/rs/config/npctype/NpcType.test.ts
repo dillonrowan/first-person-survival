@@ -62,6 +62,15 @@ describe("NpcType (rev 242)", () => {
         expect(buffer.offset).toBe(buffer._data.length);
     });
 
+    it("reads the combat stats of opcodes 74-79", () => {
+        const demon = decode(240, BLACK_DEMON).npc;
+        expect(demon.hasStats).toBe(true);
+        expect(demon.stats).toEqual([145, 152, 148, 157, 1, 1]);
+        const man = decode(3106, MAN).npc;
+        expect(man.stats).toEqual([1, 1, 1, 7, 1, 1]);
+        expect(decode(25, MULTI_NPC).npc.hasStats).toBe(false);
+    });
+
     it("defaults rotation speed and spawn direction", () => {
         const { npc } = decode(3106, MAN);
 

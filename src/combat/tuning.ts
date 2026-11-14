@@ -72,9 +72,6 @@ export const tuning = {
     adrenalineDecayAmount: 1,
 
     // --- NPCs ---
-    /** Health per combat level, with a floor. [design] */
-    npcHealthPerLevel: 6,
-    npcMinHealth: 20,
     /** Seconds an NPC stays in combat mode (not wandering) after being hit. [design] */
     npcCombatMemory: 10,
     /** Seconds a corpse (ragdoll) stays before it is removed. [design] */
@@ -110,10 +107,10 @@ export const tuning = {
     ragdollHitRepeat: 2.0,
 
     // --- Player ---
-    /** [source: CBasePlayer default] */
-    playerMaxHealth: 100,
-    /** The player takes hits (reactions, feedback) but never loses health. [design: testing] */
-    playerUnlimitedHealth: true,
+    /** The player takes hits (reactions, feedback) but never loses health. A live debug switch. [design: testing] */
+    playerUnlimitedHealth: false,
+    /** One health back per this many seconds. [OSRS wiki Hitpoints: 1 per minute] */
+    playerRegenInterval: 60,
 
     // --- 7 Kick (player_animations.mdl attack_kick_*, 24 fps, 21 frames) ---
     /** Whole kick animation. [data: 21 frames at 24 fps] */
@@ -218,12 +215,21 @@ export const tuning = {
     gravity: units(600),
 
     // --- 16.5 Enemy damage [gh 0x224d5840] ---
-    /** Player armour with none worn; subtracted ×100 from every hit. [data armordefenderbase] */
-    playerArmour: 0.01,
-    /** NPC strength added to the weapon's WDmg (guard). [data npc_guard] */
-    npcStrength: 7,
-    /** NPC weapon damage (short sword WDmg). [data sword_short] */
-    npcWeaponDamage: 2,
+    // Damage is OSRS now (Osrs.ts): the accuracy roll, max hit and rate; see docs/combat-movement-spec.md 5.
+    /** A quick strike HitPow, which counts as x1 damage; other moves scale around it. [design] */
+    osrsQuickHitPow: 0.7,
+    /** Most the rate x move x hit zone x awareness factor can multiply a rolled hit by. [design] */
+    osrsMaxDamageMultiplier: 3,
+    /** Spell projectile speed, tiles/s. [design] */
+    spellSpeed: 18,
+    /** Seconds between casts; damage per second still follows OSRS through the swing rate. [design] */
+    spellCastCooldown: 1.2,
+    /** Seconds between eating two foods. [OSRS: 3 ticks] */
+    eatDelay: 1.8,
+    /** Seconds a ground item from the world takes to come back after it is taken. [design] */
+    groundItemRespawn: 60,
+    /** Seconds a dropped item lies before it disappears. [OSRS: 3 minutes] */
+    groundItemDespawn: 180,
 
     // --- 16.7 Aggro [gh 0x222ce8a0, 0x222c74a0, 0x2228ea70; data ai] ---
     /** Full view-cone angles, calm and alerted. */
@@ -306,6 +312,7 @@ export const tuning = {
     bowSway: 0.02,
     bowHitPow: 1.5,
     bowAdrenaline: 2,
+    /** Defaults of the controllers; PlayerCombat sets the real counts from the ammo slot every update. */
     arrowsStart: 30,
     /** Crossbow: seconds to span the string and seat a bolt, after each shot and on equipping. [design] */
     crossbowReloadTime: 1.8,
