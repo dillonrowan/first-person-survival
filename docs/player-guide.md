@@ -131,9 +131,10 @@ next level, and your combat level). Skills are saved in the browser.
 - Your max hit and accuracy come from your skill and the bonuses of everything you wear. Swinging
   faster than the weapon's OSRS speed does not add damage per second: a swing made sooner than that
   speed hits for proportionally less.
-- XP is earned when the NPC you damaged dies: 4 per damage to the skill of your attack style and
-  1.33 to Hitpoints (a spell gives 2 Magic per damage plus its base XP). A level-up shows a
-  message and gives the extra health.
+- Melee and ranged XP is earned when the NPC you damaged dies, for the damage you dealt it: 4 per
+  damage to the skill of your attack style and 1.33 to Hitpoints. Magic XP comes straight away when
+  a spell does damage: the spell's base XP plus 2 Magic and 1.33 Hitpoints per damage (a spell that
+  splashes for 0 gives none). A level-up shows a message and gives the extra health.
 - Press `Q` to cycle your attack style: melee accurate, aggressive or defensive; ranged accurate,
   rapid (a tick faster) or longrange (half the XP to Defence).
 - Health comes back by eating food (below) and by one point a minute.

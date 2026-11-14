@@ -581,6 +581,35 @@ describe("OSRS damage from the player", () => {
         expect(used).toEqual([[1, 1]]); // Wind Strike: 1 air, 1 mind
     });
 
+    function castAt(random: () => number) {
+        const { target, ledger, bodies } = dummy(1000);
+        const skills = new PlayerSkills();
+        const combat = new PlayerCombat(bodies, noWalls, random, skills, new Spellbook(), NO_GEAR);
+        const granted: object[] = [];
+        combat.onXp = (gains) => granted.push(gains);
+        combat.update(0.01, player, { ...idle, castPressed: true });
+        for (let i = 0; i < 30; i++) combat.update(0.02, player, idle);
+        return { target, ledger, skills, granted };
+    }
+
+    it("gives magic XP from the cast as soon as the spell does damage, banking nothing", () => {
+        // Hit, top roll (Wind Strike max 2), round up, no stun.
+        const { target, ledger, skills, granted } = castAt(scripted(0, 0.99, 0, 0.99));
+        const dealt = 1000 - target.combatant.health;
+        expect(dealt).toBeGreaterThan(0);
+        expect(skills.xp("magic")).toBeCloseTo(5.5 + 2 * dealt);
+        expect(skills.xp("hitpoints")).toBeCloseTo(1154 + (4 * dealt) / 3);
+        expect(granted).toHaveLength(1);
+        expect(ledger.empty).toBe(true);
+    });
+
+    it("gives no magic XP for a splash", () => {
+        const { skills, granted, ledger } = castAt(scripted(0.999));
+        expect(skills.xp("magic")).toBe(0);
+        expect(granted).toHaveLength(0);
+        expect(ledger.empty).toBe(true);
+    });
+
     it("waits between casts", () => {
         const { combat } = casting();
         combat.update(0.01, player, { ...idle, castPressed: true });

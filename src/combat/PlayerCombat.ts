@@ -14,7 +14,7 @@ import type { ShieldDef } from "./Shields";
 import { SHIELDS } from "./Shields";
 import type { DefenceType, NpcCombatStats } from "../world/NpcFormat";
 import { CombatGear, NO_GEAR } from "./Equipment";
-import { MAGIC_STYLE, MELEE_STYLES, stylesFor, xpForDamage } from "./CombatStyles";
+import { MAGIC_STYLE, MELEE_STYLES, XpGains, stylesFor, xpForDamage } from "./CombatStyles";
 import type { CombatStyleDef } from "./CombatStyles";
 import {
     PlayerAttack,
@@ -32,7 +32,7 @@ import {
     playerRangedAttack,
     stochasticRound,
 } from "./Osrs";
-import { PlayerSkills } from "./Skills";
+import { LevelUp, PlayerSkills } from "./Skills";
 import { SPELL_TICKS, SpellDef, Spellbook } from "./Spells";
 import type { XpLedger } from "./XpLedger";
 import { NPC_POISON_CHANCE, WEAPON_POISON_CHANCE, weaponPoisonSeverity } from "./Poison";
@@ -165,6 +165,8 @@ export class PlayerCombat {
     /** Called when a spell is cast, and when one cannot be (level or runes). */
     onCast?: (spell: SpellDef) => void;
     onCastFailed?: (message: string) => void;
+    /** XP was granted straight away (a spell that did damage), with any levels it gained. */
+    onXp?: (gains: XpGains, levelUps: LevelUp[]) => void;
     /** Index into `styles` of the attack style in use. */
     styleIndex = 0;
     private shieldOverride: ShieldDef | undefined = undefined;
@@ -323,7 +325,17 @@ export class PlayerCombat {
         ) {
             result.poisoned = true;
         }
-        target.xpLedger?.add(xpForDamage(attack.style, Math.min(amount, before), attack.spellXp));
+        const dealt = Math.min(amount, before);
+        if (attack.kind === "magic") {
+            // Magic XP comes from the cast as soon as the spell does damage; a splash gives none.
+            if (dealt > 0) {
+                const gains = xpForDamage(attack.style, dealt, attack.spellXp);
+                this.onXp?.(gains, this.skills.addXp(gains));
+            }
+        } else {
+            // Melee and ranged XP is banked on the target and paid when it dies, for the damage dealt.
+            target.xpLedger?.add(xpForDamage(attack.style, dealt, attack.spellXp));
+        }
         return result;
     }
 

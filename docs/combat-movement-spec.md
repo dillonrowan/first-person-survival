@@ -263,9 +263,10 @@ Fractions round up with that probability. Thrown props, falls, wall slams and fl
 their own damage, but as a share of 100 health applied to the target's own maximum health
 (`environmentDamage`).
 
-**XP.** Damage dealt is banked per NPC and paid out when it dies: 4 per damage to the style's skill
-(longrange: 2 Ranged and 2 Defence; defensive: Defence) and 4/3 to Hitpoints; a spell gives 2 Magic
-per damage plus its base XP, also for a miss.
+**XP.** Melee and ranged damage is banked per NPC and paid out when it dies, for the damage
+dealt to it (capped at the health it had left): 4 per damage to the style's skill (longrange: 2
+Ranged and 2 Defence; defensive: Defence) and 4/3 to Hitpoints. Magic XP is paid when a spell that
+does damage lands: its base XP plus 2 Magic and 4/3 Hitpoints per damage; a splash gives none.
 
 **Levels.** `xp(L) = floor(1/4 × Σ floor(l + 300 × 2^(l/7)))`; combat level
 `floor((Defence + Hitpoints)/4 + max(13/40 × 2 × Melee, 13/40 × floor(1.5 × Ranged), 13/40 × floor(1.5 × Magic)))`.

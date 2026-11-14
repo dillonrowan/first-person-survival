@@ -46,7 +46,8 @@ export type XpGains = Partial<Record<"melee" | "defence" | "ranged" | "magic" | 
 
 /**
  * XP for `damage` dealt: 4 per damage to the style's skill and 4/3 to Hitpoints; longrange splits
- * 2 Ranged and 2 Defence; magic gives 2 per damage plus the spell's base XP, even for a splash.
+ * 2 Ranged and 2 Defence; magic gives 2 per damage plus the spell's base XP. PlayerCombat pays
+ * magic XP at once, and only for a spell that does damage; melee and ranged XP waits for the kill.
  */
 export function xpForDamage(style: CombatStyleDef, damage: number, spellXp = 0): XpGains {
     const hitpoints = (damage * 4) / 3;

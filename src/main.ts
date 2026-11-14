@@ -28,7 +28,7 @@ import { EnemyHealthBars } from "./ui/EnemyHealthBars";
 import { WeaponMenu } from "./ui/WeaponMenu";
 import { createCacheWeaponModel } from "./combat/CacheWeaponModel";
 import { environmentDamage } from "./combat/Osrs";
-import { PlayerSkills, SKILL_NAMES } from "./combat/Skills";
+import { LevelUp, PlayerSkills, SKILL_NAMES } from "./combat/Skills";
 import { Spellbook } from "./combat/Spells";
 import { GroundItems, GroundEntry } from "./items/GroundItems";
 import { rollDrops } from "./items/Drops";
@@ -432,8 +432,8 @@ async function main(): Promise<void> {
         }
     };
     /** An NPC died: pay out the XP of the damage the player dealt it and drop what it carried. */
-    const killed = (npc: Npc) => {
-        const ups = skills.addXp(npc.xpLedger.drain());
+    /** XP was granted: level-up messages, the health a Hitpoints level brings, and the panels. */
+    const xpGained = (ups: LevelUp[]) => {
         if (ups.length > 0) {
             combat.syncMaxHealth();
             ui.showMessage(
@@ -442,6 +442,10 @@ async function main(): Promise<void> {
         }
         skillsPanel.refresh();
         spellbookPanel.refresh();
+    };
+    combat.onXp = (_gains, ups) => xpGained(ups);
+    const killed = (npc: Npc) => {
+        xpGained(skills.addXp(npc.xpLedger.drain()));
         for (const stack of rollDrops(npc.appearance.drops ?? [], Math.random)) {
             groundItems.add(stack, Math.floor(npc.body.x), Math.floor(npc.body.y), npc.plane, {
                 despawnIn: tuning.groundItemDespawn,
