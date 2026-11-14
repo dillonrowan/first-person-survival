@@ -147,8 +147,10 @@ next level, and your combat level). Skills are saved in the browser.
 
 **Spells.** Press `B` for the spellbook: the 20 combat spells from Wind Strike to Fire Surge, locked
 ones greyed out with their level. Click an unlocked spell to equip it; one is equipped at a time and
-is saved. Press `G` to cast it with any weapon, or `Mouse 2` while holding a staff or wand. The orb
-flies straight and stops at walls. Each cast uses its runes from the inventory (shown on the spell),
+is saved. Press `G` to cast it with any weapon, or `Mouse 2` while holding a staff or wand. Spells
+look as they do in OSRS (the models and animations come from the game cache): the cast swirl plays
+at your hands, the spell flies straight and stops at walls, and on a hit its impact bursts on the
+target. A spell that misses splashes: a blue-grey cloud, and no hitsplat. Each cast uses its runes from the inventory (shown on the spell),
 except the runes an elemental staff or wand supplies for free (a Staff of air never uses air runes).
 You start with 999 of every rune.
 

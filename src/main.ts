@@ -13,6 +13,8 @@ import { NpcProjectileView } from "./npc/NpcProjectileView";
 import { NpcProjectile, ProjectileTarget, launchNpcProjectile, stepNpcProjectiles } from "./npc/NpcProjectiles";
 import { presenceFor } from "./npc/NpcSenses";
 import { ArrowView } from "./combat/ArrowView";
+import { SpellEffects, SpellGfxLibrary } from "./combat/SpellGfxView";
+import { IMPACT_HEIGHT, SPELL_GRAPHICS, SPLASH_GRAPHIC } from "./world/SpellGfxFormat";
 import { Avatar } from "./avatar/Avatar";
 import { loadAvatarAsset } from "./avatar/AvatarAsset";
 import { CameraRig } from "./player/CameraRig";
@@ -109,6 +111,11 @@ async function loadNpcManifest(manifest: WorldManifest): Promise<NpcManifest | u
 }
 
 /** The ground item spawn list, or undefined if the world was exported without item data. */
+/** Where the first-person cast graphic plays: tiles ahead of the eye, below it, and its scale. [design] */
+const CAST_VIEW_AHEAD = 0.9;
+const CAST_VIEW_BELOW = 0.45;
+const CAST_VIEW_SCALE = 0.45;
+
 async function loadGroundItems(manifest: WorldManifest): Promise<GroundItemManifest | undefined> {
     if (!manifest.groundItems) {
         return undefined;
@@ -173,6 +180,10 @@ async function main(): Promise<void> {
     });
 
     const world = new World(WORLD_URL, manifest, materials, scene);
+    // OSRS spell graphics (cast, projectile, impact, splash), small enough to fetch up front.
+    const spellGfx = await SpellGfxLibrary.load(import.meta.env.BASE_URL, materials);
+    spellGfx.preload([SPLASH_GRAPHIC, ...Object.values(SPELL_GRAPHICS).flatMap((g) => [g.cast, g.projectile, g.impact])]);
+    const spellEffects = new SpellEffects(scene, spellGfx);
     const npcManifest = await loadNpcManifest(manifest);
     const npcs = npcManifest
         ? new Npcs(npcManifest, world, scene, materials, async (file) => {
@@ -306,9 +317,16 @@ async function main(): Promise<void> {
     combat.groundHeight = (plane, x, y) => world.groundHeight(plane, x, y);
     combat.obstacleTop = (minX, minY, maxX, maxY) => world.obstacleTop(minX, minY, maxX, maxY);
     const hitFeel = new HitFeel();
-    combat.onHit = ({ result, move, target }) => {
-        if (target.combatStats) {
+    combat.onHit = ({ result, move, target, spell }) => {
+        // A splashed spell shows only the splash graphic, no hitsplat, as in OSRS.
+        if (target.combatStats && !(spell && result.missed)) {
             hitsplats.addNpc(target as unknown as Npc, splatKind(result), result.amount);
+        }
+        const graphics = spell ? SPELL_GRAPHICS[spell] : undefined;
+        const body = (target as unknown as Partial<Npc>).body;
+        if (graphics && body) {
+            // The spell's impact on the target, or the blue splash when it missed, as in OSRS.
+            spellEffects.play(result.missed ? SPLASH_GRAPHIC : graphics.impact, () => body, IMPACT_HEIGHT / 128);
         }
         combatHud.showHit(!result.missed && result.reaction !== "none" && result.reaction !== "flinch");
         if (combat.melee.swing?.move === move) {
@@ -319,6 +337,25 @@ async function main(): Promise<void> {
         }
     };
     combat.onCastFailed = (message) => ui.showMessage(message);
+    combat.onCast = (spell) => {
+        const graphics = SPELL_GRAPHICS[spell.id];
+        if (graphics) {
+            // OSRS draws the cast graphic round the caster's hands. Seen from the
+            // eye that would fill the view, so it plays smaller where the hands are: ahead of and
+            // below the eye, turned with the view. [design]
+            spellEffects.play(
+                graphics.cast,
+                () => ({
+                    x: player.x - Math.sin(player.yaw) * CAST_VIEW_AHEAD,
+                    y: player.y + Math.cos(player.yaw) * CAST_VIEW_AHEAD,
+                    z: player.z + player.eyeHeight - CAST_VIEW_BELOW,
+                    yaw: player.yaw,
+                }),
+                0,
+                CAST_VIEW_SCALE,
+            );
+        }
+    };
     combat.onStruck = ({ outcome, style, shielded, damage, missed, poisoned }) => {
         if (outcome === "hit") {
             combatHud.showDamage(damage, missed);
@@ -343,7 +380,7 @@ async function main(): Promise<void> {
             hitsplats.addPlayer("damage", hurt);
         }
     };
-    const arrowView = new ArrowView(scene);
+    const arrowView = new ArrowView(scene, spellGfx);
     /** Arrows, spells, rocks, spit and fireballs NPCs have shot, and the flames they breathe. */
     const npcProjectiles: NpcProjectile[] = [];
     const projectileView = new NpcProjectileView(scene);
@@ -580,7 +617,7 @@ async function main(): Promise<void> {
         Object.assign(window, {
             game: {
                 renderer, scene, camera, world, player, npcs, props, cameraRig, avatar, interaction, interactives, combat, tuning,
-                skills, spellbook, items, db: itemDb, groundItems, sidePanel, hitsplats,
+                skills, spellbook, items, db: itemDb, groundItems, sidePanel, hitsplats, spellEffects,
             },
         });
     }
@@ -799,6 +836,7 @@ async function main(): Promise<void> {
             }
         }
         hitsplats.update(dt);
+        spellEffects.update(dt);
         renderer.render(scene, camera);
 
         frames++;

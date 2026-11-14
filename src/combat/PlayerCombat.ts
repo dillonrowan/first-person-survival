@@ -106,7 +106,13 @@ export type CombatInput = {
     strafe: number;
 };
 
-export type HitReport = { target: CombatTarget; result: DamageResult; move: MoveDef };
+export type HitReport = {
+    target: CombatTarget;
+    result: DamageResult;
+    move: MoveDef;
+    /** Id of the spell that landed (src/combat/Spells.ts), for its impact or splash graphic. */
+    spell?: string;
+};
 export type KickReport = { target?: CombatTarget; outcome: "dodged" | "hit" | "miss" };
 /** An NPC strike that reached the player. */
 export type StrikeReport = {
@@ -370,7 +376,7 @@ export class PlayerCombat {
             player.pitch,
             { speed: tuning.spellSpeed, gravity: 0 },
         );
-        cast.spell = { color: spell.color };
+        cast.spell = { color: spell.color, id: spell.id };
         cast.attack = this.snapshot("magic", spell);
         this.arrows.push(cast);
         this.castCooldown = tuning.spellCastCooldown;
@@ -740,7 +746,7 @@ export class PlayerCombat {
                       );
             target.takeHit(hit.dirX, hit.dirY, result.push, player.x, player.y, ARROW_HIT.hitPow, height);
             this.melee.addAdrenaline(ARROW_HIT.adrenaline);
-            const report = { target, result, move: ARROW_MOVE };
+            const report: HitReport = { target, result, move: ARROW_MOVE, spell: hit.arrow.spell?.id };
             this.onHit?.(report);
         }
     }

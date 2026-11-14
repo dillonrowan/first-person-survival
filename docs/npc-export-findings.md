@@ -151,6 +151,10 @@ Callisto and Vet'ion have skeletal animations, so they have no clips at all.
 - The spawn list is from 2023. Newer content has no spawns until the list is updated.
 - Ground items come from the wiki's item spawn lines (`npm run fetch-wiki-items`), written to
   `ground-items.json`; bank booths and chests are exported as `bank` interactives.
+- Spot animations (config archive 13, `rs/config/spotanimtype/SpotAnimType.ts`): opcode 1 model
+  (u16), 3 model (int, rev 242 uses this), 2 sequence, 4/5 width and height scale, 6 orientation
+  (degrees), 7/8 ambient and contrast, 10 a flag with no data (the Surge impacts), 40/41 recolours
+  and retextures. Spell graphics are baked from them by `npm run export-spells`.
 
 ## Tests
 

@@ -291,6 +291,16 @@ level, max hit at unlock, XP and runes; one spell is equipped at a time and cost
 inventory (an elemental staff or wand supplies its element's runes endlessly). A spell flies at
 18 tiles/s without gravity and is gone at a wall.
 
+**Spell graphics** `[cache: spot animations, config archive 13]`. Each spell has its OSRS cast,
+projectile and impact spot animation (Wind Strike 90, 91, 92; the table is `SPELL_GRAPHICS` in
+`src/world/SpellGfxFormat.ts`), and a miss shows the splash (85) instead of the impact, with no
+hitsplat. Each is baked as the client draws it: recoloured, lit with ambient + 64 and contrast + 850,
+posed per frame of its sequence (alpha fades included), scaled. The projectile loops its animation
+with its front along the flight and is not drawn until 0.9 tiles from the eye. Impact and splash play
+once, 100 RS units above the target's feet `[design: the height is server data]`, following it. The
+cast graphic plays once at the hands, 0.45 scale, 0.9 tiles ahead of and 0.45 below the eye
+`[design: at full size round the caster it would fill a first-person view]`.
+
 ### 5.3 Reaction size
 
 Section 15 adds what each reaction looks like and how long it lasts.

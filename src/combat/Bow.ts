@@ -252,8 +252,8 @@ export type Arrow = {
     gravity?: number;
     /** A crossbow bolt rather than an arrow (drawn differently, flies the same). */
     bolt?: boolean;
-    /** A spell rather than an arrow: drawn as an orb, no gravity, gone when it meets a wall. */
-    spell?: { color: number };
+    /** A spell rather than an arrow: drawn with its OSRS graphic (or an orb), no gravity, gone when it meets a wall. */
+    spell?: { color: number; id?: string };
     /** The rolls made when it was shot; hits on NPCs with stats use them. */
     attack?: PlayerAttack;
 };
