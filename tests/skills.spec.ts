@@ -95,7 +95,8 @@ test("a tree gives logs and a range cooks", async ({ page }) => {
         g.skillSystem.useItemOnLoc(range, slot);
         document.querySelector<HTMLButtonElement>("#make-menu .choice-option")!.click();
         g.clock.advance(10);
-        return g.items.count(g.db.byName("Shrimps").id) + g.items.count(g.db.byName("Burnt shrimp").id);
+        // Several items share the name "Burnt shrimp", so match by name.
+        return g.items.inventory.slots.filter((st: any) => st && /^(shrimps|burnt shrimp)$/i.test(g.db.get(st.id)?.name)).length;
     });
     expect(cooked).toBe(1);
 });
