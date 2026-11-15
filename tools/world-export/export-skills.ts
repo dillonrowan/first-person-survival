@@ -143,7 +143,7 @@ function main(): void {
         const meshes = buildModelMeshes(model, faceColors, loaders.textureLoader, 1);
         if (!meshes) continue;
         const data = encodeNpcModel({ vertexCount: model.verticesCount, bounds: computeBounds(model, []), ...meshes });
-        fs.writeFileSync(path.join(modelDir, `loc-${id}.bin`), gzipSync(data, { level: 6 }));
+        fs.writeFileSync(path.join(modelDir, `loc-${id}.bin`), gzipSync(data, { level: 6, mtime: 0 }));
     }
 
     const unresolved = [...ctx.unresolved].sort((a, b) => b[1] - a[1]);
