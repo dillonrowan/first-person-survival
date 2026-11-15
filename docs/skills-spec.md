@@ -39,14 +39,18 @@ can be banked, not buried) and Sailing.
   `(floor(low * (99 - L) / 98 + high * (L - 1) / 98 + 0.5) + 1) / 256`, clamped to 0..1.
 - **Loot rolls**: chance-1 rows always come; the rest is one weighted pick when the chances add up
   to at most 1, otherwise each row rolls on its own.
-- **Woodcutting**: a roll every 4 ticks with the best usable axe's chart series. Trees with a
-  despawn time fall when their timer (counting down while chopped, back up while not) is spent;
+- **Woodcutting**: every blow of the wielded axe that lands on a standing tree (the melee swing
+  trace stops on it) rolls the axe's chart series at the player's level. Trees with a despawn time
+  fall when their timer (counting down for 4 ticks after each blow, back up otherwise) is spent;
   others fall with 1/8 per log (1/16 for the mature juniper).
-- **Mining**: a roll per pickaxe interval (bronze 8 ticks down to rune 3; dragon, 3rd age and
-  infernal 3 with 1/6 chance of 2; crystal 3 with 1/4 of 2); every ore empties the rock. Rune
-  essence never empties and gives pure essence from Mining 30.
-- **Fishing**: a roll every 5 ticks; catches the player has the level for are tried highest level
-  first, the first success is the catch; one bait per catch.
+- **Mining**: every blow of the wielded pickaxe that lands on a rock rolls the rock's chance times
+  `min(1, seconds since the last blow / (interval × 0.6))`, the interval being the pickaxe's
+  (bronze 8 ticks down to rune 3; dragon, 3rd age and infernal 3 with 1/6 chance of 2, crystal 3
+  with 1/4 of 2, counted as their average); every ore empties the rock. Rune essence never empties
+  and gives pure essence from Mining 30.
+- **Fishing**: each cast (a click, at most one per 2 ticks) that lands on the spot under the
+  crosshair rolls; catches the player has the level for are tried highest level first, the first
+  success is the catch; one bait per catch.
 - **Cooking**: a failed roll on the item's chart (range series on a range, fire series on a fire)
   burns it. **Smithing**: iron bars succeed half the time.
 - **Firemaking**: a roll every 4 ticks with the Logs chart (65, 513) for every log; fires last
@@ -76,3 +80,5 @@ can be banked, not buried) and Sailing.
 | Sawmill planks | Logs + 100, Oak + 250, Teak + 500, Mahogany + 1,500 coins; instant, no XP |
 | Shops | an unstocked item sells for 40% of its cache value; stock moves one toward its base every restock time |
 | Moving away | a job stops when the player is 0.75 tiles from where it started |
+| Gathering by hand | an axe blow rolls the full OSRS chance (faster than the OSRS 4-tick cycle when swinging quickly); a pickaxe blow is scaled by its interval; a cast takes 2 ticks and rolls in full |
+| Tree and rock reactions | Blender-keyed clips (`tools/blender/loc_reactions.py` writes `src/world/LocReactionClips.ts`): a blow shudders a tree or jolts a rock away from the player, the last log topples the tree, the last ore crumbles the rock |

@@ -77,39 +77,58 @@ describe("TickClock", () => {
 });
 
 describe("woodcutting", () => {
-    it("fells a normal tree on a log when the 1/8 roll hits", () => {
+    it("Chop down wields the best axe; each blow that lands rolls for a log", () => {
         const t = setup();
         t.inventory.add(BRONZE_AXE, 1);
         const loc = t.place(testLoc(1276, "Tree"));
-        setRandom(() => 0.01);
         t.sys.locAction(loc, "Chop down");
-        t.ctx.clock.advance(4);
+        expect(t.worn[0]).toBe(BRONZE_AXE);
+        expect(t.sys.isSolid(loc)).toBe(true);
+        setRandom(() => 0.99); // the roll fails
+        t.sys.strike(loc);
+        expect(t.inventory.count(LOGS)).toBe(0);
+        setRandom(() => 0.01); // the roll and the 1/8 fall both hit
+        t.sys.strike(loc);
         expect(t.inventory.count(LOGS)).toBe(1);
         expect(t.sys.gathering.isDepleted(loc.key)).toBe(true);
-        expect(t.sys.active).toBeUndefined();
+        expect(t.sys.isSolid(loc)).toBe(false); // a stump does not stop the blade
+        expect(t.animations).toEqual(["treeHit@0:10:10:1276", "treeHit@0:10:10:1276", "treeFall@0:10:10:1276"]);
         t.ctx.clock.advance(10);
         expect(t.sys.gathering.isDepleted(loc.key)).toBe(false);
     });
 
-    it("counts an oak's timer down while chopped and back up while not", () => {
+    it("needs an axe in hand to get logs", () => {
         const t = setup();
         t.inventory.add(BRONZE_AXE, 1);
+        const loc = t.place(testLoc(1276, "Tree"));
+        setRandom(() => 0.01);
+        t.sys.strike(loc);
+        expect(t.inventory.count(LOGS)).toBe(0);
+        expect(t.logs.at(-1)).toBe("You need to wield an axe to chop this tree.");
+    });
+
+    it("counts an oak's timer down while chopped and back up while not", () => {
+        const t = setup();
+        t.worn.push(BRONZE_AXE);
         const loc = t.place(testLoc(10820, "Oak tree"));
         setRandom(() => 0.99); // every roll fails: only the timer runs
-        t.sys.locAction(loc, "Chop down");
-        t.ctx.clock.advance(20);
-        t.sys.stop();
+        for (let i = 0; i < 5; i++) {
+            t.sys.strike(loc);
+            t.ctx.clock.advance(4);
+        }
         t.ctx.clock.advance(30);
         setRandom(() => 0.01);
-        t.sys.locAction(loc, "Chop down");
-        t.ctx.clock.advance(4);
+        t.sys.strike(loc);
         // The timer refilled, so the first log does not fell it.
         expect(t.inventory.count(OAK_LOGS)).toBe(1);
         expect(t.sys.gathering.isDepleted(loc.key)).toBe(false);
         setRandom(() => 0.99);
-        t.ctx.clock.advance(44);
+        for (let i = 0; i < 12; i++) {
+            t.ctx.clock.advance(4);
+            t.sys.strike(loc);
+        }
         setRandom(() => 0.01);
-        t.ctx.clock.advance(4);
+        t.sys.strike(loc);
         expect(t.sys.gathering.isDepleted(loc.key)).toBe(true);
     });
 
@@ -134,14 +153,32 @@ describe("mining", () => {
         t.inventory.add(PICK, 1);
         const loc = t.place(testLoc(10943, "Copper rocks"));
         t.sys.locAction(loc, "Mine");
-        t.ctx.clock.advance(7);
-        expect(t.inventory.count(COPPER)).toBe(0);
-        t.ctx.clock.advance(1);
+        expect(t.worn[0]).toBe(PICK);
+        setRandom(() => 0.5);
+        t.sys.strike(loc); // the first blow has the full chance (copper: always)
         expect(t.inventory.count(COPPER)).toBe(1);
         expect(t.logs.at(-1)).toBe("You manage to mine some copper.");
         expect(t.sys.gathering.isDepleted(loc.key)).toBe(true);
         t.ctx.clock.advance(4);
         expect(t.sys.gathering.isDepleted(loc.key)).toBe(false);
+    });
+
+    it("scales a blow's chance by how much of the pickaxe interval has passed", () => {
+        const t = setup();
+        t.worn.push(PICK);
+        const loc = t.place(testLoc(10943, "Copper rocks"));
+        setRandom(() => 0.6);
+        t.sys.strike(loc); // copper never fails a full-chance blow
+        t.ctx.clock.advance(4); // the rock is back; 4 of the bronze pickaxe's 8 ticks: half the chance
+        t.sys.strike(loc);
+        expect(t.inventory.count(COPPER)).toBe(1);
+        t.ctx.clock.advance(2);
+        setRandom(() => 0.7);
+        t.sys.strike(loc); // 2 ticks since the last blow: a quarter
+        expect(t.inventory.count(COPPER)).toBe(1);
+        t.ctx.clock.advance(6);
+        t.sys.strike(loc); // 6 ticks: three quarters
+        expect(t.inventory.count(COPPER)).toBe(2);
     });
 });
 

@@ -55,7 +55,7 @@ export class SkillSystem {
         readonly ctx: SkillContext,
         readonly ui: SkillUi,
     ) {
-        this.gathering = new Gathering(ctx, this);
+        this.gathering = new Gathering(ctx);
         this.fishing = new Fishing(ctx, this);
         this.artisan = new Artisan(ctx, this);
         this.firemaking = new Firemaking(ctx, this);
@@ -98,9 +98,34 @@ export class SkillSystem {
     /** 0..1 through the current tool swing, or undefined when nothing swings. */
     swingPhase(): number | undefined {
         const job = this.job;
+        if (job?.swingPhase) return job.swingPhase();
         if (!job || job.swingTicks <= 0) return undefined;
         const clock = this.ctx.clock;
         return ((clock.tick + clock.tickFraction) % job.swingTicks) / job.swingTicks;
+    }
+
+    /** Whether the current job takes the attack button instead of the weapon (fishing). */
+    get takesClicks(): boolean {
+        return !!this.job?.click;
+    }
+
+    /** The attack button, while `takesClicks`: `aimed` is what the crosshair is on. */
+    click(aimed: unknown): void {
+        const job = this.job;
+        if (job?.click && !job.click(aimed) && this.job === job) this.stop();
+    }
+
+    /** Whether a swung blade stops on this loc: standing trees and rocks. */
+    isSolid(instance: SkillLocInstance): boolean {
+        const role = this.ctx.data.locs[instance.loc.id]?.role;
+        return role === "rock" || (role === "tree" && !this.gathering.isDepleted(instance.key));
+    }
+
+    /** A swung blade struck a tree or rock. */
+    strike(instance: SkillLocInstance): void {
+        const role = this.ctx.data.locs[instance.loc.id];
+        if (role?.role === "tree") this.gathering.strikeTree(instance, role.index);
+        else if (role?.role === "rock") this.gathering.strikeRock(instance, role.index);
     }
 
     private tick(t: number): void {

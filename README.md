@@ -79,7 +79,10 @@ The OSRS non-combat skills (except Agility) work on the exported map: Woodcuttin
 Fishing, Cooking, Firemaking, Smithing, Crafting, Fletching, Herblore, Runecraft, Thieving, Hunter,
 Farming, Slayer and Construction, with the 28-slot inventory, the bank, shops, monster drops and
 NPC respawn. Aim at a tree, rock, fishing spot, furnace or stall and press E; use an inventory item
-on another or on what you aim at. Skilling runs on the 0.6 s OSRS game tick. Data comes from the
+on another or on what you aim at. Trees and rocks are gathered by swinging a wielded axe or pickaxe
+into them (every blow that lands rolls), fishing by clicking to cast at the spot; their reactions
+are keyframed in Blender (`tools/blender/loc_reactions.py`). Other skilling runs on the 0.6 s OSRS
+game tick. Data comes from the
 OSRS wiki (`npm run fetch-wiki-skills`, committed in `tools/world-export/data/wiki/`) and the
 cache. The run order is `export-world`, then `export-skills`, then `export-items`
 (`export-skills` also writes `tools/world-export/data/skill-locs.json`, which `export-world`

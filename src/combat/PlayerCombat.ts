@@ -2,7 +2,7 @@ import type { Body, BodySource } from "../physics/Bodies";
 import type { FlagsAt } from "../physics/TileColliders";
 import { Combatant } from "./Combatant";
 import { DamageResult, applyDamage, applyHit, hitboxMultiplier } from "./Damage";
-import { pushDirection, raySign, traceRay } from "./SwingRay";
+import { SolidSource, pushDirection, raySign, traceRay, traceSolid } from "./SwingRay";
 import { rayFor, timelineFor } from "./moves";
 import { KickController, traceKick } from "./Kick";
 import { MeleeController, MeleeInput } from "./MeleeController";
@@ -169,6 +169,10 @@ export class PlayerCombat {
     onHit?: (report: HitReport) => void;
     /** False for a target the player cannot hurt yet (Slayer level too low): its hits do 0. */
     canDamage?: (target: CombatTarget) => boolean;
+    /** Solid things a swing stops on besides NPCs (trees and rocks to chop and mine). */
+    solids?: SolidSource;
+    /** The blade struck one of `solids` and stopped there. */
+    onSolidHit?: (ref: unknown) => void;
     /** Called when a kick lands, misses or is dodged. */
     onKick?: (report: KickReport) => void;
     /** Called for every NPC strike that reaches the player. */
@@ -676,13 +680,16 @@ export class PlayerCombat {
             const seen = this.hitThisSwing[slice.hitIndex] ?? new Set();
             // The attack ray (spec 17.2): lines from the eye sweeping the move's 90° fan.
             const ray = rayFor(timeline, slice.hitIndex);
+            const sign = raySign(ray, hit.impact);
+            // A tree or rock in the blade's path stops it: nothing past that line is hit.
+            const solid = this.solids && traceSolid(attacker, this.weapon.reach, ray, sign, slice.from, slice.to, this.solids, this.flagsAt);
             for (const arcHit of traceRay(
                 attacker,
                 this.weapon.reach,
                 ray,
-                raySign(ray, hit.impact),
+                sign,
                 slice.from,
-                slice.to,
+                solid?.at ?? slice.to,
                 this.bodies,
                 this.flagsAt,
                 seen,
@@ -715,6 +722,11 @@ export class PlayerCombat {
                 const report = { target, result, move };
                 reports.push(report);
                 this.onHit?.(report);
+            }
+            if (solid) {
+                this.melee.stopSwing();
+                this.onSolidHit?.(solid.ref);
+                break;
             }
         }
         return reports;

@@ -32,8 +32,10 @@ describe("fishing", () => {
         const t = setup(10);
         t.inventory.add(307, 1);
         t.inventory.add(313, 2);
-        expect(t.sys.npcAction(testNpc(1530), "Bait")).toBe(true);
-        t.ctx.clock.advance(5);
+        const spot = testNpc(1530);
+        expect(t.sys.npcAction(spot, "Bait")).toBe(true);
+        expect(t.sys.takesClicks).toBe(true);
+        t.sys.click(spot);
         expect(t.inventory.count(345)).toBe(1);
         expect(t.inventory.count(313)).toBe(1);
         expect(t.logs.at(-1)).toBe("You catch some herring.");
@@ -43,9 +45,25 @@ describe("fishing", () => {
         const t = setup(5);
         t.inventory.add(307, 1);
         t.inventory.add(313, 5);
-        t.sys.npcAction(testNpc(1530), "Bait");
-        t.ctx.clock.advance(5);
+        const spot = testNpc(1530);
+        t.sys.npcAction(spot, "Bait");
+        t.sys.click(spot);
         expect(t.inventory.count(327)).toBe(1);
+    });
+
+    it("casts at most once per 2 ticks, and a cast off the spot catches nothing", () => {
+        const t = setup(10);
+        t.inventory.add(307, 1);
+        t.inventory.add(313, 5);
+        const spot = testNpc(1530);
+        t.sys.npcAction(spot, "Bait");
+        t.sys.click(undefined);
+        expect(t.logs.at(-1)).toBe("Your cast misses the fishing spot.");
+        t.sys.click(spot); // still casting
+        expect(t.inventory.count(345)).toBe(0);
+        t.ctx.clock.advance(2);
+        t.sys.click(spot);
+        expect(t.inventory.count(345)).toBe(1);
     });
 });
 

@@ -1,5 +1,5 @@
 // End-to-end checks of skilling in the real game, driven through the dev console (window.game).
-// The tree, bank and range checks need a map exported with skill locs (export-world after
+// The tree and range checks need a map exported with skill locs (export-world after
 // export-skills); they are skipped on an older export.
 
 import { expect, test, Page } from "@playwright/test";
@@ -49,7 +49,11 @@ test("fishing and banking work", async ({ page }) => {
             .sort((a: any, b: any) => Math.hypot(a.body.x - g.player.x, a.body.y - g.player.y) - Math.hypot(b.body.x - g.player.x, b.body.y - g.player.y))[0];
         const action = spot.appearance.actions.find((a: string) => /net/i.test(a));
         const handled = g.skillSystem.npcAction(spot, action);
-        g.clock.advance(200);
+        // Casts with the crosshair on the spot, one per 2 ticks, until something bites.
+        for (let i = 0; i < 40 && g.items.count(g.db.byName("Raw shrimps").id) === 0; i++) {
+            g.skillSystem.click(spot);
+            g.clock.advance(2);
+        }
         const shrimp = g.db.byName("Raw shrimps").id;
         return { handled, shrimp: g.items.count(shrimp), xp: g.skills.xp("fishing") };
     });
@@ -72,17 +76,37 @@ test("a tree gives logs and a range cooks", async ({ page }) => {
     const hasSkillLocs = await page.evaluate(() => window.game!.skillLocs.all().length > 0);
     test.skip(!hasSkillLocs, "the map was exported without skill locs");
 
-    const logs = await page.evaluate(() => {
+    const chopped = await page.evaluate(() => {
         const g = window.game!;
         g.give("Bronze axe");
         const tree = g.skillLocs
             .all()
             .filter((i: any) => i.loc.name === "Tree" && i.loc.plane === g.player.plane)
             .sort((a: any, b: any) => Math.hypot(a.loc.tileX - g.player.x, a.loc.tileY - g.player.y) - Math.hypot(b.loc.tileX - g.player.x, b.loc.tileY - g.player.y))[0];
-        g.skillSystem.locAction(tree, "Chop down");
-        g.clock.advance(80);
-        return g.items.count(1511);
+        g.skillSystem.locAction(tree, "Chop down"); // wields the axe
+        const wielded = g.items.equipment.get("weapon")?.id;
+        // Stand just south of the tree, facing it, and swing: quick strikes driven through combat.
+        const loc = tree.loc;
+        const cx = loc.tileX + loc.sizeX / 2;
+        const cy = loc.tileY + loc.sizeY / 2;
+        const swings: { stopped: boolean }[] = [];
+        for (let n = 0; n < 60 && g.items.count(1511) === 0; n++) {
+            g.player.x = cx;
+            g.player.y = loc.tileY - 0.45;
+            g.player.yaw = Math.atan2(-(cx - g.player.x), cy - g.player.y);
+            g.player.pitch = -0.1;
+            const input = (press: boolean) => ({ attackDown: press, attackPressed: press, blockDown: false, kickPressed: false, castPressed: false, forward: 0, strafe: 0 });
+            g.combat.update(1 / 60, g.player, input(true));
+            let frames = 0;
+            while (g.combat.melee.swing && frames++ < 120) g.combat.update(1 / 60, g.player, input(false));
+            swings.push({ stopped: frames < 120 });
+            g.combat.update(0.5, g.player, input(false));
+        }
+        return { wielded, logs: g.items.count(1511), swings: swings.length };
     });
+    expect(chopped.wielded).toBe(1351);
+    expect(chopped.swings).toBeGreaterThan(0);
+    const logs = chopped.logs;
     expect(logs).toBeGreaterThanOrEqual(1);
 
     await page.evaluate(() => window.game!.tp(3209, 3214, 0));

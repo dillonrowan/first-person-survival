@@ -6,6 +6,7 @@ import type { Stack } from "../items/ItemContainer";
 import type { PlayerItems } from "../items/PlayerItems";
 import type { Npc } from "../npc/Npc";
 import type { LootEntry, SkillsManifest } from "../world/SkillFormat";
+import type { LocReaction } from "../world/LocReactionClips";
 import type { SkillLocInstance, SkillLocs } from "../world/SkillLocs";
 
 /** What the skills need of the player. */
@@ -24,9 +25,18 @@ export type SkillContext = {
     gainXp(skill: SkillId, xp: number): void;
     items: Pick<PlayerItems, "count" | "holds" | "canAdd" | "addItem" | "removeItem" | "replaceAt" | "inventory">;
     db: Pick<ItemDb, "get" | "byName">;
+    /** The item in the weapon slot (the tool a swing uses), if any. */
+    weapon(): number | undefined;
+    /** Wields the first inventory stack of an item; a message when it cannot. */
+    wield(item: number): string | undefined;
     /** Puts a stack on the ground (despawns like any dropped item). */
     drop(stack: Stack, x: number, y: number, plane: number): void;
     skillLocs: Pick<SkillLocs, "get" | "refresh" | "occupies" | "near" | "addRuntime" | "removeRuntime">;
+    /**
+     * Plays a reaction on a tree or rock, pushed away from the player. `linger` keeps the current
+     * look on show until the clip ends, for a reaction played just before the loc changes look.
+     */
+    animate(instance: SkillLocInstance, clip: LocReaction, linger?: boolean): void;
     player: SkillPlayer;
     /** Damages the player (a failed pickpocket). */
     hurt(amount: number): void;
@@ -51,6 +61,13 @@ export interface Job {
     readonly target?: SkillLocInstance | Npc;
     /** Called every tick while active; return false to stop. */
     tick(tick: number): boolean;
+    /**
+     * Set when the job takes the attack button (fishing casts): called on a click with what the
+     * crosshair is on; return false to stop.
+     */
+    click?(aimed: unknown): boolean;
+    /** 0..1 through the tool's motion for the view, overriding the `swingTicks` cycle. */
+    swingPhase?(): number | undefined;
     stop?(): void;
 }
 

@@ -607,6 +607,12 @@ async function main(): Promise<void> {
         }
         return false;
     };
+    // Axes and pickaxes swung into standing trees and rocks stop there, and every blow rolls.
+    combat.solids = skilling.skillLocs.solidSource((instance) => skillSystem.isSolid(instance));
+    combat.onSolidHit = (ref) => {
+        weaponView.impact(0.8);
+        skillSystem.strike(ref as SkillLocInstance);
+    };
     const handleWorldAction: ActionHandler = (target, action) => {
         if (target.kind === "skill-loc") {
             skillSystem.locAction(target.ref as SkillLocInstance, action);
@@ -786,8 +792,14 @@ async function main(): Promise<void> {
         if (stunned) player.boundFor = Math.max(player.boundFor, 0.1);
         player.update(dt, input);
         skilling.clock.update(dt);
+        skilling.reactions.update(dt);
+        // Fishing takes the attack button: a click casts at what the crosshair is on.
+        const casting = skillSystem.takesClicks;
+        if (casting && input.locked && input.wasPressed("Mouse0") && !props.held) {
+            skillSystem.click(interaction.target?.ref);
+        }
         skillSystem.update({
-            acted: input.locked && (input.wasPressed("Mouse0") || input.wasPressed("KeyF")),
+            acted: input.locked && ((input.wasPressed("Mouse0") && !casting) || input.wasPressed("KeyF")),
             panelOpen: sidePanel.isOpen || skilling.panelOpen,
             dead: combat.combatant.dead,
         });
@@ -807,20 +819,22 @@ async function main(): Promise<void> {
             }
         }
         const carrying = props.held !== undefined || propHandled;
+        // While carrying or fishing the weapon stays still.
+        const armed = !carrying && !casting;
         const wheel = input.consumeWheel();
         eatCooldown = Math.max(0, eatCooldown - dt);
-        const wheelProblem = items.cycleWeapon(carrying ? 0 : wheel);
+        const wheelProblem = items.cycleWeapon(armed ? wheel : 0);
         if (wheelProblem) {
             ui.showMessage(wheelProblem);
         }
         combat.update(dt, player, {
             // A tap that went down and up between frames still counts as down for this one.
-            attackDown: fighting && !carrying && (input.isDown("Mouse0") || input.wasPressed("Mouse0")),
-            attackPressed: fighting && !carrying && input.wasPressed("Mouse0"),
-            blockDown: fighting && !carrying && input.isDown("Mouse2"),
-            kickPressed: fighting && !carrying && input.wasPressed("KeyF"),
+            attackDown: fighting && armed && (input.isDown("Mouse0") || input.wasPressed("Mouse0")),
+            attackPressed: fighting && armed && input.wasPressed("Mouse0"),
+            blockDown: fighting && armed && input.isDown("Mouse2"),
+            kickPressed: fighting && armed && input.wasPressed("KeyF"),
             castPressed:
-                fighting && !carrying && (input.wasPressed("KeyG") || (combat.holdsCaster && input.wasPressed("Mouse2"))),
+                fighting && armed && (input.wasPressed("KeyG") || (combat.holdsCaster && input.wasPressed("Mouse2"))),
             forward: input.axis("KeyW", "KeyS"),
             strafe: input.axis("KeyD", "KeyA"),
         });

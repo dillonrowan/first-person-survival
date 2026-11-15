@@ -196,16 +196,22 @@ weapon, body, shield, legs, hands, feet and ring, with the total bonuses), **Ski
 
 ## Gathering and Making
 
-Aim at the thing and press `E` (or `R`/`T` for its other options). Skilling repeats on the 0.6 s
-OSRS game tick until you stop; moving away, attacking, kicking, opening a panel or dying stops it.
+Aim at the thing and press `E` (or `R`/`T` for its other options). Woodcutting, Mining and Fishing
+are done by hand (below); other skilling repeats on the 0.6 s OSRS game tick until you stop: moving
+away, attacking, kicking, opening a panel or dying stops it.
 Messages go to the log at the bottom left. Success chances, XP and times are the OSRS ones.
 
-- **Woodcutting**: Chop down a tree with an axe (inventory or wielded; the best one you can use
-  counts). Trees fall and leave a stump that grows back.
-- **Mining**: Mine a rock with a pickaxe; the rock empties and refills. Aubury in Varrock teleports
-  you to the rune essence mine.
+- **Woodcutting**: swing a wielded axe into a tree (`Mouse 1`). The blade stops in the trunk and the
+  tree shudders; every blow that lands rolls for a log with your Woodcutting level and the axe's
+  chance. Chop down (`E`) wields the best axe you carry. Trees topple when their last log comes and
+  leave a stump that grows back; a stump does not stop the blade.
+- **Mining**: swing a wielded pickaxe into a rock the same way (Mine wields the best one). A blow
+  rolls the rock's chance, scaled by how much of the pickaxe's OSRS interval has passed since your
+  last blow, so a better pickaxe needs fewer blows and hammering fast gives no more ore. The rock
+  crumbles when it empties and refills. Aubury in Varrock teleports you to the rune essence mine.
 - **Fishing**: use a fishing spot's option (Net, Bait, Lure, Cage, Harpoon) from up to 4 tiles away
-  with the right tool and bait.
+  with the right tool and bait, then aim at the spot and click to cast (one cast per 1.2 s). Each
+  cast that lands on the spot rolls for a catch; one off the spot misses.
 - **Cooking**: Cook on a range or fire, or use raw food on it; food can burn.
 - **Firemaking**: use a tinderbox on logs (or Light them). You step aside and can cook on the fire
   until it burns out and leaves ashes.

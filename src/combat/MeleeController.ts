@@ -122,6 +122,16 @@ export class MeleeController {
         this.comboIndex = -1;
     }
 
+    /**
+     * The blade struck something solid (a tree, a rock) and stops there: the swing ends and queued
+     * clicks are dropped, but the next strike still comes from the other side.
+     */
+    stopSwing(): void {
+        this.swing = undefined;
+        this.phase = "idle";
+        this.queued = 0;
+    }
+
     update(dt: number, input: MeleeInput): MeleeEvents {
         const events: MeleeEvents = { active: [] };
         const pressed = !!input.attackPressed || (input.attackDown && !this.wasDown);

@@ -1,24 +1,32 @@
+import { attackRate } from "../combat/Osrs";
 import { random } from "../game/Random";
-import type { AxeDef, AxeTier, PickaxeDef, RockDef, TreeDef } from "../world/SkillFormat";
+import { TICK_SECONDS } from "../game/TickClock";
+import type { AxeDef, PickaxeDef, RockDef, TreeDef } from "../world/SkillFormat";
 import type { SkillLocInstance } from "../world/SkillLocs";
-import { Job, SkillContext, giveOrDrop, itemName, rollLoot } from "./SkillContext";
-import type { SkillSystem } from "./SkillSystem";
-import { roll } from "./success";
+import { SkillContext, giveOrDrop, itemName, rollLoot } from "./SkillContext";
+import { successChance } from "./success";
 
-/** Ticks between woodcutting rolls [wiki: Woodcutting]. */
+/**
+ * Ticks between woodcutting rolls [wiki: Woodcutting]. Here every axe blow that lands rolls; a
+ * tree counts as being chopped (its despawn timer runs) for this long after a blow.
+ */
 export const CHOP_TICKS = 4;
 
-/** Woodcutting and Mining: trees and rocks that deplete and grow back. */
+/**
+ * Woodcutting and Mining: trees and rocks that deplete and grow back. Logs and ore come from
+ * swinging the wielded axe or pickaxe into the tree or rock: every blow that lands rolls.
+ */
 export class Gathering {
     /** Depleted tree or rock key → tick it grows back. */
     private readonly depletedUntil = new Map<string, number>();
     /** Trees with a despawn timer: key → ticks of chopping left. */
     private readonly treeLeft = new Map<string, { left: number; full: number }>();
+    /** Tree key → tick of the last blow that landed on it. */
+    private readonly struckAt = new Map<string, number>();
+    /** Seconds (game clock) of the last pickaxe blow. */
+    private lastPickAt = -Infinity;
 
-    constructor(
-        private readonly ctx: SkillContext,
-        private readonly sys: SkillSystem,
-    ) {
+    constructor(private readonly ctx: SkillContext) {
         ctx.clock.onTick((t) => this.onTick(t));
     }
 
@@ -34,6 +42,7 @@ export class Gathering {
     deplete(key: string, ticks: number): void {
         this.depletedUntil.set(key, this.ctx.clock.tick + ticks);
         this.treeLeft.delete(key);
+        this.struckAt.delete(key);
         this.ctx.skillLocs.refresh(key);
     }
 
@@ -45,15 +54,18 @@ export class Gathering {
             }
         }
         // A tree's timer runs down while it is chopped and back up while it is not.
-        const active = this.sys.active;
-        const chopped = active instanceof ChopJob ? active.target.key : undefined;
         for (const [key, timer] of this.treeLeft) {
-            if (key === chopped) timer.left--;
+            const struck = this.struckAt.get(key);
+            if (struck !== undefined && t - struck <= CHOP_TICKS) timer.left--;
             else if (++timer.left >= timer.full) this.treeLeft.delete(key);
         }
     }
 
-    /** The best axe the player has and can use, else the best they have; undefined without one. */
+    private get seconds(): number {
+        return (this.ctx.clock.tick + this.ctx.clock.tickFraction) * TICK_SECONDS;
+    }
+
+    /** The best axe the player has and can use, else undefined. */
     bestAxe(tree?: TreeDef): AxeDef | undefined {
         const level = this.ctx.skills.level("woodcutting");
         const owned = this.ctx.data.tools.axes.filter((a) => this.ctx.items.holds(a.item) && (!tree || tree.chances[a.tier]));
@@ -65,6 +77,15 @@ export class Gathering {
         return [...this.ctx.data.tools.pickaxes].reverse().find((p) => p.level <= level && this.ctx.items.holds(p.item));
     }
 
+    /** Wields `item` unless it is already in hand; false (with the reason logged) when it cannot be. */
+    private ready(item: number): boolean {
+        if (this.ctx.weapon() === item) return true;
+        const problem = this.ctx.wield(item);
+        if (problem) this.ctx.log(problem);
+        return !problem;
+    }
+
+    /** "Chop down": checks the tree can be cut and puts the best axe in hand for the player to swing. */
     chop(instance: SkillLocInstance, index: number): void {
         const tree = this.ctx.data.trees[index];
         const ctx = this.ctx;
@@ -75,11 +96,28 @@ export class Gathering {
         const axe = this.bestAxe(tree);
         if (!axe) return ctx.log("You do not have an axe which you have the Woodcutting level to use.");
         if (!ctx.items.canAdd(tree.logs)) return ctx.log("Your inventory is too full to hold any more logs.");
-        ctx.log("You swing your axe at the tree.");
+        if (this.ready(axe.item)) ctx.log("Swing your axe at the tree to chop it.");
+    }
+
+    /** An axe blow (or any other blade) landed on a standing tree: the wielded axe rolls for a log. */
+    strikeTree(instance: SkillLocInstance, index: number): void {
+        const tree = this.ctx.data.trees[index];
+        const ctx = this.ctx;
+        if (this.isDepleted(instance.key)) return;
+        ctx.animate(instance, "treeHit");
+        const axe = ctx.data.tools.axes.find((a) => a.item === ctx.weapon());
+        if (!axe) return ctx.log("You need to wield an axe to chop this tree.");
+        const level = ctx.skills.level("woodcutting");
+        if (level < axe.level) return ctx.log("You do not have the Woodcutting level to use this axe.");
+        if (level < tree.level) return ctx.log(`You need a Woodcutting level of ${tree.level} to chop down this tree.`);
+        const chance = tree.chances[axe.tier];
+        if (!chance) return ctx.log("Your axe is not strong enough to cut this tree.");
+        if (!ctx.items.canAdd(tree.logs)) return ctx.log("Your inventory is too full to hold any more logs.");
         if (tree.despawnTicks !== null && !this.treeLeft.has(instance.key)) {
             this.treeLeft.set(instance.key, { left: tree.despawnTicks, full: tree.despawnTicks });
         }
-        this.sys.start(new ChopJob(this, ctx, instance, tree));
+        this.struckAt.set(instance.key, ctx.clock.tick);
+        if (random() < successChance(chance, level)) this.gotLog(instance, tree);
     }
 
     /** One successful chop: logs, XP, extra loot, and whether the tree falls. */
@@ -92,12 +130,14 @@ export class Gathering {
         const timer = this.treeLeft.get(instance.key);
         const falls = tree.despawnTicks === null ? random() < tree.depleteChance : (timer?.left ?? 0) <= 0;
         if (falls) {
+            ctx.animate(instance, "treeFall", true);
             this.deplete(instance.key, tree.respawnTicks);
             if (tree.despawnTicks !== null) ctx.log("You have run out of logs.");
         }
         return falls;
     }
 
+    /** "Mine": checks the rock can be mined and puts the best pickaxe in hand for the player to swing. */
     mine(instance: SkillLocInstance, index: number): void {
         const rock = this.ctx.data.rocks[index];
         const ctx = this.ctx;
@@ -106,8 +146,29 @@ export class Gathering {
         const pickaxe = this.bestPickaxe();
         if (!pickaxe) return ctx.log("You need a pickaxe to mine this rock. You do not have a pickaxe which you have the Mining level to use.");
         if (!ctx.items.canAdd(rock.ore)) return ctx.log("Your inventory is too full to hold any more ore.");
-        ctx.log("You swing your pick at the rock.");
-        this.sys.start(new MineJob(this, ctx, instance, rock, pickaxe));
+        if (this.ready(pickaxe.item)) ctx.log("Swing your pick at the rock to mine it.");
+    }
+
+    /**
+     * A blow landed on a rock: with a pickaxe in hand it rolls the rock's chance, scaled by how
+     * much of the pickaxe's OSRS interval has passed since the last blow, so a better pickaxe
+     * needs fewer blows and hammering fast gives no more ore than OSRS would. [design]
+     */
+    strikeRock(instance: SkillLocInstance, index: number): void {
+        const rock = this.ctx.data.rocks[index];
+        const ctx = this.ctx;
+        ctx.animate(instance, "rockHit");
+        if (this.isDepleted(instance.key)) return ctx.log("There is no ore currently available in this rock.");
+        const pickaxe = ctx.data.tools.pickaxes.find((p) => p.item === ctx.weapon());
+        if (!pickaxe) return ctx.log("You need to wield a pickaxe to mine this rock.");
+        const level = ctx.skills.level("mining");
+        if (level < pickaxe.level) return ctx.log("You do not have the Mining level to use this pickaxe.");
+        if (level < rock.level) return ctx.log(`You need a Mining level of ${rock.level} to mine this rock.`);
+        if (!ctx.items.canAdd(rock.ore)) return ctx.log("Your inventory is too full to hold any more ore.");
+        const now = this.seconds;
+        const rate = attackRate(now - this.lastPickAt, (pickaxe.ticks - pickaxe.fastChance) * TICK_SECONDS);
+        this.lastPickAt = now;
+        if (random() < successChance(rock.chance, level) * rate) this.gotOre(instance, rock);
     }
 
     /** One successful mine; true when the rock is now empty. */
@@ -119,66 +180,8 @@ export class Gathering {
         ctx.gainXp("mining", rock.xp);
         ctx.log(`You manage to mine some ${itemName(ctx, ore).replace(/ ore$/i, "").toLowerCase()}.`);
         if (essence) return false;
+        ctx.animate(instance, "rockBreak", true);
         this.deplete(instance.key, rock.respawnTicks);
         return true;
-    }
-}
-
-/** Rolls the best axe's chance every 4 ticks until the tree falls or the inventory is full. */
-export class ChopJob implements Job {
-    readonly skill = "woodcutting" as const;
-    readonly swingTicks = CHOP_TICKS;
-    private ticks = 0;
-
-    constructor(
-        private readonly gathering: Gathering,
-        private readonly ctx: SkillContext,
-        readonly target: SkillLocInstance,
-        private readonly tree: TreeDef,
-    ) {}
-
-    tick(): boolean {
-        if (++this.ticks % CHOP_TICKS !== 0) return true;
-        const axe = this.gathering.bestAxe(this.tree);
-        const chance = axe && this.tree.chances[axe.tier as AxeTier];
-        if (!chance) return false;
-        if (!roll(chance, this.ctx.skills.level("woodcutting"))) return true;
-        if (this.gathering.gotLog(this.target, this.tree)) return false;
-        if (!this.ctx.items.canAdd(this.tree.logs)) {
-            this.ctx.log("Your inventory is too full to hold any more logs.");
-            return false;
-        }
-        return true;
-    }
-}
-
-/** Rolls the rock's chance at the pickaxe's interval until the rock is empty. */
-export class MineJob implements Job {
-    readonly skill = "mining" as const;
-    readonly swingTicks: number;
-    private wait: number;
-
-    constructor(
-        private readonly gathering: Gathering,
-        private readonly ctx: SkillContext,
-        readonly target: SkillLocInstance,
-        private readonly rock: RockDef,
-        private readonly pickaxe: PickaxeDef,
-    ) {
-        this.swingTicks = pickaxe.ticks;
-        this.wait = this.interval();
-    }
-
-    /** Ticks until the next roll: dragon and crystal pickaxes sometimes take one less. */
-    private interval(): number {
-        return random() < this.pickaxe.fastChance ? this.pickaxe.ticks - 1 : this.pickaxe.ticks;
-    }
-
-    tick(): boolean {
-        if (--this.wait > 0) return true;
-        this.wait = this.interval();
-        if (!roll(this.rock.chance, this.ctx.skills.level("mining"))) return true;
-        if (this.gathering.gotOre(this.target, this.rock)) return false;
-        return this.ctx.items.canAdd(this.rock.ore);
     }
 }

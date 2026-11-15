@@ -56,6 +56,7 @@ export function createTestSkills(data: SkillsManifest, items: TestItem[], levels
     const locs = new Map<string, SkillLocInstance>();
     const runtime: SkillLocInstance[] = [];
     const npcs: Npc[] = [];
+    const animations: string[] = [];
     let hurt = 0;
     const player = { x: 10.5, y: 9.5, plane: 0, teleport(x: number, y: number, plane: number) { Object.assign(player, { x, y, plane }); } };
     const ctx: SkillContext = {
@@ -76,6 +77,14 @@ export function createTestSkills(data: SkillsManifest, items: TestItem[], levels
             },
         },
         db,
+        weapon: () => worn[0],
+        wield: (item) => {
+            if (!inventory.remove(item, 1)) return "You don't have that.";
+            const old = worn.shift();
+            if (old !== undefined) inventory.add(old, 1);
+            worn.unshift(item);
+            return undefined;
+        },
         drop: (stack, x, y) => ground.push({ ...stack, x, y }),
         skillLocs: {
             get: (key) => locs.get(key),
@@ -94,6 +103,7 @@ export function createTestSkills(data: SkillsManifest, items: TestItem[], levels
                 locs.delete(i.key);
             },
         },
+        animate: (instance, clip) => animations.push(`${clip}@${instance.key}`),
         player,
         hurt: (n) => (hurt += n),
         log: (text) => logs.push(text),
@@ -119,6 +129,8 @@ export function createTestSkills(data: SkillsManifest, items: TestItem[], levels
         logs,
         ground,
         npcs,
+        /** Reactions played, as "clip@key". */
+        animations,
         opened,
         player,
         get hurt() {

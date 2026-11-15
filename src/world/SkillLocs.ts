@@ -1,5 +1,6 @@
 import * as THREE from "three";
 
+import type { SolidSource } from "../combat/SwingRay";
 import type { Target, TargetSource } from "../interaction/Interaction";
 import { Box3, rayBox } from "../physics/Bodies";
 import type { DoorGeometry } from "./World";
@@ -110,15 +111,7 @@ export class SkillLocs {
                 if (loc.plane !== ray.plane || distanceTo(loc, ray.ox, ray.oy) > reach) continue;
                 const actions = this.actionsOf?.(instance) ?? loc.actions.filter((a) => a !== "Examine");
                 if (actions.length === 0) continue;
-                const ground = this.world.groundHeight(loc.plane, loc.tileX + loc.sizeX / 2, loc.tileY + loc.sizeY / 2);
-                Object.assign(box, {
-                    minX: loc.tileX,
-                    minY: loc.tileY,
-                    maxX: loc.tileX + loc.sizeX,
-                    maxY: loc.tileY + loc.sizeY,
-                    minZ: ground,
-                    maxZ: ground + Math.max(loc.height, MIN_TARGET_HEIGHT),
-                });
+                this.boxOf(loc, box);
                 const t = rayBox(ray.ox, ray.oy, ray.oz, ray.dx, ray.dy, ray.dz, box, ray.range);
                 if (t !== undefined && (!best || t < best.distance)) {
                     best = { kind: "skill-loc", label: loc.name, actions, distance: t, ref: instance };
@@ -126,6 +119,38 @@ export class SkillLocs {
             }
             return best;
         };
+    }
+
+    /** The instances `solid` picks (standing trees, rocks) as things a swung blade stops on. */
+    solidSource(solid: (instance: SkillLocInstance) => boolean): SolidSource {
+        const box: Box3 = { minX: 0, minY: 0, minZ: 0, maxX: 0, maxY: 0, maxZ: 0 };
+        return (plane, ox, oy, oz, x1, y1, z1) => {
+            const length = Math.hypot(x1 - ox, y1 - oy, z1 - oz);
+            if (length < 1e-6) return undefined;
+            const [dx, dy, dz] = [(x1 - ox) / length, (y1 - oy) / length, (z1 - oz) / length];
+            let best: { t: number; ref: unknown } | undefined;
+            for (const instance of this.byKey.values()) {
+                const loc = instance.loc;
+                if (loc.plane !== plane || distanceTo(loc, ox, oy) > length || !solid(instance)) continue;
+                this.boxOf(loc, box);
+                const t = rayBox(ox, oy, oz, dx, dy, dz, box, length);
+                if (t !== undefined && (!best || t / length < best.t)) best = { t: t / length, ref: instance };
+            }
+            return best;
+        };
+    }
+
+    /** The box a loc is aimed at and struck in: its footprint, from the ground to its height. */
+    private boxOf(loc: InteractiveLoc, box: Box3): void {
+        const ground = this.world.groundHeight(loc.plane, loc.tileX + loc.sizeX / 2, loc.tileY + loc.sizeY / 2);
+        Object.assign(box, {
+            minX: loc.tileX,
+            minY: loc.tileY,
+            maxX: loc.tileX + loc.sizeX,
+            maxY: loc.tileY + loc.sizeY,
+            minZ: ground,
+            maxZ: ground + Math.max(loc.height, MIN_TARGET_HEIGHT),
+        });
     }
 
     private apply(instance: SkillLocInstance): void {

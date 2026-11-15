@@ -5,7 +5,7 @@ import { CollisionFlag } from "../world/WorldFormat";
 import { Combatant } from "./Combatant";
 import { applyHit, damageAmount, hitboxMultiplier, reactionFor } from "./Damage";
 import { PlayerCombat, type CombatTarget } from "./PlayerCombat";
-import { pushDirection, rayDirection, sweepDirection, traceRay, viewToWorld } from "./SwingRay";
+import { pushDirection, rayDirection, sweepDirection, traceRay, traceSolid, viewToWorld } from "./SwingRay";
 import { MOVE_SETS, Ray } from "./moves";
 import { tuning } from "./tuning";
 import { ANTI_DRAGON_SHIELD } from "./Shields";
@@ -103,6 +103,21 @@ describe("attack ray (spec 17.2)", () => {
         const b = target(100.5, 102.6); // within reach, but past the wall on the edge at y = 102
         const wall = (_p: number, x: number, y: number) => (x === 100 && y === 101 ? CollisionFlag.WALL_NORTH : 0);
         expect(traceRay(attacker, sword.reach, flat, 1, 0, 1, source([b]), wall, new Set())).toHaveLength(0);
+    });
+
+    it("stops the blade on a solid thing in its path, not past it", () => {
+        // A tree box 1.2 tiles ahead: the solid source reports where each line enters it.
+        const solids = (_p: number, ox: number, oy: number, _oz: number, x1: number, y1: number) => {
+            const t = (101.7 - oy) / (y1 - oy);
+            const x = ox + (x1 - ox) * t;
+            return t > 0 && t <= 1 && x >= 100 && x <= 101 ? { t, ref: "tree" } : undefined;
+        };
+        const hit = traceSolid(attacker, sword.reach, flat, 1, 0, 1, solids, noWalls);
+        expect(hit?.ref).toBe("tree");
+        expect(hit!.at).toBeGreaterThan(0);
+        expect(hit!.at).toBeLessThan(1);
+        const wall = (_p: number, x: number, y: number) => (x === 100 && y === 100 ? CollisionFlag.WALL_NORTH : 0);
+        expect(traceSolid(attacker, sword.reach, flat, 1, 0, 1, solids, wall)).toBeUndefined();
     });
 
     it("a thrust traces only the centre line", () => {

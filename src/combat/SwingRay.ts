@@ -106,6 +106,52 @@ export function pushDirection(hit: Pick<RayHit<unknown>, "dirX" | "dirY" | "swin
 const STEP_DEG = 4;
 
 /**
+ * Solid things a blade stops on besides bodies (trees, rocks): the nearest one the segment from
+ * (ox, oy, oz) to (x1, y1, z1) enters, with how far along it (0..1), or undefined.
+ */
+export type SolidSource = (plane: number, ox: number, oy: number, oz: number, x1: number, y1: number, z1: number) => { t: number; ref: unknown } | undefined;
+
+/**
+ * The first line of the attack ray between `from` and `to` that strikes a solid thing (walls in
+ * front of it block the line): the progress through the window where the blade stops, and what it
+ * struck. Lines are sampled like traceRay's.
+ */
+export function traceSolid(
+    attacker: RayAttacker,
+    reach: number,
+    ray: Ray,
+    sign: number,
+    from: number,
+    to: number,
+    solids: SolidSource,
+    flagsAt: FlagsAt,
+): { at: number; ref: unknown } | undefined {
+    const boxes: Box[] = [];
+    const samples = Math.max(1, Math.ceil((Math.abs(to - from) * ray.sweep) / STEP_DEG));
+    for (let i = 0; i <= samples; i++) {
+        if (i === 0 && from > 0) {
+            continue; // the previous update traced this line already
+        }
+        const t = from + ((to - from) * i) / samples;
+        const d = viewToWorld(rayDirection(ray, sign, t), attacker.yaw, attacker.pitch);
+        const x1 = attacker.x + d.x * reach;
+        const y1 = attacker.y + d.y * reach;
+        const hit = solids(attacker.plane, attacker.x, attacker.y, attacker.eyeZ, x1, y1, attacker.eyeZ + d.z * reach);
+        if (!hit) {
+            continue;
+        }
+        boxes.length = 0;
+        collectTileBoxes(flagsAt, attacker.plane, Math.min(attacker.x, x1), Math.min(attacker.y, y1), Math.max(attacker.x, x1), Math.max(attacker.y, y1), boxes, "walls");
+        const wall = segmentHitsBoxes2D(attacker.x, attacker.y, x1, y1, boxes);
+        if (wall !== undefined && wall < hit.t) {
+            continue;
+        }
+        return { at: t, ref: hit.ref };
+    }
+    return undefined;
+}
+
+/**
  * The attack ray between progress `from` and `to` (spec 17.2): lines from the eye, `reach` long,
  * sampled at most 4° apart. The first body each line touches is hit (walls stop the line); bodies
  * already in `alreadyHit` are skipped and new ones added.

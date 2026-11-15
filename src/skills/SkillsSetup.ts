@@ -15,6 +15,7 @@ import { ShopPanel } from "../ui/ShopPanel";
 import { XpDrops } from "../ui/XpDrops";
 import { NpcModelData, decodeNpcModel } from "../world/NpcFormat";
 import { ShopManifest, SkillsManifest, emptySkillsManifest } from "../world/SkillFormat";
+import { LocReactions } from "../world/LocReactions";
 import { SkillLocs } from "../world/SkillLocs";
 import type { World } from "../world/World";
 import { CollisionFlag } from "../world/WorldFormat";
@@ -90,6 +91,7 @@ export async function createSkills(deps: SkillsDeps) {
 
     const clock = new TickClock();
     const skillLocs = new SkillLocs(deps.world, deps.scene, deps.materials);
+    const reactions = new LocReactions((plane, x, y) => deps.world.groundHeight(plane, x, y));
     const xpDrops = new XpDrops(document.getElementById("xp-drops")!, document.getElementById("level-banner")!);
     const makeMenu = new MakeMenu(document.getElementById("make-menu")!, deps.db, deps.icons);
     const buildMenu = new BuildMenu(document.getElementById("build-menu")!, deps.db, deps.icons);
@@ -128,8 +130,14 @@ export async function createSkills(deps: SkillsDeps) {
         },
         items: deps.items,
         db: deps.db,
+        weapon: () => deps.items.equipment.get("weapon")?.id,
+        wield: (item) => {
+            const slot = deps.items.inventory.slots.findIndex((s) => s?.id === item);
+            return slot < 0 ? "You don't have that." : deps.items.wield(slot);
+        },
         drop: (stack, x, y, plane) => deps.ground.add(stack, x, y, plane, { despawnIn: tuning.groundItemDespawn }),
         skillLocs,
+        animate: (instance, clip, linger) => reactions.play(instance, clip, deps.player.x, deps.player.y, linger),
         player: deps.player,
         hurt: deps.hurt,
         log: deps.log,
@@ -156,6 +164,8 @@ export async function createSkills(deps: SkillsDeps) {
         data,
         clock,
         skillLocs,
+        /** Tree and rock reactions to blows; update every frame. */
+        reactions,
         system,
         shopPanel,
         /** Whether a skill panel is open (the click-to-play overlay stays hidden meanwhile). */
