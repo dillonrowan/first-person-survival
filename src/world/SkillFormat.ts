@@ -146,6 +146,8 @@ export type ConstructionDef = {
     furniture: FurnitureDef[];
     /** Placed hotspot locs: loc id → hotspot name. */
     hotspots: Record<string, string>;
+    /** The garden's exit portal. */
+    exitLocIds: number[];
 };
 
 export type AltarDef = {

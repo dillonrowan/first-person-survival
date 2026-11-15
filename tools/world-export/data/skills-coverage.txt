@@ -180,7 +180,7 @@ farming: skipped Poison ivy berries (no RuneLite produce)
 farming: skipped Dwarf weed (no RuneLite produce)
 farming: 7 patch types, 45 crops
 runecraft: 10 altars (Air, Mind, Water, Earth, Fire, Body, Nature, Chaos, Wrath, Astral), essence mine exits 0
-construction: 24 hotspot locs, 92 furniture
+construction: 24 hotspot locs, 92 furniture, exits 
 hunter: 12 creatures (Crimson swift, Golden warbler, Copper longtail, Cerulean twitch, Ruby harvest, Sapphire glacialis, Ferret, Snowy knight, Black warlock, Chinchompa, Carnivorous chinchompa, Black chinchompa)
 slayer: 5 masters, 551 slayer monsters
 shops: 207
