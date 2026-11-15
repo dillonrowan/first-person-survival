@@ -167,6 +167,8 @@ export class PlayerCombat {
     weaponIndex = 0;
     /** Called for every hit, for hit markers and sounds. */
     onHit?: (report: HitReport) => void;
+    /** False for a target the player cannot hurt yet (Slayer level too low): its hits do 0. */
+    canDamage?: (target: CombatTarget) => boolean;
     /** Called when a kick lands, misses or is dodged. */
     onKick?: (report: KickReport) => void;
     /** Called for every NPC strike that reaches the player. */
@@ -318,7 +320,8 @@ export class PlayerCombat {
         const success = this.random() < hitChance(attack.attackRoll, npcDefenceRoll(stats, attack.defenceType));
         const base = success ? Math.max(1, Math.floor(this.random() * (attack.maxHit + 1))) : 0;
         const multiplier = clamp(attack.rate * extra, 0, tuning.osrsMaxDamageMultiplier);
-        const amount = success ? stochasticRound(base * multiplier, this.random) : 0;
+        const allowed = this.canDamage?.(target) ?? true;
+        const amount = success && allowed ? stochasticRound(base * multiplier, this.random) : 0;
         const before = target.combatant.health;
         const result = applyDamage(target.combatant, amount, hit, this.weapon.stunMultiplier, this.random, {
             minReaction: "flinch",

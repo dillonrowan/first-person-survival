@@ -15,28 +15,7 @@ import { SkillSystem, SkillUi } from "./SkillSystem";
 
 export type TestItem = { id: number; name: string; stackable?: boolean };
 
-export function emptyManifest(): SkillsManifest {
-    return {
-        format: 1,
-        source: "test",
-        locs: {},
-        trees: [],
-        rocks: [],
-        fishing: [],
-        recipes: [],
-        firemaking: [],
-        fills: [],
-        stalls: [],
-        pickpockets: [],
-        hunter: [],
-        farming: { patches: [], crops: [], weeds: {} },
-        slayer: { masters: [], monsters: {} },
-        construction: { rooms: [], furniture: [], hotspots: {}, exitLocIds: [] },
-        runecraft: { altars: [], essence: { rune: 1436, pure: 7936 }, essenceMine: { arrival: { x: 0, y: 0, plane: 0 }, exitLocIds: [], returnTo: { x: 0, y: 0, plane: 0 } } },
-        tools: { axes: [], pickaxes: [] },
-        items: {},
-    };
-}
+export { emptySkillsManifest as emptyManifest } from "../world/SkillFormat";
 
 /** A skill loc instance as a region would give it. */
 export function testLoc(id: number, name: string, x = 10, y = 10, skill: InteractiveLoc["skill"] = { mesh: 0, depletedMesh: 1 }): SkillLocInstance {

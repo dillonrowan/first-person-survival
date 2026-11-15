@@ -165,6 +165,16 @@ export class PlayerSkills {
         return combatLevel(this.levels());
     }
 
+    /** Sets a skill's XP (the dev console's game.setLevel). */
+    setXp(id: SkillId, xp: number): void {
+        this.xpOf[id] = Math.max(0, Math.min(MAX_XP, xp));
+        try {
+            this.storage?.setItem(STORAGE_KEY, JSON.stringify(this.xpOf));
+        } catch {
+            // Not saved this time.
+        }
+    }
+
     /** Adds XP and returns the levels gained. */
     addXp(gains: XpGains): LevelUp[] {
         const ups: LevelUp[] = [];

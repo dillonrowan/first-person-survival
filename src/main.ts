@@ -43,6 +43,11 @@ import { weaponDefFor } from "./items/weaponDef";
 import { SidePanel } from "./ui/SidePanel";
 import { HitsplatLayer, loadHitsplatArt, splatKind } from "./ui/Hitsplats";
 import { SkillsPanel } from "./ui/SkillsPanel";
+import { MessageLog } from "./ui/MessageLog";
+import { createSkills } from "./skills/SkillsSetup";
+import type { SkillLocInstance } from "./world/SkillLocs";
+import type { SkillId } from "./combat/SkillId";
+import { xpForLevel } from "./combat/Osrs";
 import { SpellbookPanel } from "./ui/SpellbookPanel";
 import "./style.css";
 import { NpcManifest, decodeNpcModel } from "./world/NpcFormat";
@@ -529,6 +534,7 @@ async function main(): Promise<void> {
     };
     const killed = (npc: Npc) => {
         xpGained(skills.addXp(npc.xpLedger.drain()));
+        skillSystem.onNpcDeath(npc);
         for (const stack of rollDrops(npc.appearance.drops ?? [], Math.random)) {
             groundItems.add(stack, Math.floor(npc.body.x), Math.floor(npc.body.y), npc.plane, {
                 despawnIn: tuning.groundItemDespawn,
@@ -544,9 +550,11 @@ async function main(): Promise<void> {
         }
     };
     let messageTimer: ReturnType<typeof setTimeout> | undefined;
+    const messageLog = new MessageLog(document.getElementById("message-log")!);
     const ui = {
         setPrompt: (text: string) => (promptElement.textContent = text),
         showMessage: (text: string) => {
+            messageLog.add(text);
             messageElement.textContent = text;
             clearTimeout(messageTimer);
             messageTimer = setTimeout(() => (messageElement.textContent = ""), 2500);
@@ -556,8 +564,53 @@ async function main(): Promise<void> {
         bodies: npcs,
         player: () => player.footprint(),
     });
+    /** A skill panel or the side panel closed: take the mouse back, else show "Click to play". */
+    const panelClosed = () => {
+        if (player.ready) {
+            input.lock();
+        }
+        setTimeout(() => overlay.classList.toggle("hidden", input.locked), 250);
+    };
+    const skilling = await createSkills({
+        worldUrl: WORLD_URL,
+        world,
+        scene,
+        materials,
+        player,
+        items,
+        db: itemDb,
+        icons: itemIcons,
+        skills,
+        ground: groundItems,
+        npcs: () => npcs?.all() ?? [],
+        hurt: (amount) => {
+            if (combat.combatant.dead) return;
+            combat.combatant.hurt(amount, "flinch");
+            combatHud.showDamage(amount);
+            hitsplats.addPlayer("damage", amount);
+        },
+        log: (text) => messageLog.add(text),
+        message: (text) => ui.showMessage(text),
+        xpGained: (ups) => xpGained(ups),
+        openBank: () => sidePanel.openBank(),
+        panelClosed,
+        storage: browserStorage(),
+    });
+    const skillSystem = skilling.system;
+    let slayerWarned = -Infinity;
+    combat.canDamage = (target) => {
+        const id = (target as unknown as Partial<Npc>).appearance?.id;
+        if (id === undefined || skillSystem.slayer.canDamage(id)) return true;
+        if (performance.now() - slayerWarned > 3000) {
+            slayerWarned = performance.now();
+            ui.showMessage("You need a higher Slayer level to know how to wound this monster.");
+        }
+        return false;
+    };
     const handleWorldAction: ActionHandler = (target, action) => {
-        if (target.kind === "door") {
+        if (target.kind === "skill-loc") {
+            skillSystem.locAction(target.ref as SkillLocInstance, action);
+        } else if (target.kind === "door") {
             const door = target.ref as Parameters<WorldInteractives["toggle"]>[0];
             if (!interactives.toggle(door)) {
                 ui.showMessage("Something is in the way.");
@@ -588,10 +641,21 @@ async function main(): Promise<void> {
     };
     const interaction = new Interaction(
         (plane, x, y) => world.collisionFlags(plane, x, y),
-        [...(npcs ? [npcTargetSource(npcs)] : []), interactives.targetSource(), props.targetSource(), groundItems.targetSource()],
+        [
+            ...(npcs ? [npcTargetSource(npcs)] : []),
+            interactives.targetSource(),
+            props.targetSource(),
+            groundItems.targetSource(),
+            skilling.skillLocs.targetSource(),
+        ],
         ui,
-        createNpcActionHandler(player, ui, handleWorldAction, () => sidePanel.openBank()),
+        createNpcActionHandler(player, ui, handleWorldAction, () => sidePanel.openBank(), (npc, action) => skillSystem.npcAction(npc, action)),
     );
+    interaction.onUse = (target, slot) => {
+        if (target.kind === "skill-loc") skillSystem.useItemOnLoc(target.ref as SkillLocInstance, slot);
+        else if (target.kind === "npc") skillSystem.useItemOnNpc();
+        else messageLog.add("Nothing interesting happens.");
+    };
     let eatCooldown = 0;
     const skillsPanel = new SkillsPanel(document.getElementById("tab-skills")!, skills);
     const spellbookPanel = new SpellbookPanel(document.getElementById("tab-spellbook")!, spellbook, skills, (spell) =>
@@ -621,15 +685,22 @@ async function main(): Promise<void> {
                     despawnIn: tuning.groundItemDespawn,
                 }),
             message: (text) => ui.showMessage(text),
-            closed: () => {
-                if (player.ready) {
-                    input.lock();
-                }
-                // If the mouse could not be taken back, show the "Click to play" panel again.
-                setTimeout(() => overlay.classList.toggle("hidden", input.locked), 250);
+            // If the mouse could not be taken back, the "Click to play" panel shows again.
+            closed: panelClosed,
+            action: (slot, action) => skillSystem.itemOption(slot, action),
+            use: (slot) => {
+                const stack = items.inventory.slots[slot];
+                const name = stack ? itemDb.get(stack.id)?.name : undefined;
+                interaction.useItem = name ? { slot, name } : undefined;
             },
+            useOn: (from, to) => {
+                interaction.useItem = undefined;
+                skillSystem.useItemOnItem(from, to);
+            },
+            shop: () => (skilling.shopPanel.isOpen ? skilling.shopPanel : undefined),
         },
     );
+    skilling.shopPanel.showMenu = (x, y, entries) => sidePanel.showMenu(x, y, entries);
     items.onChange = () => {
         syncWeapon();
         sidePanel.refresh();
@@ -637,6 +708,10 @@ async function main(): Promise<void> {
     window.addEventListener("keydown", (event) => {
         if (event.repeat || event.target instanceof HTMLInputElement) {
             return;
+        }
+        if (event.code === "Escape" || event.code === "Tab") {
+            interaction.useItem = undefined;
+            sidePanel.useFrom = -1;
         }
         if (event.code === "Tab") {
             event.preventDefault();
@@ -664,6 +739,19 @@ async function main(): Promise<void> {
             game: {
                 renderer, scene, camera, world, player, npcs, props, cameraRig, avatar, interaction, interactives, combat, tuning,
                 skills, spellbook, items, db: itemDb, groundItems, sidePanel, hitsplats, spellEffects,
+                clock: skilling.clock, skillLocs: skilling.skillLocs, skillSystem, skillsData: skilling.data,
+                /** game.give("Bronze axe") */
+                give: (name: string, qty = 1) => {
+                    const item = itemDb.byName(name);
+                    if (item) items.give(item.id, qty);
+                    return item?.id;
+                },
+                /** game.setLevel("woodcutting", 60) */
+                setLevel: (skill: SkillId, level: number) => {
+                    skills.setXp(skill, xpForLevel(level));
+                    skillsChanged();
+                },
+                tp: (x: number, y: number, plane = 0) => player.teleport(x + 0.5, y + 0.5, plane),
             },
         });
     }
@@ -675,7 +763,7 @@ async function main(): Promise<void> {
     };
     playButton.addEventListener("click", play);
     canvas.addEventListener("click", play);
-    input.onLockChange = (locked) => overlay.classList.toggle("hidden", locked || sidePanel.isOpen);
+    input.onLockChange = (locked) => overlay.classList.toggle("hidden", locked || sidePanel.isOpen || skilling.panelOpen);
 
     window.addEventListener("resize", () => {
         camera.aspect = window.innerWidth / window.innerHeight;
@@ -693,8 +781,17 @@ async function main(): Promise<void> {
         // A landed blow briefly holds the struck bodies; the player and the swing carry on.
         const npcDt = hitFeel.worldDt(dt);
 
+        // A failed pickpocket stuns: no moving or fighting, only looking around.
+        const stunned = skillSystem.thieving.stunned;
+        if (stunned) player.boundFor = Math.max(player.boundFor, 0.1);
         player.update(dt, input);
-        const fighting = input.locked && player.ready && !player.flying;
+        skilling.clock.update(dt);
+        skillSystem.update({
+            acted: input.locked && (input.wasPressed("Mouse0") || input.wasPressed("KeyF")),
+            panelOpen: sidePanel.isOpen || skilling.panelOpen,
+            dead: combat.combatant.dead,
+        });
+        const fighting = input.locked && player.ready && !player.flying && !stunned;
         // Carrying a prop (spec 19.4): left mouse throws it, E drops it; no fighting meanwhile.
         let propHandled = false;
         if (props.held) {
@@ -843,6 +940,7 @@ async function main(): Promise<void> {
         groundItems.update(dt, player.x, player.y, player.plane);
         arrowView.update(combat.arrows, (out) => weaponView.launchPoint(out));
         avatar.update(dt, player, cameraRig.mode);
+        weaponView.setSkillSwing(skillSystem.swingPhase());
         weaponView.update(combat.melee, cameraRig.mode, player.ready && !player.flying, combat.kick, {
             dt,
             bowDraw: combat.bow.poseProgress,

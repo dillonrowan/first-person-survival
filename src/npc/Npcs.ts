@@ -21,7 +21,12 @@ type RegionNpcs = {
     /** Appearance indices acquired from the model cache, released again on unload. */
     appearances: number[];
     npcs: Npc[];
+    /** Loaded models by appearance index, to respawn NPCs with. */
+    models: Map<number, SharedNpcModel>;
 };
+
+/** Seconds after a corpse has gone before the NPC stands at its spawn again (50 ticks). */
+export const NPC_RESPAWN_SECONDS = 30;
 
 /** Creates the NPCs of the regions the world has loaded, and runs their animation and wandering. */
 export class Npcs implements BodySource<Npc> {
@@ -36,6 +41,8 @@ export class Npcs implements BodySource<Npc> {
     /** Seconds simulated, and when each body last knocked each NPC down (spec 20.7). */
     private time = 0;
     private readonly bodyHits = new WeakMap<Npc, Map<Npc, number>>();
+    private readonly spawnOf = new WeakMap<Npc, NpcSpawnInfo>();
+    private readonly goneSince = new WeakMap<Npc, number>();
 
     constructor(
         private readonly manifest: NpcManifest,
@@ -234,6 +241,28 @@ export class Npcs implements BodySource<Npc> {
         }
         this.collideBodies();
         this.limitCorpses();
+        this.respawn();
+    }
+
+    /** NPCs whose corpse has gone come back at their spawn after NPC_RESPAWN_SECONDS. */
+    private respawn(): void {
+        for (const region of this.regions.values()) {
+            for (const npc of [...region.npcs]) {
+                if (!npc.gone) continue;
+                const since = this.goneSince.get(npc);
+                if (since === undefined) {
+                    this.goneSince.set(npc, this.time);
+                    continue;
+                }
+                const spawn = this.spawnOf.get(npc);
+                const model = spawn && region.models.get(spawn.appearance);
+                if (this.time - since < NPC_RESPAWN_SECONDS || !spawn || !model) continue;
+                region.npcs.splice(region.npcs.indexOf(npc), 1);
+                npc.releaseOccupancy(this.occupancy);
+                npc.dispose();
+                this.createNpc(region, spawn, model);
+            }
+        }
     }
 
     /**
@@ -303,7 +332,7 @@ export class Npcs implements BodySource<Npc> {
             return;
         }
         const appearances = [...new Set(spawns.map((spawn) => spawn.appearance))];
-        const region: RegionNpcs = { appearances, npcs: [] };
+        const region: RegionNpcs = { appearances, npcs: [], models: new Map() };
         this.regions.set(key, region);
 
         // acquire() counts the use right away, so an unload while loading releases it again.
@@ -314,7 +343,7 @@ export class Npcs implements BodySource<Npc> {
             if (this.regions.get(key) !== region) {
                 return; // Unloaded while the models were loading.
             }
-            const models = new Map<number, SharedNpcModel>();
+            const models = region.models;
             results.forEach((result, i) => {
                 if (result.status === "fulfilled") {
                     models.set(appearances[i], result.value);
@@ -344,6 +373,7 @@ export class Npcs implements BodySource<Npc> {
         npc.sync();
         this.scene.add(npc.group);
         region.npcs.push(npc);
+        this.spawnOf.set(npc, spawn);
     }
 
     private regionUnloaded(mapX: number, mapY: number): void {

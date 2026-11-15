@@ -81,7 +81,6 @@ function main(): void {
     runecraft.essenceMine.exitLocIds.forEach((id) => set(id, { role: "essence-exit" }));
     farming.patches.forEach((p) => p.locIds.forEach((id) => set(id, { role: "patch", impl: p.impl })));
     for (const [id, name] of Object.entries(construction.hotspots)) set(Number(id), { role: "hotspot", name });
-    construction.exitLocIds.forEach((id) => set(id, { role: "house-exit" }));
     for (const id of ctx.locsWhere((n, a) => n === "Portal" && a.includes("Home"))) set(id, { role: "house-portal" });
     for (const [id, facility] of facilityLocs(ctx)) set(id, { role: "facility", facility });
     for (const id of ctx.locsWhere((n, a) => /deposit (box|chest|pot)/i.test(n) && a.includes("Deposit"))) set(id, { role: "deposit" });
@@ -124,7 +123,9 @@ function main(): void {
         tools: exportTools(ctx),
         items: named,
     };
-    const shops: ShopManifest = { format: SKILLS_FORMAT_VERSION, shops: exportShops(ctx) };
+    const values: Record<string, number> = {};
+    for (const item of items) values[item.id] = loaders.objTypeLoader.load(item.id).value;
+    const shops: ShopManifest = { format: SKILLS_FORMAT_VERSION, shops: exportShops(ctx), values };
     fs.writeFileSync(path.join(WORLD, "skills.json"), JSON.stringify(manifest));
     fs.writeFileSync(path.join(WORLD, "shops.json"), JSON.stringify(shops));
 

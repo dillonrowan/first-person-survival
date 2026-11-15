@@ -150,7 +150,6 @@ export class SkillSystem {
                 return this.farming.locAction(instance, role.impl, action);
             case "hotspot":
             case "house-portal":
-            case "house-exit":
                 return this.construction.locAction(instance, role, action);
             case "deposit":
                 return this.ui.openBank();

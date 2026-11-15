@@ -146,8 +146,6 @@ export type ConstructionDef = {
     furniture: FurnitureDef[];
     /** Placed hotspot locs: loc id → hotspot name. */
     hotspots: Record<string, string>;
-    /** The garden's exit portal. */
-    exitLocIds: number[];
 };
 
 export type AltarDef = {
@@ -185,7 +183,6 @@ export type LocRole =
     | { role: "patch"; impl: PatchImpl }
     | { role: "hotspot"; name: string }
     | { role: "house-portal" }
-    | { role: "house-exit" }
     | { role: "deposit" };
 
 export type SkillsManifest = {
@@ -214,4 +211,29 @@ export type SkillsManifest = {
 
 export type ShopItem = { item: number; stock: number; price: number; shopPays: number; restockTicks: number };
 export type ShopDef = { name: string; npcIds: number[]; items: ShopItem[] };
-export type ShopManifest = { format: number; shops: ShopDef[] };
+/** `values`: each item's cache value (coins), for what shops pay for items they do not stock. */
+export type ShopManifest = { format: number; shops: ShopDef[]; values: Record<string, number> };
+
+/** Skill data with nothing in it: the game without skills.json, and tests. */
+export function emptySkillsManifest(): SkillsManifest {
+    return {
+        format: SKILLS_FORMAT_VERSION,
+        source: "none",
+        locs: {},
+        trees: [],
+        rocks: [],
+        fishing: [],
+        recipes: [],
+        firemaking: [],
+        fills: [],
+        stalls: [],
+        pickpockets: [],
+        hunter: [],
+        farming: { patches: [], crops: [], weeds: {} },
+        slayer: { masters: [], monsters: {} },
+        construction: { rooms: [], furniture: [], hotspots: {} },
+        runecraft: { altars: [], essence: { rune: 1436, pure: 7936 }, essenceMine: { arrival: { x: 0, y: 0, plane: 0 }, exitLocIds: [], returnTo: { x: 0, y: 0, plane: 0 } } },
+        tools: { axes: [], pickaxes: [] },
+        items: {},
+    };
+}

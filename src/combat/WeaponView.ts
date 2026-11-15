@@ -231,6 +231,8 @@ type Layer = { key: string; clip: DmClip; time: number; loop?: boolean };
 
 export class WeaponView {
     private readonly holder = new THREE.Group();
+    /** 0..1 through a skilling tool swing (woodcutting, mining), or undefined. */
+    private skillSwing: number | undefined;
     private readonly models = new Map<string, THREE.Object3D>();
     private readonly loading = new Set<string>();
     private current: THREE.Object3D | undefined;
@@ -356,6 +358,11 @@ export class WeaponView {
         this.shake = Math.max(this.shake, strength);
     }
 
+    /** Sets the skilling swing phase for the next update; undefined when not skilling. */
+    setSkillSwing(phase: number | undefined): void {
+        this.skillSwing = phase;
+    }
+
     update(
         melee: MeleeController,
         mode: "first" | "third",
@@ -435,6 +442,12 @@ export class WeaponView {
         }
         this.holder.position.copy(pose.pos);
         this.holder.quaternion.copy(pose.quat);
+        if (this.skillSwing !== undefined) {
+            // A chop or pick swing: tip forward and down once per tool cycle.
+            const s = Math.sin(Math.PI * this.skillSwing);
+            this.holder.rotateX(-0.9 * s);
+            this.holder.position.y -= 0.04 * s;
+        }
         this.recordLaunchPoint(ready, dt);
         if (this.freeze > 0) {
             // Stuck in the target: a fine judder rather than a dead stop.

@@ -117,6 +117,22 @@ describe("Npcs", () => {
         expect(npcs.loadedModelCount).toBe(1);
     });
 
+    it("brings a killed NPC back at its spawn 30 s after its corpse is gone", async () => {
+        const { world, npcs } = setup();
+        world.load(50, 50);
+        await flush();
+        const dead = npcs.all()[0];
+        dead.gone = true;
+        npcs.update(0.1);
+        for (let i = 0; i < 29; i++) npcs.update(1);
+        expect(npcs.all()[0]).toBe(dead);
+        npcs.update(1.5);
+        const back = npcs.all()[0];
+        expect(back).not.toBe(dead);
+        expect(back.gone).toBe(false);
+        expect(npcs.count).toBe(1);
+    });
+
     it("ignores regions without NPCs and loads each region once", async () => {
         const { world, npcs } = setup();
 

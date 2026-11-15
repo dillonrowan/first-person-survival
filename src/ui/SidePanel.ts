@@ -14,6 +14,14 @@ export type SidePanelHooks = {
     message(text: string): void;
     /** A panel closed: the game takes the mouse back. */
     closed(): void;
+    /** Any other inventory option (Light, Lay, Clean, Drink…); false when nothing handles it. */
+    action(slot: number, action: string): boolean;
+    /** "Use" chosen on a slot: the next slot clicked, or the next thing aimed at, gets it. */
+    use(slot: number): void;
+    /** Used item `from` on item `to`. */
+    useOn(from: number, to: number): void;
+    /** The open shop, if any: inventory clicks sell to it. */
+    shop(): { sell(slot: number, qty: number): void; sellText(id: number): string } | undefined;
 };
 
 /** OSRS stack text: as is below 100,000, then "100K", and "10M" from ten million. */
@@ -44,6 +52,8 @@ export class SidePanel {
     private bankOpen = false;
     private bankSearch = "";
     private dragFrom = -1;
+    /** The slot whose item is being used on something, while choosing what. */
+    useFrom = -1;
 
     constructor(
         private readonly element: HTMLElement,
@@ -155,6 +165,13 @@ export class SidePanel {
                 entries.push({ label: action, run: () => this.report(this.items.wield(slot)) });
             } else if (action === "Eat") {
                 entries.push({ label: action, run: () => this.hooks.eat(slot) });
+            } else if (action !== "Drop" && action !== "Use" && action !== "Examine") {
+                entries.push({
+                    label: action,
+                    run: () => {
+                        if (!this.hooks.action(slot, action)) this.hooks.message("Nothing interesting happens.");
+                    },
+                });
             } else if (action === "Drop") {
                 entries.push({
                     label: action,
@@ -165,6 +182,14 @@ export class SidePanel {
                 });
             }
         }
+        entries.push({
+            label: "Use",
+            run: () => {
+                this.useFrom = slot;
+                this.hooks.use(slot);
+                this.refresh();
+            },
+        });
         entries.push({ label: "Examine", run: () => this.hooks.message(info.examine || info.name) });
         return entries;
     }
@@ -179,17 +204,29 @@ export class SidePanel {
         this.items.inventory.slots.forEach((stack, i) => {
             const info = stack && this.db.get(stack.id);
             const actions = info ? this.actionsOf(info, i) : [];
+            const shop = this.hooks.shop();
             const slot = this.slotElement(
                 stack,
                 () => {
-                    if (this.bankOpen && stack) this.items.deposit(i, 1);
+                    if (this.useFrom >= 0) {
+                        const from = this.useFrom;
+                        this.useFrom = -1;
+                        if (from !== i) this.hooks.useOn(from, i);
+                        this.refresh();
+                    } else if (shop && stack) shop.sell(i, 1);
+                    else if (this.bankOpen && stack) this.items.deposit(i, 1);
                     else actions.find((a) => a.label !== "Examine" && a.label !== "Drop")?.run();
                 },
                 (x, y) =>
                     this.showMenu(
                         x,
                         y,
-                        this.bankOpen && stack
+                        shop && stack
+                            ? [
+                                  { label: "Value", run: () => this.hooks.message(shop.sellText(stack.id)) },
+                                  ...[1, 5, 10, 50].map((n) => ({ label: `Sell-${n}`, run: () => shop.sell(i, n) })),
+                              ]
+                            : this.bankOpen && stack
                             ? [1, 5, 10, Infinity].map((n) => ({
                                   label: `Deposit-${n === Infinity ? "All" : n}`,
                                   run: () => this.items.deposit(i, n === Infinity ? stack.qty : n),
@@ -197,6 +234,7 @@ export class SidePanel {
                             : [...actions.filter((a) => a.label !== "Drop" && a.label !== "Examine"), ...actions.filter((a) => a.label === "Drop"), ...actions.filter((a) => a.label === "Examine")],
                     ),
             );
+            slot.classList.toggle("using", i === this.useFrom);
             slot.draggable = !!stack;
             slot.addEventListener("dragstart", () => (this.dragFrom = i));
             slot.addEventListener("dragover", (e) => e.preventDefault());
@@ -309,7 +347,7 @@ export class SidePanel {
 
     // ---------------------------------------------------------------- menu
 
-    private showMenu(x: number, y: number, entries: MenuEntry[]): void {
+    showMenu(x: number, y: number, entries: MenuEntry[]): void {
         this.menuElement.replaceChildren(
             ...[...entries, { label: "Cancel", run: () => undefined }].map((entry) => {
                 const row = document.createElement("button");

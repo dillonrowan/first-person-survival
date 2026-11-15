@@ -190,8 +190,6 @@ export function exportConstruction(ctx: SkillsExportContext): ConstructionDef {
             materials: materials as { item: number; qty: number }[],
         });
     }
-    const [, gx, gy] = ROOMS[0];
-    const exitLocIds = [...new Set((square?.locs ?? []).filter((l) => l.x >> 3 === gx && l.y >> 3 === gy && ctx.locs[l.id].name === "Portal").map((l) => l.id))];
-    ctx.log(`construction: ${Object.keys(hotspots).length} hotspot locs, ${furniture.length} furniture, exits ${exitLocIds.join(",")}`);
-    return { rooms, furniture, hotspots, exitLocIds };
+    ctx.log(`construction: ${Object.keys(hotspots).length} hotspot locs, ${furniture.length} furniture`);
+    return { rooms, furniture, hotspots };
 }

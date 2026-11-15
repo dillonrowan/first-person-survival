@@ -45,7 +45,7 @@ export class SkillLocs {
     /** The doorMeshes index to show for an instance: undefined for its placed look, -1 for nothing. */
     look?: (instance: SkillLocInstance) => number | undefined;
     /** The actions offered for an instance; defaults to the loc's own (without Examine). */
-    actionsOf?: (instance: SkillLocInstance) => string[];
+    actionsOf?: (instance: SkillLocInstance) => string[] | undefined;
 
     constructor(
         private readonly world: SkillLocWorld,

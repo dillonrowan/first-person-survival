@@ -27,12 +27,14 @@ export class Construction {
         return this.ctx.data.locs[instance.loc.id];
     }
 
-    private isDoor(instance: SkillLocInstance): boolean {
-        return /door/i.test(instance.loc.name);
+    /** The garden's centrepiece space stands in for the exit portal the template garden lacks. [design] */
+    private isExit(instance: SkillLocInstance): boolean {
+        const garden = this.ctx.data.construction.rooms[0]?.arrival;
+        return !!garden && /centrepiece/i.test(instance.loc.name) && instance.loc.tileX >> 3 === garden.x >> 3 && instance.loc.tileY >> 3 === garden.y >> 3;
     }
 
     look(instance: SkillLocInstance): number | undefined {
-        if (this.role(instance)?.role !== "hotspot" || this.isDoor(instance)) return undefined;
+        if (this.role(instance)?.role !== "hotspot") return undefined;
         const built = this.furniture[instance.key];
         if (built !== undefined) return instance.loc.skill?.furnitureMeshes?.[built] ?? -1;
         return this.buildMode ? instance.loc.skill?.mesh : -1;
@@ -41,11 +43,11 @@ export class Construction {
     actionsOf(instance: SkillLocInstance): string[] | undefined {
         const role = this.role(instance)?.role;
         if (role === "house-portal") return ["Home", "Build mode"];
-        if (role === "house-exit") return ["Exit"];
         if (role !== "hotspot") return undefined;
-        if (this.isDoor(instance)) return ["Enter"];
-        if (!this.buildMode) return [];
-        return this.furniture[instance.key] !== undefined ? ["Remove"] : ["Build"];
+        // The template rooms are not joined by doors: any hotspot leads on to the next room. [design]
+        const travel = this.isExit(instance) ? ["Exit", "Next room"] : ["Next room"];
+        if (!this.buildMode) return travel;
+        return [this.furniture[instance.key] !== undefined ? "Remove" : "Build", ...travel];
     }
 
     private refreshAll(): void {
@@ -73,13 +75,13 @@ export class Construction {
             ctx.log(this.buildMode ? "You enter your house in building mode." : "You enter your house.");
             return;
         }
-        if (role.role === "house-exit") {
+        if (role.role !== "hotspot") return;
+        if (/^exit$/i.test(action)) {
             this.sys.stop();
             ctx.player.teleport(this.returnTo.x + 0.5, this.returnTo.y + 0.5, this.returnTo.plane);
             return;
         }
-        if (role.role !== "hotspot") return;
-        if (this.isDoor(instance)) return this.goToRoom(this.room + 1);
+        if (/^next room$/i.test(action)) return this.goToRoom(this.room + 1);
         if (/^remove$/i.test(action)) {
             delete this.furniture[instance.key];
             this.changed(instance.key);
