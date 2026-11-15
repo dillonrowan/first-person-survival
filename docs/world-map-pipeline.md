@@ -105,6 +105,23 @@ are matched to their NPC definition, each distinct appearance is lit and its idl
 attack animations are baked frame by frame into `npcs/{id}_{displayId}.bin`, and the spawns are
 written to `npcs.json` (with the attack styles of NPCs that use more than melee, from the OSRS wiki). The game plays the baked frames back and wanders the NPCs itself.
 
+**Skill locs.** Trees, rocks, farming patches, house hotspots, facilities (furnaces, ranges,
+anvils…), stalls and runecraft altars and ruins become interactive locs of kind `skill` in the
+region file. Which locs those are comes from `tools/world-export/data/skill-locs.json`, written
+by `npm run export-skills`. Trees and rocks get their own meshes plus a stump or empty-rock mesh,
+patches one mesh per growth state, and hotspots one mesh per furniture, so the game can swap them;
+the others stay part of the region meshes. They keep their collision.
+
+**Extra squares.** `--squares "x,y;x,y"` exports only the listed map squares, and `--merge`
+re-exports the selected squares into the existing world (adding new ones to `world.json`) without
+deleting anything else. The skills need the house template square (29,110) and the runecraft
+altar squares (35..44,75) and essence mine (45,75), which lie outside the surface export:
+
+```bash
+npm run export-world -- --merge --squares "29,110;35,75;36,75;37,75;38,75;39,75;40,75;41,75;42,75;43,75;44,75;45,75"
+npm run export-world -- --npcs-only
+```
+
 Besides the regions, the export writes `textures.png` (every texture in one image) and
 `world.json` (the list of regions, the spawn point and texture settings). The 1,636 regions
 of the surface world take about 5 minutes with 3 workers in parallel.
@@ -125,4 +142,5 @@ ground (or on a bridge or upper floor), and its collision stops the player at wa
 | ------------------------------------------------------------------ | ---------------------------------------- |
 | Want a newer OSRS update                                           | `download-cache`, then `export-world`    |
 | The exporter (`tools/world-export/`) or `src/world/WorldFormat.ts` | `export-world`, then `export-cache-weapons` and `export-items` |
+| Skill data or the wiki data (`npm run fetch-wiki-skills`)          | `export-skills`; then `export-world -- --merge --area surface` if skill-locs.json changed |
 | Only the game (`src/`)                                             | Nothing; the dev server reloads the page |

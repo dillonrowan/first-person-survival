@@ -40,7 +40,8 @@ For movement, combat, interactions, props, flying, and the HUD, see the
 | C          | Crouch (while flying: sink)                                     |
 | Space      | Jump                                                            |
 | N          | Toggle flying; Space / C to rise / sink                         |
-| E / R      | First / second action on what you aim at (E picks up a prop)    |
+| E / R / T  | First / second / third action on what you aim at (E picks up a prop) |
+| Tab / K    | Inventory and equipment / skills                                |
 | Left mouse | While carrying a prop: throw it (E drops it)                    |
 | Esc        | Release the mouse                                               |
 | V          | Third-person camera (dev builds only)                           |
@@ -72,6 +73,19 @@ damage, 60% taken). The values and their sources are in section 19 of the spec.
 Turning flying off lands you on the highest floor below you, so you can fly onto a castle
 roof or into an upper floor and walk around there.
 
+### Skills, items and banking
+
+The OSRS non-combat skills (except Agility) work on the exported map: Woodcutting, Mining,
+Fishing, Cooking, Firemaking, Smithing, Crafting, Fletching, Herblore, Runecraft, Thieving, Hunter,
+Farming, Slayer and Construction, with the 28-slot inventory, the bank, shops, monster drops and
+NPC respawn. Aim at a tree, rock, fishing spot, furnace or stall and press E; use an inventory item
+on another or on what you aim at. Skilling runs on the 0.6 s OSRS game tick. Data comes from the
+OSRS wiki (`npm run fetch-wiki-skills`, committed in `tools/world-export/data/wiki/`) and the
+cache. The run order is `export-world`, then `export-skills`, then `export-items`
+(`export-skills` also writes `tools/world-export/data/skill-locs.json`, which `export-world`
+reads to give trees, rocks, patches and house hotspots their own meshes). Formulas and every
+[design] value are in [docs/skills-spec.md](docs/skills-spec.md).
+
 ### Export options
 
 ```bash
@@ -79,6 +93,7 @@ npm run export-world -- --area all            # surface plus dungeons, minigames
 npm run export-world -- --area 44,48,54,56    # only map squares x 44..54, y 48..56
 npm run export-world -- --workers 4           # parallel workers (default: by cores and free RAM, max 6)
 npm run export-world -- --no-npcs             # skip NPC models and spawns
+npm run export-world -- --merge --squares "29,110;44,75"   # add or redo squares, keep everything else
 npm run download-cache -- 238                 # a specific OSRS revision instead of the newest
 ```
 
@@ -196,6 +211,12 @@ Defined in `src/world/WorldFormat.ts`, shared by the exporter and the game.
 - `public/world/npcs.json` and `public/world/npcs/{id}_{displayId}.bin`: NPC spawns, and one
   gzip-compressed model per NPC appearance (lit mesh plus baked idle, walk and attack frames). Defined
   in `src/world/NpcFormat.ts`. Absent when exported with `--no-npcs`.
+- `public/world/items.json` and `public/world/items/`: every item and its inventory model
+  (`src/world/ItemFormat.ts`, `npm run export-items`).
+- `public/world/skills.json`, `public/world/shops.json` and `public/world/skill-models/`:
+  skill data by loc and NPC id, shops with item values, and the fire and hunter trap models the
+  game places itself (`src/world/SkillFormat.ts`, `npm run export-skills`). Skill locs are
+  `InteractiveLoc`s of kind `skill` inside the region files.
 
 Coordinates are OSRS world tiles (`x` east, `y` north; Lumbridge is 3222, 3218). In three.js
 space, tile `(x, y)` at height `h` is `(x, h, -y)`, one unit per tile.
@@ -218,4 +239,6 @@ NPC spawn list come from [rs-map-viewer](https://github.com/dennisdev/rs-map-vie
 [OpenRS2 archive](https://archive.openrs2.org/). The animation names in
 `tools/world-export/data/animation-names-runelite.json` come from RuneLite's
 `net.runelite.api.gameval.AnimationID` ([RuneLite](https://github.com/runelite/runelite),
-BSD 2-Clause).
+BSD 2-Clause). Skill, recipe, drop, shop and slayer data come from the
+[Old School RuneScape Wiki](https://oldschool.runescape.wiki/) (CC BY-NC-SA 3.0); the farming
+patch states and growth rates come from RuneLite's time-tracking plugin (BSD 2-Clause).

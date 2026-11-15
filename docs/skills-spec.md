@@ -1,76 +1,78 @@
-# Skill tree & XP spec (draft, paused)
+# OSRS skills spec
 
-Started, then paused so physics could come first. Same tags as
-[combat-movement-spec.md](combat-movement-spec.md). Nothing here is implemented yet. This project
-does not use Dark Messiah's skill tree: its skills are the OSRS-style Melee, Defence, Ranged, Magic
-and Hitpoints described in combat-movement-spec.md 5.2.
+The non-combat skills, as built. Combat skills are in
+[combat-movement-spec.md](combat-movement-spec.md) 5.2; the paused Dark Messiah skill-tree draft
+is kept in [dm-skill-tree-draft.md](dm-skill-tree-draft.md). Values marked **[design]** are this
+game's own choices; everything else follows OSRS.
 
-## Tree `[data: mm/scripts/mm_skills_infos.txt]`
+## Skills
 
-Each skill has levels; buying a level costs the listed points and unlocks its modules.
-`requires` lists skills of which **any one** must be owned (`a|b`). Level 0 modules are free.
+Woodcutting, Mining, Fishing, Cooking, Firemaking, Smithing, Crafting, Fletching, Herblore,
+Runecraft, Thieving, Hunter, Farming, Slayer and Construction. Not built: Agility, Prayer (bones
+can be banked, not buried) and Sailing.
 
-| Skill | Requires | Level costs | Modules |
-| --- | --- | --- | --- |
-| combat | – | L0 0, L1 1, L2 2, L3 4 | L0 huge slash, fatality, parry, big slash; L1 chained slash, rush attack; L2 disarm, shield; L3 passthrough, trample, vertical (falling) attack |
-| projectile | – | 1, 2, 4 | bow zoom; stability; bow reload |
-| stamina | – | 1 | double sprint |
-| focus | – | 1 | detect secret |
-| critical_hit | combat \| projectile | 6, 8 | – |
-| extra_damage | combat \| projectile | 6, 8, 10 | – |
-| adrenaline | critical_hit \| extra_damage | 12 | adrenaline control |
-| extra_health | stamina | 4, 7, 10 | – |
-| poison_recovery | stamina | 6 | poison resistance |
-| fast_metabolism | extra_health | 12 | fast metabolism |
-| extra_mana | focus | 2, 5, 10 | – |
-| mana_regeneration | extra_mana | 12 | mana recovery |
-| stealth | focus | 2, 4, 10 | silent step; backstab; hide in shadow |
-| backstab | stealth | 12 | backstab |
-| mechanism | focus | 8 | lockpick, detect trap |
-| magic_0 | – | 0 | wizard eye |
-| magic_3 | magic_0 | 1 | flame arrow |
-| magic_12 | magic_0 | 1 | telekinesis |
-| magic_1 | magic_3 | 2 | fire trap |
-| magic_5 | magic_3 | 3 | freeze |
-| magic_6 | magic_5 \| magic_1 | 7 | fireball |
-| magic_7 | magic_5 \| magic_1 | 7 | lightning bolt |
-| magic_8 | magic_6 \| magic_7 | 10 | inferno |
-| magic_9 | magic_12 | 3 | cure wounds |
-| magic_11 | magic_12 | 3 | charm |
-| magic_13 | magic_11 \| magic_9 | 7 | magic reflection |
-| magic_15 | magic_13 | 10 | shrink |
+## Data sources
 
-`magic_2` (stone skin), `magic_4` (poison spray), `magic_10` (summon spider) and `magic_14` (drain)
-are commented out in the shipped file.
+| Data | Source | Where |
+| --- | --- | --- |
+| Loc, NPC and item names, actions, models | OSRS cache (revision 242) | `tools/world-export/rs/` |
+| Recipes (level, XP, ticks, materials, tools, facility) | wiki Bucket `recipe` | `data/wiki/recipes.json` |
+| Gathering, thieving and hunter loot | wiki Bucket `dropsline` (non-combat rows) | `data/wiki/drops.json` |
+| Level, XP, respawn and stun times, success charts | wiki templates `Woodcutting info`, `Mining info`, `Fishing info`, `Thieving info`, `Infobox Construction`, `Skilling success chart` | `data/wiki/skill-info.json` |
+| Cooking burn charts | `Skilling success chart` on each cooked item's page | `data/wiki/cooking-charts.json` |
+| Firemaking, Hunter, Farming rows | `Module:Skill calc/<Skill>` | `data/wiki/calc.json` |
+| Slayer tasks and weights | `Module:SlayerConsts/MasterTables` | `data/wiki/slayer-masters.json` |
+| Shops | Buckets `infobox_shop`, `storeline` | `data/wiki/shops.json` |
+| Runecraft altars and ruins | `<Rune> Altar`, `Mysterious ruins` infoboxes | `data/wiki/altars.json` |
+| Farming patch states and growth rates | RuneLite `PatchImplementation.java`, `Produce.java` (BSD-2-Clause) | `data/wiki/farming.json` |
 
-## Stats per skill level `[data: player_basic.qct → skills; gh: 0x22415830 parser, 0x224191e0 apply]`
+`npm run fetch-wiki-skills` refreshes `data/wiki/`; `npm run export-skills` turns it into
+`public/world/skills.json` and `shops.json` and writes a coverage report to
+`data/skills-coverage.txt`.
 
-The parser reads `player_{strength,intelligence,dexterity,constitution}_{0..4}`:
+## Formulas
 
-| Index | 0 | 1 | 2 | 3 | 4 |
-| --- | --- | --- | --- | --- | --- |
-| strength (extra_damage) | 0 | 0 | 2 | 3 | 6 |
-| intelligence (extra_mana) | 0 | 2 | 4 | 7 | 10 |
-| constitution (extra_health) | 0 | 5 | 6 | 7 | 8 |
-| dexterity (critical_hit) | 0 | 1 | 3 | 6 | 10 |
+- **Game tick**: 0.6 s (`TickClock`); all skilling, respawn and stall timers count ticks.
+- **XP to reach level L**: `floor(sum over l < L of floor(l + 300 * 2^(l/7)) / 4)`; levels 1-99,
+  XP capped at 200,000,000.
+- **Success chance** at level L (1..99) from a chart's `low`/`high` (out of 256 at levels 1 and 99):
+  `(floor(low * (99 - L) / 98 + high * (L - 1) / 98 + 0.5) + 1) / 256`, clamped to 0..1.
+- **Loot rolls**: chance-1 rows always come; the rest is one weighted pick when the chances add up
+  to at most 1, otherwise each row rolls on its own.
+- **Woodcutting**: a roll every 4 ticks with the best usable axe's chart series. Trees with a
+  despawn time fall when their timer (counting down while chopped, back up while not) is spent;
+  others fall with 1/8 per log (1/16 for the mature juniper).
+- **Mining**: a roll per pickaxe interval (bronze 8 ticks down to rune 3; dragon, 3rd age and
+  infernal 3 with 1/6 chance of 2; crystal 3 with 1/4 of 2); every ore empties the rock. Rune
+  essence never empties and gives pure essence from Mining 30.
+- **Fishing**: a roll every 5 ticks; catches the player has the level for are tried highest level
+  first, the first success is the catch; one bait per catch.
+- **Cooking**: a failed roll on the item's chart (range series on a range, fire series on a fire)
+  burns it. **Smithing**: iron bars succeed half the time.
+- **Firemaking**: a roll every 4 ticks with the Logs chart (65, 513) for every log; fires last
+  100-199 ticks and leave ashes.
+- **Runecraft**: one action binds all essence: `n * (1 + multiples reached)` runes.
+- **Thieving**: a pickpocket takes 2 ticks; failure deals the wiki damage and stuns for its time.
+- **Hunter**: up to `1 + floor(level / 20)` traps (max 5). Each tick a creature within 3 tiles of
+  a set trap is caught with `successChance / 8`.
 
-- The apply function reads table index **skill level + 1** (the level getter returns −1 when the
-  skill is not owned) `[gh 0x224191e0; index arithmetic inferred from field offsets]`.
-- Max health = `max(base, constitution × 10)`; max mana = `max(base, intelligence × 10)` (constant
-  10.0 at `0x2256ea44`). The base getters were not traced `[gh; unknown]`.
-- Double sprint switches stamina max 9 → 12 and air 15 → 30 `[gh]`.
-- Other knobs: `player_high_critical` 10 (crit chance bonus), `player_reduce_fall` 60 (% of fall
-  damage taken), metabolism 0 / module 0.25 (health per second with fast metabolism), mana
-  recovery 0.1 / module 0.7 per second, casting recovery 1.0 / module 0.5, adrenaline max 20 / 35,
-  adrenaline gain ×1 / ×1.5 `[data]`.
+## [design] values
 
-## Points and XP
-
-- Skill points come from map logic: the `GiveSkillPoints` input and the `mm_player_add_skillpoints`
-  command add to the player's points (`player+0x2b3c`), play `xp_earned` and show
-  "N skillpoints_earned" `[gh: 0x22458670]`. No kill-XP path was found.
-- `xp_data` in `player_basic.qct` has an XP curve (level 1 at 300 … level 20 at 17,100) and points
-  per level (3, 3, 4, 4, 5 … 12). Whether the shipped code reads it was not checked `[unknown]`.
-- `skill_cost_1..4` = 1, 2, 4, 8 `[data]`; the tree's own costs above are what the menu uses
-  `[inferred]`.
-- Class presets (`inventory_data → l_fpp → warrior/wizard/assassin`) list starting skill levels.
+| Value | Choice |
+| --- | --- |
+| Named rarities | Common 1/8, Uncommon 1/50, Rare 1/300, Very rare 1/3000, Varies and Unknown 1/128 |
+| Fishing block without a chart | chance `{low 48, high 256}` |
+| Hunter creature without a chart | chance `{low 40, high 200}` |
+| Trap springs empty | 1/200 per tick; an unchecked trap collapses after 100 ticks |
+| Caught creature away | 50 ticks |
+| Farming weeds | one regrows every 5 real minutes, up to 3; no disease, compost or payment |
+| Herb, allotment, hops lives | 3, a harvest loses one with chance 1/3; flowers are picked once |
+| Fruit and berries regrow | 1 per 40 minutes (fruit trees, 6 max) or 20 minutes (bushes, 4 max) |
+| Grown farm trees | one log, then the patch is empty |
+| Slayer task amounts | Turael and Spria 15-50, Mazchna 30-70, Vannaka 40-100, Chaeldar 70-130, Konar 50-120, Nieve and Steve 110-170, Duradel 130-200, Krystilia 50-100 |
+| Slayer XP when the wiki has none | the monster's hitpoints |
+| NPC respawn | 30 s after the body is gone |
+| House | fixed template rooms of square (29,110): Garden, Parlour, Kitchen, Dining room, Workshop, Bedroom; any hotspot offers Next room, the garden centrepiece is the exit |
+| Sawmill planks | Logs + 100, Oak + 250, Teak + 500, Mahogany + 1,500 coins; instant, no XP |
+| Shops | an unstocked item sells for 40% of its cache value; stock moves one toward its base every restock time |
+| Moving away | a job stops when the player is 0.75 tiles from where it started |

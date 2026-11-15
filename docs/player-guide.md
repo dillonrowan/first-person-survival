@@ -8,6 +8,7 @@
 - [Weapons and Blocking](#weapons-and-blocking)
 - [Skills, Spells, and Attack Styles](#skills-spells-and-attack-styles)
 - [Inventory, Equipment, and Bank](#inventory-equipment-and-bank)
+- [Gathering and Making](#gathering-and-making)
 - [Health, Stamina, and Adrenaline](#health-stamina-and-adrenaline)
 - [NPCs and Interaction](#npcs-and-interaction)
 - [Props](#props)
@@ -118,10 +119,14 @@ then the bolts left in all (for example `(5/7 · 23)`).
 
 ## Skills, Spells, and Attack Styles
 
-Damage follows the Old School RuneScape rules. You have five skills: **Melee** (Attack and Strength
-in one), **Defence**, **Ranged**, **Magic** and **Hitpoints**. Every skill starts at level 1 except
-Hitpoints at 10, which is your maximum health. Press `K` for the skills tab (level, XP and XP to the
-next level, and your combat level). Skills are saved in the browser.
+Damage follows the Old School RuneScape rules. The combat skills are **Melee** (Attack and Strength
+in one), **Defence**, **Ranged**, **Magic** and **Hitpoints**; the OSRS non-combat skills except
+Agility (Mining, Smithing, Herblore, Fishing, Thieving, Cooking, Crafting, Firemaking, Fletching,
+Woodcutting, Runecraft, Slayer, Farming, Construction and Hunter) are trained as described in
+[Gathering and Making](#gathering-and-making). Every skill starts at level 1 except Hitpoints at
+10, which is your maximum health. Press `K` for the skills tab (level, XP and XP to the next level,
+and your combat level). XP gains float up at the top right, and a banner announces each new level.
+Skills are saved in the browser.
 
 - Every attack rolls to hit against the target's defence for that style and then rolls its damage
   from 0 up to your max hit. Hits show as OSRS hitsplats over the NPC that was hit (up to four at
@@ -170,8 +175,11 @@ Press `Tab` for the side panel: **Inventory** (28 slots; items that stack, such 
 coins, rune essence and pure essence, take one slot), **Equipment** (head, cape, neck, ammunition,
 weapon, body, shield, legs, hands, feet and ring, with the total bonuses), **Skills** and **Spellbook**.
 
-- Left click an item to use its first action (Wield, Wear or Eat); right click for the menu (Wield,
-  Wear, Eat, Drop, Examine). Drag items to move them. Click a worn item to take it off.
+- Left click an item to use its first action (Wield, Wear, Eat, Light, Clean…); right click for the
+  menu (its options, Use, Drop, Examine). Drag items to move them. Click a worn item to take it off.
+- **Use**: pick Use on an item, then click another item (tinderbox on logs, knife on logs, herb on
+  a potion) or close the panel, aim at something (a range, a furnace, a patch, ruins) and press `E`.
+  `Esc` or `Tab` cancels.
 - Items have skill requirements (a message says what is missing), and a two-handed weapon takes the
   shield off. Only weapons are drawn on the player; armour counts for its bonuses only.
 - Food heals its OSRS amount; you can eat again after 1.8 seconds.
@@ -182,6 +190,44 @@ weapon, body, shield, legs, hands, feet and ring, with the total bonuses), **Ski
   Bank option, to open the bank: click an item to move one, right click for 5, 10 or all, search by
   name, or deposit everything you carry or wear. The bank has no slot limit and stacks everything.
 - Inventory, bank and equipment are saved in the browser and kept when you die.
+- **Shops**: use a shopkeeper's Trade option. Click an item to buy one (right click for 5, 10, 50
+  or its price); while the shop is open, click an inventory item to sell one. Stock runs down when
+  you buy and slowly comes back.
+
+## Gathering and Making
+
+Aim at the thing and press `E` (or `R`/`T` for its other options). Skilling repeats on the 0.6 s
+OSRS game tick until you stop; moving away, attacking, kicking, opening a panel or dying stops it.
+Messages go to the log at the bottom left. Success chances, XP and times are the OSRS ones.
+
+- **Woodcutting**: Chop down a tree with an axe (inventory or wielded; the best one you can use
+  counts). Trees fall and leave a stump that grows back.
+- **Mining**: Mine a rock with a pickaxe; the rock empties and refills. Aubury in Varrock teleports
+  you to the rune essence mine.
+- **Fishing**: use a fishing spot's option (Net, Bait, Lure, Cage, Harpoon) from up to 4 tiles away
+  with the right tool and bait.
+- **Cooking**: Cook on a range or fire, or use raw food on it; food can burn.
+- **Firemaking**: use a tinderbox on logs (or Light them). You step aside and can cook on the fire
+  until it burns out and leaves ashes.
+- **Smithing, Crafting**: Smelt at a furnace, Smith at an anvil with a hammer, Spin at a spinning
+  wheel, and so on; the make menu at the bottom lets you pick the item and how many (1, 5, 10, X or
+  All, or keys 1-9). Iron ore fails half the time.
+- **Fletching, Herblore**: use a knife on logs, a bowstring on a bow, a herb on a vial of water;
+  Clean grimy herbs. Fill vials, buckets and jugs at fountains, wells and sinks.
+- **Runecraft**: Enter mysterious ruins with the rune's talisman or tiara, then Craft-rune at the
+  altar; the portal leads back.
+- **Thieving**: Pickpocket people and Steal-from stalls. Getting caught hurts and stuns you for a
+  few seconds.
+- **Hunter**: Lay a bird snare or box trap and Check it once something walks in; Catch butterflies
+  and implings with a butterfly net and a jar.
+- **Farming**: Rake a patch, use a seed on it (seed dibber, or a spade for trees and bushes), and
+  come back later: crops grow in real time, even while the game is closed.
+- **Slayer**: ask a Slayer master for an Assignment; kills of that kind count down. Some monsters
+  need a Slayer level before you can hurt them.
+- **Construction**: a house portal's Home or Build mode takes you to your house. In build mode,
+  Build furniture on hotspots with a hammer, a saw and planks (the sawmill operator makes planks);
+  Next room moves between rooms and the garden centrepiece is the exit.
+- Killed NPCs come back at their spawn 30 seconds after their body is gone.
 
 ## Health, Stamina, and Adrenaline
 
@@ -204,6 +250,7 @@ Aim at an NPC or interactive object and approach within interaction range. When 
 | --- | --- |
 | `E` | Use the first available action |
 | `R` | Use the second available action, when present |
+| `T` | Use the third available action, when present |
 
 Available actions depend on the target. NPCs can offer actions such as `Talk-to` or `Attack`.
 NPCs never start a fight on their own: they leave you alone until you hit, kick or shoot them (or
@@ -281,7 +328,7 @@ Combat is unavailable while flying. Target interaction is also unavailable in fl
 | `C` | Crouch or descend while flying |
 | `Space` | Jump or rise while flying |
 | `N` | Toggle flying |
-| `E` / `R` | First / second target action |
+| `E` / `R` / `T` | First / second / third target action |
 | `E` | Pick up or drop a held prop; take an item from the ground; use a bank |
 | `Mouse 1` while carrying | Throw prop |
 | `Esc` | Release mouse |
