@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { Npc } from "./Npc";
 import { NpcModels, SharedNpcModel } from "./NpcModels";
 import { NpcAppearanceInfo, NpcManifest, NpcModelData, decodeNpcModel } from "../world/NpcFormat";
-import { WorldManifest } from "../world/WorldFormat";
+import { RS_UNITS_PER_TILE, WorldManifest } from "../world/WorldFormat";
 import { gunzip } from "../world/gunzip";
 import { createWorldMaterials } from "../world/WorldMaterials";
 import { loadWorldTextures } from "../world/WorldTextures";
@@ -16,6 +16,8 @@ export interface NpcVisualTestApi {
     setFrame(frame: number): void;
     setYaw(degrees: number): void;
     advance(cycles: number): void;
+    /** Moves the camera in to fill the view with the NPC's current pose (until the next select). */
+    frameModel(): void;
     render(): void;
     frame(): number;
 }
@@ -59,8 +61,11 @@ async function main(): Promise<void> {
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0xb8cce0);
         const camera = new THREE.PerspectiveCamera(35, 1, 0.05, 100);
-        camera.position.set(0, 1.4, 4.2);
-        camera.lookAt(0, 0.8, 0);
+        const resetCamera = () => {
+            camera.position.set(0, 1.4, 4.2);
+            camera.lookAt(0, 0.8, 0);
+        };
+        resetCamera();
 
         scene.add(new THREE.HemisphereLight(0xffffff, 0x8a745f, 1.8));
         const sun = new THREE.DirectionalLight(0xffffff, 2.2);
@@ -108,6 +113,7 @@ async function main(): Promise<void> {
                 if (!appearance) {
                     throw new Error(`NPC appearance ${id} not found`);
                 }
+                resetCamera();
                 if (active) {
                     scene.remove(active.group);
                     active.dispose();
@@ -155,6 +161,42 @@ async function main(): Promise<void> {
             },
             advance(cycles) {
                 frame = active?.advanceVisualAnimation(cycles) ?? frame;
+                render();
+            },
+            frameModel() {
+                if (!active) {
+                    return;
+                }
+                active.sync();
+                active.group.updateMatrixWorld(true);
+                // Bounds of the drawn pose: a_position holds model units, mapped as in the vertex shader.
+                // Only the opaque mesh counts: the transparent one holds ground shadows (the bird's sits
+                // on the floor a metre below it) that would pull the framing down.
+                const box = new THREE.Box3();
+                const point = new THREE.Vector3();
+                active.group.traverse((object) => {
+                    const mesh = object as THREE.Mesh;
+                    const attribute = mesh.geometry?.getAttribute("a_position");
+                    if (!attribute || mesh.renderOrder !== 1) {
+                        return;
+                    }
+                    for (let i = 0; i < attribute.count; i++) {
+                        point
+                            .set(attribute.getX(i), -attribute.getY(i), -attribute.getZ(i))
+                            .divideScalar(RS_UNITS_PER_TILE)
+                            .applyMatrix4(object.matrixWorld);
+                        box.expandByPoint(point);
+                    }
+                });
+                if (box.isEmpty()) {
+                    return;
+                }
+                const sphere = box.getBoundingSphere(new THREE.Sphere());
+                // Keep the default viewing direction, at a distance where the pose fills ~85% of the view.
+                const direction = new THREE.Vector3(0, 0.6, 3.4).normalize();
+                const distance = sphere.radius / Math.sin(THREE.MathUtils.degToRad(camera.fov / 2)) / 0.85;
+                camera.position.copy(sphere.center).addScaledVector(direction, distance);
+                camera.lookAt(sphere.center);
                 render();
             },
             render,

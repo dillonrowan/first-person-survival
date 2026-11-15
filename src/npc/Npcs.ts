@@ -190,7 +190,8 @@ export class Npcs implements BodySource<Npc> {
         dt: number,
         player?: Body,
         playerYaw = 0,
-        senses: Omit<NonNullable<CombatContext["player"]>, keyof Body | "yaw"> & Pick<CombatContext, "strike" | "attackStarted"> = {},
+        senses: Omit<NonNullable<CombatContext["player"]>, keyof Body | "yaw"> &
+            Pick<CombatContext, "strike" | "attackStarted"> & { killed?: (npc: Npc) => void } = {},
     ): void {
         this.playerBody = player;
         this.syncPlayerTiles(player);
@@ -225,6 +226,10 @@ export class Npcs implements BodySource<Npc> {
                     attackStarted: senses.attackStarted,
                 });
                 npc.sync();
+                if (npc.combatant.dead && !npc.killReported) {
+                    npc.killReported = true;
+                    senses.killed?.(npc);
+                }
             }
         }
         this.collideBodies();

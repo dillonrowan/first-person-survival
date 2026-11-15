@@ -32,6 +32,10 @@ export class NpcType extends Type {
 
     combatLevel: number;
 
+    /** Combat levels in the order attack, defence, strength, hitpoints, ranged, magic (1 when absent). */
+    stats: number[] = [1, 1, 1, 1, 1, 1];
+    hasStats = false;
+
     widthScale: number;
     heightScale: number;
 
@@ -210,8 +214,9 @@ export class NpcType extends Type {
                 this.chatheadModelIds[i] = buffer.readInt();
             }
         } else if (opcode >= 74 && opcode <= 79) {
-            // stats
-            buffer.readUnsignedShort();
+            // stats: 74 attack, 75 defence, 76 strength, 77 hitpoints, 78 ranged, 79 magic
+            this.stats[opcode - 74] = buffer.readUnsignedShort();
+            this.hasStats = true;
         } else if (opcode === 93) {
             this.drawMapDot = false;
         } else if (opcode === 95) {

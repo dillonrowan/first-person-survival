@@ -19,7 +19,7 @@ import {
     RS_UNITS_PER_TILE,
     RegionData,
 } from "../../src/world/WorldFormat";
-import { areGateLeaves, doorStates, gateLeafStates, isClimbable, placedDoorState } from "./Interactives";
+import { areGateLeaves, doorStates, gateLeafStates, isBank, isClimbable, placedDoorState } from "./Interactives";
 import { MAX_PROP_HEIGHT, propClassFor, propExtent } from "./Props";
 import { stripNameTags } from "./NpcSpawns";
 import { FaceColors, BRIGHTNESS } from "./FaceColors";
@@ -337,12 +337,13 @@ export class RegionBuilder {
                         if (this.addProp(found, scene, { level, x, y, worldX, worldY, loc, id, locType, shown })) {
                             continue;
                         }
-                        if (!isClimbable(shown.actions)) {
+                        const bank = isBank(shown.name, shown.actions);
+                        if (!bank && !isClimbable(shown.actions)) {
                             continue;
                         }
                         const swap = loc.rotation === 1 || loc.rotation === 3;
                         found.interactives.push({
-                            kind: "climb",
+                            kind: bank ? "bank" : "climb",
                             id,
                             name: stripNameTags(shown.name),
                             actions: shown.actions.filter((action): action is string => !!action),

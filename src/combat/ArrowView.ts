@@ -1,8 +1,10 @@
 import * as THREE from "three";
 
+import { SPELL_GRAPHICS } from "../world/SpellGfxFormat";
 import type { Arrow } from "./Bow";
 import { ARROW_LENGTH, createArrow } from "./BowString";
 import { BOLT_LENGTH, createBolt } from "./CrossbowRig";
+import { SpellGfxObject, type SpellGfxLibrary } from "./SpellGfxView";
 import { ARROW_CONVERGE } from "./WeaponView";
 
 /**
@@ -18,34 +20,66 @@ type Launch = { offset: THREE.Vector3; from: number };
  */
 export class ArrowView {
     private readonly views: THREE.Object3D[] = [];
-    private readonly kinds: boolean[] = [];
+    private readonly kinds: string[] = [];
     private readonly templates = { arrow: createArrow(), bolt: createBolt() };
     private readonly launches = new WeakMap<Arrow, Launch>();
     private readonly direction = new THREE.Vector3();
     private readonly head = new THREE.Vector3();
     private readonly start = new THREE.Vector3();
 
-    constructor(private readonly scene: THREE.Scene) {}
+    /** `spellGfx` draws spells with their OSRS projectile graphic; without it (or until it loads) they are orbs. */
+    constructor(
+        private readonly scene: THREE.Scene,
+        private readonly spellGfx?: SpellGfxLibrary,
+    ) {}
+
+    /** The spell's cache projectile, or a coloured orb while that loads or if it was not exported. */
+    private createSpell(spell: NonNullable<Arrow["spell"]>): THREE.Object3D {
+        const id = spell.id ? SPELL_GRAPHICS[spell.id]?.projectile : undefined;
+        const gfx = id !== undefined ? this.spellGfx?.create(id) : undefined;
+        if (gfx) {
+            return gfx;
+        }
+        const orb = createSpellOrb(spell.color);
+        orb.userData.fallback = id !== undefined && this.spellGfx !== undefined;
+        return orb;
+    }
 
     /** `launchFrom` gives the drawn arrow's head (world) for arrows that have just been shot. */
     update(arrows: readonly Arrow[], launchFrom?: (out: THREE.Vector3) => THREE.Vector3 | undefined): void {
         for (let i = 0; i < Math.max(arrows.length, this.views.length); i++) {
             const a = arrows[i];
             let view = this.views[i];
-            if (a && (!view || this.kinds[i] !== !!a.bolt)) {
-                // A new arrow, or a bolt where an arrow was drawn (or the other way round).
+            const kind = a ? (a.spell ? `spell:${a.spell.id ?? a.spell.color}` : a.bolt ? "bolt" : "arrow") : "";
+            // An orb drawn while the spell's graphic loaded is replaced once it has.
+            const upgrade = !!a?.spell && !!view?.userData.fallback;
+            if (a && (!view || this.kinds[i] !== kind || upgrade)) {
+                // A new arrow, or a bolt or spell where an arrow was drawn (or any other swap).
                 view?.removeFromParent();
-                view = (a.bolt ? this.templates.bolt : this.templates.arrow).clone();
+                view = a.spell ? this.createSpell(a.spell) : (a.bolt ? this.templates.bolt : this.templates.arrow).clone();
                 view.visible = true;
                 this.scene.add(view);
                 this.views[i] = view;
-                this.kinds[i] = !!a.bolt;
+                this.kinds[i] = kind;
             }
             if (!view) {
                 continue;
             }
             view.visible = a !== undefined;
             if (!a) {
+                continue;
+            }
+            if (a.spell) {
+                // Hidden for the first instants so it does not fill the screen at the eye it is
+                // cast from.
+                view.position.set(a.x, a.z, -a.y);
+                view.visible = a.age * Math.hypot(a.vx, a.vy, a.vz) > SPELL_HIDDEN_WITHIN;
+                if (view instanceof SpellGfxObject) {
+                    // The OSRS projectile: its front (local +z) along the flight, animation looping.
+                    this.direction.set(a.vx, a.vz, -a.vy).normalize();
+                    view.rotation.set(-Math.asin(this.direction.y), Math.atan2(this.direction.x, this.direction.z), 0, "YXZ");
+                    view.setTime(a.age, true);
+                }
                 continue;
             }
             const length = a.bolt ? BOLT_LENGTH : ARROW_LENGTH;
@@ -77,3 +111,17 @@ export class ArrowView {
 const UP = new THREE.Vector3(0, 1, 0);
 /** An arrow younger than this (s) is still leaving the bow. */
 const JUST_SHOT = 0.1;
+/** A spell is not drawn until it is this far (tiles) from the eye it was cast from, so it never fills the view. */
+const SPELL_HIDDEN_WITHIN = 0.9;
+
+/** A glowing orb of the spell colour. */
+export function createSpellOrb(color: number): THREE.Object3D {
+    const orb = new THREE.Group();
+    const glow = (c: number, radius: number, opacity: number) =>
+        new THREE.Mesh(
+            new THREE.SphereGeometry(radius, 12, 8),
+            new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false }),
+        );
+    orb.add(glow(color, 0.1, 1), glow(color, 0.18, 0.35));
+    return orb;
+}

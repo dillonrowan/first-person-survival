@@ -11,6 +11,20 @@ import { tuning } from "./tuning";
 import { ANTI_DRAGON_SHIELD } from "./Shields";
 import { WEAPONS, weaponById } from "./weapons";
 import type { AttackStyle } from "../npc/AttackStyle";
+import { fallbackCombatStats } from "./Osrs";
+import { XpLedger } from "./XpLedger";
+import { NO_GEAR, type CombatGear } from "./Equipment";
+import { PlayerSkills } from "./Skills";
+import { Spellbook, SPELLS } from "./Spells";
+
+/** The attacker stats of a level 1 NPC with these max hits. */
+const attackerStats = (maxHit: Partial<Record<AttackStyle, number>>) => ({ ...fallbackCombatStats(1), maxHit });
+/** Cycles through the values: a strike that hits draws 3 numbers (hit, damage, rounding). */
+const scripted = (...values: number[]) => {
+    let i = 0;
+    return () => values[i++ % values.length];
+};
+const HITS_FOR_MAX = [0, 0.99, 0.5];
 
 const target = (x: number, y: number, radius = 0.35, height = 1.7): Body<string> => ({
     x,
@@ -279,7 +293,7 @@ describe("Combatant", () => {
     });
 
     it("gives the player unlimited health while tuning.playerUnlimitedHealth is on", () => {
-        const combat = new PlayerCombat(source([]) as never, noWalls);
+        const combat = new PlayerCombat(source([]) as never, noWalls, scripted(...HITS_FOR_MAX));
         const player = {
             ...attacker,
             z: 0,
@@ -290,7 +304,17 @@ describe("Combatant", () => {
             stamina: { value: 10, spend: () => true },
             applyImpulse: () => {},
         };
-        const strike = { fromX: 100.5, fromY: 101.5, gap: 0, range: 1, hitPow: 100, breaksParry: false, push: false, style: "melee" as const };
+        const strike = {
+            fromX: 100.5,
+            fromY: 101.5,
+            gap: 0,
+            range: 1,
+            hitPow: 100,
+            breaksParry: false,
+            push: false,
+            style: "melee" as const,
+            attacker: attackerStats({ melee: 100 }),
+        };
         const before = tuning.playerUnlimitedHealth;
         try {
             tuning.playerUnlimitedHealth = true;
@@ -333,8 +357,8 @@ describe("Combatant", () => {
 });
 
 describe("NPC attack styles against the player", () => {
-    function setup() {
-        const combat = new PlayerCombat(source([]) as never, noWalls);
+    function setup(random = scripted(...HITS_FOR_MAX)) {
+        const combat = new PlayerCombat(source([]) as never, noWalls, random);
         const pushes: number[] = [];
         const player = {
             ...attacker,
@@ -349,9 +373,11 @@ describe("NPC attack styles against the player", () => {
         combat.update(0.01, player, { attackDown: false, forward: 0, strafe: 0 });
         return { combat, player, pushes };
     }
-    // 0.5 hitPow is 3.5 damage: (7 + 2) * 0.5 - 1.
+    // Max hits per style; the scripted rolls hit and roll the top of the range.
+    const maxHits = { melee: 4, ranged: 4, magic: 4, dragonfire: 50, icebreath: 20 };
     const strike = (style: AttackStyle, extra: object = {}) => ({
-        fromX: 100.5, fromY: 101.5, gap: 0, range: 1, hitPow: 0.5, breaksParry: style !== "melee", push: false, style, ...extra,
+        fromX: 100.5, fromY: 101.5, gap: 0, range: 1, hitPow: 0.5, breaksParry: style !== "melee", push: false, style,
+        attacker: attackerStats(maxHits), ...extra,
     });
 
     it("hits an arrow, spell or breath that already arrived without a gap or cone test", () => {
@@ -372,15 +398,15 @@ describe("NPC attack styles against the player", () => {
 
     it("cuts dragonfire to a tenth with an anti-dragon shield, but not icy breath", () => {
         const bare = setup();
-        expect(bare.combat.receiveStrike(bare.player, strike("dragonfire", { direct: true }), true).damage).toBeCloseTo(3.5);
+        expect(bare.combat.receiveStrike(bare.player, strike("dragonfire", { direct: true }), true).damage).toBe(50);
 
         const shielded = setup();
         shielded.combat.shield = ANTI_DRAGON_SHIELD;
         const fire = shielded.combat.receiveStrike(shielded.player, strike("dragonfire", { direct: true }), true);
-        expect(fire.damage).toBeCloseTo(0.35);
+        expect(fire.damage).toBe(5);
         expect(fire.shielded).toBe(true);
         const ice = shielded.combat.receiveStrike(shielded.player, strike("icebreath", { direct: true }), true);
-        expect(ice.damage).toBeCloseTo(3.5);
+        expect(ice.damage).toBe(20);
         expect(ice.shielded).toBe(false);
     });
 
@@ -391,7 +417,66 @@ describe("NPC attack styles against the player", () => {
         combat.equipWeapon(WEAPONS.find((w) => w.family === "bow")!);
 
         expect(combat.shieldActive).toBe(false);
-        expect(combat.receiveStrike(player, strike("dragonfire", { direct: true }), true).damage).toBeCloseTo(3.5);
+        expect(combat.receiveStrike(player, strike("dragonfire", { direct: true }), true).damage).toBe(50);
+    });
+
+    it("rolls a miss: no damage, but the player still flinches and is pushed", () => {
+        const { combat, player, pushes } = setup(scripted(0.999));
+        const report = combat.receiveStrike(player, strike("melee"), true);
+
+        expect(report).toMatchObject({ outcome: "hit", damage: 0, missed: true });
+        expect(combat.combatant.health).toBe(combat.combatant.maxHealth);
+        expect(combat.combatant.reaction).toBe("flinch");
+        expect(pushes).toHaveLength(1);
+    });
+
+    it("lands or splashes a curse without damage, and marks a spell's report", () => {
+        const landed = setup(scripted(0, 0.99, 0.5));
+        const curse = landed.combat.receiveStrike(landed.player, { ...strike("magic", { direct: true }), spell: "curse" }, true);
+        expect(curse).toMatchObject({ outcome: "hit", damage: 0, missed: false, spell: "curse" });
+        expect(landed.combat.combatant.health).toBe(landed.combat.combatant.maxHealth);
+
+        const splashed = setup(scripted(0.999));
+        const miss = splashed.combat.receiveStrike(splashed.player, { ...strike("magic", { direct: true }), spell: "curse" }, true);
+        expect(miss).toMatchObject({ damage: 0, missed: true, spell: "curse" });
+
+        const hit = setup(scripted(0, 0.99, 0.5));
+        const water = hit.combat.receiveStrike(hit.player, { ...strike("magic", { direct: true }), spell: "damaging" }, true);
+        expect(water.spell).toBe("damaging");
+        expect(water.damage).toBeGreaterThan(0);
+    });
+
+    it("rolls damage from 0 to the max hit", () => {
+        const zero = setup(scripted(0, 0, 0.5));
+        expect(zero.combat.receiveStrike(zero.player, strike("melee"), true).damage).toBe(0);
+        const top = setup(scripted(0, 0.99, 0.5));
+        expect(top.combat.receiveStrike(top.player, strike("melee"), true).damage).toBe(4);
+    });
+
+    it("scales a strike by how much of the attack interval has passed", () => {
+        const { combat, player } = setup(scripted(0, 0.99, 0));
+        expect(combat.receiveStrike(player, strike("melee", { rate: 0.5 }), true).damage).toBe(2);
+    });
+
+    it("lets a poisonous monster poison the player, hit or miss, but not with breath", () => {
+        const poisonous = { ...attackerStats(maxHits), poisonSeverity: 30 };
+        // Miss (0.999), then the poison roll (0.1 < 1/4).
+        const missed = setup(scripted(0.999, 0.1));
+        const report = missed.combat.receiveStrike(missed.player, strike("melee", { attacker: poisonous }), true);
+        expect(report).toMatchObject({ missed: true, poisoned: true });
+        expect(missed.combat.combatant.poison.severity).toBe(30);
+        // A failed poison roll (0.9).
+        const lucky = setup(scripted(0.999, 0.9));
+        expect(lucky.combat.receiveStrike(lucky.player, strike("melee", { attacker: poisonous }), true).poisoned).toBeUndefined();
+        const breath = setup(scripted(0.999, 0.1));
+        breath.combat.receiveStrike(breath.player, strike("dragonfire", { attacker: poisonous, direct: true }), true);
+        expect(breath.combat.combatant.poison.active).toBe(false);
+    });
+
+    it("splits a breath max hit over its ticks", () => {
+        const { combat, player } = setup(scripted(0, 0.99, 0.5));
+        const tick = combat.receiveStrike(player, strike("dragonfire", { direct: true, share: 0.25 }), true);
+        expect(tick.damage).toBe(Math.floor(0.99 * (Math.ceil(50 * 0.25) + 1)));
     });
 
     it("pushes a little for arrows and spells, not at all for breath", () => {
@@ -404,6 +489,195 @@ describe("NPC attack styles against the player", () => {
 
         expect(arrow.pushes[0]).toBeCloseTo(melee.pushes[0] * tuning.npcProjectilePush);
         expect(fire.pushes).toEqual([]);
+    });
+});
+
+describe("OSRS damage from the player", () => {
+    const player = {
+        ...attacker,
+        z: 0,
+        eyeHeight: 1.25,
+        sprinting: false,
+        grounded: true,
+        verticalSpeed: 0,
+        stamina: { value: 10, spend: () => true },
+        applyImpulse: () => {},
+    };
+    const idle = { attackDown: false, forward: 0, strafe: 0 };
+
+    function dummy(hp = 5) {
+        const ledger = new XpLedger();
+        const target: CombatTarget = {
+            combatant: new Combatant(hp),
+            attackable: true,
+            inCombat: true,
+            combatStats: { ...fallbackCombatStats(1), hitpoints: hp },
+            xpLedger: ledger,
+            takeHit: () => undefined,
+            kick: () => "hit",
+        };
+        const body: Body<CombatTarget> = { x: 100.5, y: 101.3, z: 0, radius: 0.35, height: 1.7, plane: 0, owner: target };
+        return { target, ledger, bodies: { collectBodies: (_p: number, _a: number, _b: number, _c: number, _d: number, out: Body<CombatTarget>[]) => void out.push(body) } };
+    }
+
+    it("rolls a melee hit with the OSRS formulas and banks the XP", () => {
+        const { target, ledger, bodies } = dummy(1000);
+        const combat = new PlayerCombat(bodies, noWalls, scripted(0, 0.99, 0));
+        combat.weaponIndex = WEAPONS.findIndex((w) => w.id === "sword");
+        combat.melee.weapon = sword;
+        for (let t = 0; t < 0.8; t += 0.01) {
+            combat.update(0.01, player, { attackDown: t < 0.03, forward: 0, strafe: 0 });
+        }
+        const dealt = 1000 - target.combatant.health;
+        expect(dealt).toBeGreaterThanOrEqual(1);
+        // Level 1 Melee, no gear: max hit 1, so a hit deals 1 (scaled by the move and hit zone).
+        const xp = ledger.drain();
+        expect(xp.melee).toBeCloseTo(4 * dealt);
+        expect(xp.hitpoints).toBeCloseTo((4 * dealt) / 3);
+    });
+
+    it("poisons with a poisoned weapon on a damaging hit, but not an immune monster", () => {
+        const swing = (immune: boolean) => {
+            const { target, bodies } = dummy(1000);
+            (target as { combatStats: object }).combatStats = { ...target.combatStats!, poisonImmune: immune };
+            // Hit, top roll, round up, no stun (0.99; a flinch has no fall roll), then the poison roll (0).
+            const combat = new PlayerCombat(bodies, noWalls, scripted(0, 0.99, 0, 0.99, 0), new PlayerSkills(), new Spellbook(), {
+                ...NO_GEAR,
+                weaponName: () => "Bronze dagger(p)",
+            });
+            combat.melee.weapon = sword;
+            let poisoned = false;
+            combat.onHit = ({ result }) => (poisoned ||= !!result.poisoned);
+            for (let t = 0; t < 0.8; t += 0.01) {
+                combat.update(0.01, player, { attackDown: t < 0.03, forward: 0, strafe: 0 });
+            }
+            return { poisoned, severity: target.combatant.poison.severity };
+        };
+        const hit = swing(false);
+        expect(hit.poisoned).toBe(true);
+        // Bronze dagger(p): severity 20, and the first poison hit (4) lands at once.
+        expect(hit.severity).toBeGreaterThanOrEqual(19);
+        expect(swing(true).poisoned).toBe(false);
+    });
+
+    it("a missed swing deals 0 but the target still reacts", () => {
+        const { target, ledger, bodies } = dummy(1000);
+        const combat = new PlayerCombat(bodies, noWalls, scripted(0.999));
+        combat.melee.weapon = sword;
+        let missed = false;
+        combat.onHit = ({ result }) => (missed = result.missed);
+        for (let t = 0; t < 0.8; t += 0.01) {
+            combat.update(0.01, player, { attackDown: t < 0.03, forward: 0, strafe: 0 });
+        }
+        expect(missed).toBe(true);
+        expect(target.combatant.health).toBe(1000);
+        expect(target.combatant.reaction).toBe("flinch");
+        expect(ledger.empty).toBe(true);
+    });
+
+    function casting(gear: Partial<CombatGear> = {}, skills = new PlayerSkills(), book = new Spellbook()) {
+        const used: number[][] = [];
+        const combat = new PlayerCombat(source([]) as never, noWalls, () => 0.5, skills, book, {
+            ...NO_GEAR,
+            useRunes: (cost) => void used.push(cost.map((c) => c.count)),
+            ...gear,
+        });
+        const failures: string[] = [];
+        combat.onCastFailed = (m) => failures.push(m);
+        return { combat, used, failures };
+    }
+
+    it("casts the equipped spell with any weapon, spending its runes", () => {
+        const { combat, used } = casting();
+        combat.update(0.01, player, { ...idle, castPressed: true });
+
+        expect(combat.arrows).toHaveLength(1);
+        expect(combat.arrows[0].spell).toBeDefined();
+        expect(combat.arrows[0].gravity).toBe(0);
+        expect(used).toEqual([[1, 1]]); // Wind Strike: 1 air, 1 mind
+    });
+
+    function castAt(random: () => number) {
+        const { target, ledger, bodies } = dummy(1000);
+        const skills = new PlayerSkills();
+        const combat = new PlayerCombat(bodies, noWalls, random, skills, new Spellbook(), NO_GEAR);
+        const granted: object[] = [];
+        combat.onXp = (gains) => granted.push(gains);
+        combat.update(0.01, player, { ...idle, castPressed: true });
+        for (let i = 0; i < 30; i++) combat.update(0.02, player, idle);
+        return { target, ledger, skills, granted };
+    }
+
+    it("gives magic XP from the cast as soon as the spell does damage, banking nothing", () => {
+        // Hit, top roll (Wind Strike max 2), round up, no stun.
+        const { target, ledger, skills, granted } = castAt(scripted(0, 0.99, 0, 0.99));
+        const dealt = 1000 - target.combatant.health;
+        expect(dealt).toBeGreaterThan(0);
+        expect(skills.xp("magic")).toBeCloseTo(5.5 + 2 * dealt);
+        expect(skills.xp("hitpoints")).toBeCloseTo(1154 + (4 * dealt) / 3);
+        expect(granted).toHaveLength(1);
+        expect(ledger.empty).toBe(true);
+    });
+
+    it("gives no magic XP for a splash", () => {
+        const { skills, granted, ledger } = castAt(scripted(0.999));
+        expect(skills.xp("magic")).toBe(0);
+        expect(granted).toHaveLength(0);
+        expect(ledger.empty).toBe(true);
+    });
+
+    it("waits between casts", () => {
+        const { combat } = casting();
+        combat.update(0.01, player, { ...idle, castPressed: true });
+        combat.update(0.01, player, { ...idle, castPressed: true });
+        expect(combat.arrows).toHaveLength(1);
+    });
+
+    it("does not parry with a staff or wand", () => {
+        const { combat } = casting();
+        combat.equipWeapon(WEAPONS.find((w) => w.family === "staff")!);
+        combat.update(0.01, player, { ...idle, blockDown: true });
+        expect(combat.holdsCaster).toBe(true);
+        expect(combat.blocking).toBe(false);
+    });
+
+    it("cannot cast a locked spell or without runes", () => {
+        const book = new Spellbook();
+        book.equip("fire-bolt", 99);
+        const locked = casting({}, new PlayerSkills(), book);
+        locked.combat.update(0.01, player, { ...idle, castPressed: true });
+        expect(locked.combat.arrows).toHaveLength(0);
+        expect(locked.failures[0]).toMatch(/Magic level/);
+
+        const noRunes = casting({ hasRunes: () => false });
+        noRunes.combat.update(0.01, player, { ...idle, castPressed: true });
+        expect(noRunes.combat.arrows).toHaveLength(0);
+        expect(noRunes.failures[0]).toMatch(/runes/);
+        expect(SPELLS).toHaveLength(20);
+    });
+
+    it("uses one arrow per shot and cannot fire without ammunition", () => {
+        let arrows = 0;
+        let used = 0;
+        const combat = new PlayerCombat(source([]) as never, noWalls, () => 0.5, new PlayerSkills(), new Spellbook(), {
+            ...NO_GEAR,
+            ammoCount: (kind) => (kind === "arrow" ? arrows : 0),
+            useAmmo: () => void used++,
+        });
+        combat.equipWeapon(WEAPONS.find((w) => w.family === "bow")!);
+        const shoot = () => {
+            for (let t = 0; t < 2.5; t += 0.01) {
+                combat.update(0.01, player, { attackDown: true, forward: 0, strafe: 0 });
+            }
+            for (let t = 0; t < 1; t += 0.01) {
+                combat.update(0.01, player, { attackDown: false, forward: 0, strafe: 0 });
+            }
+        };
+        shoot();
+        expect(used).toBe(0);
+        arrows = 5;
+        shoot();
+        expect(used).toBeGreaterThan(0);
     });
 });
 

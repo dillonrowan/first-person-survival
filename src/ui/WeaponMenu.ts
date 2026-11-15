@@ -1,5 +1,9 @@
 import { SHIELDS, ShieldDef } from "../combat/Shields";
+import type { ItemDb } from "../items/ItemDb";
 import type { CacheWeaponInfo } from "../world/CacheWeaponFormat";
+
+/** The item search of the developer menu: click gives one, shift-click a hundred. */
+export type ItemCheat = { db: ItemDb; list: HTMLElement; give(id: number, qty: number): void };
 
 export class WeaponMenu {
     private weapons: CacheWeaponInfo[] = [];
@@ -16,6 +20,7 @@ export class WeaponMenu {
         private readonly initialId?: string,
         private readonly shieldList?: HTMLElement,
         private readonly onShield?: (shield: ShieldDef | undefined) => void,
+        private readonly itemCheat?: ItemCheat,
     ) {
         element.querySelector<HTMLButtonElement>("#weapon-menu-close")?.addEventListener("click", () => this.close());
         this.search = element.querySelector<HTMLInputElement>("#weapon-menu-search")!;
@@ -67,6 +72,11 @@ export class WeaponMenu {
         return this.weapons.find((weapon) => weapon.id === id);
     }
 
+    /** Every exported cache weapon. */
+    get all(): readonly CacheWeaponInfo[] {
+        return this.weapons;
+    }
+
     open(): void {
         this.element.classList.remove("hidden");
         document.exitPointerLock();
@@ -88,6 +98,7 @@ export class WeaponMenu {
         const normalized = query.trim().toLowerCase();
         const matches = this.weapons.filter((weapon) => weapon.name.toLowerCase().includes(normalized));
         this.status.textContent = `${matches.length} weapons`;
+        this.renderItems(normalized);
         for (const weapon of matches) {
             const row = document.createElement("button");
             row.type = "button";
@@ -105,5 +116,27 @@ export class WeaponMenu {
             });
             this.list.append(row);
         }
+    }
+
+    /** The Items section: every cache item matching the search. */
+    private renderItems(query: string): void {
+        const cheat = this.itemCheat;
+        if (!cheat) return;
+        const title = document.createElement("div");
+        title.className = "weapon-menu-section-title";
+        title.textContent = query ? "Items (click: 1, shift-click: 100)" : "Items: type a name to search";
+        const rows = cheat.db.search(query, 30).map((info) => {
+            const row = document.createElement("button");
+            row.type = "button";
+            row.className = "weapon-menu-row";
+            const name = document.createElement("span");
+            name.textContent = info.name;
+            const id = document.createElement("span");
+            id.textContent = `#${info.id}`;
+            row.append(name, id);
+            row.addEventListener("click", (e) => cheat.give(info.id, e.shiftKey ? 100 : 1));
+            return row;
+        });
+        cheat.list.replaceChildren(title, ...rows);
     }
 }

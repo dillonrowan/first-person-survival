@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { fallbackCombatStats } from "../combat/Osrs";
 import type { FlagsAt } from "../physics/TileColliders";
 import { CollisionFlag } from "../world/WorldFormat";
 import { NpcProjectile, ProjectileTarget, launchNpcProjectile, stepNpcProjectiles } from "./NpcProjectiles";
@@ -30,6 +31,17 @@ describe("NPC projectiles", () => {
         expect(p.vz).toBeLessThan(0); // from 1 tile up, down to the chest at 0.98
         expect(p.hitPow).toBe(0.7);
         expect(fly(p, target, 1).hit).toBe(true);
+    });
+
+    it("carry the shooter stats, attack rate and share of the max hit", () => {
+        const attacker = fallbackCombatStats(30);
+        const p = launchNpcProjectile(from, player(0.5, 4.5), orb, "ranged", 0.5, attacker, 0.5, 0.25);
+        expect(p.attacker).toBe(attacker);
+        expect(p.rate).toBe(0.5);
+        expect(p.share).toBe(0.25);
+        const plain = launchNpcProjectile(from, player(0.5, 4.5), orb, "ranged", 0.5);
+        expect(plain.rate).toBe(1);
+        expect(plain.share).toBe(1);
     });
 
     it("miss a player who stepped aside after they were shot", () => {

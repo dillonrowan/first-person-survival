@@ -51,10 +51,16 @@ export function createNpcActionHandler(
     player: { x: number; y: number },
     ui: InteractionUi,
     next?: ActionHandler,
+    /** Called for a "Bank" option (bankers). */
+    onBank?: () => void,
 ): ActionHandler {
     return (target, action, index) => {
         if (target.kind !== "npc") {
             next?.(target, action, index);
+            return;
+        }
+        if (/^bank$/i.test(action)) {
+            onBank?.();
             return;
         }
         const npc = target.ref as Npc;

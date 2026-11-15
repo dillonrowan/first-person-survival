@@ -1,7 +1,9 @@
 # Skill tree & XP spec (draft, paused)
 
 Started, then paused so physics could come first. Same tags as
-[combat-movement-spec.md](combat-movement-spec.md). Nothing here is implemented yet.
+[combat-movement-spec.md](combat-movement-spec.md). Nothing here is implemented yet. This project
+does not use Dark Messiah's skill tree: its skills are the OSRS-style Melee, Defence, Ranged, Magic
+and Hitpoints described in combat-movement-spec.md 5.2.
 
 ## Tree `[data: mm/scripts/mm_skills_infos.txt]`
 

@@ -1,0 +1,89 @@
+{
+ "image": "hitsplats.png",
+ "cell": 25,
+ "splats": {
+  "damage": {
+   "x": 0,
+   "y": 0,
+   "textOffsetY": 1
+  },
+  "block": {
+   "x": 25,
+   "y": 0,
+   "textOffsetY": 1
+  },
+  "poison": {
+   "x": 50,
+   "y": 0,
+   "textOffsetY": 1
+  },
+  "max": {
+   "x": 75,
+   "y": 0,
+   "textOffsetY": 1
+  },
+  "venom": {
+   "x": 100,
+   "y": 0,
+   "textOffsetY": 1
+  }
+ },
+ "glyphs": {
+  "width": 11,
+  "height": 12,
+  "whiteY": 25,
+  "blackY": 37,
+  "digits": [
+   {
+    "x": 0,
+    "left": 1,
+    "advance": 6
+   },
+   {
+    "x": 11,
+    "left": 1,
+    "advance": 4
+   },
+   {
+    "x": 22,
+    "left": 1,
+    "advance": 6
+   },
+   {
+    "x": 33,
+    "left": 1,
+    "advance": 5
+   },
+   {
+    "x": 44,
+    "left": 1,
+    "advance": 5
+   },
+   {
+    "x": 55,
+    "left": 1,
+    "advance": 5
+   },
+   {
+    "x": 66,
+    "left": 1,
+    "advance": 6
+   },
+   {
+    "x": 77,
+    "left": 1,
+    "advance": 5
+   },
+   {
+    "x": 88,
+    "left": 1,
+    "advance": 6
+   },
+   {
+    "x": 99,
+    "left": 1,
+    "advance": 6
+   }
+  ]
+ }
+}

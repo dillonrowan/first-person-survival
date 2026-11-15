@@ -12,6 +12,14 @@ export function placedDoorState(actions: (string | undefined)[]): "closed" | "op
 }
 
 /** Ladders and stairs: "Climb", "Climb-up" and "Climb-down" (not "Climb-over", which is a stile). */
+/** Whether a loc is a bank booth or chest: a "Bank" action, or a bank chest that is used. */
+export function isBank(name: string, actions: (string | undefined)[]): boolean {
+    return (
+        actions.some((a) => /^bank$/i.test(a ?? "")) ||
+        (/^bank chest/i.test(name) && actions.some((a) => /^use$/i.test(a ?? "")))
+    );
+}
+
 export function isClimbable(actions: (string | undefined)[]): boolean {
     return actions.some((action) => /^climb(-(up|down))?$/i.test(action ?? ""));
 }

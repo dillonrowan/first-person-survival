@@ -25,6 +25,7 @@ declare global {
             setFrame(frame: number): void;
             setYaw(degrees: number): void;
             advance(cycles: number): void;
+            frameModel(): void;
             render(): void;
             frame(): number;
         };
@@ -52,6 +53,8 @@ test("renders deterministic NPC idle frames", async ({ page }) => {
     await expect.poll(() => page.evaluate(() => window.__NPC_VISUAL_TEST__?.frame())).toBe(
         fixture.idleFrames[0],
     );
+    // The bird is small and high up at the default camera, so zoom in on it.
+    await page.evaluate(() => window.__NPC_VISUAL_TEST__?.frameModel());
     const firstFrame = await page.locator("canvas").screenshot();
     await argosScreenshot(page, "npc-5241-idle-frame-0", {
         element: page.locator("canvas"),
@@ -62,6 +65,7 @@ test("renders deterministic NPC idle frames", async ({ page }) => {
     await expect.poll(() => page.evaluate(() => window.__NPC_VISUAL_TEST__?.frame())).toBe(
         fixture.idleFrames[1],
     );
+    await page.evaluate(() => window.__NPC_VISUAL_TEST__?.frameModel());
     const secondFrame = await page.locator("canvas").screenshot();
 
     const firstHash = createHash("sha256").update(firstFrame).digest("hex");
@@ -82,6 +86,7 @@ test("renders walk pose and facing changes", async ({ page }) => {
     await page.evaluate((frame) => window.__NPC_VISUAL_TEST__?.setFrame(frame), fixture.walkFrames[1]);
     await page.evaluate((yaw) => window.__NPC_VISUAL_TEST__?.setYaw(yaw), fixture.yaws[0]);
     await page.evaluate(() => window.__NPC_VISUAL_TEST__?.render());
+    await page.evaluate(() => window.__NPC_VISUAL_TEST__?.frameModel());
     const screenshot = await page.locator("canvas").screenshot();
     expect(screenshot.length).toBeGreaterThan(1_000);
     await argosScreenshot(page, "npc-5241-walk-frame-4-front", {

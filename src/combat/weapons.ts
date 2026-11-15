@@ -109,6 +109,19 @@ export const WEAPONS: readonly WeaponDef[] = [
     },
 ];
 
+/** Fists: nothing wielded. Not in WEAPONS (the wheel never picks it); it has no model. */
+export const UNARMED: WeaponDef = {
+    id: "unarmed",
+    name: "Unarmed",
+    family: "daggers",
+    damage: 1,
+    reach: units(70),
+    piercing: 0,
+    parryCos: 2,
+    ...weighing(0.3),
+    stunMultiplier: 1,
+};
+
 /** The weapon each cache weapon family fights like. */
 const CACHE_TEMPLATES: Record<WeaponFamily, string> = {
     sword: "sword",

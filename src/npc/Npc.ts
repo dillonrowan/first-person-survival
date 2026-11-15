@@ -1,6 +1,6 @@
 import * as THREE from "three";
 
-import type { NpcAppearanceInfo, NpcClip, NpcSpawnInfo } from "../world/NpcFormat";
+import type { NpcAppearanceInfo, NpcClip, NpcCombatStats, NpcSpawnInfo } from "../world/NpcFormat";
 import { CollisionFlag, RS_UNITS_PER_TILE } from "../world/WorldFormat";
 import {
     CLIENT_CYCLE_SECONDS,
@@ -27,6 +27,8 @@ import { sweepAxis } from "../physics/Sweep";
 import { NpcCombatBrain } from "./NpcCombat";
 import type { Box } from "../physics/TileColliders";
 import { Combatant } from "../combat/Combatant";
+import { environmentDamage, fallbackCombatStats } from "../combat/Osrs";
+import { XpLedger } from "../combat/XpLedger";
 import { tuning } from "../combat/tuning";
 import { Knockback, deathLaunch, findSnapTile, massForce, slideSpeedForDistance, stepKnockback } from "./NpcPhysics";
 import type { SharedNpcModel } from "./NpcModels";
@@ -220,6 +222,12 @@ export class Npc {
     private readonly brain: NpcCombatBrain;
     /** Melee attacks on the player (spec 16.6). */
     readonly attacker: NpcAttacker;
+    /** Levels, bonuses and max hits (the export, or the combat level for every level). */
+    readonly combatStats: NpcCombatStats;
+    /** XP the player is owed for damage dealt to this NPC, paid out on its death. */
+    readonly xpLedger = new XpLedger();
+    /** The death has been reported to the game (once). */
+    killReported = false;
     /** Last place the player was seen or heard, and how long the NPC has been searching there. */
     private lastSeen: { x: number; y: number } | undefined;
     private searching = -1;
@@ -253,9 +261,8 @@ export class Npc {
         this.fineY = info.y * RS_UNITS_PER_TILE + this.size * (RS_UNITS_PER_TILE / 2);
         this.rotation = this.orientation = info.orientation;
         this.plane = this.occupiedPlane = info.plane;
-        this.combatant = new Combatant(
-            Math.max(tuning.npcMinHealth, appearance.combatLevel * tuning.npcHealthPerLevel),
-        );
+        this.combatStats = appearance.combat ?? fallbackCombatStats(appearance.combatLevel);
+        this.combatant = new Combatant(this.combatStats.hitpoints);
         this.group.rotation.order = "YXZ";
         const attacks = model.data.attacks;
         // An empty list would leave the NPC with no attacks; it keeps its melee clips instead.
@@ -267,6 +274,7 @@ export class Npc {
                 : attacks
                   ? attacksFromClips(attacks, model.height)
                   : undefined,
+            this.combatStats.speedTicks,
         );
         // An NPC with no melee attack keeps its distance: it engages from 6 tiles and holds about 5.
         const keepsDistance = !!styled && !styled.some((s) => s.style === "melee");
@@ -486,7 +494,7 @@ export class Npc {
      */
     hitByBody(hit: BodyHit, fromX: number, fromY: number, kicked = false): void {
         const c = this.combatant;
-        const damage = kicked ? 0 : Math.min(hit.damage, Math.max(0, c.health - 1));
+        const damage = kicked ? 0 : Math.min(environmentDamage(hit.damage, c.maxHealth), Math.max(0, c.health - 1));
         c.hurt(damage, "knockdown", false, tuning.knockdownPhysics);
         this.takeHit(hit.dirX, hit.dirY, 0, fromX, fromY);
         this.kickedDown = kicked;
@@ -634,10 +642,10 @@ export class Npc {
             this.fineY = k.y * RS_UNITS_PER_TILE;
             this.plane = k.plane;
             if (!c.dead && k.plane < planeBefore) {
-                c.hurt(LEDGE_FALL_DAMAGE, "knockdown", false, tuning.knockdownFall);
+                c.hurt(environmentDamage(LEDGE_FALL_DAMAGE, c.maxHealth), "knockdown", false, tuning.knockdownFall);
             } else if (!c.dead && k.kicked && (k.impact ?? 0) >= tuning.wallSlamSpeed) {
                 // Kicked into a wall: the game switches to a ragdoll and knocks the NPC down.
-                c.hurt(tuning.wallSlamDamage, "knockdown", false, tuning.knockdownKick);
+                c.hurt(environmentDamage(tuning.wallSlamDamage, c.maxHealth), "knockdown", false, tuning.knockdownKick);
                 k.vx = k.vy = 0;
             }
             if (!moving && !c.knockedDown) {

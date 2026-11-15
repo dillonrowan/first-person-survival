@@ -32,7 +32,7 @@ export type CacheWeaponInfo = {
 export function cacheWeaponFamily(name: string): CacheWeaponFamily {
     const lower = name.toLowerCase();
     if (lower.includes("dagger")) return "daggers";
-    if (lower.includes("staff")) return "staff";
+    if (lower.includes("wand") || lower.includes("staff")) return "staff";
     if (lower.includes("crossbow")) return "crossbow";
     if (lower.includes("bow")) return "bow";
     return "sword";

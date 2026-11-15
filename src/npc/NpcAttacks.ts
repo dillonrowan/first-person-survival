@@ -1,3 +1,4 @@
+import { TICK_SECONDS, attackRate } from "../combat/Osrs";
 import { tuning } from "../combat/tuning";
 import { units } from "../player/MoveMath";
 import type { NpcAttackClip } from "../world/NpcFormat";
@@ -186,26 +187,13 @@ function styledAttack(
     return attack;
 }
 
-/**
- * Damage of an NPC strike on the player (spec 16.5):
- * max(0, (strength + WDmg) × HitPow − armour × 100) × difficulty.
- */
-export function npcStrikeDamage(
-    hitPow: number,
-    strength = tuning.npcStrength,
-    weaponDamage = tuning.npcWeaponDamage,
-    armour = tuning.playerArmour,
-    difficulty = 1,
-): number {
-    return Math.max(0, (strength + weaponDamage) * hitPow - armour * 100) * difficulty;
-}
-
 /** Attacks that start from `gap` tiles (distance between the two bodies' edges). */
 export function attacksInReach(gap: number, attacks: readonly NpcAttack[] = GUARD_ATTACKS): NpcAttack[] {
     return attacks.filter((a) => gap >= a.minGap && gap <= a.maxGap);
 }
 
-export type StrikeEvent = { attack: NpcAttack; hitIndex: number };
+/** `rate` is how much of the NPC attack interval (OSRS ticks) had passed since its previous attack. */
+export type StrikeEvent = { attack: NpcAttack; hitIndex: number; rate: number };
 
 /**
  * When an NPC attacks (spec 10.1, 16.6): "cool" mode waits 2.0–3.5 s between attacks, "berserker"
@@ -222,10 +210,14 @@ export class NpcAttacker {
     private cooldown: number;
     private rhythm: number;
     private nextHit = 0;
+    private sinceStart = Infinity;
+    private rate = 1;
 
     constructor(
         private readonly random: () => number = Math.random,
         private readonly attacks: readonly NpcAttack[] = GUARD_ATTACKS,
+        /** The NPC OSRS attack speed in ticks; attacks started sooner than this hit for less. */
+        private readonly speedTicks = 4,
     ) {
         this.cooldown = this.pickCooldown();
         this.rhythm = this.between(tuning.rhythmSwitchMin, tuning.rhythmSwitchMax);
@@ -263,6 +255,7 @@ export class NpcAttacker {
     update(dt: number, gap: number, sincePlayerAttack: number, canStart: boolean): StrikeEvent[] {
         const events: StrikeEvent[] = [];
         this.started = undefined;
+        this.sinceStart += dt;
         this.rhythm -= dt;
         if (this.rhythm <= 0) {
             this.berserk = !this.berserk;
@@ -276,7 +269,7 @@ export class NpcAttacker {
         if (a) {
             this.elapsed += dt;
             while (this.nextHit < a.hitTimes.length && this.elapsed >= a.hitTimes[this.nextHit]) {
-                events.push({ attack: a, hitIndex: this.nextHit });
+                events.push({ attack: a, hitIndex: this.nextHit, rate: this.rate });
                 this.nextHit++;
             }
             if (this.elapsed >= a.total) {
@@ -291,6 +284,8 @@ export class NpcAttacker {
             if (options.length > 0) {
                 this.current = this.pick(options);
                 this.started = this.current;
+                this.rate = attackRate(this.sinceStart, this.speedTicks * TICK_SECONDS);
+                this.sinceStart = 0;
                 this.elapsed = 0;
                 this.nextHit = 0;
             }

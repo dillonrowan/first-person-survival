@@ -1,6 +1,8 @@
 import { firstWallHit, ObstacleTop, segmentCircle } from "../combat/Bow";
 import type { Box, FlagsAt } from "../physics/TileColliders";
+import type { NpcCombatStats } from "../world/NpcFormat";
 import { AttackStyle, ProjectileInfo, ProjectileKind, RANGED_MAX } from "./AttackStyle";
+import type { AttackGfx, NpcSpell } from "./NpcSpells";
 
 /** An arrow, spell, rock, spit or fireball an NPC has shot at the player. Positions in tiles. */
 export type NpcProjectile = {
@@ -15,6 +17,16 @@ export type NpcProjectile = {
     color: number;
     style: AttackStyle;
     hitPow: number;
+    /** The shooter stats, its attack rate and the share of its max hit this carries. */
+    attacker?: NpcCombatStats;
+    rate: number;
+    share: number;
+    /** Its OSRS graphics (NPC_EFFECTS): drawn with the projectile, the impact played on arrival. */
+    gfx?: AttackGfx;
+    /** The spell it carries, if the NPC has a spell list: a curse deals no damage, but drains or binds. */
+    npcSpell?: NpcSpell;
+    /** The NPC that shot it, for its on-hit effects. */
+    shooter?: object;
     /** Where it was shot from, for the push direction. */
     fromX: number;
     fromY: number;
@@ -39,6 +51,9 @@ export function launchNpcProjectile(
     info: ProjectileInfo,
     style: AttackStyle,
     hitPow: number,
+    attacker?: NpcCombatStats,
+    rate = 1,
+    share = 1,
 ): NpcProjectile {
     const dx = target.x - from.x;
     const dy = target.y - from.y;
@@ -57,6 +72,9 @@ export function launchNpcProjectile(
         color: info.color,
         style,
         hitPow,
+        ...(attacker ? { attacker } : {}),
+        rate,
+        share,
         fromX: from.x,
         fromY: from.y,
         age: 0,

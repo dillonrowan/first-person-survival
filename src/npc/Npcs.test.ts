@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 
+import { fallbackCombatStats } from "../combat/Osrs";
 import { tuning } from "../combat/tuning";
 import type { NpcManifest, NpcModelData } from "../world/NpcFormat";
 import { CollisionFlag, RegionListener } from "../world/WorldFormat";
@@ -351,7 +352,21 @@ describe("NPC combat", () => {
     it("is attackable only with an Attack option and gets health from its combat level", async () => {
         const { npc } = await oneNpc();
         expect(npc.attackable).toBe(true);
-        expect(npc.combatant.maxHealth).toBeGreaterThan(0);
+        // No exported stats in the fixture: every level is the combat level (2).
+        expect(npc.combatant.maxHealth).toBe(2);
+        expect(npc.combatStats.attack).toBe(2);
+    });
+
+    it("takes its health and stats from the export when there are some", async () => {
+        const world = fakeWorld();
+        const combat = { ...fallbackCombatStats(2), hitpoints: 12, defence: 7 };
+        const withStats = { ...manifest, appearances: [{ ...APPEARANCE, actions: ["Attack"], combat }] };
+        const npcs = new Npcs(withStats, world, new THREE.Scene(), materials, async () => modelData(), () => 0.5);
+        world.load(50, 50);
+        await flush();
+        const npc = npcs.all()[0];
+        expect(npc.combatant.maxHealth).toBe(12);
+        expect(npc.combatStats.defence).toBe(7);
     });
 
     it("is knocked back, never into a wall, and settles on a free tile once it loses the player", async () => {

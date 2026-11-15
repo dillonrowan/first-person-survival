@@ -15,6 +15,14 @@ export type CombatHudState = {
     shieldName?: string;
     /** False while the shield does not protect (a bow takes both hands). */
     shieldActive?: boolean;
+    /** "7 / 10" */
+    healthText?: string;
+    /** "Style: Accurate" */
+    styleName?: string;
+    /** "Spell: Wind Strike" */
+    spellName?: string;
+    /** The health bar turns green while poisoned, as the OSRS hitpoints orb does. */
+    poisoned?: boolean;
 };
 
 /** Health, stamina and adrenaline bars, the charge ring, hit markers and the red damage flash. */
@@ -25,6 +33,9 @@ export class CombatHud {
     private readonly flash: HTMLElement;
     private readonly weapon: HTMLElement;
     private readonly shield: HTMLElement;
+    private readonly healthText: HTMLElement;
+    private readonly style: HTMLElement;
+    private readonly spell: HTMLElement;
     private flashTime = Infinity;
     private hitTime = Infinity;
 
@@ -46,6 +57,9 @@ export class CombatHud {
         this.flash = el("damage-flash");
         this.weapon = el("weapon-name");
         this.shield = el("shield-name");
+        this.healthText = el("health-text");
+        this.style = el("combat-style");
+        this.spell = el("spell-name");
     }
 
     /** Shows a hit marker; `heavy` hits make it larger. */
@@ -54,9 +68,11 @@ export class CombatHud {
         this.hitMarker.classList.toggle("heavy", heavy);
     }
 
-    /** Starts the red flash for a big hit taken. */
-    showDamage(): void {
-        this.flashTime = 0;
+    /** Starts the red flash for a hit taken; a missed hit (0) flashes nothing. */
+    showDamage(amount?: number, missed = false): void {
+        if (!missed && (amount === undefined || amount > 0)) {
+            this.flashTime = 0;
+        }
     }
 
     update(dt: number, state: CombatHudState): void {
@@ -74,6 +90,10 @@ export class CombatHud {
         this.weapon.textContent = state.weaponName;
         this.shield.textContent = state.shieldName ? `Shield: ${state.shieldName}` : "";
         this.shield.classList.toggle("inactive", state.shieldActive === false);
+        this.healthText.textContent = state.healthText ?? "";
+        this.style.textContent = state.styleName ?? "";
+        this.spell.textContent = state.spellName ?? "";
+        this.bars.health.classList.toggle("poisoned", !!state.poisoned);
 
         this.hitTime += dt;
         this.hitMarker.style.opacity = this.hitTime < HIT_MARKER_TIME ? "1" : "0";
