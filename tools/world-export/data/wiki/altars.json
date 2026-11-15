@@ -1,0 +1,189 @@
+[
+ {
+  "rune": "Air",
+  "altarId": 34760,
+  "altar": {
+   "x": 2843,
+   "y": 4833,
+   "plane": 0
+  },
+  "ruinsIds": [
+   28914,
+   29090
+  ],
+  "ruins": {
+   "x": 2984,
+   "y": 3291,
+   "plane": 0
+  }
+ },
+ {
+  "rune": "Mind",
+  "altarId": 34761,
+  "altar": {
+   "x": 2785,
+   "y": 4840,
+   "plane": 0
+  },
+  "ruinsIds": [
+   29094,
+   29095
+  ],
+  "ruins": {
+   "x": 2981,
+   "y": 3513,
+   "plane": 0
+  }
+ },
+ {
+  "rune": "Water",
+  "altarId": 34762,
+  "altar": {
+   "x": 2715,
+   "y": 4835,
+   "plane": 0
+  },
+  "ruinsIds": [
+   29096,
+   29097
+  ],
+  "ruins": {
+   "x": 3184,
+   "y": 3164,
+   "plane": 0
+  }
+ },
+ {
+  "rune": "Earth",
+  "altarId": 34763,
+  "altar": {
+   "x": 2657,
+   "y": 4840,
+   "plane": 0
+  },
+  "ruinsIds": [
+   29098,
+   29099
+  ],
+  "ruins": {
+   "x": 3305,
+   "y": 3473,
+   "plane": 0
+  }
+ },
+ {
+  "rune": "Fire",
+  "altarId": 34764,
+  "altar": {
+   "x": 2584,
+   "y": 4837,
+   "plane": 0
+  },
+  "ruinsIds": [
+   30371,
+   30372
+  ],
+  "ruins": {
+   "x": 3312,
+   "y": 3254,
+   "plane": 0
+  }
+ },
+ {
+  "rune": "Body",
+  "altarId": 34765,
+  "altar": {
+   "x": 2522,
+   "y": 4839,
+   "plane": 0
+  },
+  "ruinsIds": [
+   30373,
+   31584
+  ],
+  "ruins": {
+   "x": 3052,
+   "y": 3444,
+   "plane": 0
+  }
+ },
+ {
+  "rune": "Law",
+  "altarId": 34767,
+  "altar": null,
+  "ruinsIds": [
+   32489,
+   32490
+  ],
+  "ruins": {
+   "x": 2857,
+   "y": 3380,
+   "plane": 0
+  }
+ },
+ {
+  "rune": "Nature",
+  "altarId": 34768,
+  "altar": {
+   "x": 2399,
+   "y": 4840,
+   "plane": 0
+  },
+  "ruinsIds": [
+   32491,
+   32492
+  ],
+  "ruins": {
+   "x": 2868,
+   "y": 3018,
+   "plane": 0
+  }
+ },
+ {
+  "rune": "Chaos",
+  "altarId": 34769,
+  "altar": {
+   "x": 2270,
+   "y": 4841,
+   "plane": 0
+  },
+  "ruinsIds": [
+   34742,
+   34743
+  ],
+  "ruins": {
+   "x": 3059,
+   "y": 3590,
+   "plane": 0
+  }
+ },
+ {
+  "rune": "Wrath",
+  "altarId": 34772,
+  "altar": {
+   "x": 2334,
+   "y": 4833,
+   "plane": 0
+  },
+  "ruinsIds": [
+   34746,
+   34717
+  ],
+  "ruins": {
+   "x": 2445,
+   "y": 2824,
+   "plane": 0
+  }
+ },
+ {
+  "rune": "Astral",
+  "altarId": 34771,
+  "altar": {
+   "x": 2157,
+   "y": 3863,
+   "plane": 0
+  },
+  "ruinsIds": [],
+  "ruins": null
+ }
+]
