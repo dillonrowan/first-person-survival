@@ -29,6 +29,7 @@ import { exportHunter, exportShops, exportSlayer, exportThieving } from "./skill
 import { exportConstruction, exportRunecraft } from "./skills/places";
 import { exportFills, exportFiremaking, exportRecipes, facilityLocs, sawmillRecipes } from "./skills/recipes";
 import { createSkillsContext, loadWikiData } from "./skills/SkillContext";
+import { SKILL_LOC_INDEX_FILE, SkillLocIndex } from "./skills/SkillLocIndex";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "../..");
@@ -83,6 +84,18 @@ function main(): void {
     for (const id of ctx.locsWhere((n, a) => n === "Portal" && a.includes("Home"))) set(id, { role: "house-portal" });
     for (const [id, facility] of facilityLocs(ctx)) set(id, { role: "facility", facility });
     for (const id of ctx.locsWhere((n, a) => /deposit (box|chest|pot)/i.test(n) && a.includes("Deposit"))) set(id, { role: "deposit" });
+
+    // What export-world turns into skill targets, and their alternate looks.
+    const index: SkillLocIndex = { resources: {}, patches: [], hotspots: {}, statics: [] };
+    for (const [id, role] of Object.entries(locs)) {
+        if (role.role === "tree") index.resources[id] = trees[role.index].stumpLocId;
+        // Rune essence never depletes, so it stays part of the map.
+        else if (role.role === "rock" && !rocks[role.index].essence) index.resources[id] = rocks[role.index].depletedLocId;
+        else if (role.role === "patch") index.patches.push(Number(id));
+        else if (role.role === "hotspot") index.hotspots[id] = construction.furniture.filter((f) => f.hotspot.toLowerCase() === role.name.toLowerCase()).map((f) => f.locId);
+        else index.statics.push(Number(id));
+    }
+    fs.writeFileSync(SKILL_LOC_INDEX_FILE, JSON.stringify(index) + "\n");
 
     const named: Record<string, number> = {};
     for (const name of NAMED_ITEMS) {

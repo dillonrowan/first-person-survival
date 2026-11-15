@@ -6,6 +6,10 @@
 //   npm run export-world -- --workers 4
 //   npm run export-world -- --no-npcs            skip the NPC models and spawns
 //   npm run export-world -- --npcs-only          re-bake only the NPCs of the exported map
+//   npm run export-world -- --squares "29,110;39,75"   these map squares only (instead of --area)
+//   npm run export-world -- --merge ...          re-export the selected squares into the existing
+//                                                world, keeping every other file (items, weapons,
+//                                                NPCs); the squares join world.json's region list
 //   npm run export-world -- --npc-data-only      only refresh NPC stats and drops in npcs.json (seconds)
 //
 // The cache decoders live in rs/; RegionBuilder turns each decoded map square into the meshes
@@ -122,8 +126,12 @@ function defaultWorkerCount(): number {
     return Math.max(1, Math.min(6, byCores, byMemory));
 }
 
-function parseArgs(argv: string[]): { area: Area; workers: number; npcs: boolean; npcsOnly: boolean; npcDataOnly: boolean } {
+type Args = { area: Area; squares?: [number, number][]; merge: boolean; workers: number; npcs: boolean; npcsOnly: boolean; npcDataOnly: boolean };
+
+function parseArgs(argv: string[]): Args {
     let area = AREAS.surface;
+    let squares: [number, number][] | undefined;
+    let merge = false;
     let npcs = true;
     let npcsOnly = false;
     let npcDataOnly = false;
@@ -147,6 +155,17 @@ function parseArgs(argv: string[]): { area: Area; workers: number; npcs: boolean
                     y2: Math.max(y1, y2),
                 };
             }
+        } else if (arg === "--squares" && value) {
+            i++;
+            squares = value.split(";").map((pair) => {
+                const [x, y] = pair.split(",").map(Number);
+                if (!Number.isInteger(x) || !Number.isInteger(y)) {
+                    throw new Error(`--squares expects "x,y;x,y", got "${value}"`);
+                }
+                return [x, y];
+            });
+        } else if (arg === "--merge") {
+            merge = true;
         } else if (arg === "--no-npcs") {
             npcs = false;
         } else if (arg === "--npcs-only") {
@@ -160,7 +179,7 @@ function parseArgs(argv: string[]): { area: Area; workers: number; npcs: boolean
             throw new Error(`Unknown argument "${arg}"`);
         }
     }
-    return { area, workers, npcs, npcsOnly, npcDataOnly };
+    return { area, ...(squares ? { squares } : {}), merge, workers, npcs, npcsOnly, npcDataOnly };
 }
 
 /**
@@ -496,7 +515,7 @@ async function exportNpcs(
 }
 
 async function main() {
-    const { area, workers, npcs, npcsOnly, npcDataOnly } = parseArgs(process.argv.slice(2));
+    const { area, squares, merge, workers, npcs, npcsOnly, npcDataOnly } = parseArgs(process.argv.slice(2));
 
     console.log("Reading cache...");
     const cache = readCacheFiles(CACHE_DIR);
@@ -527,15 +546,24 @@ async function main() {
     }
 
     const regions: [number, number][] = [];
-    for (let x = area.x1; x <= area.x2; x++) {
-        for (let y = area.y1; y <= area.y2; y++) {
-            if (loaders.sceneBuilder.getTerrainData(x, y)) {
-                regions.push([x, y]);
+    if (squares) {
+        regions.push(...squares.filter(([x, y]) => loaders.sceneBuilder.getTerrainData(x, y)));
+    } else {
+        for (let x = area.x1; x <= area.x2; x++) {
+            for (let y = area.y1; y <= area.y2; y++) {
+                if (loaders.sceneBuilder.getTerrainData(x, y)) {
+                    regions.push([x, y]);
+                }
             }
         }
     }
     if (regions.length === 0) {
         throw new Error("No map squares in the selected area");
+    }
+
+    if (merge) {
+        await mergeRegions(cache, loaders, regions, workers);
+        return;
     }
 
     fs.rmSync(OUT_DIR, { recursive: true, force: true });
@@ -583,6 +611,38 @@ async function main() {
     fs.writeFileSync(path.join(OUT_DIR, "world.json"), JSON.stringify(manifest));
 
     console.log(`Done: ${exported.length} regions in ${path.relative(ROOT, OUT_DIR)}`);
+}
+
+/**
+ * Re-exports regions into the existing world and adds them to world.json, keeping everything else
+ * (textures, spawn, NPCs, ground items, items, weapons). The texture atlas must not have changed.
+ */
+async function mergeRegions(
+    cache: ReturnType<typeof readCacheFiles>,
+    loaders: ReturnType<typeof createWorldLoaders>,
+    regions: [number, number][],
+    workers: number,
+): Promise<void> {
+    const worldFile = path.join(OUT_DIR, "world.json");
+    if (!fs.existsSync(worldFile)) {
+        throw new Error(`No exported map in ${OUT_DIR}; run a full export first`);
+    }
+    const world: WorldManifest = JSON.parse(fs.readFileSync(worldFile, "utf8"));
+    const ids = loaders.textureLoader.getTextureIds();
+    const layers = world.textures.layers.map((l) => l.id).slice(1);
+    if (layers.length !== ids.length || layers.some((id, i) => id !== ids[i])) {
+        throw new Error("texture layers changed; run a full export");
+    }
+    fs.mkdirSync(REGION_DIR, { recursive: true });
+    console.log(`Merging ${regions.length} regions with ${workers} workers...`);
+    const exported = await exportRegions(cache, regions, workers);
+    const keys = new Set(world.regions.map(([x, y]) => `${x},${y}`));
+    for (const [x, y] of exported) {
+        if (!keys.has(`${x},${y}`)) world.regions.push([x, y]);
+    }
+    world.regions.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    fs.writeFileSync(worldFile, JSON.stringify(world));
+    console.log(`Done: ${exported.length} regions merged; run --npcs-only for NPCs in new squares`);
 }
 
 main().catch((e) => {
