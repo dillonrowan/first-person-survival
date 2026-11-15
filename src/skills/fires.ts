@@ -1,13 +1,8 @@
 import { randInt } from "../game/Random";
 import type { SkillLocInstance } from "../world/SkillLocs";
-import { Job, SkillContext, itemName } from "./SkillContext";
-import type { SkillSystem } from "./SkillSystem";
-import { roll } from "./success";
+import type { SkillContext } from "./SkillContext";
 
 export const FIRE_LOC = 26185;
-const LIGHT_TICKS = 4;
-/** The wiki's one firemaking chart (Logs), used for every log. */
-const LIGHT_CHANCE = { low: 65, high: 513 };
 /** Where the player steps after lighting: west, east, south, north [OSRS]. */
 const STEPS: [number, number][] = [
     [-1, 0],
@@ -16,14 +11,14 @@ const STEPS: [number, number][] = [
     [0, 1],
 ];
 
-/** Lighting logs into fires that burn for a while, can be cooked on, and leave ashes. */
-export class Firemaking {
+/**
+ * Burning logs into fires that burn for a while, can be cooked on, and leave ashes. There is no
+ * Firemaking skill here: any logs light at once, every time, for no XP. [design]
+ */
+export class Fires {
     private readonly fires = new Map<string, { instance: SkillLocInstance; outAt: number }>();
 
-    constructor(
-        private readonly ctx: SkillContext,
-        private readonly sys: SkillSystem,
-    ) {
+    constructor(private readonly ctx: SkillContext) {
         ctx.clock.onTick((t) => this.onTick(t));
     }
 
@@ -35,16 +30,12 @@ export class Firemaking {
         return false;
     }
 
+    /** Lights logs on the player's tile; false when the item is not logs. */
     light(log: number): boolean {
-        const entry = this.ctx.data.firemaking.find((f) => f.log === log);
-        if (!entry) return false;
+        if (!this.ctx.data.logs.includes(log)) return false;
         const ctx = this.ctx;
         if (!ctx.items.holds(ctx.data.items.Tinderbox)) {
             ctx.log("You need a tinderbox to light a fire.");
-            return true;
-        }
-        if (ctx.skills.level("firemaking") < entry.level) {
-            ctx.log(`You need a Firemaking level of ${entry.level} to burn ${itemName(ctx, log).toLowerCase()}.`);
             return true;
         }
         const x = Math.floor(ctx.player.x);
@@ -54,19 +45,7 @@ export class Firemaking {
             ctx.log("You can't light a fire here.");
             return true;
         }
-        ctx.log("You attempt to light the logs.");
-        this.sys.start(new LightJob(this, ctx, log, entry.xp));
-        return true;
-    }
-
-    /** The logs caught: a fire on the player's tile, and the player steps off it. */
-    lit(log: number, xp: number): void {
-        const ctx = this.ctx;
-        const x = Math.floor(ctx.player.x);
-        const y = Math.floor(ctx.player.y);
-        const plane = ctx.player.plane;
         ctx.items.removeItem(log, 1);
-        ctx.gainXp("firemaking", xp);
         ctx.log("The fire catches and the logs begin to burn.");
         const loc = { id: FIRE_LOC, name: "Fire", actions: ["Cook"], plane, tileX: x, tileY: y, sizeX: 1, sizeY: 1, height: 1 };
         void ctx.locModel(FIRE_LOC).then((object) => {
@@ -79,6 +58,7 @@ export class Firemaking {
                 break;
             }
         }
+        return true;
     }
 
     private onTick(t: number): void {
@@ -90,26 +70,5 @@ export class Firemaking {
             const ashes = this.ctx.data.items.Ashes;
             if (ashes !== undefined) this.ctx.drop({ id: ashes, qty: 1 }, loc.tileX, loc.tileY, loc.plane);
         }
-    }
-}
-
-export class LightJob implements Job {
-    readonly skill = "firemaking" as const;
-    readonly swingTicks = 0;
-    private ticks = 0;
-
-    constructor(
-        private readonly firemaking: Firemaking,
-        private readonly ctx: SkillContext,
-        private readonly log: number,
-        private readonly xp: number,
-    ) {}
-
-    tick(): boolean {
-        if (++this.ticks % LIGHT_TICKS !== 0) return true;
-        if (this.ctx.items.count(this.log) === 0) return false;
-        if (!roll(LIGHT_CHANCE, this.ctx.skills.level("firemaking"))) return true;
-        this.firemaking.lit(this.log, this.xp);
-        return false;
     }
 }

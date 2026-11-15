@@ -11,8 +11,6 @@ export type SkillLocIndex = {
     resources: Record<string, number>;
     /** Farming patch multiloc ids: each varbit value's look gets a mesh. */
     patches: number[];
-    /** House hotspot loc id → the furniture loc ids that can be built there. */
-    hotspots: Record<string, number[]>;
     /** Skill targets drawn with the map: facilities, stalls, altars, ruins, portals. */
     statics: number[];
 };

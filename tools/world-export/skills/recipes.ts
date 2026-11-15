@@ -1,12 +1,12 @@
 // Artisan recipes (Cooking, Smithing, Crafting, Fletching, Herblore), the facilities they use,
-// firemaking logs, water filling and the sawmill.
+// the logs a tinderbox lights and water filling.
 
 import type { Chance, Facility, RecipeDef } from "../../../src/world/SkillFormat";
 import type { Chart, Recipe } from "../fetch-wiki-skills";
 import type { SkillsExportContext } from "./SkillContext";
 
 /** Ticks per action when the wiki gives none. */
-const DEFAULT_TICKS: Record<string, number> = { Smithing: 5, Crafting: 3, Fletching: 3, Herblore: 2, Cooking: 4, Firemaking: 4, Construction: 4, Runecraft: 1 };
+const DEFAULT_TICKS: Record<string, number> = { Smithing: 5, Crafting: 3, Fletching: 3, Herblore: 2, Cooking: 4, Runecraft: 1 };
 
 /** Wiki facility (per skill) → this game's facility; anything else drops the recipe. */
 function facilityOf(skill: string, facility: string | null): Facility | null | undefined {
@@ -133,13 +133,14 @@ function burntItem(ctx: SkillsExportContext, r: Recipe, fishCatches: Set<number>
     return undefined;
 }
 
-export function exportFiremaking(ctx: SkillsExportContext): { log: number; level: number; xp: number }[] {
-    const out: { log: number; level: number; xp: number }[] = [];
+/** Logs a tinderbox lights: the wiki's Firemaking calculator rows (the skill itself is not in the game). */
+export function exportLogs(ctx: SkillsExportContext): number[] {
+    const out: number[] = [];
     for (const row of ctx.wiki.calc.Firemaking ?? []) {
         const name = String(row.name ?? "");
         if (!/(logs|branches)$/i.test(name) || /pyre|special/i.test(String(row.type ?? ""))) continue;
         const log = ctx.resolveItem(name);
-        if (log !== undefined && !out.some((o) => o.log === log)) out.push({ log, level: Number(row.level) || 1, xp: Number(row.xp) || 0 });
+        if (log !== undefined && !out.includes(log)) out.push(log);
     }
     return out;
 }
@@ -153,22 +154,5 @@ export function exportFills(ctx: SkillsExportContext): { from: number; to: numbe
         const from = ctx.resolveItem(a);
         const to = ctx.resolveItem(b);
         return from === undefined || to === undefined ? [] : [{ from, to }];
-    });
-}
-
-/** The sawmill operator's planks: logs and coins in, plank out, instantly. */
-export function sawmillRecipes(ctx: SkillsExportContext, firstId: number): RecipeDef[] {
-    const coins = 995;
-    const rows: [string, number, string][] = [
-        ["Logs", 100, "Plank"],
-        ["Oak logs", 250, "Oak plank"],
-        ["Teak logs", 500, "Teak plank"],
-        ["Mahogany logs", 1500, "Mahogany plank"],
-    ];
-    return rows.flatMap(([logs, price, plank], i) => {
-        const log = ctx.resolveItem(logs);
-        const out = ctx.resolveItem(plank);
-        if (log === undefined || out === undefined) return [];
-        return [{ id: firstId + i, skill: "construction", level: 1, xp: 0, ticks: 1, materials: [{ item: log, qty: 1 }, { item: coins, qty: price }], tools: [], facility: "sawmill" as const, output: { item: out, qty: 1 } }];
     });
 }

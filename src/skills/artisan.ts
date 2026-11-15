@@ -1,6 +1,5 @@
 import type { SkillId } from "../combat/SkillId";
 import { random } from "../game/Random";
-import type { Npc } from "../npc/Npc";
 import type { Facility, RecipeDef } from "../world/SkillFormat";
 import type { SkillLocInstance } from "../world/SkillLocs";
 import { Job, SkillContext, article, giveOrDrop, itemName } from "./SkillContext";
@@ -81,7 +80,7 @@ export class Artisan {
     /** Item on item: hand recipes that use both as materials or tools. */
     useItems(a: number, b: number): boolean {
         const uses = (r: RecipeDef, id: number) => r.materials.some((m) => m.item === id) || r.tools.some((t) => t.includes(id));
-        const recipes = this.recipes(null).filter((r) => r.skill !== "construction" && uses(r, a) && uses(r, b));
+        const recipes = this.recipes(null).filter((r) => uses(r, a) && uses(r, b));
         if (recipes.length === 0) return false;
         this.offer("What would you like to make?", recipes);
         return true;
@@ -124,13 +123,6 @@ export class Artisan {
                 return ctx.items.count(fill.from) > 0;
             },
         });
-        return true;
-    }
-
-    /** The sawmill operator turns logs and coins into planks. */
-    npcAction(npc: Npc, action: string): boolean {
-        if (!/^buy-plank$/i.test(action)) return false;
-        this.offer(npc.appearance.name, this.ctx.data.recipes.filter((r) => r.facility === "sawmill"));
         return true;
     }
 }
@@ -203,7 +195,6 @@ export function madeMessage(ctx: Pick<SkillContext, "db">, r: RecipeDef): string
             return `You successfully cook ${article(out)} ${lower}.`;
     }
     if (r.skill === "fletching") return `You make ${r.output.qty} ${lower}.`;
-    if (r.facility === "sawmill") return "The sawmill operator converts your logs into a plank.";
     return `You make ${article(out)} ${lower}.`;
 }
 

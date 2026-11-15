@@ -121,8 +121,8 @@ then the bolts left in all (for example `(5/7 · 23)`).
 
 Damage follows the Old School RuneScape rules. The combat skills are **Melee** (Attack and Strength
 in one), **Defence**, **Ranged**, **Magic** and **Hitpoints**; the OSRS non-combat skills except
-Agility (Mining, Smithing, Herblore, Fishing, Thieving, Cooking, Crafting, Firemaking, Fletching,
-Woodcutting, Runecraft, Slayer, Farming, Construction and Hunter) are trained as described in
+Agility, Firemaking and Construction (Mining, Smithing, Herblore, Fishing, Thieving, Cooking,
+Crafting, Fletching, Woodcutting, Runecraft, Slayer, Farming and Hunter) are trained as described in
 [Gathering and Making](#gathering-and-making). Every skill starts at level 1 except Hitpoints at
 10, which is your maximum health. Press `K` for the skills tab (level, XP and XP to the next level,
 and your combat level). XP gains float up at the top right, and a banner announces each new level.
@@ -209,12 +209,18 @@ Messages go to the log at the bottom left. Success chances, XP and times are the
   rolls the rock's chance, scaled by how much of the pickaxe's OSRS interval has passed since your
   last blow, so a better pickaxe needs fewer blows and hammering fast gives no more ore. The rock
   crumbles when it empties and refills. Aubury in Varrock teleports you to the rune essence mine.
-- **Fishing**: use a fishing spot's option (Net, Bait, Lure, Cage, Harpoon) from up to 4 tiles away
-  with the right tool and bait, then aim at the spot and click to cast (one cast per 1.2 s). Each
-  cast that lands on the spot rolls for a catch; one off the spot misses.
+- **Fishing**: fishing spots ripple and bubble on the water where the OSRS wiki places them. Use a
+  spot's option (Net, Bait, Lure, Cage, Harpoon) from up to 7 tiles away: you need the right tool
+  and bait, and the option puts the tool in your hand (it must stay wielded). Aim at the spot and
+  click to cast. The bobber floats with its black waterline mark just above the water; nibbles
+  only touch the water, but a bite pulls it under, past the mark. Click while it is under (about a
+  second) to hook the fish; a click before then reels in empty, and a missed bite gets away. Then
+  reel: hold the mouse button to push the zone right and let go to let it drift back, keeping the
+  fish in the zone until the meter fills. Fish you are more likely to catch get a wider zone and
+  swim calmer. A landed fish leaps out of the water to you; cast again for the next.
 - **Cooking**: Cook on a range or fire, or use raw food on it; food can burn.
-- **Firemaking**: use a tinderbox on logs (or Light them). You step aside and can cook on the fire
-  until it burns out and leaves ashes.
+- **Fires**: use a tinderbox on logs (or Light them). There is no Firemaking skill: the logs always
+  catch at once. You step aside and can cook on the fire until it burns out and leaves ashes.
 - **Smithing, Crafting**: Smelt at a furnace, Smith at an anvil with a hammer, Spin at a spinning
   wheel, and so on; the make menu at the bottom lets you pick the item and how many (1, 5, 10, X or
   All, or keys 1-9). Iron ore fails half the time.
@@ -230,9 +236,6 @@ Messages go to the log at the bottom left. Success chances, XP and times are the
   come back later: crops grow in real time, even while the game is closed.
 - **Slayer**: ask a Slayer master for an Assignment; kills of that kind count down. Some monsters
   need a Slayer level before you can hurt them.
-- **Construction**: a house portal's Home or Build mode takes you to your house. In build mode,
-  Build furniture on hotspots with a hammer, a saw and planks (the sawmill operator makes planks);
-  Next room moves between rooms and the garden centrepiece is the exit.
 - Killed NPCs come back at their spawn 30 seconds after their body is gone.
 
 ## Health, Stamina, and Adrenaline

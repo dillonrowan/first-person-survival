@@ -25,6 +25,17 @@ export class ItemDb {
         return new ItemDb(((await response.json()) as ItemManifest).items);
     }
 
+    /**
+     * Lets an item the cache does not equip be wielded in the weapon slot (fishing rods, nets,
+     * harpoons and pots are held to fish). [design]
+     */
+    makeWieldable(id: number): void {
+        const item = this.byId.get(id);
+        if (!item || item.slot) return;
+        item.slot = "weapon";
+        if (!item.actions.includes("Wield")) item.actions = ["Wield", ...item.actions];
+    }
+
     get(id: number): ItemInfo | undefined {
         return this.byId.get(id);
     }

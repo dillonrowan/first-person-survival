@@ -1,7 +1,7 @@
 // Non-combat skill data, written by tools/world-export/export-skills.ts from the OSRS wiki and the
 // cache, and read by the game (public/world/skills.json and shops.json). No imports, so tools can use it.
 
-export const SKILLS_FORMAT_VERSION = 1;
+export const SKILLS_FORMAT_VERSION = 2;
 
 export type Chance = { low: number; high: number };
 export type ItemQty = { item: number; qty: number };
@@ -53,6 +53,8 @@ export type FishingSpotDef = {
     /** Highest level first: each roll tries them in this order. */
     catches: { item: number; level: number; xp: number; chance: Chance }[];
 };
+/** Where a fishing spot is, from the wiki's location tables; `npcId` picks its FishingSpotDefs. */
+export type FishingSpotPlace = { npcId: number; x: number; y: number; plane: number };
 
 export type Facility =
     | "furnace"
@@ -64,7 +66,6 @@ export type Facility =
     | "pottery oven"
     | "loom"
     | "water"
-    | "sawmill"
     | "altar";
 
 export type RecipeDef = {
@@ -140,14 +141,6 @@ export type SlayerDef = {
     monsters: Record<string, { level: number; xp: number; categories: string[] }>;
 };
 
-export type FurnitureDef = { locId: number; name: string; hotspot: string; level: number; xp: number; materials: ItemQty[] };
-export type ConstructionDef = {
-    rooms: { name: string; arrival: Tile }[];
-    furniture: FurnitureDef[];
-    /** Placed hotspot locs: loc id → hotspot name. */
-    hotspots: Record<string, string>;
-};
-
 export type AltarDef = {
     rune: string;
     runeItem: number;
@@ -181,8 +174,6 @@ export type LocRole =
     | { role: "altar-exit"; rune: string }
     | { role: "essence-exit" }
     | { role: "patch"; impl: PatchImpl }
-    | { role: "hotspot"; name: string }
-    | { role: "house-portal" }
     | { role: "deposit" };
 
 export type SkillsManifest = {
@@ -193,8 +184,11 @@ export type SkillsManifest = {
     trees: TreeDef[];
     rocks: RockDef[];
     fishing: FishingSpotDef[];
+    /** Fishing spots placed by the game (the cache's spot NPCs are not used). */
+    fishingSpots: FishingSpotPlace[];
     recipes: RecipeDef[];
-    firemaking: { log: number; level: number; xp: number }[];
+    /** Logs a tinderbox lights. */
+    logs: number[];
     /** Vial, bucket and jug filled at water. */
     fills: { from: number; to: number }[];
     stalls: StallDef[];
@@ -202,7 +196,6 @@ export type SkillsManifest = {
     hunter: HunterDef[];
     farming: FarmingDef;
     slayer: SlayerDef;
-    construction: ConstructionDef;
     runecraft: RunecraftDef;
     tools: { axes: AxeDef[]; pickaxes: PickaxeDef[] };
     /** Well-known item ids the game uses by name. */
@@ -223,15 +216,15 @@ export function emptySkillsManifest(): SkillsManifest {
         trees: [],
         rocks: [],
         fishing: [],
+        fishingSpots: [],
         recipes: [],
-        firemaking: [],
+        logs: [],
         fills: [],
         stalls: [],
         pickpockets: [],
         hunter: [],
         farming: { patches: [], crops: [], weeds: {} },
         slayer: { masters: [], monsters: {} },
-        construction: { rooms: [], furniture: [], hotspots: {} },
         runecraft: { altars: [], essence: { rune: 1436, pure: 7936 }, essenceMine: { arrival: { x: 0, y: 0, plane: 0 }, exitLocIds: [], returnTo: { x: 0, y: 0, plane: 0 } } },
         tools: { axes: [], pickaxes: [] },
         items: {},

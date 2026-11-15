@@ -352,6 +352,18 @@ export class WeaponView {
         }
     }
 
+    /**
+     * World position of the far end of the held model (a fishing rod's tip): models follow the
+     * weapon contract, grip at the origin and blade along +Y. Undefined when nothing is drawn.
+     */
+    tipPoint(out: THREE.Vector3): THREE.Vector3 | undefined {
+        const model = this.current;
+        if (!model || !this.holder.visible) return undefined;
+        const length = typeof model.userData.tipLength === "number" ? model.userData.tipLength : 0.8;
+        this.holder.updateWorldMatrix(true, false);
+        return out.set(0, length, 0).applyMatrix4(this.holder.matrixWorld);
+    }
+
     /** A melee strike landed: the blade stalls in the target for a moment and the view jolts. 0..1. */
     impact(strength: number): void {
         this.freeze = Math.max(this.freeze, HITSTOP * strength);

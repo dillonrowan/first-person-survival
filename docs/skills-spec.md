@@ -7,9 +7,9 @@ game's own choices; everything else follows OSRS.
 
 ## Skills
 
-Woodcutting, Mining, Fishing, Cooking, Firemaking, Smithing, Crafting, Fletching, Herblore,
-Runecraft, Thieving, Hunter, Farming, Slayer and Construction. Not built: Agility, Prayer (bones
-can be banked, not buried) and Sailing.
+Woodcutting, Mining, Fishing, Cooking, Smithing, Crafting, Fletching, Herblore, Runecraft,
+Thieving, Hunter, Farming and Slayer. Not built: Agility, Firemaking (logs still burn, see Fires),
+Construction, Prayer (bones can be banked, not buried) and Sailing.
 
 ## Data sources
 
@@ -18,9 +18,10 @@ can be banked, not buried) and Sailing.
 | Loc, NPC and item names, actions, models | OSRS cache (revision 242) | `tools/world-export/rs/` |
 | Recipes (level, XP, ticks, materials, tools, facility) | wiki Bucket `recipe` | `data/wiki/recipes.json` |
 | Gathering, thieving and hunter loot | wiki Bucket `dropsline` (non-combat rows) | `data/wiki/drops.json` |
-| Level, XP, respawn and stun times, success charts | wiki templates `Woodcutting info`, `Mining info`, `Fishing info`, `Thieving info`, `Infobox Construction`, `Skilling success chart` | `data/wiki/skill-info.json` |
+| Level, XP, respawn and stun times, success charts | wiki templates `Woodcutting info`, `Mining info`, `Fishing info`, `Thieving info`, `Skilling success chart` | `data/wiki/skill-info.json` |
 | Cooking burn charts | `Skilling success chart` on each cooked item's page | `data/wiki/cooking-charts.json` |
-| Firemaking, Hunter, Farming rows | `Module:Skill calc/<Skill>` | `data/wiki/calc.json` |
+| Firemaking (the logs list only), Hunter, Farming rows | `Module:Skill calc/<Skill>` | `data/wiki/calc.json` |
+| Fishing spot locations | `ObjectLocLine` rows on each fishing spot page (main map only) | `data/wiki/fishing-spots.json` |
 | Slayer tasks and weights | `Module:SlayerConsts/MasterTables` | `data/wiki/slayer-masters.json` |
 | Shops | Buckets `infobox_shop`, `storeline` | `data/wiki/shops.json` |
 | Runecraft altars and ruins | `<Rune> Altar`, `Mysterious ruins` infoboxes | `data/wiki/altars.json` |
@@ -48,13 +49,14 @@ can be banked, not buried) and Sailing.
   (bronze 8 ticks down to rune 3; dragon, 3rd age and infernal 3 with 1/6 chance of 2, crystal 3
   with 1/4 of 2, counted as their average); every ore empties the rock. Rune essence never empties
   and gives pure essence from Mining 30.
-- **Fishing**: each cast (a click, at most one per 2 ticks) that lands on the spot under the
-  crosshair rolls; catches the player has the level for are tried highest level first, the first
-  success is the catch; one bait per catch.
+- **Fishing**: the spot's tool must be wielded. A cast (a click with the crosshair on the spot)
+  lands after 0.7 s; then every 3 s (the OSRS 5-tick roll) catches the player has the level for are
+  tried highest level first, and the first success is a bite, which lasts 1.1 s. A click in it
+  hooks the fish and starts the reeling minigame; landing it gives the catch, its XP and uses one
+  bait.
 - **Cooking**: a failed roll on the item's chart (range series on a range, fire series on a fire)
   burns it. **Smithing**: iron bars succeed half the time.
-- **Firemaking**: a roll every 4 ticks with the Logs chart (65, 513) for every log; fires last
-  100-199 ticks and leave ashes.
+- **Fires**: any log lights at once, for no XP; fires last 100-199 ticks and leave ashes.
 - **Runecraft**: one action binds all essence: `n * (1 + multiples reached)` runes.
 - **Thieving**: a pickpocket takes 2 ticks; failure deals the wiki damage and stuns for its time.
 - **Hunter**: up to `1 + floor(level / 20)` traps (max 5). Each tick a creature within 3 tiles of
@@ -76,9 +78,10 @@ can be banked, not buried) and Sailing.
 | Slayer task amounts | Turael and Spria 15-50, Mazchna 30-70, Vannaka 40-100, Chaeldar 70-130, Konar 50-120, Nieve and Steve 110-170, Duradel 130-200, Krystilia 50-100 |
 | Slayer XP when the wiki has none | the monster's hitpoints |
 | NPC respawn | 30 s after the body is gone |
-| House | fixed template rooms of square (29,110): Garden, Parlour, Kitchen, Dining room, Workshop, Bedroom; any hotspot offers Next room, the garden centrepiece is the exit |
-| Sawmill planks | Logs + 100, Oak + 250, Teak + 500, Mahogany + 1,500 coins; instant, no XP |
 | Shops | an unstocked item sells for 40% of its cache value; stock moves one toward its base every restock time |
 | Moving away | a job stops when the player is 0.75 tiles from where it started |
-| Gathering by hand | an axe blow rolls the full OSRS chance (faster than the OSRS 4-tick cycle when swinging quickly); a pickaxe blow is scaled by its interval; a cast takes 2 ticks and rolls in full |
+| Gathering by hand | an axe blow rolls the full OSRS chance (faster than the OSRS 4-tick cycle when swinging quickly); a pickaxe blow is scaled by its interval |
+| Fishing spots | placed by the game at the wiki's tiles with a Blender model (`tools/blender/fishing.py`: ripples and bubbles); the cache's spot NPCs are not used; casting range 7 tiles; nibbles on half the rolls that bring no bite |
+| Reeling | zone width `0.16 + 0.22 c` and fish speed `1.1 - 0.6 c` (c = the catch's OSRS success chance); the meter starts at 30%, fills 28%/s with the fish in the zone and drains 20%/s otherwise; 25 s limit |
+| Fishing tools | rods, nets, harpoons and pots can be wielded (the cache cannot); held with their inventory model |
 | Tree and rock reactions | Blender-keyed clips (`tools/blender/loc_reactions.py` writes `src/world/LocReactionClips.ts`): a blow shudders a tree or jolts a rock away from the player, the last log topples the tree, the last ore crumbles the rock |

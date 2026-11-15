@@ -724,7 +724,6 @@ kbd {
 }
 
 #make-menu,
-#build-menu,
 #shop-panel {
     position: fixed;
     z-index: 20;
@@ -737,8 +736,7 @@ kbd {
     font: 13px/1.4 system-ui, sans-serif;
 }
 
-#make-menu,
-#build-menu {
+#make-menu {
     left: 50%;
     bottom: 24px;
     transform: translateX(-50%);
@@ -752,7 +750,6 @@ kbd {
 }
 
 #make-menu.hidden,
-#build-menu.hidden,
 #shop-panel.hidden,
 #level-banner.hidden {
     display: none;
@@ -826,9 +823,6 @@ kbd {
     color: #ff6b6b;
 }
 
-#build-menu .choice-option small {
-    color: #bbb;
-}
 
 .slot.using {
     outline: 2px solid #ffff00;
@@ -842,3 +836,69 @@ kbd {
     margin: 8px 0 0;
     color: #aaa;
 }
+
+/* --- Fishing: the reeling minigame --- */
+#fishing-bar {
+    position: fixed;
+    z-index: 15;
+    left: 50%;
+    bottom: 22%;
+    transform: translateX(-50%);
+    width: min(420px, calc(100vw - 32px));
+    padding: 10px 12px 12px;
+    border: 1px solid #59616a;
+    border-radius: 8px;
+    background: rgba(18, 22, 26, 0.85);
+    color: #eee;
+    font: 13px/1.4 system-ui, sans-serif;
+    text-align: center;
+    pointer-events: none;
+}
+
+#fishing-bar.hidden {
+    display: none;
+}
+
+.fishing-track {
+    position: relative;
+    height: 28px;
+    margin: 6px 0 8px;
+    border-radius: 14px;
+    background: linear-gradient(#1c4a6e, #12324b);
+    overflow: hidden;
+}
+
+.fishing-zone {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border-radius: 14px;
+    background: rgba(120, 200, 255, 0.35);
+    box-shadow: inset 0 0 0 2px rgba(160, 220, 255, 0.7);
+}
+
+.fishing-zone.on-fish {
+    background: rgba(110, 230, 120, 0.45);
+    box-shadow: inset 0 0 0 2px rgba(150, 255, 160, 0.9);
+}
+
+.fishing-fish {
+    position: absolute;
+    top: 2px;
+    font-size: 20px;
+    line-height: 24px;
+    transform: translateX(-50%);
+}
+
+.fishing-meter {
+    height: 8px;
+    border-radius: 4px;
+    background: #2a2f35;
+    overflow: hidden;
+}
+
+.fishing-meter-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #e0a030, #6ee07a);
+}
+

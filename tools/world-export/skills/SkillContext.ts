@@ -25,6 +25,7 @@ export type WikiData = {
     slayerMasters: { master: string; tasks: { category: string; weight: number; slayerLevel: number }[] }[];
     shops: { page: string; owner: string; map: { x: number; y: number; plane: number } | null; items: { name: string; stock: number; price: number; shopPays: number | null; restockTicks: number }[] }[];
     altars: { rune: string; altarId: number; altar: { x: number; y: number; plane: number } | null; ruinsIds: number[]; ruins: { x: number; y: number; plane: number } | null }[];
+    fishingSpots: { page: string; ids: number[]; places: { x: number; y: number; plane: number }[] }[];
     farming: { source: string; patches: { impl: string; ranges: { from: number; to: number; produce: string; state: string; stageExpr: string }[] }[]; produce: { produce: string; name: string; impl: string; tickrate: number; stages: number; regrow?: number; harvestStages?: number }[] };
 };
 
@@ -42,6 +43,7 @@ export function loadWikiData(dir: string): WikiData {
         shops: load("shops.json"),
         altars: load("altars.json"),
         farming: load("farming.json"),
+        fishingSpots: load("fishing-spots.json"),
     };
 }
 

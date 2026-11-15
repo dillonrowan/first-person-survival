@@ -1,11 +1,10 @@
-// Runecraft altars and the essence mine, and the house: places reached by teleport, whose arrival
-// tiles come from the map's own locs and collision.
+// Runecraft altars and the essence mine: places reached by teleport, whose arrival tiles come from
+// the map's own locs and collision.
 
-import type { ConstructionDef, FurnitureDef, RunecraftDef, Tile } from "../../../src/world/SkillFormat";
+import type { RunecraftDef, Tile } from "../../../src/world/SkillFormat";
 import { CollisionFlag, REGION_SIZE } from "../../../src/world/WorldFormat";
 import { LocLoadType } from "../rs/scene/SceneBuilder";
 import { getIdFromTag } from "../rs/scene/entity/EntityTag";
-import { stripLinks } from "../wiki/Wikitext";
 import type { SkillsExportContext } from "./SkillContext";
 
 const BLOCKED = CollisionFlag.OBJECT | CollisionFlag.FLOOR | CollisionFlag.FLOOR_DECORATION;
@@ -146,50 +145,4 @@ export function exportRunecraft(ctx: SkillsExportContext): RunecraftDef | undefi
         essence: { rune, pure },
         essenceMine: { arrival: mineArrival ?? { x: 2911, y: 4832, plane: 0 }, exitLocIds: exits, returnTo: { x: 3253, y: 3401, plane: 0 } },
     };
-}
-
-/** The house's rooms in the template square (29,110): name and chunk [design]. */
-const ROOMS: [string, number, number][] = [
-    ["Garden", 233, 884],
-    ["Parlour", 232, 887],
-    ["Kitchen", 234, 887],
-    ["Dining room", 236, 887],
-    ["Workshop", 232, 885],
-    ["Bedroom", 238, 887],
-];
-
-export function exportConstruction(ctx: SkillsExportContext): ConstructionDef {
-    const square = readSquare(ctx, 29, 110);
-    const rooms = ROOMS.flatMap(([name, cx, cy]) => {
-        const centre = { x: cx * 8 + 4, y: cy * 8 + 4, plane: 0 };
-        const arrival = square ? nearestWalkable(square, centre) : undefined;
-        return [{ name, arrival: arrival ?? centre }];
-    });
-    const inRooms = (l: PlacedLoc) => ROOMS.some(([, cx, cy]) => l.x >> 3 === cx && l.y >> 3 === cy);
-    const hotspots: Record<string, string> = {};
-    for (const l of square?.locs ?? []) {
-        if (inRooms(l) && ctx.locs[l.id].actions.includes("Build")) hotspots[l.id] = ctx.locs[l.id].name;
-    }
-    const hotspotNames = new Set(Object.values(hotspots).map((n) => n.toLowerCase()));
-    const furniture: FurnitureDef[] = [];
-    for (const [page, data] of Object.entries(ctx.wiki.pages)) {
-        const p = data.templates.find((t) => t.name === "Infobox Construction")?.params;
-        if (!p) continue;
-        const hotspot = stripLinks(p.hotspot ?? "");
-        const locId = parseInt(p.id ?? "");
-        if (!hotspotNames.has(hotspot.toLowerCase()) || !Number.isInteger(locId)) continue;
-        const recipe = ctx.wiki.recipes.find((r) => r.page === page && r.skills[0].skill === "Construction");
-        const materials = (recipe?.materials ?? []).map((m) => ({ item: ctx.resolveItem(m.name), qty: m.qty }));
-        if (!recipe || materials.some((m) => m.item === undefined)) continue;
-        furniture.push({
-            locId,
-            name: (p.name ?? page).trim(),
-            hotspot,
-            level: recipe.skills[0].level,
-            xp: recipe.skills[0].xp,
-            materials: materials as { item: number; qty: number }[],
-        });
-    }
-    ctx.log(`construction: ${Object.keys(hotspots).length} hotspot locs, ${furniture.length} furniture`);
-    return { rooms, furniture, hotspots };
 }

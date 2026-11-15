@@ -75,18 +75,20 @@ roof or into an upper floor and walk around there.
 
 ### Skills, items and banking
 
-The OSRS non-combat skills (except Agility) work on the exported map: Woodcutting, Mining,
-Fishing, Cooking, Firemaking, Smithing, Crafting, Fletching, Herblore, Runecraft, Thieving, Hunter,
-Farming, Slayer and Construction, with the 28-slot inventory, the bank, shops, monster drops and
+The OSRS non-combat skills (except Agility, Firemaking and Construction; logs still burn) work on
+the exported map: Woodcutting, Mining, Fishing, Cooking, Smithing, Crafting, Fletching, Herblore,
+Runecraft, Thieving, Hunter, Farming and Slayer, with the 28-slot inventory, the bank, shops, monster drops and
 NPC respawn. Aim at a tree, rock, fishing spot, furnace or stall and press E; use an inventory item
 on another or on what you aim at. Trees and rocks are gathered by swinging a wielded axe or pickaxe
-into them (every blow that lands rolls), fishing by clicking to cast at the spot; their reactions
-are keyframed in Blender (`tools/blender/loc_reactions.py`). Other skilling runs on the 0.6 s OSRS
+into them (every blow that lands rolls). Fishing is cast, watch the bobber, hook and reel (a
+minigame), at spots placed where the wiki lists them. The tree and rock reactions, the bobber, the
+spot ripples and the leaping fish are made in Blender (`tools/blender/loc_reactions.py`,
+`tools/blender/fishing.py`). Other skilling runs on the 0.6 s OSRS
 game tick. Data comes from the
 OSRS wiki (`npm run fetch-wiki-skills`, committed in `tools/world-export/data/wiki/`) and the
 cache. The run order is `export-world`, then `export-skills`, then `export-items`
 (`export-skills` also writes `tools/world-export/data/skill-locs.json`, which `export-world`
-reads to give trees, rocks, patches and house hotspots their own meshes). Formulas and every
+reads to give trees, rocks and patches their own meshes). Formulas and every
 [design] value are in [docs/skills-spec.md](docs/skills-spec.md).
 
 ### Export options

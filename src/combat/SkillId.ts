@@ -1,6 +1,6 @@
 /** The player's skills (Attack and Strength are one skill, Melee). No imports, so tools can use it. */
 export type CombatSkillId = "melee" | "defence" | "ranged" | "magic" | "hitpoints";
-/** The non-combat skills (no Agility, Prayer or Sailing). */
+/** The non-combat skills (no Agility, Prayer, Firemaking, Construction or Sailing). */
 export type NonCombatSkillId =
     | "mining"
     | "smithing"
@@ -9,12 +9,10 @@ export type NonCombatSkillId =
     | "thieving"
     | "cooking"
     | "crafting"
-    | "firemaking"
     | "fletching"
     | "woodcutting"
     | "runecraft"
     | "slayer"
     | "farming"
-    | "construction"
     | "hunter";
 export type SkillId = CombatSkillId | NonCombatSkillId;

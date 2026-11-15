@@ -105,7 +105,7 @@ export type InteractiveLoc = {
 };
 
 /**
- * A skill target (tree, rock, facility, patch, hotspot…); what it does comes from skills.json by
+ * A skill target (tree, rock, facility, patch…); what it does comes from skills.json by
  * loc id. Mesh fields index RegionData.doorMeshes; a loc without them is drawn with the map.
  */
 export type SkillLocData = {
@@ -115,8 +115,6 @@ export type SkillLocData = {
     depletedMesh?: number;
     /** Farming patch: mesh per varbit value (-1 draws nothing); values past the end use the last. */
     stateMeshes?: number[];
-    /** House hotspot: furniture loc id → mesh. */
-    furnitureMeshes?: Record<string, number>;
 };
 
 /** Meshes of one door or prop, in region-local RS units like the region's own meshes. */

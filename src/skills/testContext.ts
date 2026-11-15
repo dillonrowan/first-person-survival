@@ -117,7 +117,6 @@ export function createTestSkills(data: SkillsManifest, items: TestItem[], levels
         openMake: (...args) => (opened.make = args),
         openShop: () => undefined,
         openBank: () => undefined,
-        openBuild: () => undefined,
     };
     const sys = new SkillSystem(ctx, ui);
     return {

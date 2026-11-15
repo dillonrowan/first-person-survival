@@ -15,7 +15,7 @@ export type SkillLocWorld = {
     groundHeight(plane: number, x: number, y: number): number;
 };
 
-/** A tree, rock, facility, patch or hotspot of a loaded map square, or one the game placed (a fire). */
+/** A tree, rock, facility or patch of a loaded map square, or one the game placed (a fire). */
 export type SkillLocInstance = {
     readonly loc: InteractiveLoc;
     /** "plane:x:y:id": stable across region reloads, so skill state can be kept by it. */
@@ -35,7 +35,7 @@ export const skillLocKey = (loc: Pick<InteractiveLoc, "plane" | "tileX" | "tileY
 const regionKey = (mapX: number, mapY: number) => (mapX << 8) | mapY;
 
 /**
- * Skill targets of the loaded map squares. Trees, rocks, patches and hotspots have several looks
+ * Skill targets of the loaded map squares. Trees, rocks and patches have several looks
  * (doorMeshes); `look` picks the one to show from the skills' own state, which survives unloads.
  */
 export class SkillLocs {
@@ -155,7 +155,7 @@ export class SkillLocs {
 
     private apply(instance: SkillLocInstance): void {
         const skill = instance.loc.skill;
-        if (instance.object || !skill || (skill.mesh === undefined && !skill.stateMeshes && !skill.furnitureMeshes)) return;
+        if (instance.object || !skill || (skill.mesh === undefined && !skill.stateMeshes)) return;
         const want = this.look?.(instance) ?? skill.mesh ?? -1;
         if (want === instance.shown) return;
         if (instance.shown >= 0) {

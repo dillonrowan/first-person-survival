@@ -1,6 +1,6 @@
 // Woodcutting trees, mining rocks, fishing spots and the axe and pickaxe tables.
 
-import type { AxeDef, AxeTier, Chance, FishingSpotDef, PickaxeDef, RockDef, TreeDef } from "../../../src/world/SkillFormat";
+import type { AxeDef, AxeTier, Chance, FishingSpotDef, FishingSpotPlace, PickaxeDef, RockDef, TreeDef } from "../../../src/world/SkillFormat";
 import { parseSeconds } from "../fetch-wiki-skills";
 import { stripLinks } from "../wiki/Wikitext";
 import { SkillsExportContext, num, toolNames } from "./SkillContext";
@@ -320,5 +320,31 @@ export function exportFishing(ctx: SkillsExportContext): FishingSpotDef[] {
     const pairs = spots.flatMap((s) => (s.actions ?? []).filter((a) => a !== "Examine").map((a) => `${s.id}:${a}`));
     const missing = pairs.filter((k) => !covered.has(k));
     ctx.log(`fishing: ${pairs.length - missing.length}/${pairs.length} spawned spot actions resolved${missing.length ? `; missing ${missing.slice(0, 20).join(" ")}` : ""}`);
+    return out;
+}
+
+/**
+ * Where the game places fishing spots: every tile of the wiki's location tables, as the spot NPC id
+ * whose options (FishingSpotDefs) it has. One spot per tile; pages without exported options are
+ * skipped.
+ */
+export function exportFishingPlaces(ctx: SkillsExportContext, fishing: FishingSpotDef[]): FishingSpotPlace[] {
+    const out: FishingSpotPlace[] = [];
+    const taken = new Set<string>();
+    const skipped: string[] = [];
+    for (const page of ctx.wiki.fishingSpots) {
+        const npcId = page.ids.find((id) => fishing.some((f) => f.npcIds.includes(id)));
+        if (npcId === undefined) {
+            skipped.push(page.page);
+            continue;
+        }
+        for (const p of page.places) {
+            const key = `${p.plane}:${p.x}:${p.y}`;
+            if (taken.has(key)) continue;
+            taken.add(key);
+            out.push({ npcId, x: p.x, y: p.y, plane: p.plane });
+        }
+    }
+    ctx.log(`fishing: ${out.length} spot places from the wiki${skipped.length ? `; no options for ${skipped.join(", ")}` : ""}`);
     return out;
 }

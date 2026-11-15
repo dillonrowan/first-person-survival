@@ -52,6 +52,9 @@ export type SkillContext = {
     store: { get<T>(key: string): T | undefined; set(key: string, value: unknown): void };
 };
 
+/** The attack button for a job that takes it: pressed this frame, held, and what the crosshair is on. */
+export type JobInput = { pressed: boolean; down: boolean; aimed: unknown };
+
 /** A repeating skilling activity, run once per game tick. */
 export interface Job {
     readonly skill: SkillId;
@@ -62,10 +65,10 @@ export interface Job {
     /** Called every tick while active; return false to stop. */
     tick(tick: number): boolean;
     /**
-     * Set when the job takes the attack button (fishing casts): called on a click with what the
-     * crosshair is on; return false to stop.
+     * Set when the job takes the attack button (fishing): called every frame with the button and
+     * what the crosshair is on; return false to stop.
      */
-    click?(aimed: unknown): boolean;
+    frame?(dt: number, input: JobInput): boolean;
     /** 0..1 through the tool's motion for the view, overriding the `swingTicks` cycle. */
     swingPhase?(): number | undefined;
     stop?(): void;

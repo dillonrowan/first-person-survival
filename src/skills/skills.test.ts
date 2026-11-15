@@ -1,69 +1,137 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { setRandom } from "../game/Random";
+import { BITE_WINDOW, CAST_SECONDS, FishJob } from "./fishing";
+import { FishingMinigame } from "./FishingMinigame";
 import { createTestSkills, emptyManifest, testLoc, testNpc } from "./testContext";
 
 afterEach(() => setRandom(Math.random));
 
 describe("fishing", () => {
+    const ROD = 307;
+    const BAIT = 313;
     function setup(level: number) {
         const data = emptyManifest();
         data.fishing = [
             {
                 npcIds: [1530],
                 action: "Bait",
-                tools: [307],
-                bait: 313,
+                tools: [ROD],
+                bait: BAIT,
                 catches: [
                     { item: 345, level: 10, xp: 30, chance: { low: 256, high: 256 } },
                     { item: 327, level: 5, xp: 20, chance: { low: 256, high: 256 } },
                 ],
             },
         ];
-        return createTestSkills(data, [
-            { id: 307, name: "Fishing rod" },
-            { id: 313, name: "Fishing bait", stackable: true },
+        const t = createTestSkills(data, [
+            { id: ROD, name: "Fishing rod" },
+            { id: BAIT, name: "Fishing bait", stackable: true },
             { id: 345, name: "Raw herring" },
             { id: 327, name: "Raw sardine" },
         ], { fishing: level });
+        const spot = { npcId: 1530, x: 11.5, y: 12.5, plane: 0, waterZ: 0 };
+        const frame = (dt: number, pressed = false, down = pressed, aimed: unknown = spot) =>
+            t.sys.update({ acted: false, panelOpen: false, dead: false, dt, pointer: { pressed, down, aimed } });
+        const job = () => t.sys.active as FishJob;
+        return { ...t, spot, frame, job };
     }
 
-    it("tries the highest catch first and uses a bait each catch", () => {
+    /** Casts, waits for the first roll (a bite with these chances) and hooks it. */
+    function hook(t: ReturnType<typeof setup>) {
+        t.frame(0.016, true); // cast
+        t.frame(CAST_SECONDS); // lands
+        t.frame(3.1); // the first roll comes within 3 s: a bite
+        expect(t.job().phase).toBe("bite");
+        t.frame(0.016, true); // hooked
+        expect(t.job().phase).toBe("reel");
+    }
+
+    it("needs the rod and wields it; then a cast, a bite, a hook and the reel land the highest catch", () => {
         const t = setup(10);
-        t.inventory.add(307, 1);
-        t.inventory.add(313, 2);
-        const spot = testNpc(1530);
-        expect(t.sys.npcAction(spot, "Bait")).toBe(true);
+        t.inventory.add(ROD, 1);
+        t.inventory.add(BAIT, 2);
+        expect(t.sys.fishing.spotAction(t.spot, "Bait")).toBe(true);
+        expect(t.worn[0]).toBe(ROD);
         expect(t.sys.takesClicks).toBe(true);
-        t.sys.click(spot);
+        setRandom(() => 0.5);
+        hook(t);
+        t.job().minigame!.progress = 0.999;
+        t.job().minigame!.fishAt = t.job().minigame!.zoneAt + 0.01;
+        t.frame(0.1, false, true);
         expect(t.inventory.count(345)).toBe(1);
-        expect(t.inventory.count(313)).toBe(1);
+        expect(t.inventory.count(BAIT)).toBe(1);
         expect(t.logs.at(-1)).toBe("You catch some herring.");
+        expect(t.job().phase).toBe("ready"); // cast again for the next
     });
 
     it("skips catches above the player's level", () => {
         const t = setup(5);
-        t.inventory.add(307, 1);
-        t.inventory.add(313, 5);
-        const spot = testNpc(1530);
-        t.sys.npcAction(spot, "Bait");
-        t.sys.click(spot);
+        t.inventory.add(ROD, 1);
+        t.inventory.add(BAIT, 5);
+        t.sys.fishing.spotAction(t.spot, "Bait");
+        setRandom(() => 0.5);
+        hook(t);
+        t.job().minigame!.progress = 0.999;
+        t.job().minigame!.fishAt = t.job().minigame!.zoneAt + 0.01;
+        t.frame(0.1, false, true);
         expect(t.inventory.count(327)).toBe(1);
     });
 
-    it("casts at most once per 2 ticks, and a cast off the spot catches nothing", () => {
+    it("needs bait, and a cast off the spot or a click before a bite catches nothing", () => {
         const t = setup(10);
-        t.inventory.add(307, 1);
-        t.inventory.add(313, 5);
-        const spot = testNpc(1530);
-        t.sys.npcAction(spot, "Bait");
-        t.sys.click(undefined);
-        expect(t.logs.at(-1)).toBe("Your cast misses the fishing spot.");
-        t.sys.click(spot); // still casting
-        expect(t.inventory.count(345)).toBe(0);
-        t.ctx.clock.advance(2);
-        t.sys.click(spot);
-        expect(t.inventory.count(345)).toBe(1);
+        t.inventory.add(ROD, 1);
+        t.sys.fishing.spotAction(t.spot, "Bait");
+        expect(t.logs.at(-1)).toBe("You don't have any fishing bait left.");
+        t.inventory.add(BAIT, 5);
+        t.sys.fishing.spotAction(t.spot, "Bait");
+        t.frame(0.016, true, true, null);
+        expect(t.logs.at(-1)).toBe("Aim at the fishing spot to cast.");
+        t.frame(0.016, true);
+        t.frame(CAST_SECONDS);
+        t.frame(0.1, true); // nothing bit yet
+        expect(t.logs.at(-1)).toBe("You reel in too early.");
+        expect(t.job().phase).toBe("ready");
+    });
+
+    it("lets a bite go when the player does not click in time", () => {
+        const t = setup(10);
+        t.inventory.add(ROD, 1);
+        t.inventory.add(BAIT, 5);
+        t.sys.fishing.spotAction(t.spot, "Bait");
+        setRandom(() => 0.5);
+        t.frame(0.016, true);
+        t.frame(CAST_SECONDS);
+        t.frame(3.1);
+        t.frame(BITE_WINDOW + 0.01);
+        expect(t.logs.at(-1)).toBe("The fish got away.");
+        expect(t.job().phase).toBe("waiting");
+    });
+
+    it("stops when the rod is put away", () => {
+        const t = setup(10);
+        t.inventory.add(ROD, 1);
+        t.inventory.add(BAIT, 5);
+        t.sys.fishing.spotAction(t.spot, "Bait");
+        t.worn.length = 0;
+        t.frame(0.016);
+        expect(t.sys.active).toBeUndefined();
+    });
+});
+
+describe("the reeling minigame", () => {
+    it("fills while the fish is in the zone and lands it; drains to an escape otherwise", () => {
+        setRandom(() => 0.5); // the fish rests at the middle
+        const easy = FishingMinigame.forChance(1);
+        for (let i = 0; i < 400 && !easy.result; i++) easy.update(0.05, easy.zoneAt + easy.zone / 2 < easy.fishAt);
+        expect(easy.result).toBe("caught");
+        const lost = FishingMinigame.forChance(0);
+        for (let i = 0; i < 400 && !lost.result; i++) lost.update(0.05, true); // pinned right, away from the fish
+        expect(lost.result).toBe("escaped");
+    });
+
+    it("gives a wider zone and a calmer fish for a likelier catch", () => {
+        expect(FishingMinigame.forChance(0.9).zone).toBeGreaterThan(FishingMinigame.forChance(0.1).zone);
     });
 });
 
@@ -116,10 +184,10 @@ describe("cooking and smithing", () => {
     });
 });
 
-describe("firemaking", () => {
-    it("leaves a fire for 100-199 ticks, then ashes", async () => {
+describe("fires", () => {
+    it("lights at once for no XP and leaves a fire for 100-199 ticks, then ashes", async () => {
         const data = emptyManifest();
-        data.firemaking = [{ log: 1511, level: 1, xp: 40 }];
+        data.logs = [1511];
         data.items = { Tinderbox: 590, Ashes: 592 };
         const t = createTestSkills(data, [
             { id: 1511, name: "Logs" },
@@ -130,9 +198,9 @@ describe("firemaking", () => {
         t.inventory.add(1511, 1);
         setRandom(() => 0);
         t.sys.useItemOnItem(0, 1);
-        t.ctx.clock.advance(4);
         await Promise.resolve();
-        expect(t.xp.firemaking).toBe(40);
+        expect(t.inventory.count(1511)).toBe(0);
+        expect(t.xp).toEqual({});
         expect(t.player.x).toBe(9.5); // stepped west
         t.ctx.clock.advance(99);
         expect(t.ground).toEqual([]);
@@ -239,25 +307,5 @@ describe("slayer", () => {
         expect(setup(1).sys.slayer.canDamage(414)).toBe(false);
         expect(setup(15).sys.slayer.canDamage(414)).toBe(true);
         expect(setup(1).sys.slayer.canDamage(3028)).toBe(true);
-    });
-});
-
-describe("construction", () => {
-    it("offers only furniture of the hotspot that has a mesh there", () => {
-        const data = emptyManifest();
-        data.construction.furniture = [
-            { locId: 6752, name: "Crude wooden chair", hotspot: "Chair space", level: 1, xp: 58, materials: [{ item: 960, qty: 2 }] },
-            { locId: 6753, name: "Wooden chair", hotspot: "Chair space", level: 8, xp: 87, materials: [{ item: 960, qty: 3 }] },
-            { locId: 9999, name: "Rug", hotspot: "Rug space", level: 2, xp: 30, materials: [] },
-        ];
-        data.locs = { 4516: { role: "hotspot", name: "Chair space" } };
-        data.items = { Hammer: 2347, Saw: 8794 };
-        const t = createTestSkills(data, [{ id: 960, name: "Plank" }, { id: 2347, name: "Hammer" }, { id: 8794, name: "Saw" }]);
-        let offered: string[] = [];
-        t.sys.ui.openBuild = (_h, options) => (offered = options.map((o) => o.name));
-        t.sys.construction.buildMode = true;
-        const hotspot = t.place(testLoc(4516, "Chair space", 10, 10, { mesh: 0, furnitureMeshes: { 6752: 1 } }));
-        t.sys.locAction(hotspot, "Build");
-        expect(offered).toEqual(["Crude wooden chair"]);
     });
 });

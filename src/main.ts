@@ -30,7 +30,7 @@ import type { BodySource } from "./physics/Bodies";
 import { CombatHud } from "./ui/CombatHud";
 import { EnemyHealthBars } from "./ui/EnemyHealthBars";
 import { WeaponMenu } from "./ui/WeaponMenu";
-import { createCacheWeaponModel } from "./combat/CacheWeaponModel";
+import { createCacheWeaponModel, heldItemInfo } from "./combat/CacheWeaponModel";
 import { environmentDamage } from "./combat/Osrs";
 import { LevelUp, PlayerSkills, SKILL_NAMES } from "./combat/Skills";
 import { Spellbook } from "./combat/Spells";
@@ -46,6 +46,7 @@ import { SkillsPanel } from "./ui/SkillsPanel";
 import { MessageLog } from "./ui/MessageLog";
 import { createSkills } from "./skills/SkillsSetup";
 import type { SkillLocInstance } from "./world/SkillLocs";
+import type { FishingSpot } from "./world/FishingSpots";
 import type { SkillId } from "./combat/SkillId";
 import { xpForLevel } from "./combat/Osrs";
 import { SpellbookPanel } from "./ui/SpellbookPanel";
@@ -194,6 +195,10 @@ async function main(): Promise<void> {
     spellGfx.preload(npcGraphicIds());
     const spellEffects = new SpellEffects(scene, spellGfx);
     const npcManifest = await loadNpcManifest(manifest);
+    if (npcManifest) {
+        // Fishing spots are placed by the game from the wiki's locations (FishingSpots), not as NPCs.
+        npcManifest.spawns = npcManifest.spawns.filter((s) => !/fishing spot$/i.test(npcManifest.appearances[s.appearance]?.name ?? ""));
+    }
     const npcs = npcManifest
         ? new Npcs(npcManifest, world, scene, materials, async (file) => {
               const response = await fetch(`${WORLD_URL}${file}`);
@@ -246,7 +251,9 @@ async function main(): Promise<void> {
         () => items.equipment.get("shield")?.id,
     );
     const loadItemModel = async (file: string) => {
-        const response = await fetch(`${WORLD_URL}${file}`);
+        // Small and on screen (inventory icons, a held tool): ahead of the region and NPC downloads,
+        // which otherwise take every connection while the map streams in.
+        const response = await fetch(`${WORLD_URL}${file}`, { priority: "high" } as RequestInit);
         if (!response.ok) {
             throw new Error(`${file}: HTTP ${response.status}`);
         }
@@ -263,6 +270,11 @@ async function main(): Promise<void> {
         avatar.root.getObjectByName("socket_hand_r") ?? undefined,
         (weaponId) => {
             const info = weaponMenu.find(weaponId);
+            // An item held without a worn model (a fishing rod): its inventory model in the hand.
+            const item = info ? undefined : itemDb.get(Number(/^cache-(\d+)$/.exec(weaponId)?.[1] ?? NaN));
+            if (item?.model) {
+                return loadItemModel(item.model).then((data) => createCacheWeaponModel(heldItemInfo(item.id, item.name, item.model, data), data, materials));
+            }
             return info && (async () => {
                 const response = await fetch(`${WORLD_URL}${info.file}`);
                 if (!response.ok) {
@@ -580,6 +592,7 @@ async function main(): Promise<void> {
         items,
         db: itemDb,
         icons: itemIcons,
+        loadItemModel,
         skills,
         ground: groundItems,
         npcs: () => npcs?.all() ?? [],
@@ -616,6 +629,8 @@ async function main(): Promise<void> {
     const handleWorldAction: ActionHandler = (target, action) => {
         if (target.kind === "skill-loc") {
             skillSystem.locAction(target.ref as SkillLocInstance, action);
+        } else if (target.kind === "fishing-spot") {
+            skillSystem.fishing.spotAction(target.ref as FishingSpot, action);
         } else if (target.kind === "door") {
             const door = target.ref as Parameters<WorldInteractives["toggle"]>[0];
             if (!interactives.toggle(door)) {
@@ -653,6 +668,7 @@ async function main(): Promise<void> {
             props.targetSource(),
             groundItems.targetSource(),
             skilling.skillLocs.targetSource(),
+            skilling.fishingSpots.targetSource(),
         ],
         ui,
         createNpcActionHandler(player, ui, handleWorldAction, () => sidePanel.openBank(), (npc, action) => skillSystem.npcAction(npc, action)),
@@ -744,8 +760,8 @@ async function main(): Promise<void> {
         Object.assign(window, {
             game: {
                 renderer, scene, camera, world, player, npcs, props, cameraRig, avatar, interaction, interactives, combat, tuning,
-                skills, spellbook, items, db: itemDb, groundItems, sidePanel, hitsplats, spellEffects,
-                clock: skilling.clock, skillLocs: skilling.skillLocs, skillSystem, skillsData: skilling.data,
+                skills, spellbook, items, db: itemDb, itemIcons, groundItems, sidePanel, hitsplats, spellEffects,
+                clock: skilling.clock, skillLocs: skilling.skillLocs, fishingSpots: skilling.fishingSpots, skillSystem, skillsData: skilling.data,
                 /** game.give("Bronze axe") */
                 give: (name: string, qty = 1) => {
                     const item = itemDb.byName(name);
@@ -793,15 +809,18 @@ async function main(): Promise<void> {
         player.update(dt, input);
         skilling.clock.update(dt);
         skilling.reactions.update(dt);
-        // Fishing takes the attack button: a click casts at what the crosshair is on.
+        // Fishing takes the attack button: click to cast and hook, hold to reel.
         const casting = skillSystem.takesClicks;
-        if (casting && input.locked && input.wasPressed("Mouse0") && !props.held) {
-            skillSystem.click(interaction.target?.ref);
-        }
         skillSystem.update({
             acted: input.locked && ((input.wasPressed("Mouse0") && !casting) || input.wasPressed("KeyF")),
             panelOpen: sidePanel.isOpen || skilling.panelOpen,
             dead: combat.combatant.dead,
+            dt,
+            pointer: {
+                pressed: input.locked && !props.held && input.wasPressed("Mouse0"),
+                down: input.locked && !props.held && input.isDown("Mouse0"),
+                aimed: interaction.target?.ref,
+            },
         });
         const fighting = input.locked && player.ready && !player.flying && !stunned;
         // Carrying a prop (spec 19.4): left mouse throws it, E drops it; no fighting meanwhile.
@@ -970,6 +989,12 @@ async function main(): Promise<void> {
             },
             blocking: combat.blocking,
         });
+        {
+            // The fishing line leaves the rod tip; a caught fish lands at the chest.
+            const chest = camera.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, -0.45, 0));
+            const tip = weaponView.tipPoint(new THREE.Vector3()) ?? chest.clone();
+            skilling.updateFishing(dt, tip, chest);
+        }
         combatHud.update(dt, {
             health: combat.combatant.healthFraction,
             stamina: player.stamina.fraction,

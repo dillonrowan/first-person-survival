@@ -1,7 +1,7 @@
 Skills export coverage (cache revision 242)
 
-trees 24, rocks 16, fishing blocks 18, recipes 1781, stalls 23, pickpockets 55
-locs with a role 636, shops 207
+trees 24, rocks 16, fishing blocks 18, recipes 1777, stalls 23, pickpockets 55
+locs with a role 603, shops 207
 
 woodcutting: skipped Achey tree logs (no chart)
 woodcutting: skipped Arctic pine logs (no chart)
@@ -180,12 +180,12 @@ farming: skipped Poison ivy berries (no RuneLite produce)
 farming: skipped Dwarf weed (no RuneLite produce)
 farming: 7 patch types, 45 crops
 runecraft: 10 altars (Air, Mind, Water, Earth, Fire, Body, Nature, Chaos, Wrath, Astral), essence mine exits 0
-construction: 24 hotspot locs, 92 furniture
+fishing: 417 spot places from the wiki; no options for Fishing spot (aerial fishing), Fishing spot (barbarian), Fishing spot (frog spawn, eels), Fishing spot (karambwan), Fishing spot (lantern)
 hunter: 12 creatures (Crimson swift, Golden warbler, Copper longtail, Cerulean twitch, Ruby harvest, Sapphire glacialis, Ferret, Snowy knight, Black warlock, Chinchompa, Carnivorous chinchompa, Black chinchompa)
 slayer: 5 masters, 551 slayer monsters
 shops: 207
 
-unresolved item names (294):
+unresolved item names (293):
   Loop half of key (moon key) (36)
   Raw raw shrimps (16)
   Raw raw sardine (16)
@@ -420,7 +420,6 @@ unresolved item names (294):
   Medallion fragment#5 (1)
   Grimy goutweed (1)
   Astral talisman (1)
-  Steel framed workbench (1)
   Butterfly net (1)
   Ruby harvest (item) (1)
   Ruby harvest jar (1)

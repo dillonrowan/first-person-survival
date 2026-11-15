@@ -2,14 +2,13 @@ import type { Npc } from "../npc/Npc";
 import type { RecipeDef, ShopDef } from "../world/SkillFormat";
 import type { SkillLocInstance } from "../world/SkillLocs";
 import { Artisan } from "./artisan";
-import { Construction } from "./construction";
 import { Farming } from "./farming";
-import { Firemaking } from "./firemaking";
+import { Fires } from "./fires";
 import { Fishing } from "./fishing";
 import { Gathering } from "./gathering";
 import { Hunter } from "./hunter";
 import { Runecraft } from "./runecraft";
-import type { Job, SkillContext } from "./SkillContext";
+import type { Job, JobInput, SkillContext } from "./SkillContext";
 import { Slayer } from "./slayer";
 import { Thieving } from "./thieving";
 
@@ -17,18 +16,16 @@ import { Thieving } from "./thieving";
 const MOVE_CANCEL = 0.75;
 
 export type MakeOption = { recipe: RecipeDef; enabled: boolean };
-export type BuildOption = { locId: number; name: string; level: number; materials: { item: number; qty: number }[]; enabled: boolean };
 
 /** The panels skills open. */
 export type SkillUi = {
     openMake(title: string, options: MakeOption[], onPick: (recipe: RecipeDef, qty: number) => void): void;
     openShop(shop: ShopDef): void;
     openBank(): void;
-    openBuild(hotspot: string, options: BuildOption[], onPick: (locId: number) => void): void;
 };
 
-/** Per-frame things that stop a job. */
-export type CancelInput = { acted: boolean; panelOpen: boolean; dead: boolean };
+/** Per frame: things that stop a job, and the attack button for a job that takes it. */
+export type FrameInput = { acted: boolean; panelOpen: boolean; dead: boolean; dt: number; pointer: JobInput };
 
 /**
  * Runs skilling: one job at a time, ticked by the game clock, stopped by moving away, attacking,
@@ -43,13 +40,12 @@ export class SkillSystem {
     readonly gathering: Gathering;
     readonly fishing: Fishing;
     readonly artisan: Artisan;
-    readonly firemaking: Firemaking;
+    readonly fires: Fires;
     readonly thieving: Thieving;
     readonly hunter: Hunter;
     readonly farming: Farming;
     readonly slayer: Slayer;
     readonly runecraft: Runecraft;
-    readonly construction: Construction;
 
     constructor(
         readonly ctx: SkillContext,
@@ -58,13 +54,12 @@ export class SkillSystem {
         this.gathering = new Gathering(ctx);
         this.fishing = new Fishing(ctx, this);
         this.artisan = new Artisan(ctx, this);
-        this.firemaking = new Firemaking(ctx, this);
+        this.fires = new Fires(ctx);
         this.thieving = new Thieving(ctx, this);
         this.hunter = new Hunter(ctx, this);
         this.farming = new Farming(ctx, this);
         this.slayer = new Slayer(ctx);
         this.runecraft = new Runecraft(ctx, this);
-        this.construction = new Construction(ctx, this);
         ctx.clock.onTick((t) => this.tick(t));
     }
 
@@ -87,12 +82,14 @@ export class SkillSystem {
         job?.stop?.();
     }
 
-    /** Per frame: the cancel rules. */
-    update(input: CancelInput): void {
-        if (!this.job) return;
+    /** Per frame: the cancel rules, then the job's own frame (fishing). */
+    update(input: FrameInput): void {
+        const job = this.job;
+        if (!job) return;
         const p = this.ctx.player;
         const moved = p.plane !== this.startPlane || Math.hypot(p.x - this.startX, p.y - this.startY) > MOVE_CANCEL;
-        if (moved || input.acted || input.panelOpen || input.dead || this.targetGone(this.job)) this.stop();
+        if (moved || input.acted || input.panelOpen || input.dead || this.targetGone(job)) return this.stop();
+        if (job.frame && !job.frame(input.dt, input.pointer) && this.job === job) this.stop();
     }
 
     /** 0..1 through the current tool swing, or undefined when nothing swings. */
@@ -106,13 +103,7 @@ export class SkillSystem {
 
     /** Whether the current job takes the attack button instead of the weapon (fishing). */
     get takesClicks(): boolean {
-        return !!this.job?.click;
-    }
-
-    /** The attack button, while `takesClicks`: `aimed` is what the crosshair is on. */
-    click(aimed: unknown): void {
-        const job = this.job;
-        if (job?.click && !job.click(aimed) && this.job === job) this.stop();
+        return !!this.job?.frame;
     }
 
     /** Whether a swung blade stops on this loc: standing trees and rocks. */
@@ -143,14 +134,15 @@ export class SkillSystem {
         return target.gone || target.combatant.dead;
     }
 
-    /** The look of a skill loc: depleted, patch state or furniture. */
+    /** The look of a skill loc: depleted or patch state. */
     look(instance: SkillLocInstance): number | undefined {
-        return this.gathering.look(instance) ?? this.farming.look(instance) ?? this.construction.look(instance);
+        return this.gathering.look(instance) ?? this.farming.look(instance);
     }
 
-    /** The actions shown for a skill loc (house portals get their own). */
+    /** The actions shown for a skill loc; none for a loc no skill uses (house hotspots of old exports). */
     actionsOf(instance: SkillLocInstance): string[] | undefined {
-        return this.construction.actionsOf(instance) ?? this.hunter.actionsOf(instance) ?? this.farming.actionsOf(instance);
+        if (!instance.object && !this.ctx.data.locs[instance.loc.id]) return [];
+        return this.hunter.actionsOf(instance) ?? this.farming.actionsOf(instance);
     }
 
     /** A skill loc's action was chosen (E, R or T). */
@@ -173,9 +165,6 @@ export class SkillSystem {
                 return this.runecraft.locAction(instance, role, action);
             case "patch":
                 return this.farming.locAction(instance, role.impl, action);
-            case "hotspot":
-            case "house-portal":
-                return this.construction.locAction(instance, role, action);
             case "deposit":
                 return this.ui.openBank();
         }
@@ -185,12 +174,10 @@ export class SkillSystem {
     /** An NPC action; true when a skill handled it (else the NPC just faces the player). */
     npcAction(npc: Npc, action: string): boolean {
         return (
-            this.fishing.npcAction(npc, action) ||
             this.thieving.npcAction(npc, action) ||
             this.hunter.npcAction(npc, action) ||
             this.slayer.npcAction(npc, action) ||
             this.runecraft.npcAction(npc, action) ||
-            this.artisan.npcAction(npc, action) ||
             this.shopAction(npc, action)
         );
     }
@@ -211,7 +198,7 @@ export class SkillSystem {
         const ia = this.ctx.items.inventory.slots[a]?.id;
         const ib = this.ctx.items.inventory.slots[b]?.id;
         if (ia === undefined || ib === undefined) return;
-        if (this.firemaking.useItems(ia, ib)) return;
+        if (this.fires.useItems(ia, ib)) return;
         if (this.artisan.useItems(ia, ib)) return;
         this.ctx.log("Nothing interesting happens.");
     }
@@ -235,7 +222,7 @@ export class SkillSystem {
     itemOption(slot: number, action: string): boolean {
         const item = this.ctx.items.inventory.slots[slot]?.id;
         if (item === undefined) return false;
-        if (/^light$/i.test(action)) return this.firemaking.light(item);
+        if (/^light$/i.test(action)) return this.fires.light(item);
         if (/^lay$/i.test(action)) return this.hunter.lay(item);
         if (/^clean$/i.test(action)) return this.artisan.clean(item);
         if (/^bury$/i.test(action)) {

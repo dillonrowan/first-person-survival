@@ -1,6 +1,6 @@
 import type { ItemDb } from "../items/ItemDb";
 import type { ItemIcons } from "../items/ItemIcons";
-import type { BuildOption, MakeOption } from "../skills/SkillSystem";
+import type { MakeOption } from "../skills/SkillSystem";
 import type { RecipeDef } from "../world/SkillFormat";
 
 const QUANTITIES: [string, number][] = [
@@ -128,30 +128,5 @@ export class MakeMenu extends ChoicePanel {
             list.append(b);
         }
         this.show(title, [list, quantities]);
-    }
-}
-
-/** Construction's build menu: the furniture of one hotspot. */
-export class BuildMenu extends ChoicePanel {
-    open(hotspot: string, options: BuildOption[], onPick: (locId: number) => void): void {
-        const list = document.createElement("div");
-        list.className = "choice-options";
-        for (const option of options) {
-            const b = document.createElement("button");
-            b.type = "button";
-            b.className = "choice-option";
-            b.disabled = !option.enabled;
-            const label = document.createElement("span");
-            label.textContent = option.name;
-            const detail = document.createElement("small");
-            detail.textContent = `Level ${option.level}: ${option.materials.map((m) => `${m.qty} × ${this.db.get(m.item)?.name ?? "?"}`).join(", ")}`;
-            b.append(label, detail);
-            b.addEventListener("click", () => {
-                this.close();
-                onPick(option.locId);
-            });
-            list.append(b);
-        }
-        this.show(`Build: ${hotspot}`, [list]);
     }
 }

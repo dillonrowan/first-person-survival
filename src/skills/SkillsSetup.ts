@@ -10,17 +10,21 @@ import type { ItemDb } from "../items/ItemDb";
 import type { ItemIcons } from "../items/ItemIcons";
 import type { PlayerItems } from "../items/PlayerItems";
 import type { Npc } from "../npc/Npc";
-import { BuildMenu, MakeMenu } from "../ui/MakeMenu";
+import { MakeMenu } from "../ui/MakeMenu";
 import { ShopPanel } from "../ui/ShopPanel";
 import { XpDrops } from "../ui/XpDrops";
 import { NpcModelData, decodeNpcModel } from "../world/NpcFormat";
 import { ShopManifest, SkillsManifest, emptySkillsManifest } from "../world/SkillFormat";
+import { FishingBar } from "../ui/FishingBar";
+import { FishingSpots } from "../world/FishingSpots";
 import { LocReactions } from "../world/LocReactions";
 import { SkillLocs } from "../world/SkillLocs";
 import type { World } from "../world/World";
 import { CollisionFlag } from "../world/WorldFormat";
 import { gunzip } from "../world/gunzip";
 import type { SkillContext } from "./SkillContext";
+import { FishJob } from "./fishing";
+import { FishingView } from "./FishingView";
 import { SkillSystem } from "./SkillSystem";
 
 /** Collision bits a player cannot stand on. */
@@ -47,6 +51,8 @@ export type SkillsDeps = {
     items: PlayerItems;
     db: ItemDb;
     icons: ItemIcons;
+    /** An item's model (public/world/items/), for a caught fish leaping out of the water. */
+    loadItemModel(file: string): Promise<NpcModelData>;
     skills: PlayerSkills;
     ground: GroundItems;
     npcs: () => Npc[];
@@ -63,7 +69,7 @@ export type SkillsDeps = {
     storage: Storage | undefined;
 };
 
-/** Saved skill state (patches, furniture, task) in one localStorage entry. */
+/** Saved skill state (patches, Slayer task) in one localStorage entry. */
 function createStore(storage: Storage | undefined): SkillContext["store"] {
     let state: Record<string, unknown> = {};
     try {
@@ -89,15 +95,16 @@ export async function createSkills(deps: SkillsDeps) {
     const shops = (await loadJson<ShopManifest>(`${deps.worldUrl}shops.json`)) ?? { format: 1, shops: [], values: {} };
     if (data.source === "none") console.warn("No skills.json: skills are off (npm run export-skills)");
 
+    // Fishing tools are held in hand to fish.
+    for (const spot of data.fishing) for (const tool of spot.tools) deps.db.makeWieldable(tool);
+
     const clock = new TickClock();
     const skillLocs = new SkillLocs(deps.world, deps.scene, deps.materials);
     const reactions = new LocReactions((plane, x, y) => deps.world.groundHeight(plane, x, y));
     const xpDrops = new XpDrops(document.getElementById("xp-drops")!, document.getElementById("level-banner")!);
     const makeMenu = new MakeMenu(document.getElementById("make-menu")!, deps.db, deps.icons);
-    const buildMenu = new BuildMenu(document.getElementById("build-menu")!, deps.db, deps.icons);
     const shopPanel = new ShopPanel(document.getElementById("shop-panel")!, deps.items, deps.db, deps.icons, shops.values);
     makeMenu.closed = deps.panelClosed;
-    buildMenu.closed = deps.panelClosed;
     shopPanel.closed = deps.panelClosed;
     shopPanel.message = deps.message;
 
@@ -153,9 +160,16 @@ export async function createSkills(deps: SkillsDeps) {
         openMake: (title, options, onPick) => makeMenu.open(title, options, onPick),
         openShop: (shop) => shopPanel.open(shop),
         openBank: deps.openBank,
-        openBuild: (hotspot, options, onPick) => buildMenu.open(hotspot, options, onPick),
     });
     system.shops = shops.shops;
+
+    // Fishing: the wiki's spots (Blender spot model), the bobber, line and leaping fish, the reel bar.
+    const fishingSpots = new FishingSpots(data.fishingSpots, deps.world, deps.scene, (npcId) => system.fishing.actionsOf(npcId));
+    const fishingView = new FishingView(deps.scene, deps.materials, deps.loadItemModel, (item) => deps.db.get(item)?.model);
+    const fishingBar = new FishingBar(document.getElementById("fishing-bar")!);
+    const modelsUrl = deps.worldUrl.replace(/world\/$/, "models/fishing/");
+    await Promise.all([fishingSpots.load(`${modelsUrl}spot.glb`), fishingView.load(`${modelsUrl}bobber.glb`)]).catch((e) => console.warn("Fishing models could not be loaded", e));
+    system.fishing.onCatch = (spot, item) => fishingView.jump(item, spot.x, spot.y, spot.waterZ);
     skillLocs.look = (i) => system.look(i);
     skillLocs.actionsOf = (i) => system.actionsOf(i);
     clock.onTick((t) => shopPanel.tick(t));
@@ -168,9 +182,17 @@ export async function createSkills(deps: SkillsDeps) {
         reactions,
         system,
         shopPanel,
+        fishingSpots,
+        /** Per frame, after the weapon view: spots, bobber and line, leaping fish and the reel bar. */
+        updateFishing(dt: number, tip: THREE.Vector3, chest: THREE.Vector3): void {
+            fishingSpots.update(dt, deps.player);
+            const job = system.active instanceof FishJob ? system.active : undefined;
+            fishingView.update(dt, job, tip, chest);
+            fishingBar.update(job?.minigame);
+        },
         /** Whether a skill panel is open (the click-to-play overlay stays hidden meanwhile). */
         get panelOpen(): boolean {
-            return makeMenu.isOpen || buildMenu.isOpen || shopPanel.isOpen;
+            return makeMenu.isOpen || shopPanel.isOpen;
         },
     };
 }

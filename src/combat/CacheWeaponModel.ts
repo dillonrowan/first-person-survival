@@ -118,6 +118,8 @@ export function createCacheWeaponModel(
     const weapon = new THREE.Group();
     weapon.name = `weapon_${info.id}`;
     weapon.add(held);
+    // How far the far end reaches along the blade (+Y), for a fishing line off a rod's tip.
+    weapon.userData.tipLength = Math.max(0, ...[data.opaque, data.transparent].flatMap((m) => [...contractPoints(info, m.positions, orientation)].map((p) => p.y)));
     if (info.family === "bow") {
         // Fit the string to the solid bow: effect faces (a magic bow's shimmer panels) stand off
         // the limbs and would pull the string back into them.
@@ -145,4 +147,28 @@ function* contractPoints(info: CacheWeaponInfo, positions: Int16Array, orientati
     for (let i = 0; i < positions.length; i += 4) {
         yield toThree([positions[i], positions[i + 1], positions[i + 2]]).sub(grip).applyQuaternion(orientation);
     }
+}
+
+/**
+ * Grip and blade for an item the cache has no worn model for (fishing rods, nets, harpoons, pots),
+ * from its inventory model: the blade runs along the model's longest side, and the hand closes a
+ * tenth of the way in from the end with more vertices (a rod's reel and handle, a net's frame
+ * joint), on the model's middle line. [design]
+ */
+export function heldItemInfo(cacheId: number, name: string, file: string, data: Pick<NpcModelData, "opaque" | "transparent">): CacheWeaponInfo {
+    const points: number[][] = [];
+    for (const part of [data.opaque, data.transparent]) {
+        for (let i = 0; i < part.positions.length; i += 4) points.push([part.positions[i], part.positions[i + 1], part.positions[i + 2]]);
+    }
+    const lo = [0, 1, 2].map((a) => Math.min(...points.map((p) => p[a])));
+    const hi = [0, 1, 2].map((a) => Math.max(...points.map((p) => p[a])));
+    const axis = [0, 1, 2].reduce((best, a) => (hi[a] - lo[a] > hi[best] - lo[best] ? a : best), 0);
+    const length = hi[axis] - lo[axis];
+    const near = (end: number) => points.filter((p) => Math.abs(p[axis] - end) <= length * 0.25).length;
+    const handleAtLow = near(lo[axis]) >= near(hi[axis]);
+    const handle = handleAtLow ? lo[axis] : hi[axis];
+    const far = handleAtLow ? hi[axis] : lo[axis];
+    const grip = [0, 1, 2].map((a) => (a === axis ? handle + (far - handle) * 0.1 : (lo[a] + hi[a]) / 2)) as [number, number, number];
+    const blade = [0, 1, 2].map((a) => (a === axis ? far - grip[a] : 0)) as [number, number, number];
+    return { id: `cache-${cacheId}`, cacheId, name, family: "sword", file, grip, blade };
 }

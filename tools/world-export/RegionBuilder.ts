@@ -56,7 +56,7 @@ type FoundInteractives = {
     doorByWall: Map<SceneLoc, number>;
     /** Physics prop loc -> index into doorBuilders (props get their own meshes like doors). */
     propByLoc: Map<SceneLoc, number>;
-    /** Skill locs whose look can change (trees, rocks, patches, hotspots), drawn into their own meshes. */
+    /** Skill locs whose look can change (trees, rocks, patches), drawn into their own meshes. */
     skillByLoc: Map<SceneLoc, InteractiveLoc>;
     doorBuilders: { opaque: MeshBuilder; transparent: MeshBuilder }[];
 };
@@ -493,7 +493,7 @@ export class RegionBuilder {
 
     /**
      * Makes a loc a skill target if data/skill-locs.json lists it. It keeps its tile collision.
-     * Trees, rocks, patches and hotspots get their own meshes (built in addSkillLocMeshes), so the
+     * Trees, rocks and patches get their own meshes (built in addSkillLocMeshes), so the
      * game can swap their look; the others stay part of the map. Returns false otherwise.
      */
     private addSkillLoc(
@@ -504,7 +504,7 @@ export class RegionBuilder {
         const index = this.skillLocs;
         if (!index) return false;
         const key = String(p.id);
-        const ownMesh = key in index.resources || key in index.hotspots || index.patches.includes(p.id);
+        const ownMesh = key in index.resources || index.patches.includes(p.id);
         if (!ownMesh && !index.statics.includes(p.id)) return false;
         // Same level remapping SceneBuilder.decodeLocs applies under bridges.
         let plane = p.level;
@@ -533,7 +533,7 @@ export class RegionBuilder {
         return true;
     }
 
-    /** Draws a skill loc into new meshes: as placed, depleted, per patch state or per furniture. */
+    /** Draws a skill loc into new meshes: as placed, depleted or per patch state. */
     private addSkillLocMeshes(scene: Scene, found: FoundInteractives, p: PlacedEntity, loc: InteractiveLoc): void {
         const { locTypeLoader } = this.loaders;
         const index = this.skillLocs!;
@@ -574,14 +574,6 @@ export class RegionBuilder {
         if (depleted !== undefined) {
             const type = depleted >= 1_000_000 ? plainRock(locTypeLoader.load(depleted - 1_000_000), depleted) : locTypeLoader.load(depleted);
             skill.depletedMesh = variant(type);
-        }
-        const furniture = index.hotspots[key];
-        if (furniture) {
-            skill.furnitureMeshes = {};
-            for (const id of furniture) {
-                const m = variant(locTypeLoader.load(id));
-                if (m !== undefined) skill.furnitureMeshes[id] = m;
-            }
         }
         loc.height = Math.max(1, height);
     }

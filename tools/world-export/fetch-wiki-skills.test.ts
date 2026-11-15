@@ -42,3 +42,32 @@ describe("committed wiki skill data", () => {
         for (const m of masters) expect(m.tasks.length).toBeGreaterThan(5);
     });
 });
+
+describe("parseLocLines", () => {
+    it("reads every tile of main-map rows and skips instances", async () => {
+        const { parseLocLines } = await import("./fetch-wiki-skills");
+        const text = `{{ObjectLocLine
+|name = Fishing spot (small net, bait)
+|mapID = 0
+|plane = 0
+|x:3086,y:3227|x:3085,y:3230
+}}
+{{ObjectLocLine
+|name = Rod Fishing spot (lure, bait)
+|mapID = -1
+|plane = 1
+|x:3104,y:3424
+}}
+{{ObjectLocLine
+|name = Rod Fishing spot (lure, bait)
+|mapID = 41
+|plane = 0
+|x:3288,y:6010
+}}`;
+        expect(parseLocLines(text)).toEqual([
+            { x: 3086, y: 3227, plane: 0 },
+            { x: 3085, y: 3230, plane: 0 },
+            { x: 3104, y: 3424, plane: 1 },
+        ]);
+    });
+});

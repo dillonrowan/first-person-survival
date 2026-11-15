@@ -1,8 +1,9 @@
 // Downloads the OSRS wiki data the non-combat skills need: skilling loot, recipes, skill info
-// templates and success charts, calculator modules, slayer masters, shops, runecraft altars, and
-// RuneLite's farming tables. None of it is in the cache (server data).
+// templates and success charts, calculator modules, slayer masters, shops, runecraft altars,
+// fishing spot locations, and RuneLite's farming tables. None of it is in the cache (server data).
 //
 //   npm run fetch-wiki-skills
+//   npm run fetch-wiki-skills -- --only fishing-spots   (one file; needs npcs.json)
 //
 // Writes tools/world-export/data/wiki/*.json. Combat drops and food heals come from
 // fetch-wiki-items (data/wiki-drops.json, data/wiki-food.json) and are not fetched again.
@@ -172,6 +173,35 @@ const CALC_SKILLS = ["Woodcutting", "Mining", "Fishing", "Thieving", "Hunter", "
 const RUNES = ["Air", "Mind", "Water", "Earth", "Fire", "Body", "Law", "Nature", "Chaos", "Wrath", "Astral"];
 const RUNELITE = "https://raw.githubusercontent.com/runelite/runelite/master/runelite-client/src/main/java/net/runelite/client/plugins/timetracking/farming/";
 
+export type FishingSpotPage = { page: string; ids: number[]; places: { x: number; y: number; plane: number }[] };
+
+/**
+ * The tiles of an NPC page's location table ({{ObjectLocLine}} / {{LocLine}} rows): rows on the
+ * main map only (mapID -1, 0 or none; other maps are instances), every `x:…,y:…` pair.
+ */
+export function parseLocLines(text: string): { x: number; y: number; plane: number }[] {
+    const out: { x: number; y: number; plane: number }[] = [];
+    for (const row of [...findTemplates(text, "ObjectLocLine"), ...findTemplates(text, "LocLine")]) {
+        const map = parseInt(row.mapID ?? row.mapid ?? "-1");
+        if (Number.isInteger(map) && map !== -1 && map !== 0) continue;
+        const plane = parseInt(row.plane ?? "0") || 0;
+        for (const [key, value] of Object.entries(row)) {
+            if (!/^\d+$/.test(key)) continue;
+            for (const m of value.matchAll(/x:\s*(\d+)\s*,\s*y:\s*(\d+)/g)) out.push({ x: Number(m[1]), y: Number(m[2]), plane });
+        }
+    }
+    return out;
+}
+
+/** Where every fishing spot NPC stands, from its page's location table. */
+async function fishingSpots(npcs: { page: string; ids: number[]; name: string }[]): Promise<FishingSpotPage[]> {
+    const pages = npcs.filter((n) => /fishing spot/i.test(n.name) || /fishing spot/i.test(n.page));
+    const texts = await pagesWikitext([...new Set(pages.map((p) => p.page))]);
+    return pages
+        .map((p) => ({ page: p.page, ids: p.ids, places: parseLocLines(texts.get(p.page) ?? "") }))
+        .filter((p) => p.places.length > 0);
+}
+
 function write(name: string, data: unknown): void {
     fs.writeFileSync(path.join(OUT, name), JSON.stringify(data, null, 1) + "\n");
     console.log(`wrote ${name}`);
@@ -259,6 +289,13 @@ async function farming() {
 
 async function main(): Promise<void> {
     fs.mkdirSync(OUT, { recursive: true });
+    const only = process.argv.includes("--only") ? process.argv[process.argv.indexOf("--only") + 1] : undefined;
+    if (only === "fishing-spots") {
+        const npcs = JSON.parse(fs.readFileSync(path.join(OUT, "npcs.json"), "utf8")) as { page: string; ids: number[]; name: string }[];
+        write("fishing-spots.json", await fishingSpots(npcs));
+        return;
+    }
+    if (only) throw new Error(`--only: unknown file ${only}`);
 
     const drops = (await bucketAll("dropsline", ["page_name", "item_name", "drop_json"]))
         .map(parseDropRow)
@@ -283,7 +320,9 @@ async function main(): Promise<void> {
     );
 
     const npcs = await bucketAll("infobox_npc", ["page_name", "npc_id", "npc_name"]);
-    write("npcs.json", npcs.map((n) => ({ page: str(n.page_name), ids: ints(n.npc_id), name: str(n.npc_name) })).filter((n) => n.ids.length > 0).sort((a, b) => a.page.localeCompare(b.page)));
+    const npcRows = npcs.map((n) => ({ page: str(n.page_name), ids: ints(n.npc_id), name: str(n.npc_name) })).filter((n) => n.ids.length > 0).sort((a, b) => a.page.localeCompare(b.page));
+    write("npcs.json", npcRows);
+    write("fishing-spots.json", await fishingSpots(npcRows));
 
     const scenery = await bucketAll("infobox_scenery", ["page_name", "object_id"]);
     write("scenery.json", scenery.map((s) => ({ page: str(s.page_name), ids: ints(s.object_id) })).filter((s) => s.ids.length > 0).sort((a, b) => a.page.localeCompare(b.page)));

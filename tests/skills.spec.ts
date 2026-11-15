@@ -13,6 +13,8 @@ declare global {
 }
 
 test.setTimeout(240_000);
+// The GPU where there is one: software rendering runs the game at 1-2 frames a second.
+test.use({ launchOptions: { args: ["--use-angle=d3d11", "--enable-gpu", "--ignore-gpu-blocklist"] } });
 
 /** Opens the game at a tile (each test has a fresh browser profile, so a fresh save). */
 async function start(page: Page, x: number, y: number): Promise<void> {
@@ -21,51 +23,59 @@ async function start(page: Page, x: number, y: number): Promise<void> {
     await page.waitForFunction(() => !!window.game?.npcs && window.game.player.ready, undefined, { timeout: 180_000, polling: 1000 });
 }
 
-/** Waits for NPCs with this name to stand near the player. */
-async function nearestNpc(page: Page, pattern: string): Promise<void> {
-    await page.waitForFunction(
-        (p) => {
-            const g = window.game!;
-            return g.npcs.all().some((n: any) => new RegExp(p, "i").test(n.appearance.name) && !n.gone);
-        },
-        pattern,
-        { timeout: 60_000, polling: 1000 },
-    );
-}
-
-test("fishing and banking work", async ({ page }) => {
+test("fishing (cast, bite, hook, reel) and banking work", async ({ page }) => {
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(String(e)));
-    await start(page, 3087, 3230); // Draynor's net and bait spots
+    await start(page, 3087, 3230); // Draynor's net and bait spots (placed from the wiki)
 
-    // Fishing: a small net on the nearest net spot.
-    await nearestNpc(page, "^fishing spot$");
+    // A small net at the nearest spot: the option wields it; a cast lands; wait for the bite.
+    const started = await page.evaluate(() => {
+        const g = window.game!;
+        g.items.depositAll();
+        g.setLevel("fishing", 99); // every roll bites, so the test does not wait long
+        g.give("Small fishing net");
+        const spot = g.fishingSpots.spots
+            .filter((s: any) => s.plane === g.player.plane)
+            .sort((a: any, b: any) => Math.hypot(a.x - g.player.x, a.y - g.player.y) - Math.hypot(b.x - g.player.x, b.y - g.player.y))[0];
+        (window as any).__spot = spot;
+        const handled = g.skillSystem.fishing.spotAction(spot, "Small Net");
+        g.skillSystem.update({ acted: false, panelOpen: false, dead: false, dt: 0.016, pointer: { pressed: true, down: true, aimed: spot } });
+        return { handled, wielded: g.items.equipment.get("weapon")?.id, phase: g.skillSystem.active?.phase };
+    });
+    expect(started.handled).toBe(true);
+    expect(started.wielded).toBe(303);
+    expect(started.phase).toBe("cast");
+    await page.waitForFunction(() => window.game!.skillSystem.active?.phase === "bite", undefined, { timeout: 90_000, polling: 100 });
+    const hooked = await page.evaluate(() => {
+        const g = window.game!;
+        g.skillSystem.update({ acted: false, panelOpen: false, dead: false, dt: 0.016, pointer: { pressed: true, down: true, aimed: (window as any).__spot } });
+        return g.skillSystem.active?.phase;
+    });
+    expect(hooked).toBe("reel");
+    // The reel bar shows on the next frame.
+    await page.waitForFunction(() => !document.querySelector("#fishing-bar")!.classList.contains("hidden"), undefined, { timeout: 30_000, polling: 100 });
     const fished = await page.evaluate(() => {
         const g = window.game!;
-        g.give("Small fishing net");
-        const spot = g.npcs
-            .all()
-            .filter((n: any) => /^fishing spot$/i.test(n.appearance.name) && n.appearance.actions?.some((a: string) => /net/i.test(a)))
-            .sort((a: any, b: any) => Math.hypot(a.body.x - g.player.x, a.body.y - g.player.y) - Math.hypot(b.body.x - g.player.x, b.body.y - g.player.y))[0];
-        const action = spot.appearance.actions.find((a: string) => /net/i.test(a));
-        const handled = g.skillSystem.npcAction(spot, action);
-        // Casts with the crosshair on the spot, one per 2 ticks, until something bites.
-        for (let i = 0; i < 40 && g.items.count(g.db.byName("Raw shrimps").id) === 0; i++) {
-            g.skillSystem.click(spot);
-            g.clock.advance(2);
+        const spot = (window as any).__spot;
+        const job = g.skillSystem.active;
+        // Land it: keep the zone on the fish (as a player holding and letting go would).
+        for (let i = 0; i < 200 && job.minigame; i++) {
+            const m = job.minigame;
+            m.zoneAt = Math.min(1 - m.zone, Math.max(0, m.fishAt - m.zone / 2));
+            g.skillSystem.update({ acted: false, panelOpen: false, dead: false, dt: 0.05, pointer: { pressed: false, down: false, aimed: spot } });
         }
-        const shrimp = g.db.byName("Raw shrimps").id;
-        return { handled, shrimp: g.items.count(shrimp), xp: g.skills.xp("fishing") };
+        // At level 99 the net brings anchovies as well as shrimps.
+        const fish = g.items.count(g.db.byName("Raw shrimps").id) + g.items.count(g.db.byName("Raw anchovies").id);
+        return { fish, xp: g.skills.xp("fishing") };
     });
-    expect(fished.handled).toBe(true);
-    expect(fished.shrimp).toBeGreaterThanOrEqual(1);
+    expect(fished.fish).toBe(1);
     expect(fished.xp).toBeGreaterThan(0);
 
     // Banking: deposit everything.
     const banked = await page.evaluate(() => {
         const g = window.game!;
         g.items.depositAll();
-        return g.items.bank.count(g.db.byName("Raw shrimps").id);
+        return g.items.bank.count(g.db.byName("Raw shrimps").id) + g.items.bank.count(g.db.byName("Raw anchovies").id);
     });
     expect(banked).toBeGreaterThanOrEqual(1);
     expect(errors).toEqual([]);
@@ -119,8 +129,8 @@ test("a tree gives logs and a range cooks", async ({ page }) => {
         g.skillSystem.useItemOnLoc(range, slot);
         document.querySelector<HTMLButtonElement>("#make-menu .choice-option")!.click();
         g.clock.advance(10);
-        // Several items share the name "Burnt shrimp", so match by name.
-        return g.items.inventory.slots.filter((st: any) => st && /^(shrimps|burnt shrimp)$/i.test(g.db.get(st.id)?.name)).length;
+        // Cooked or burnt (the burnt item has its own name, e.g. "Burnt fish").
+        return g.items.inventory.slots.filter((st: any) => st && /^(shrimps|burnt .*)$/i.test(g.db.get(st.id)?.name)).length;
     });
     expect(cooked).toBe(1);
 });

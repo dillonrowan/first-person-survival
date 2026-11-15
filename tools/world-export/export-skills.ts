@@ -24,10 +24,10 @@ import { buildModelMeshes, computeBounds } from "./NpcModelBuilder";
 import { LocModelType } from "./rs/config/loctype/LocModelType";
 import { createWorldLoaders } from "./WorldLoaders";
 import { exportFarming } from "./skills/farming";
-import { exportFishing, exportRocks, exportTools, exportTrees } from "./skills/gathering";
+import { exportFishing, exportFishingPlaces, exportRocks, exportTools, exportTrees } from "./skills/gathering";
 import { exportHunter, exportShops, exportSlayer, exportThieving } from "./skills/npcSkills";
-import { exportConstruction, exportRunecraft } from "./skills/places";
-import { exportFills, exportFiremaking, exportRecipes, facilityLocs, sawmillRecipes } from "./skills/recipes";
+import { exportRunecraft } from "./skills/places";
+import { exportFills, exportLogs, exportRecipes, facilityLocs } from "./skills/recipes";
 import { createSkillsContext, loadWikiData } from "./skills/SkillContext";
 import { SKILL_LOC_INDEX_FILE, SkillLocIndex } from "./skills/SkillLocIndex";
 
@@ -59,11 +59,9 @@ function main(): void {
     const fishing = exportFishing(ctx);
     const catches = new Set(fishing.flatMap((f) => f.catches.map((c) => c.item)));
     const recipes = exportRecipes(ctx, cookingCharts, catches);
-    recipes.push(...sawmillRecipes(ctx, recipes.length));
     const { stalls, pickpockets } = exportThieving(ctx);
     const farming = exportFarming(ctx);
     const runecraft = exportRunecraft(ctx);
-    const construction = exportConstruction(ctx);
     if (!runecraft) throw new Error("No rune or pure essence item");
 
     const locs: Record<string, LocRole> = {};
@@ -80,19 +78,16 @@ function main(): void {
     }
     runecraft.essenceMine.exitLocIds.forEach((id) => set(id, { role: "essence-exit" }));
     farming.patches.forEach((p) => p.locIds.forEach((id) => set(id, { role: "patch", impl: p.impl })));
-    for (const [id, name] of Object.entries(construction.hotspots)) set(Number(id), { role: "hotspot", name });
-    for (const id of ctx.locsWhere((n, a) => n === "Portal" && a.includes("Home"))) set(id, { role: "house-portal" });
     for (const [id, facility] of facilityLocs(ctx)) set(id, { role: "facility", facility });
     for (const id of ctx.locsWhere((n, a) => /deposit (box|chest|pot)/i.test(n) && a.includes("Deposit"))) set(id, { role: "deposit" });
 
     // What export-world turns into skill targets, and their alternate looks.
-    const index: SkillLocIndex = { resources: {}, patches: [], hotspots: {}, statics: [] };
+    const index: SkillLocIndex = { resources: {}, patches: [], statics: [] };
     for (const [id, role] of Object.entries(locs)) {
         if (role.role === "tree") index.resources[id] = trees[role.index].stumpLocId;
         // Rune essence never depletes, so it stays part of the map.
         else if (role.role === "rock" && !rocks[role.index].essence) index.resources[id] = rocks[role.index].depletedLocId;
         else if (role.role === "patch") index.patches.push(Number(id));
-        else if (role.role === "hotspot") index.hotspots[id] = construction.furniture.filter((f) => f.hotspot.toLowerCase() === role.name.toLowerCase()).map((f) => f.locId);
         else index.statics.push(Number(id));
     }
     fs.writeFileSync(SKILL_LOC_INDEX_FILE, JSON.stringify(index) + "\n");
@@ -110,15 +105,15 @@ function main(): void {
         trees,
         rocks,
         fishing,
+        fishingSpots: exportFishingPlaces(ctx, fishing),
         recipes,
-        firemaking: exportFiremaking(ctx),
+        logs: exportLogs(ctx),
         fills: exportFills(ctx),
         stalls,
         pickpockets,
         hunter: exportHunter(ctx),
         farming,
         slayer: exportSlayer(ctx),
-        construction,
         runecraft,
         tools: exportTools(ctx),
         items: named,

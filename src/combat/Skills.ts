@@ -14,13 +14,11 @@ export const NON_COMBAT_SKILLS: SkillId[] = [
     "thieving",
     "cooking",
     "crafting",
-    "firemaking",
     "fletching",
     "woodcutting",
     "runecraft",
     "slayer",
     "farming",
-    "construction",
     "hunter",
 ];
 export const SKILLS: SkillId[] = [...COMBAT_SKILLS, ...NON_COMBAT_SKILLS];
@@ -37,13 +35,11 @@ export const SKILL_NAMES: Record<SkillId, string> = {
     thieving: "Thieving",
     cooking: "Cooking",
     crafting: "Crafting",
-    firemaking: "Firemaking",
     fletching: "Fletching",
     woodcutting: "Woodcutting",
     runecraft: "Runecraft",
     slayer: "Slayer",
     farming: "Farming",
-    construction: "Construction",
     hunter: "Hunter",
 };
 
