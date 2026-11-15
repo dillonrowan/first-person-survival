@@ -4,13 +4,47 @@ import { MAX_XP, combatLevel, levelForXp, xpForLevel } from "./Osrs";
 import type { SkillId } from "./SkillId";
 
 export type { SkillId };
-export const SKILLS: SkillId[] = ["melee", "defence", "ranged", "magic", "hitpoints"];
+export const COMBAT_SKILLS: SkillId[] = ["melee", "defence", "ranged", "magic", "hitpoints"];
+/** The non-combat skills in OSRS stats-tab order. */
+export const NON_COMBAT_SKILLS: SkillId[] = [
+    "mining",
+    "smithing",
+    "herblore",
+    "fishing",
+    "thieving",
+    "cooking",
+    "crafting",
+    "firemaking",
+    "fletching",
+    "woodcutting",
+    "runecraft",
+    "slayer",
+    "farming",
+    "construction",
+    "hunter",
+];
+export const SKILLS: SkillId[] = [...COMBAT_SKILLS, ...NON_COMBAT_SKILLS];
 export const SKILL_NAMES: Record<SkillId, string> = {
     melee: "Melee",
     defence: "Defence",
     ranged: "Ranged",
     magic: "Magic",
     hitpoints: "Hitpoints",
+    mining: "Mining",
+    smithing: "Smithing",
+    herblore: "Herblore",
+    fishing: "Fishing",
+    thieving: "Thieving",
+    cooking: "Cooking",
+    crafting: "Crafting",
+    firemaking: "Firemaking",
+    fletching: "Fletching",
+    woodcutting: "Woodcutting",
+    runecraft: "Runecraft",
+    slayer: "Slayer",
+    farming: "Farming",
+    construction: "Construction",
+    hunter: "Hunter",
 };
 
 export type LevelUp = { skill: SkillId; level: number };
@@ -25,13 +59,13 @@ export const RESTORE_INTERVAL = 60;
 type SkillStorage = Pick<Storage, "getItem" | "setItem">;
 
 /** Hitpoints start at level 10, every other skill at level 1. */
-const START_XP: Record<SkillId, number> = { melee: 0, defence: 0, ranged: 0, magic: 0, hitpoints: xpForLevel(10) };
+const START_XP = Object.fromEntries(SKILLS.map((id) => [id, id === "hitpoints" ? xpForLevel(10) : 0])) as Record<SkillId, number>;
 
 /** The player skills: XP per skill, saved to storage after every gain. */
 export class PlayerSkills {
     private readonly xpOf: Record<SkillId, number> = { ...START_XP };
     /** Current level minus base level: below 0 while drained. */
-    private readonly offsetOf: Record<SkillId, number> = { melee: 0, defence: 0, ranged: 0, magic: 0, hitpoints: 0 };
+    private readonly offsetOf = Object.fromEntries(SKILLS.map((id) => [id, 0])) as Record<SkillId, number>;
     private restoreTimer = 0;
 
     constructor(private readonly storage?: SkillStorage) {
@@ -116,7 +150,8 @@ export class PlayerSkills {
         return levelForXp(this.xpOf[id]);
     }
 
-    levels(): Record<SkillId, number> {
+    /** The combat skills' levels, for the combat level. */
+    levels(): Record<"melee" | "defence" | "ranged" | "magic" | "hitpoints", number> {
         return {
             melee: this.level("melee"),
             defence: this.level("defence"),

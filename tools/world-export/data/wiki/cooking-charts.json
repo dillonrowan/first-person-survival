@@ -1,0 +1,4024 @@
+{
+ "Redberry pie": [
+  {
+   "label": "Redberry pie cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Range",
+     "low": 98,
+     "high": 452,
+     "req": 10,
+     "image": "Redberry pie.png"
+    },
+    {
+     "label": "Lumbridge range",
+     "low": 108,
+     "high": 462,
+     "req": 10,
+     "image": "Lumbridge Teleport.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 110,
+     "high": 464,
+     "req": 10,
+     "image": "Redberry pie.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 123,
+     "high": 477,
+     "req": 79,
+     "image": "Redberry pie.png"
+    }
+   ]
+  }
+ ],
+ "Bread": [
+  {
+   "label": "Bread cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Range",
+     "low": 118,
+     "high": 492,
+     "req": 1,
+     "image": "Bread.png"
+    },
+    {
+     "label": "Lumbridge range",
+     "low": 128,
+     "high": 512,
+     "req": 1,
+     "image": "Lumbridge Teleport.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 130,
+     "high": 504,
+     "req": 1,
+     "image": "Bread.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 143,
+     "high": 517,
+     "req": 79,
+     "image": "Bread.png"
+    }
+   ]
+  }
+ ],
+ "Cake": [
+  {
+   "label": "Cake cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Range",
+     "low": 38,
+     "high": 332,
+     "req": 40,
+     "image": "Cake.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 50,
+     "high": 344,
+     "req": 40,
+     "image": "Cake.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 63,
+     "high": 357,
+     "req": 79,
+     "image": "Cake.png"
+    }
+   ]
+  }
+ ],
+ "Admiral pie": [
+  {
+   "label": "Admiral pie cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Range",
+     "low": 15,
+     "high": 270,
+     "req": 70,
+     "image": "Admiral pie.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 27,
+     "high": 282,
+     "req": 70,
+     "image": "Admiral pie.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 40,
+     "high": 295,
+     "req": 79,
+     "image": "Admiral pie.png"
+    }
+   ]
+  }
+ ],
+ "Anchovies": [
+  {
+   "label": "Anchovies cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 128,
+     "high": 512,
+     "req": 1,
+     "image": "Anchovies.png"
+    },
+    {
+     "label": "Lumbridge range",
+     "low": 138,
+     "high": 532,
+     "req": 1,
+     "image": "Lumbridge Teleport.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 140,
+     "high": 524,
+     "req": 1,
+     "image": "Anchovies.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 153,
+     "high": 537,
+     "req": 84,
+     "image": "Anchovies.png"
+    }
+   ]
+  }
+ ],
+ "Apple pie": [
+  {
+   "label": "Apple pie cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Range",
+     "low": 58,
+     "high": 372,
+     "req": 30,
+     "image": "Apple pie.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 70,
+     "high": 384,
+     "req": 30,
+     "image": "Apple pie.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 83,
+     "high": 397,
+     "req": 79,
+     "image": "Apple pie.png"
+    }
+   ]
+  }
+ ],
+ "Nettle tea": [
+  {
+   "label": "Nettle tea cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 78,
+     "high": 412,
+     "req": 20,
+     "image": "Nettle tea.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 90,
+     "high": 424,
+     "req": 20,
+     "image": "Nettle tea.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 103,
+     "high": 437,
+     "req": 79,
+     "image": "Nettle tea.png"
+    }
+   ]
+  }
+ ],
+ "Shrimps": [
+  {
+   "label": "Shrimps cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 128,
+     "high": 512,
+     "req": 1,
+     "image": "Shrimps.png"
+    },
+    {
+     "label": "Lumbridge range",
+     "low": 138,
+     "high": 532,
+     "req": 1,
+     "image": "Lumbridge Teleport.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 140,
+     "high": 524,
+     "req": 1,
+     "image": "Shrimps.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 153,
+     "high": 537,
+     "req": 84,
+     "image": "Shrimps.png"
+    }
+   ]
+  }
+ ],
+ "Cooked chicken": [
+  {
+   "label": "Cooked chicken cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 128,
+     "high": 512,
+     "req": 1,
+     "image": "Cooked chicken.png"
+    },
+    {
+     "label": "Lumbridge range",
+     "low": 138,
+     "high": 532,
+     "req": 1,
+     "image": "Lumbridge Teleport.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 140,
+     "high": 524,
+     "req": 1,
+     "image": "Cooked chicken.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 153,
+     "high": 537,
+     "req": 84,
+     "image": "Cooked chicken.png"
+    }
+   ]
+  }
+ ],
+ "Salmon": [
+  {
+   "label": "Salmon cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 68,
+     "high": 392,
+     "req": 25,
+     "image": "Salmon.png"
+    },
+    {
+     "label": "Lumbridge range",
+     "low": 78,
+     "high": 402,
+     "req": 25,
+     "image": "Lumbridge Teleport.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 80,
+     "high": 404,
+     "req": 25,
+     "image": "Salmon.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 93,
+     "high": 417,
+     "req": 79,
+     "image": "Salmon.png"
+    }
+   ]
+  }
+ ],
+ "Lobster": [
+  {
+   "label": "Lobster cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 38,
+     "high": 332,
+     "req": 40,
+     "image": "Lobster.png"
+    },
+    {
+     "label": "Gauntlets",
+     "low": 55,
+     "high": 368,
+     "req": 40,
+     "image": "Cooking gauntlets.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 50,
+     "high": 344,
+     "req": 40,
+     "image": "Lobster.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 63,
+     "high": 357,
+     "req": 79,
+     "image": "Lobster.png"
+    },
+    {
+     "label": "Hosidius +5%, gauntlets",
+     "low": 67,
+     "high": 380,
+     "req": 40,
+     "image": "Cooking gauntlets.png"
+    },
+    {
+     "label": "Hosidius +10%, gauntlets",
+     "low": 80,
+     "high": 393,
+     "req": 79,
+     "image": "Cooking gauntlets.png"
+    }
+   ]
+  }
+ ],
+ "Herring": [
+  {
+   "label": "Herring cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 108,
+     "high": 472,
+     "req": 5,
+     "image": "Herring.png"
+    },
+    {
+     "label": "Lumbridge range",
+     "low": 118,
+     "high": 492,
+     "req": 5,
+     "image": "Lumbridge Teleport.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 120,
+     "high": 484,
+     "req": 5,
+     "image": "Herring.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 133,
+     "high": 497,
+     "req": 79,
+     "image": "Herring.png"
+    }
+   ]
+  }
+ ],
+ "Sardine": [
+  {
+   "label": "Sardine cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 118,
+     "high": 492,
+     "req": 1,
+     "image": "Sardine.png"
+    },
+    {
+     "label": "Lumbridge range",
+     "low": 128,
+     "high": 512,
+     "req": 1,
+     "image": "Lumbridge Teleport.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 130,
+     "high": 504,
+     "req": 1,
+     "image": "Sardine.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 143,
+     "high": 517,
+     "req": 79,
+     "image": "Sardine.png"
+    }
+   ]
+  }
+ ],
+ "Shark": [
+  {
+   "label": "Shark cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire",
+     "low": 1,
+     "high": 202,
+     "req": 80,
+     "image": "Firemaking icon.png"
+    },
+    {
+     "label": "Range",
+     "low": 1,
+     "high": 232,
+     "req": 80,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Gauntlets",
+     "low": 15,
+     "high": 270,
+     "req": 80,
+     "image": "Cooking gauntlets.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 13,
+     "high": 244,
+     "req": 80,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 26,
+     "high": 257,
+     "req": 80,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +5%, gauntlets",
+     "low": 27,
+     "high": 282,
+     "req": 80,
+     "image": "Cooking gauntlets.png"
+    },
+    {
+     "label": "Hosidius +10%, gauntlets",
+     "low": 40,
+     "high": 295,
+     "req": 80,
+     "image": "Cooking gauntlets.png"
+    }
+   ]
+  }
+ ],
+ "Cooked meat": [
+  {
+   "label": "Cooked meat cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 128,
+     "high": 512,
+     "req": 1,
+     "image": "Cooked meat.png"
+    },
+    {
+     "label": "Lumbridge range",
+     "low": 138,
+     "high": 532,
+     "req": 1,
+     "image": "Lumbridge Teleport.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 140,
+     "high": 524,
+     "req": 1,
+     "image": "Cooked meat.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 153,
+     "high": 537,
+     "req": 84,
+     "image": "Cooked meat.png"
+    }
+   ]
+  }
+ ],
+ "Monkfish": [
+  {
+   "label": "Monkfish cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire",
+     "low": 11,
+     "high": 275,
+     "req": 62,
+     "image": "Firemaking icon.png"
+    },
+    {
+     "label": "Range",
+     "low": 13,
+     "high": 280,
+     "req": 62,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Gauntlets",
+     "low": 24,
+     "high": 290,
+     "req": 62,
+     "image": "Cooking gauntlets.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 25,
+     "high": 292,
+     "req": 62,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 38,
+     "high": 305,
+     "req": 79,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +5%, gauntlets",
+     "low": 36,
+     "high": 302,
+     "req": 62,
+     "image": "Cooking gauntlets.png"
+    },
+    {
+     "label": "Hosidius +10%, gauntlets",
+     "low": 49,
+     "high": 315,
+     "req": 79,
+     "image": "Cooking gauntlets.png"
+    }
+   ]
+  }
+ ],
+ "Trout": [
+  {
+   "label": "Trout cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 88,
+     "high": 432,
+     "req": 15,
+     "image": "Trout.png"
+    },
+    {
+     "label": "Lumbridge range",
+     "low": 98,
+     "high": 452,
+     "req": 15,
+     "image": "Lumbridge Teleport.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 100,
+     "high": 444,
+     "req": 15,
+     "image": "Trout.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 113,
+     "high": 457,
+     "req": 79,
+     "image": "Trout.png"
+    }
+   ]
+  }
+ ],
+ "Wild pie": [
+  {
+   "label": "Wild pie cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Range",
+     "low": 1,
+     "high": 222,
+     "req": 85,
+     "image": "Wild pie.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 13,
+     "high": 234,
+     "req": 85,
+     "image": "Wild pie.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 26,
+     "high": 247,
+     "req": 85,
+     "image": "Wild pie.png"
+    }
+   ]
+  }
+ ],
+ "Tuna": [
+  {
+   "label": "Tuna cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 58,
+     "high": 372,
+     "req": 30,
+     "image": "Tuna.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 70,
+     "high": 384,
+     "req": 30,
+     "image": "Tuna.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 83,
+     "high": 397,
+     "req": 79,
+     "image": "Tuna.png"
+    }
+   ]
+  }
+ ],
+ "Soda ash": [
+  {
+   "label": "Giant seaweed success rate",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 0,
+     "high": 500,
+     "req": 1,
+     "image": "Soda ash.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 12,
+     "high": 512,
+     "req": 1,
+     "image": "Soda ash.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 25,
+     "high": 525,
+     "req": 79,
+     "image": "Soda ash.png"
+    }
+   ]
+  }
+ ],
+ "Swordfish": [
+  {
+   "label": "Swordfish cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire",
+     "low": 18,
+     "high": 292,
+     "req": 45,
+     "image": "Firemaking icon.png"
+    },
+    {
+     "label": "Range or cooking gauntlets",
+     "low": 30,
+     "high": 310,
+     "req": 45,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 42,
+     "high": 322,
+     "req": 45,
+     "image": "Cooking range icon.png<!-- Cooking gauntlets have no effect at the Hosidius kitchen. -->"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 55,
+     "high": 335,
+     "req": 79,
+     "image": "Cooking range icon.png"
+    }
+   ]
+  }
+ ],
+ "Stew": [
+  {
+   "label": "Stew cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 68,
+     "high": 392,
+     "req": 25,
+     "image": "Stew.png"
+    },
+    {
+     "label": "Lumbridge range",
+     "low": 78,
+     "high": 412,
+     "req": 25,
+     "image": "Lumbridge Teleport.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 80,
+     "high": 404,
+     "req": 25,
+     "image": "Stew.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 93,
+     "high": 417,
+     "req": 79,
+     "image": "Stew.png"
+    }
+   ]
+  }
+ ],
+ "Pike": [
+  {
+   "label": "Pike cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 78,
+     "high": 412,
+     "req": 20,
+     "image": "Pike.png"
+    },
+    {
+     "label": "Lumbridge range",
+     "low": 88,
+     "high": 432,
+     "req": 20,
+     "image": "Lumbridge Teleport.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 90,
+     "high": 424,
+     "req": 20,
+     "image": "Pike.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 103,
+     "high": 437,
+     "req": 79,
+     "image": "Pike.png"
+    }
+   ]
+  }
+ ],
+ "Cod": [
+  {
+   "label": "Cod cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire",
+     "low": 83,
+     "high": 422,
+     "req": 18,
+     "image": "Firemaking icon.png"
+    },
+    {
+     "label": "Range",
+     "low": 88,
+     "high": 432,
+     "req": 18,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Lumbridge range",
+     "low": 93,
+     "high": 442,
+     "req": 18,
+     "image": "Lumbridge Teleport.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 100,
+     "high": 444,
+     "req": 18,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 113,
+     "high": 457,
+     "req": 79,
+     "image": "Cooking range icon.png"
+    }
+   ]
+  }
+ ],
+ "Mackerel": [
+  {
+   "label": "Mackerel cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 98,
+     "high": 452,
+     "req": 10,
+     "image": "Mackerel.png"
+    },
+    {
+     "label": "Lumbridge range",
+     "low": 108,
+     "high": 472,
+     "req": 10,
+     "image": "Lumbridge Teleport.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 110,
+     "high": 464,
+     "req": 10,
+     "image": "Mackerel.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 123,
+     "high": 477,
+     "req": 79,
+     "image": "Mackerel.png"
+    }
+   ]
+  }
+ ],
+ "Meat pie": [
+  {
+   "label": "Meat pie cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Range",
+     "low": 78,
+     "high": 412,
+     "req": 20,
+     "image": "Meat pie.png"
+    },
+    {
+     "label": "Lumbridge range",
+     "low": 88,
+     "high": 432,
+     "req": 20,
+     "image": "Lumbridge Teleport.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 90,
+     "high": 424,
+     "req": 20,
+     "image": "Meat pie.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 103,
+     "high": 437,
+     "req": 79,
+     "image": "Meat pie.png"
+    }
+   ]
+  }
+ ],
+ "Plain pizza": [
+  {
+   "label": "Pizza cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Range",
+     "low": 48,
+     "high": 352,
+     "req": 35,
+     "image": "Plain_pizza.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 60,
+     "high": 364,
+     "req": 35,
+     "image": "Plain_pizza.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 73,
+     "high": 377,
+     "req": 79,
+     "image": "Plain_pizza.png"
+    }
+   ]
+  }
+ ],
+ "Summer pie": [
+  {
+   "label": "Summer pie cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Range",
+     "low": 1,
+     "high": 212,
+     "req": 95,
+     "image": "Summer pie.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 13,
+     "high": 224,
+     "req": 95,
+     "image": "Summer pie.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 26,
+     "high": 237,
+     "req": 95,
+     "image": "Summer pie.png"
+    }
+   ]
+  }
+ ],
+ "Cooked fishcake": [
+  {
+   "label": "Cooked fishcake cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 57,
+     "high": 377,
+     "req": 31,
+     "image": "Cooked fishcake.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 69,
+     "high": 389,
+     "req": 31,
+     "image": "Cooked fishcake.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 82,
+     "high": 402,
+     "req": 79,
+     "image": "Cooked fishcake.png"
+    }
+   ]
+  }
+ ],
+ "Roast bird meat": [
+  {
+   "label": "Roast bird meat cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire",
+     "low": 155,
+     "high": 255,
+     "req": 11,
+     "image": "Firemaking icon.png"
+    }
+   ]
+  }
+ ],
+ "Jug of wine": [
+  {
+   "label": "Jug of wine success chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Jug of wine",
+     "low": 48,
+     "high": 352,
+     "req": 35,
+     "image": "Jug of wine detail.png"
+    }
+   ]
+  }
+ ],
+ "Cave eel": [
+  {
+   "label": "Cave eel cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 38,
+     "high": 332,
+     "req": 38,
+     "image": "Cave eel.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 50,
+     "high": 344,
+     "req": 38,
+     "image": "Cave eel.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 63,
+     "high": 357,
+     "req": 79,
+     "image": "Cave eel.png"
+    }
+   ]
+  }
+ ],
+ "Karambwanji": [
+  {
+   "label": "Karambwanji cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 200,
+     "high": 400,
+     "req": 1,
+     "image": "Karambwanji.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 212,
+     "high": 412,
+     "req": 1,
+     "image": "Karambwanji.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 225,
+     "high": 425,
+     "req": 79,
+     "image": "Karambwanji.png"
+    }
+   ]
+  }
+ ],
+ "Bass": [
+  {
+   "label": "Bass cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 33,
+     "high": 312,
+     "req": 43,
+     "image": "Bass.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 45,
+     "high": 324,
+     "req": 43,
+     "image": "Bass.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 58,
+     "high": 337,
+     "req": 79,
+     "image": "Bass.png"
+    }
+   ]
+  }
+ ],
+ "Burnt lobster": [
+  {
+   "label": "Lobster burning chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 38,
+     "high": 332,
+     "req": 40,
+     "image": "Burnt lobster.png"
+    },
+    {
+     "label": "Gauntlets",
+     "low": 55,
+     "high": 368,
+     "req": 40,
+     "image": "Cooking gauntlets.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 50,
+     "high": 344,
+     "req": 40,
+     "image": "Burnt lobster.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 63,
+     "high": 357,
+     "req": 79,
+     "image": "Burnt lobster.png"
+    },
+    {
+     "label": "Hosidius +5%, gauntlets",
+     "low": 67,
+     "high": 380,
+     "req": 40,
+     "image": "Cooking gauntlets.png"
+    },
+    {
+     "label": "Hosidius +10%, gauntlets",
+     "low": 80,
+     "high": 393,
+     "req": 79,
+     "image": "Cooking gauntlets.png"
+    }
+   ]
+  }
+ ],
+ "Rainbow fish": [
+  {
+   "label": "Rainbow fish cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 56,
+     "high": 370,
+     "req": 35,
+     "image": "Rainbow fish.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 68,
+     "high": 382,
+     "req": 35,
+     "image": "Rainbow fish.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 81,
+     "high": 395,
+     "req": 79,
+     "image": "Rainbow fish.png"
+    }
+   ]
+  }
+ ],
+ "Chocolate bomb": [
+  {
+   "label": "Chocolate bomb cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Range",
+     "low": 118,
+     "high": 492,
+     "req": 42,
+     "image": "Chocolate bomb.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 130,
+     "high": 504,
+     "req": 42,
+     "image": "Chocolate bomb.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 143,
+     "high": 517,
+     "req": 79,
+     "image": "Chocolate bomb.png"
+    }
+   ]
+  }
+ ],
+ "Fried mushrooms": [
+  {
+   "label": "Fried mushrooms cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 16,
+     "high": 282,
+     "req": 46,
+     "image": "Fried mushrooms.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 28,
+     "high": 294,
+     "req": 46,
+     "image": "Fried mushrooms.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 41,
+     "high": 307,
+     "req": 79,
+     "image": "Fried mushrooms.png"
+    }
+   ]
+  }
+ ],
+ "Roe": [
+  {
+   "label": "Roe creation chance",
+   "cascade": false,
+   "series": []
+  }
+ ],
+ "Sinew": [
+  {
+   "label": "Sinew cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Range",
+     "low": 128,
+     "high": 512,
+     "req": 1,
+     "image": "Sinew.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 140,
+     "high": 524,
+     "req": 1,
+     "image": "Sinew.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 153,
+     "high": 537,
+     "req": 79,
+     "image": "Sinew.png"
+    }
+   ]
+  }
+ ],
+ "Curry": [
+  {
+   "label": "Curry cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 38,
+     "high": 332,
+     "req": 60,
+     "image": "Curry.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 50,
+     "high": 344,
+     "req": 60,
+     "image": "Curry.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 63,
+     "high": 357,
+     "req": 79,
+     "image": "Curry.png"
+    }
+   ]
+  }
+ ],
+ "Sea turtle": [
+  {
+   "label": "Sea turtle cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire",
+     "low": 1,
+     "high": 202,
+     "req": 82,
+     "image": "Firemaking icon.png"
+    },
+    {
+     "label": "Range",
+     "low": 1,
+     "high": 222,
+     "req": 82,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 13,
+     "high": 234,
+     "req": 82,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 26,
+     "high": 247,
+     "req": 82,
+     "image": "Cooking range icon.png"
+    }
+   ]
+  }
+ ],
+ "Wine of Zamorak": [
+  {
+   "label": "Wine of Zamorak Success chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Wine of Zamorak",
+     "low": -125,
+     "high": 260,
+     "req": 65,
+     "image": "Wine of Zamorak detail.png"
+    }
+   ]
+  }
+ ],
+ "Cooked chompy": [
+  {
+   "label": "Chompy cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire",
+     "low": 200,
+     "high": 255,
+     "req": 30,
+     "image": "Firemaking icon.png"
+    }
+   ]
+  }
+ ],
+ "Fish pie": [
+  {
+   "label": "Fish pie cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Range",
+     "low": 38,
+     "high": 332,
+     "req": 47,
+     "image": "Fish pie.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 50,
+     "high": 344,
+     "req": 47,
+     "image": "Fish pie.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 63,
+     "high": 357,
+     "req": 79,
+     "image": "Fish pie.png"
+    }
+   ]
+  }
+ ],
+ "Mud pie": [
+  {
+   "label": "Mud pie cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Range",
+     "low": 58,
+     "high": 372,
+     "req": 29,
+     "image": "Mud pie.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 70,
+     "high": 384,
+     "req": 29,
+     "image": "Mud pie.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 83,
+     "high": 397,
+     "req": 79,
+     "image": "Mud pie.png"
+    }
+   ]
+  }
+ ],
+ "Cooked slimy eel": [
+  {
+   "label": "Cooked slimy eel cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 63,
+     "high": 382,
+     "req": 28,
+     "image": "Cooked slimy eel.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 75,
+     "high": 394,
+     "req": 28,
+     "image": "Cooked slimy eel.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 88,
+     "high": 407,
+     "req": 79,
+     "image": "Cooked slimy eel.png"
+    }
+   ]
+  }
+ ],
+ "Manta ray": [
+  {
+   "label": "Manta ray cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire",
+     "low": 1,
+     "high": 202,
+     "req": 91,
+     "image": "Firemaking icon.png"
+    },
+    {
+     "label": "Range",
+     "low": 1,
+     "high": 222,
+     "req": 91,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 13,
+     "high": 234,
+     "req": 91,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 26,
+     "high": 247,
+     "req": 91,
+     "image": "Cooking range icon.png"
+    }
+   ]
+  }
+ ],
+ "Stuffed snake": [
+  {
+   "label": "Cooking the stuffed snake",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Success chance",
+     "low": 0,
+     "high": 255,
+     "req": 70,
+     "image": "Stuffed snake.png"
+    }
+   ]
+  }
+ ],
+ "Cooked karambwan": [
+  {
+   "label": "Cooked karambwan cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 70,
+     "high": 255,
+     "req": 30,
+     "image": "Cooked_karambwan.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 82,
+     "high": 267,
+     "req": 30,
+     "image": "Cooked_karambwan.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 95,
+     "high": 280,
+     "req": 79,
+     "image": "Cooked_karambwan.png"
+    }
+   ]
+  }
+ ],
+ "Cooked sweetcorn": [
+  {
+   "label": "Sweetcorn cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 78,
+     "high": 412,
+     "req": 28,
+     "image": "Cooked sweetcorn.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 90,
+     "high": 424,
+     "req": 28,
+     "image": "Cooked sweetcorn.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 103,
+     "high": 437,
+     "req": 79,
+     "image": "Cooked sweetcorn.png"
+    }
+   ]
+  }
+ ],
+ "Ugthanki kebab": [
+  {
+   "label": "Ugthanki kebab cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Ugthanki kebab",
+     "low": 118,
+     "high": 492,
+     "req": 1,
+     "image": "Ugthanki kebab.png"
+    }
+   ]
+  }
+ ],
+ "Drunk dragon": [
+  {
+   "label": "Drunk dragon experience gain chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Range",
+     "low": 118,
+     "high": 492,
+     "req": 32,
+     "image": "Drunk dragon.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 130,
+     "high": 504,
+     "req": 32,
+     "image": "Drunk dragon.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 143,
+     "high": 517,
+     "req": 79,
+     "image": "Drunk dragon.png"
+    }
+   ]
+  }
+ ],
+ "Toad crunchies": [
+  {
+   "label": "Toad crunchies cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Range",
+     "low": 118,
+     "high": 492,
+     "req": 10,
+     "image": "Toad crunchies.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 130,
+     "high": 504,
+     "req": 10,
+     "image": "Toad crunchies.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 143,
+     "high": 517,
+     "req": 79,
+     "image": "Toad crunchies.png"
+    }
+   ]
+  }
+ ],
+ "Worm hole": [
+  {
+   "label": "Worm hole cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Range",
+     "low": 118,
+     "high": 492,
+     "req": 30,
+     "image": "Worm hole.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 130,
+     "high": 504,
+     "req": 30,
+     "image": "Worm hole.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 143,
+     "high": 517,
+     "req": 79,
+     "image": "Worm hole.png"
+    }
+   ]
+  }
+ ],
+ "Veg ball": [
+  {
+   "label": "Veg ball cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Range",
+     "low": 118,
+     "high": 492,
+     "req": 35,
+     "image": "Veg ball.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 130,
+     "high": 504,
+     "req": 35,
+     "image": "Veg ball.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 143,
+     "high": 517,
+     "req": 79,
+     "image": "Veg ball.png"
+    }
+   ]
+  }
+ ],
+ "Tangled toad's legs": [
+  {
+   "label": "Tangled toad&#39;s legs cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Range",
+     "low": 118,
+     "high": 492,
+     "req": 40,
+     "image": "Tangled toad&#39;s legs.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 130,
+     "high": 504,
+     "req": 40,
+     "image": "Tangled toad&#39;s legs.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 143,
+     "high": 517,
+     "req": 79,
+     "image": "Tangled toad&#39;s legs.png"
+    }
+   ]
+  }
+ ],
+ "Spicy crunchies": [
+  {
+   "label": "Spicy crunchies cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Range",
+     "low": 118,
+     "high": 492,
+     "req": 12,
+     "image": "Spicy crunchies.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 130,
+     "high": 504,
+     "req": 12,
+     "image": "Spicy crunchies.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 143,
+     "high": 517,
+     "req": 79,
+     "image": "Spicy crunchies.png"
+    }
+   ]
+  }
+ ],
+ "Worm crunchies": [
+  {
+   "label": "Worm crunchies cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Range",
+     "low": 118,
+     "high": 492,
+     "req": 14,
+     "image": "Worm crunchies.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 130,
+     "high": 504,
+     "req": 14,
+     "image": "Worm crunchies.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 143,
+     "high": 517,
+     "req": 79,
+     "image": "Worm crunchies.png"
+    }
+   ]
+  }
+ ],
+ "Chocchip crunchies": [
+  {
+   "label": "Chocchip crunchies cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Range",
+     "low": 118,
+     "high": 492,
+     "req": 16,
+     "image": "Chocchip crunchies.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 130,
+     "high": 504,
+     "req": 16,
+     "image": "Chocchip crunchies.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 143,
+     "high": 517,
+     "req": 79,
+     "image": "Chocchip crunchies.png"
+    }
+   ]
+  }
+ ],
+ "Fruit batta": [
+  {
+   "label": "Fruit batta cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Range",
+     "low": 118,
+     "high": 492,
+     "req": 1,
+     "image": "Fruit batta.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 130,
+     "high": 504,
+     "req": 1,
+     "image": "Fruit batta.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 143,
+     "high": 517,
+     "req": 79,
+     "image": "Fruit batta.png"
+    }
+   ]
+  }
+ ],
+ "Worm batta": [
+  {
+   "label": "Worm batta cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Range",
+     "low": 118,
+     "high": 492,
+     "req": 27,
+     "image": "Worm batta.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 130,
+     "high": 504,
+     "req": 27,
+     "image": "Worm batta.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 143,
+     "high": 517,
+     "req": 79,
+     "image": "Worm batta.png"
+    }
+   ]
+  }
+ ],
+ "Toad batta": [
+  {
+   "label": "Toad batta cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Range",
+     "low": 118,
+     "high": 492,
+     "req": 26,
+     "image": "Toad batta.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 130,
+     "high": 504,
+     "req": 26,
+     "image": "Toad batta.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 143,
+     "high": 517,
+     "req": 79,
+     "image": "Toad batta.png"
+    }
+   ]
+  }
+ ],
+ "Vegetable batta": [
+  {
+   "label": "Vegetable batta cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Range",
+     "low": 118,
+     "high": 492,
+     "req": 28,
+     "image": "Vegetable batta.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 130,
+     "high": 504,
+     "req": 28,
+     "image": "Vegetable batta.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 143,
+     "high": 517,
+     "req": 79,
+     "image": "Vegetable batta.png"
+    }
+   ]
+  }
+ ],
+ "Cheese+tom batta": [
+  {
+   "label": "Cheese+tom batta cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Range",
+     "low": 118,
+     "high": 492,
+     "req": 29,
+     "image": "Cheese+tom batta.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 130,
+     "high": 504,
+     "req": 29,
+     "image": "Cheese+tom batta.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 143,
+     "high": 517,
+     "req": 79,
+     "image": "Cheese+tom batta.png"
+    }
+   ]
+  }
+ ],
+ "Spider on stick": [
+  {
+   "label": "Spider on stick cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 91,
+     "high": 438,
+     "req": 16,
+     "image": "Spider on stick.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 103,
+     "high": 450,
+     "req": 16,
+     "image": "Spider on stick.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 116,
+     "high": 463,
+     "req": 79,
+     "image": "Spider on stick.png"
+    }
+   ]
+  }
+ ],
+ "Spider on shaft": [
+  {
+   "label": "Spider on shaft cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 91,
+     "high": 438,
+     "req": 16,
+     "image": "Spider on shaft.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 103,
+     "high": 450,
+     "req": 16,
+     "image": "Spider on shaft.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 116,
+     "high": 463,
+     "req": 79,
+     "image": "Spider on shaft.png"
+    }
+   ]
+  }
+ ],
+ "Cooked giant crab meat": [
+  {
+   "label": "Cooked giant crab meat cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 57,
+     "high": 377,
+     "req": 21,
+     "image": "Cooked giant crab meat (5).png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 69,
+     "high": 389,
+     "req": 21,
+     "image": "Cooked giant crab meat (5).png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 82,
+     "high": 402,
+     "req": 79,
+     "image": "Cooked giant crab meat (5).png"
+    }
+   ]
+  }
+ ],
+ "Half baked crunchy": [
+  {
+   "label": "Half baked crunchy cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Range",
+     "low": 118,
+     "high": 492,
+     "req": 1,
+     "image": "Half baked crunchy.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 130,
+     "high": 504,
+     "req": 1,
+     "image": "Half baked crunchy.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 143,
+     "high": 517,
+     "req": 79,
+     "image": "Half baked crunchy.png"
+    }
+   ]
+  }
+ ],
+ "Half baked batta": [
+  {
+   "label": "Half baked batta cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Range",
+     "low": 118,
+     "high": 492,
+     "req": 1,
+     "image": "Half baked batta.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 130,
+     "high": 504,
+     "req": 1,
+     "image": "Half baked batta.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 143,
+     "high": 517,
+     "req": 79,
+     "image": "Half baked batta.png"
+    }
+   ]
+  }
+ ],
+ "Half baked bowl": [
+  {
+   "label": "Half baked bowl cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Range",
+     "low": 118,
+     "high": 492,
+     "req": 1,
+     "image": "Half baked bowl.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 130,
+     "high": 504,
+     "req": 1,
+     "image": "Half baked bowl.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 143,
+     "high": 517,
+     "req": 79,
+     "image": "Half baked bowl.png"
+    }
+   ]
+  }
+ ],
+ "Fresh monkfish": [
+  {
+   "label": "Fresh monkfish cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 100,
+     "high": 240,
+     "req": 62,
+     "image": "Fresh monkfish.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 112,
+     "high": 252,
+     "req": 62,
+     "image": "Fresh monkfish.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 125,
+     "high": 265,
+     "req": 79,
+     "image": "Fresh monkfish.png"
+    }
+   ]
+  }
+ ],
+ "Garden pie": [
+  {
+   "label": "Garden pie cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Range",
+     "low": 48,
+     "high": 352,
+     "req": 34,
+     "image": "Garden pie.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 60,
+     "high": 364,
+     "req": 34,
+     "image": "Garden pie.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 73,
+     "high": 377,
+     "req": 79,
+     "image": "Garden pie.png"
+    }
+   ]
+  }
+ ],
+ "Roast rabbit": [
+  {
+   "label": "Roast rabbit cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire",
+     "low": 160,
+     "high": 255,
+     "req": 16,
+     "image": "Firemaking icon.png"
+    }
+   ]
+  }
+ ],
+ "Cooked rabbit": [
+  {
+   "label": "Rabbit cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 128,
+     "high": 512,
+     "req": 1,
+     "image": "Cooked rabbit.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 140,
+     "high": 524,
+     "req": 1,
+     "image": "Cooked rabbit.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 153,
+     "high": 537,
+     "req": 79,
+     "image": "Cooked rabbit.png"
+    }
+   ]
+  }
+ ],
+ "Burnt jogre bones": [
+  {
+   "label": "",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Burning the jogre bones",
+     "low": 1,
+     "high": 255,
+     "req": 30,
+     "image": "Tinderbox.png"
+    }
+   ]
+  }
+ ],
+ "Baked potato": [
+  {
+   "label": "Potato cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Range",
+     "low": 108,
+     "high": 472,
+     "req": 7,
+     "image": "Baked potato.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 120,
+     "high": 484,
+     "req": 7,
+     "image": "Baked potato.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 133,
+     "high": 497,
+     "req": 79,
+     "image": "Baked potato.png"
+    }
+   ]
+  }
+ ],
+ "Fried onions": [
+  {
+   "label": "Fried onions cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 36,
+     "high": 322,
+     "req": 42,
+     "image": "Fried onions.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 48,
+     "high": 334,
+     "req": 42,
+     "image": "Fried onions.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 61,
+     "high": 347,
+     "req": 79,
+     "image": "Fried onions.png"
+    }
+   ]
+  }
+ ],
+ "Ugthanki meat": [
+  {
+   "label": "Ugthanki meat cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire",
+     "low": 40,
+     "high": 252,
+     "req": 1,
+     "image": "Firemaking icon.png"
+    },
+    {
+     "label": "Range",
+     "low": 30,
+     "high": 253,
+     "req": 1,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 42,
+     "high": 265,
+     "req": 1,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 55,
+     "high": 278,
+     "req": 79,
+     "image": "Cooking range icon.png"
+    }
+   ]
+  }
+ ],
+ "Pitta bread": [
+  {
+   "label": "Pitta bread cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Range",
+     "low": 118,
+     "high": 492,
+     "req": 58,
+     "image": "Pitta bread.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 130,
+     "high": 504,
+     "req": 58,
+     "image": "Pitta bread.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 143,
+     "high": 517,
+     "req": 79,
+     "image": "Pitta bread.png"
+    }
+   ]
+  }
+ ],
+ "Scrambled egg": [
+  {
+   "label": "Scrambled egg cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Range",
+     "low": 90,
+     "high": 438,
+     "req": 13,
+     "image": "Scrambled egg.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 102,
+     "high": 450,
+     "req": 13,
+     "image": "Scrambled egg.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 115,
+     "high": 463,
+     "req": 79,
+     "image": "Scrambled egg.png"
+    }
+   ]
+  }
+ ],
+ "Caviar": [
+  {
+   "label": "Caviar creation chance",
+   "cascade": false,
+   "series": []
+  }
+ ],
+ "Dark crab": [
+  {
+   "label": "Dark crab cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 10,
+     "high": 222,
+     "req": 90,
+     "image": "Dark crab.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 22,
+     "high": 234,
+     "req": 90,
+     "image": "Dark crab.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 35,
+     "high": 247,
+     "req": 90,
+     "image": "Dark crab.png"
+    }
+   ]
+  }
+ ],
+ "Roast beast meat": [
+  {
+   "label": "Roast beast meat cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire",
+     "low": 180,
+     "high": 255,
+     "req": 21,
+     "image": "Firemaking icon.png"
+    }
+   ]
+  }
+ ],
+ "Giant carp": [
+  {
+   "label": "Giant carp cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 98,
+     "high": 452,
+     "req": 1,
+     "image": "Giant carp.png"
+    },
+    {
+     "label": "Lumbridge range",
+     "low": 108,
+     "high": 472,
+     "req": 1,
+     "image": "Lumbridge Teleport.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 110,
+     "high": 464,
+     "req": 1,
+     "image": "Giant carp.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 123,
+     "high": 477,
+     "req": 79,
+     "image": "Giant carp.png"
+    }
+   ]
+  }
+ ],
+ "Poison karambwan": [
+  {
+   "label": "Poison karambwan cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 70,
+     "high": 255,
+     "req": 1,
+     "image": "Poison_karambwan.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 82,
+     "high": 267,
+     "req": 1,
+     "image": "Poison_karambwan.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 95,
+     "high": 280,
+     "req": 79,
+     "image": "Poison_karambwan.png"
+    }
+   ]
+  }
+ ],
+ "Cooked oomlie wrap": [
+  {
+   "label": "Wrapped oomlie cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire",
+     "low": 106,
+     "high": 450,
+     "req": 50,
+     "image": "Firemaking icon.png"
+    },
+    {
+     "label": "Range",
+     "low": 112,
+     "high": 476,
+     "req": 50,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 124,
+     "high": 488,
+     "req": 50,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 137,
+     "high": 501,
+     "req": 79,
+     "image": "Cooking range icon.png"
+    }
+   ]
+  }
+ ],
+ "Fat snail meat": [
+  {
+   "label": "Fat snail meat cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 73,
+     "high": 402,
+     "req": 22,
+     "image": "Fat snail meat.png"
+    },
+    {
+     "label": "Lumbridge range",
+     "low": 83,
+     "high": 422,
+     "req": 22,
+     "image": "Lumbridge Teleport.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 85,
+     "high": 414,
+     "req": 22,
+     "image": "Fat snail meat.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 98,
+     "high": 427,
+     "req": 79,
+     "image": "Fat snail meat.png"
+    }
+   ]
+  }
+ ],
+ "Lean snail meat": [
+  {
+   "label": "Lean snail meat cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire",
+     "low": 93,
+     "high": 444,
+     "req": 17,
+     "image": "Firemaking icon.png"
+    },
+    {
+     "label": "Range",
+     "low": 85,
+     "high": 428,
+     "req": 17,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Lumbridge range",
+     "low": 95,
+     "high": 448,
+     "req": 17,
+     "image": "Lumbridge Teleport.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 97,
+     "high": 440,
+     "req": 17,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 110,
+     "high": 453,
+     "req": 79,
+     "image": "Cooking range icon.png"
+    }
+   ]
+  }
+ ],
+ "Thin snail meat": [
+  {
+   "label": "Thin snail meat cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 93,
+     "high": 444,
+     "req": 12,
+     "image": "Thin snail meat.png"
+    },
+    {
+     "label": "Lumbridge range",
+     "low": 103,
+     "high": 464,
+     "req": 12,
+     "image": "Lumbridge Teleport.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 105,
+     "high": 456,
+     "req": 12,
+     "image": "Thin snail meat.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 118,
+     "high": 469,
+     "req": 79,
+     "image": "Thin snail meat.png"
+    }
+   ]
+  }
+ ],
+ "Unfermented wine": [
+  {
+   "label": "Jug of wine success chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Jug of wine",
+     "low": 48,
+     "high": 352,
+     "req": 35,
+     "image": "Jug of wine detail.png"
+    }
+   ]
+  }
+ ],
+ "Cooked jubbly": [
+  {
+   "label": "Jubbly cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Ogre spit-roast",
+     "low": 191,
+     "high": 245,
+     "req": 41,
+     "image": "Firemaking icon.png"
+    }
+   ]
+  }
+ ],
+ "Anglerfish": [
+  {
+   "label": "Anglerfish cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire",
+     "low": 1,
+     "high": 200,
+     "req": 84,
+     "image": "Firemaking icon.png"
+    },
+    {
+     "label": "Range",
+     "low": 1,
+     "high": 220,
+     "req": 84,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Gauntlets",
+     "low": 12,
+     "high": 260,
+     "req": 84,
+     "image": "Cooking gauntlets.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 13,
+     "high": 232,
+     "req": 84,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 26,
+     "high": 245,
+     "req": 84,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +5%, gauntlets",
+     "low": 24,
+     "high": 272,
+     "req": 84,
+     "image": "Cooking gauntlets.png"
+    },
+    {
+     "label": "Hosidius +10%, gauntlets",
+     "low": 37,
+     "high": 285,
+     "req": 84,
+     "image": "Cooking gauntlets.png"
+    }
+   ]
+  }
+ ],
+ "Servery cooked meat": [
+  {
+   "label": "Servery cooked meat cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Clay oven",
+     "low": 128,
+     "high": 512,
+     "req": 1,
+     "image": "Cooking range icon.png"
+    }
+   ]
+  }
+ ],
+ "Servery meat pie": [
+  {
+   "label": "Servery meat pie cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Clay oven",
+     "low": 78,
+     "high": 412,
+     "req": 20,
+     "image": "Cooking range icon.png"
+    }
+   ]
+  }
+ ],
+ "Servery plain pizza": [
+  {
+   "label": "Servery plain pizza cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Clay oven",
+     "low": 48,
+     "high": 352,
+     "req": 0,
+     "image": "Cooking range icon.png"
+    }
+   ]
+  }
+ ],
+ "Servery stew": [
+  {
+   "label": "Servery stew cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Clay oven",
+     "low": 68,
+     "high": 392,
+     "req": 25,
+     "image": "Cooking range icon.png"
+    }
+   ]
+  }
+ ],
+ "Botanical pie": [
+  {
+   "label": "Botanical pie cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Range",
+     "low": 20,
+     "high": 300,
+     "req": 52,
+     "image": "Botanical pie.png"
+    },
+    {
+     "label": "Lumbridge range",
+     "low": 108,
+     "high": 462,
+     "req": 52,
+     "image": "Lumbridge Teleport.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 32,
+     "high": 312,
+     "req": 52,
+     "image": "Botanical pie.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 45,
+     "high": 325,
+     "req": 79,
+     "image": "Botanical pie.png"
+    }
+   ]
+  }
+ ],
+ "Kyren fish (6)": [
+  {
+   "label": "Cooked Kyren fish (6) cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire",
+     "low": 163,
+     "high": 255,
+     "req": 90,
+     "image": "Firemaking icon.png"
+    }
+   ]
+  }
+ ],
+ "Burnt shrimp": [
+  {
+   "label": "Shrimps cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 128,
+     "high": 512,
+     "req": 1,
+     "image": "Shrimps.png"
+    },
+    {
+     "label": "Lumbridge range",
+     "low": 138,
+     "high": 532,
+     "req": 1,
+     "image": "Lumbridge Teleport.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 140,
+     "high": 524,
+     "req": 1,
+     "image": "Shrimps.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 153,
+     "high": 537,
+     "req": 84,
+     "image": "Shrimps.png"
+    }
+   ]
+  }
+ ],
+ "Burnt fish (sardine)": [
+  {
+   "label": "Shrimps cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 128,
+     "high": 512,
+     "req": 1,
+     "image": "Shrimps.png"
+    },
+    {
+     "label": "Lumbridge range",
+     "low": 138,
+     "high": 532,
+     "req": 1,
+     "image": "Lumbridge Teleport.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 140,
+     "high": 524,
+     "req": 1,
+     "image": "Shrimps.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 153,
+     "high": 537,
+     "req": 84,
+     "image": "Shrimps.png"
+    }
+   ]
+  }
+ ],
+ "Burnt fish (trout)": [
+  {
+   "label": "Pike cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 78,
+     "high": 412,
+     "req": 20,
+     "image": "Pike.png"
+    },
+    {
+     "label": "Lumbridge range",
+     "low": 88,
+     "high": 432,
+     "req": 20,
+     "image": "Lumbridge Teleport.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 90,
+     "high": 424,
+     "req": 20,
+     "image": "Pike.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 103,
+     "high": 437,
+     "req": 79,
+     "image": "Pike.png"
+    }
+   ]
+  }
+ ],
+ "Burnt fish (tuna)": [
+  {
+   "label": "Fish burning chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Tuna (Fire or Range)",
+     "low": 58,
+     "high": 372,
+     "req": 30,
+     "image": "Tuna.png"
+    },
+    {
+     "label": "Tuna (Hosidius)",
+     "low": 70,
+     "high": 384,
+     "req": 30,
+     "image": "Tuna.png"
+    },
+    {
+     "label": "Bass (Fire or Range)",
+     "low": 33,
+     "high": 312,
+     "req": 43,
+     "image": "Bass.png"
+    },
+    {
+     "label": "Bass (Hosidius)",
+     "low": 45,
+     "high": 324,
+     "req": 43,
+     "image": "Bass.png"
+    }
+   ]
+  }
+ ],
+ "Burnt oomlie wrap": [
+  {
+   "label": "Burnt oomlie wrap cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire",
+     "low": 106,
+     "high": 450,
+     "req": 50,
+     "image": "Firemaking icon.png"
+    },
+    {
+     "label": "Range",
+     "low": 112,
+     "high": 476,
+     "req": 50,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 124,
+     "high": 488,
+     "req": 50,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 137,
+     "high": 501,
+     "req": 79,
+     "image": "Cooking range icon.png"
+    }
+   ]
+  }
+ ],
+ "Cooked meat (undead)": [
+  {
+   "label": "Undead meat cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 128,
+     "high": 512,
+     "req": 1,
+     "image": "Cooked meat (undead).png"
+    },
+    {
+     "label": "Lumbridge range",
+     "low": 138,
+     "high": 532,
+     "req": 1,
+     "image": "Lumbridge Teleport.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 140,
+     "high": 524,
+     "req": 1,
+     "image": "Cooked meat (undead).png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 153,
+     "high": 537,
+     "req": 84,
+     "image": "Cooked meat (undead).png"
+    }
+   ]
+  }
+ ],
+ "Cooked chicken (undead)": [
+  {
+   "label": "Undead chicken cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 128,
+     "high": 512,
+     "req": 1,
+     "image": "Cooked chicken (undead).png"
+    },
+    {
+     "label": "Lumbridge range",
+     "low": 138,
+     "high": 532,
+     "req": 1,
+     "image": "Lumbridge Teleport.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 140,
+     "high": 524,
+     "req": 1,
+     "image": "Cooked chicken (undead).png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 153,
+     "high": 537,
+     "req": 84,
+     "image": "Cooked chicken (undead).png"
+    }
+   ]
+  }
+ ],
+ "Mushroom pie": [
+  {
+   "label": "Mushroom pie cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Range",
+     "low": 17,
+     "high": 285,
+     "req": 60,
+     "image": "Mushroom pie.png"
+    },
+    {
+     "label": "Lumbridge range",
+     "low": 140,
+     "high": 450,
+     "req": 60,
+     "image": "Lumbridge Teleport.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 29,
+     "high": 297,
+     "req": 60,
+     "image": "Mushroom pie.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 42,
+     "high": 310,
+     "req": 79,
+     "image": "Mushroom pie.png"
+    }
+   ]
+  }
+ ],
+ "Dragonfruit pie": [
+  {
+   "label": "Dragonfruit pie cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Range",
+     "low": 8,
+     "high": 250,
+     "req": 73,
+     "image": "Dragonfruit pie.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 20,
+     "high": 262,
+     "req": 73,
+     "image": "Dragonfruit pie.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 33,
+     "high": 275,
+     "req": 79,
+     "image": "Dragonfruit pie.png"
+    }
+   ]
+  }
+ ],
+ "Paddlefish": [
+  {
+   "label": "Paddlefish cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Range",
+     "low": 155,
+     "high": 368,
+     "req": 30,
+     "image": "Paddlefish.png"
+    }
+   ]
+  }
+ ],
+ "Ugthanki kebab (bad)": [
+  {
+   "label": "Ugthanki kebab (bad) cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Ugthanki kebab (bad)",
+     "low": 118,
+     "high": 492,
+     "req": 1,
+     "image": "Ugthanki kebab (bad).png"
+    }
+   ]
+  }
+ ],
+ "Cooked mystery meat": [
+  {
+   "label": "Mystery meat cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 128,
+     "high": 512,
+     "req": 1,
+     "image": "Cooked mystery meat.png"
+    },
+    {
+     "label": "Lumbridge range",
+     "low": 138,
+     "high": 532,
+     "req": 1,
+     "image": "Lumbridge Teleport.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 140,
+     "high": 524,
+     "req": 1,
+     "image": "Cooked mystery meat.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 153,
+     "high": 537,
+     "req": 84,
+     "image": "Cooked mystery meat.png"
+    }
+   ]
+  }
+ ],
+ "Cooked barb-tailed kebbit": [
+  {
+   "label": "Cooked barb-tailed kebbit cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 56,
+     "high": 370,
+     "req": 32,
+     "image": "Cooked barb-tailed kebbit.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 68,
+     "high": 382,
+     "req": 32,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 81,
+     "high": 395,
+     "req": 79,
+     "image": "Cooking range icon.png"
+    }
+   ]
+  }
+ ],
+ "Cooked dashing kebbit": [
+  {
+   "label": "Cooked dashing kebbit cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire",
+     "low": 1,
+     "high": 194,
+     "req": 82,
+     "image": "Firemaking icon.png"
+    },
+    {
+     "label": "Range",
+     "low": 1,
+     "high": 224,
+     "req": 82,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 13,
+     "high": 236,
+     "req": 82,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 26,
+     "high": 249,
+     "req": 82,
+     "image": "Cooking range icon.png"
+    }
+   ]
+  }
+ ],
+ "Cooked graahk": [
+  {
+   "label": "Cooked graahk cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 32,
+     "high": 328,
+     "req": 41,
+     "image": "Cooked graahk.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 44,
+     "high": 340,
+     "req": 41,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 57,
+     "high": 353,
+     "req": 79,
+     "image": "Cooking range icon.png"
+    }
+   ]
+  }
+ ],
+ "Cooked kyatt": [
+  {
+   "label": "Cooked kyatt cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire",
+     "low": 18,
+     "high": 292,
+     "req": 51,
+     "image": "Firemaking icon.png"
+    },
+    {
+     "label": "Range or cooking gauntlets",
+     "low": 30,
+     "high": 310,
+     "req": 51,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 42,
+     "high": 322,
+     "req": 51,
+     "image": "Cooking range icon.png<!-- Cooking gauntlets have no effect at the Hosidius kitchen. -->"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 55,
+     "high": 335,
+     "req": 79,
+     "image": "Cooking range icon.png"
+    }
+   ]
+  }
+ ],
+ "Cooked larupia": [
+  {
+   "label": "Cooked larupia cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 65,
+     "high": 390,
+     "req": 31,
+     "image": "Cooked larupia.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 77,
+     "high": 402,
+     "req": 31,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 90,
+     "high": 415,
+     "req": 79,
+     "image": "Cooking range icon.png"
+    }
+   ]
+  }
+ ],
+ "Cooked moonlight antelope": [
+  {
+   "label": "Cooked moonlight antelope cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire",
+     "low": 1,
+     "high": 185,
+     "req": 92,
+     "image": "Firemaking icon.png"
+    },
+    {
+     "label": "Range",
+     "low": 1,
+     "high": 200,
+     "req": 92,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 13,
+     "high": 212,
+     "req": 92,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 26,
+     "high": 225,
+     "req": 92,
+     "image": "Cooking range icon.png"
+    }
+   ]
+  }
+ ],
+ "Cooked pyre fox": [
+  {
+   "label": "Cooked pyre fox cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire",
+     "low": 10,
+     "high": 273,
+     "req": 59,
+     "image": "Firemaking icon.png"
+    },
+    {
+     "label": "Range",
+     "low": 11,
+     "high": 276,
+     "req": 59,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 23,
+     "high": 288,
+     "req": 59,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 36,
+     "high": 301,
+     "req": 79,
+     "image": "Cooking range icon.png"
+    }
+   ]
+  }
+ ],
+ "Cooked sunlight antelope": [
+  {
+   "label": "Cooked sunlight antelope cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire",
+     "low": 8,
+     "high": 254,
+     "req": 68,
+     "image": "Firemaking icon.png"
+    },
+    {
+     "label": "Range",
+     "low": 8,
+     "high": 265,
+     "req": 68,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 20,
+     "high": 277,
+     "req": 68,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 33,
+     "high": 290,
+     "req": 79,
+     "image": "Cooking range icon.png"
+    }
+   ]
+  }
+ ],
+ "Cooked wild kebbit": [
+  {
+   "label": "Cooked wild kebbit cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 84,
+     "high": 428,
+     "req": 23,
+     "image": "Cooked wild kebbit.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 96,
+     "high": 440,
+     "req": 23,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 109,
+     "high": 453,
+     "req": 79,
+     "image": "Cooking range icon.png"
+    }
+   ]
+  }
+ ],
+ "Blue crab meat": [
+  {
+   "label": "Blue crab meat cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire",
+     "low": -80,
+     "high": 320,
+     "req": 48,
+     "image": "Firemaking icon.png"
+    },
+    {
+     "label": "Range",
+     "low": -80,
+     "high": 352,
+     "req": 48,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": -68,
+     "high": 364,
+     "req": 48,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": -55,
+     "high": 377,
+     "req": 48,
+     "image": "Cooking range icon.png"
+    }
+   ]
+  }
+ ],
+ "Bluefin": [
+  {
+   "label": "Bluefin cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire",
+     "low": -1007,
+     "high": 222,
+     "req": 87,
+     "image": "Firemaking icon.png"
+    },
+    {
+     "label": "Range",
+     "low": -997,
+     "high": 232,
+     "req": 87,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": -985,
+     "high": 244,
+     "req": 87,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": -972,
+     "high": 257,
+     "req": 87,
+     "image": "Cooking range icon.png"
+    }
+   ]
+  }
+ ],
+ "Giant krill": [
+  {
+   "label": "Giant krill cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire",
+     "low": -229,
+     "high": 242,
+     "req": 69,
+     "image": "Firemaking icon.png"
+    },
+    {
+     "label": "Range",
+     "low": -239,
+     "high": 252,
+     "req": 69,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": -227,
+     "high": 264,
+     "req": 69,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": -214,
+     "high": 277,
+     "req": 69,
+     "image": "Cooking range icon.png"
+    }
+   ]
+  }
+ ],
+ "Haddock": [
+  {
+   "label": "Haddock cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire",
+     "low": -330,
+     "high": 237,
+     "req": 73,
+     "image": "Firemaking icon.png"
+    },
+    {
+     "label": "Range",
+     "low": -320,
+     "high": 247,
+     "req": 73,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": -308,
+     "high": 259,
+     "req": 73,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": -295,
+     "high": 272,
+     "req": 73,
+     "image": "Cooking range icon.png"
+    }
+   ]
+  }
+ ],
+ "Halibut": [
+  {
+   "label": "Halibut cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire",
+     "low": -694,
+     "high": 227,
+     "req": 83,
+     "image": "Firemaking icon.png"
+    },
+    {
+     "label": "Range",
+     "low": -684,
+     "high": 237,
+     "req": 83,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": -672,
+     "high": 249,
+     "req": 83,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": -659,
+     "high": 262,
+     "req": 83,
+     "image": "Cooking range icon.png"
+    }
+   ]
+  }
+ ],
+ "Yellowfin": [
+  {
+   "label": "Yellowfin cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire",
+     "low": -505,
+     "high": 232,
+     "req": 79,
+     "image": "Firemaking icon.png"
+    },
+    {
+     "label": "Range",
+     "low": -495,
+     "high": 242,
+     "req": 79,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": -483,
+     "high": 254,
+     "req": 79,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": -470,
+     "high": 267,
+     "req": 79,
+     "image": "Cooking range icon.png"
+    }
+   ]
+  }
+ ],
+ "Red crab meat": [
+  {
+   "label": "Red crab meat cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire",
+     "low": 36,
+     "high": 426,
+     "req": 21,
+     "image": "Firemaking icon.png"
+    },
+    {
+     "label": "Range",
+     "low": 36,
+     "high": 466,
+     "req": 21,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 48,
+     "high": 478,
+     "req": 21,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 61,
+     "high": 491,
+     "req": 21,
+     "image": "Cooking range icon.png"
+    }
+   ]
+  }
+ ],
+ "Rainbow crab meat": [
+  {
+   "label": "Rainbow crab meat cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire",
+     "low": -325,
+     "high": 230,
+     "req": 77,
+     "image": "Firemaking icon.png"
+    },
+    {
+     "label": "Range",
+     "low": -325,
+     "high": 250,
+     "req": 77,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": -313,
+     "high": 262,
+     "req": 77,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": -300,
+     "high": 275,
+     "req": 77,
+     "image": "Cooking range icon.png"
+    }
+   ]
+  }
+ ],
+ "Swordtip squid": [
+  {
+   "label": "Swordtip squid cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire",
+     "low": -150,
+     "high": 295,
+     "req": 56,
+     "image": "Firemaking icon.png"
+    },
+    {
+     "label": "Range",
+     "low": -150,
+     "high": 325,
+     "req": 56,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": -138,
+     "high": 337,
+     "req": 56,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": -125,
+     "high": 350,
+     "req": 56,
+     "image": "Cooking range icon.png"
+    }
+   ]
+  }
+ ],
+ "Jumbo squid": [
+  {
+   "label": "Jumbo squid cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire",
+     "low": -260,
+     "high": 230,
+     "req": 71,
+     "image": "Firemaking icon.png"
+    },
+    {
+     "label": "Range",
+     "low": -260,
+     "high": 250,
+     "req": 71,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": -248,
+     "high": 262,
+     "req": 71,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": -235,
+     "high": 275,
+     "req": 71,
+     "image": "Cooking range icon.png"
+    }
+   ]
+  }
+ ],
+ "Marlin": [
+  {
+   "label": "Marlin cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire",
+     "low": -1626,
+     "high": 217,
+     "req": 91,
+     "image": "Firemaking icon.png"
+    },
+    {
+     "label": "Range",
+     "low": -1616,
+     "high": 227,
+     "req": 91,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": -1604,
+     "high": 239,
+     "req": 91,
+     "image": "Cooking range icon.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": -1591,
+     "high": 252,
+     "req": 91,
+     "image": "Cooking range icon.png"
+    }
+   ]
+  }
+ ],
+ "Cooked t-bone steak": [
+  {
+   "label": "T-bone cooking chance",
+   "cascade": false,
+   "series": [
+    {
+     "label": "Fire or Range",
+     "low": 92,
+     "high": 423,
+     "req": 13,
+     "image": "Cooked t-bone steak.png"
+    },
+    {
+     "label": "Hosidius +5%",
+     "low": 104,
+     "high": 435,
+     "req": 30,
+     "image": "Cooked t-bone steak.png"
+    },
+    {
+     "label": "Hosidius +10%",
+     "low": 117,
+     "high": 448,
+     "req": 79,
+     "image": "Cooked t-bone steak.png"
+    }
+   ]
+  }
+ ]
+}

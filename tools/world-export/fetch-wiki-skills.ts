@@ -291,6 +291,16 @@ async function main(): Promise<void> {
     const recipes = (await bucketAll("recipe", ["page_name", "uses_skill", "production_json"])).map(parseRecipe).filter((r): r is Recipe => !!r);
     write("recipes.json", recipes);
 
+    // Cooking burn chances: the success chart on each cooked item's page.
+    const cooked = [...new Set(recipes.filter((r) => r.skills[0].skill === "Cooking").map((r) => r.page))];
+    const cookTexts = await pagesWikitext(cooked);
+    const cookCharts: Record<string, Chart[]> = {};
+    for (const [page, text] of cookTexts) {
+        const charts = findTemplates(text, "Skilling success chart").map(parseChart);
+        if (charts.length > 0) cookCharts[page] = charts;
+    }
+    write("cooking-charts.json", cookCharts);
+
     write("skill-info.json", { pages: await skillInfo() });
 
     const calc: Record<string, unknown> = {};

@@ -20,6 +20,7 @@
         "export-hitsplats": "tsx tools/world-export/export-hitsplats.ts",
         "export-spells": "tsx tools/world-export/export-spells.ts",
         "export-items": "node --max-old-space-size=8192 --import tsx tools/world-export/export-items.ts",
+        "export-skills": "node --max-old-space-size=8192 --import tsx tools/world-export/export-skills.ts",
         "export-world": "node --max-old-space-size=16384 --import tsx tools/world-export/export-world.ts"
     },
     "dependencies": {
