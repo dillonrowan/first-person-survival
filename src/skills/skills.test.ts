@@ -1,7 +1,8 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { setRandom } from "../game/Random";
-import { BITE_WINDOW, CAST_SECONDS, FishJob } from "./fishing";
+import { burnTicks } from "./fires";
+import { BITE_WINDOW, CAST_SECONDS, FishJob, SCOOP_SECONDS } from "./fishing";
 import { FishingMinigame } from "./FishingMinigame";
 import { createTestSkills, emptyManifest, testLoc, testNpc } from "./testContext";
 
@@ -30,7 +31,7 @@ describe("fishing", () => {
             { id: 345, name: "Raw herring" },
             { id: 327, name: "Raw sardine" },
         ], { fishing: level });
-        const spot = { npcId: 1530, x: 11.5, y: 12.5, plane: 0, waterZ: 0 };
+        const spot = { npcId: 1530, x: 11.5, y: 10.5, plane: 0, waterZ: 0 };
         const frame = (dt: number, pressed = false, down = pressed, aimed: unknown = spot) =>
             t.sys.update({ acted: false, panelOpen: false, dead: false, dt, pointer: { pressed, down, aimed } });
         const job = () => t.sys.active as FishJob;
@@ -57,7 +58,7 @@ describe("fishing", () => {
         setRandom(() => 0.5);
         hook(t);
         t.job().minigame!.progress = 0.999;
-        t.job().minigame!.fishAt = t.job().minigame!.zoneAt + 0.01;
+        t.job().minigame!.fishAt = t.job().minigame!.zoneAt + t.job().minigame!.zone / 2;
         t.frame(0.1, false, true);
         expect(t.inventory.count(345)).toBe(1);
         expect(t.inventory.count(BAIT)).toBe(1);
@@ -73,7 +74,7 @@ describe("fishing", () => {
         setRandom(() => 0.5);
         hook(t);
         t.job().minigame!.progress = 0.999;
-        t.job().minigame!.fishAt = t.job().minigame!.zoneAt + 0.01;
+        t.job().minigame!.fishAt = t.job().minigame!.zoneAt + t.job().minigame!.zone / 2;
         t.frame(0.1, false, true);
         expect(t.inventory.count(327)).toBe(1);
     });
@@ -106,6 +107,84 @@ describe("fishing", () => {
         t.frame(BITE_WINDOW + 0.01);
         expect(t.logs.at(-1)).toBe("The fish got away.");
         expect(t.job().phase).toBe("waiting");
+    });
+
+    it("scoops with a net instead of casting: each scoop rolls until a fish comes up", () => {
+        const NET = 303;
+        const data = emptyManifest();
+        data.fishing = [{ npcIds: [1530], action: "Net", tools: [NET], catches: [{ item: 317, level: 1, xp: 10, chance: { low: 48, high: 256 } }] }];
+        const t = createTestSkills(data, [
+            { id: NET, name: "Small fishing net" },
+            { id: 317, name: "Raw shrimps" },
+        ], { fishing: 1 });
+        const spot = { npcId: 1530, x: 11.5, y: 10.5, plane: 0, waterZ: 0 };
+        const frame = (dt: number, pressed = false, down = pressed) =>
+            t.sys.update({ acted: false, panelOpen: false, dead: false, dt, pointer: { pressed, down, aimed: spot } });
+        t.inventory.add(NET, 1);
+        const splashes: unknown[] = [];
+        t.sys.fishing.onSplash = (s) => splashes.push(s);
+        t.sys.fishing.spotAction(spot, "Net");
+        const job = t.sys.active as FishJob;
+        expect(job.stroke).toBe("scoop");
+        setRandom(() => 0.99); // the first scoop comes up empty
+        frame(0.016, true);
+        expect(job.phase).toBe("scoop");
+        expect(t.sys.toolMotion()).toEqual({ kind: "scoop", t: expect.any(Number) });
+        frame(SCOOP_SECONDS);
+        expect(splashes).toEqual([spot]);
+        expect(job.phase).toBe("ready");
+        expect(t.inventory.count(317)).toBe(0);
+        setRandom(() => 0.01); // held down: the next scoop starts by itself and catches
+        frame(0.016, false, true);
+        frame(SCOOP_SECONDS);
+        expect(t.inventory.count(317)).toBe(1);
+        expect(t.logs.at(-1)).toBe("You catch some shrimps.");
+    });
+
+    it("a left click on the spot with the rod in hand fishes and casts; the job goes on after a catch", () => {
+        const t = setup(10);
+        t.worn.push(ROD);
+        t.inventory.add(BAIT, 5);
+        setRandom(() => 0.5);
+        expect(t.sys.fishing.clickSpot(t.spot)).toBe(true);
+        t.frame(0.016, true); // the same click casts
+        expect(t.job().phase).toBe("cast");
+        expect(t.sys.fishing.clickSpot(t.spot)).toBe(false); // the job takes later clicks
+        for (let n = 1; n <= 2; n++) {
+            if (n > 1) t.frame(0.016, true);
+            t.frame(CAST_SECONDS);
+            t.frame(3.1);
+            t.frame(0.016, true);
+            t.job().minigame!.progress = 0.999;
+            t.job().minigame!.fishAt = t.job().minigame!.zoneAt + t.job().minigame!.zone / 2;
+            t.frame(0.1, false, true);
+            expect(t.inventory.count(345)).toBe(n);
+        }
+    });
+
+    it("tells the player to come closer to a spot out of reach", () => {
+        const t = setup(10);
+        t.worn.push(ROD);
+        t.inventory.add(BAIT, 5);
+        const far = { ...t.spot, y: t.player.y + 5 };
+        expect(t.sys.fishing.clickSpot(far)).toBe(true);
+        expect(t.logs.at(-1)).toBe("You need to get closer to the fishing spot.");
+        expect(t.sys.active).toBeUndefined();
+    });
+
+    it("drops the catch at the player's feet when the inventory is full, and goes on", () => {
+        const t = setup(10);
+        t.inventory.add(ROD, 1);
+        t.inventory.add(BAIT, 5);
+        t.sys.fishing.spotAction(t.spot, "Bait");
+        while (t.inventory.freeSlots() > 0) t.inventory.add(ROD, 1);
+        setRandom(() => 0.5);
+        hook(t);
+        t.job().minigame!.progress = 0.999;
+        t.job().minigame!.fishAt = t.job().minigame!.zoneAt + t.job().minigame!.zone / 2;
+        t.frame(0.1, false, true);
+        expect(t.ground).toEqual([{ id: 345, qty: 1, x: Math.floor(t.player.x), y: Math.floor(t.player.y) }]);
+        expect(t.job().phase).toBe("ready");
     });
 
     it("stops when the rod is put away", () => {
@@ -201,11 +280,19 @@ describe("fires", () => {
         await Promise.resolve();
         expect(t.inventory.count(1511)).toBe(0);
         expect(t.xp).toEqual({});
-        expect(t.player.x).toBe(9.5); // stepped west
+        expect(t.player.x).toBe(10.5); // stays where the fire is lit
         t.ctx.clock.advance(99);
         expect(t.ground).toEqual([]);
         t.ctx.clock.advance(1);
         expect(t.ground).toEqual([{ id: 592, qty: 1, x: 10, y: 9 }]);
+    });
+
+    it("burns better logs for longer, by their tree's Woodcutting level", () => {
+        const data = emptyManifest();
+        data.trees = [{ name: "Yew tree", locIds: [10822], level: 61, xp: 175, logs: 1515, respawnTicks: 100, despawnTicks: 190, depleteChance: 0, chances: {}, stumpLocId: 1342, extraLoot: [] }];
+        setRandom(() => 0);
+        expect(burnTicks({ data }, 1511)).toBe(100);
+        expect(burnTicks({ data }, 1515)).toBe(300);
     });
 });
 
@@ -226,17 +313,35 @@ describe("runecraft", () => {
         expect(t.inventory.count(556)).toBe(30);
         expect(t.xp.runecraft).toBe(50);
     });
+
+    it("places the ruins, names the missing talisman and teleports with it", () => {
+        const data = emptyManifest();
+        data.runecraft.altars = [
+            { rune: "Air", runeItem: 556, level: 1, xp: 5, altarLocIds: [34760], ruinsLocIds: [28914], ruins: { x: 20, y: 20, plane: 0 }, talisman: 1438, tiara: 5527, arrival: { x: 40, y: 40, plane: 0 }, exitLocIds: [], multiples: [], pureOnly: false },
+        ];
+        data.locs = { 28914: { role: "ruins", rune: "Air" } };
+        const t = createTestSkills(data, [{ id: 1438, name: "Air talisman" }]);
+        const ruins = t.ctx.skillLocs.get("0:20:20:28914")!;
+        expect(ruins.loc.actions).toEqual(["Enter"]);
+        t.sys.locAction(ruins, "Enter");
+        expect(t.logs.at(-1)).toBe("You need an air talisman to enter these ruins.");
+        t.inventory.add(1438, 1);
+        t.sys.locAction(ruins, "Enter");
+        expect([t.player.x, t.player.y]).toEqual([40.5, 40.5]);
+    });
 });
 
 describe("thieving", () => {
-    it("stuns and hurts on a failed pickpocket", () => {
+    it("stuns, hurts and turns the NPC hostile on a failed pickpocket", () => {
         const data = emptyManifest();
         data.pickpockets = [{ name: "Man", npcIds: [3106], level: 1, xp: 8, stunTicks: 8, damage: 1, chance: { low: 180, high: 240 }, loot: [{ item: 995, min: 3, max: 3, p: 1 }] }];
         const t = createTestSkills(data, [{ id: 995, name: "Coins", stackable: true }]);
         setRandom(() => 0.99);
-        t.sys.npcAction(testNpc(3106, "Man"), "Pickpocket");
+        const man = Object.assign(testNpc(3106, "Man"), { attackable: true, becomeAlerted: vi.fn() });
+        t.sys.npcAction(man, "Pickpocket");
         t.ctx.clock.advance(2);
         expect(t.hurt).toBe(1);
+        expect(man.becomeAlerted).toHaveBeenCalledWith(t.ctx.player.x, t.ctx.player.y);
         expect(t.sys.thieving.stunned).toBe(true);
         t.ctx.clock.advance(8);
         expect(t.sys.thieving.stunned).toBe(false);

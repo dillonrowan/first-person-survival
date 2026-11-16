@@ -10,6 +10,7 @@ import type { MoveDef, PowerDirection } from "./moves";
 import { createPlaceholderWeapon } from "./PlaceholderWeapons";
 import { tuning } from "./tuning";
 import { UNARMED, type WeaponDef } from "./weapons";
+import type { ToolMotion } from "../skills/SkillContext";
 
 /** Position (camera space, tiles) and orientation of the held weapon. */
 type Pose = { pos: THREE.Vector3; quat: THREE.Quaternion };
@@ -51,6 +52,71 @@ const CROSSBOW_AIM = euler(0.13, -0.2, -0.44, -Math.PI / 2, 0, 0);
  * the string is seen pulled back toward the butt, and the bolt laid in its groove.
  */
 const CROSSBOW_RELOAD = axes(0.06, -0.18, -0.5, new THREE.Vector3(-0.15, -0.6, -0.78), new THREE.Vector3(0, -0.78, 0.6));
+/**
+ * Fishing tools (models with `userData.hold`). A rod is held low on the right, angled up and out
+ * with its reel and guides underneath; a net, pot or harpoon is held out in front, head forward.
+ */
+const ROD_REST = axes(0.2, -0.32, -0.32, new THREE.Vector3(-0.1, 0.5, -1), new THREE.Vector3(0, -1, 0.3));
+const TOOL_REST = axes(0.2, -0.26, -0.36, new THREE.Vector3(-0.25, 0.32, -1), new THREE.Vector3(0, -1, 0));
+/**
+ * Keyed tool strokes over t 0..1: [t, pitch about the grip (radians, + lifts the far end), rise,
+ * forward reach (tiles)]. The cast swings the rod back over the shoulder and whips it out; a scoop
+ * lifts the net, plunges it into the water, drags it back through and lifts it out; a stab draws the
+ * harpoon back and drives it down and forward. [design]
+ */
+type StrokeKey = readonly [t: number, pitch: number, rise: number, reach: number];
+const STROKES: Record<"cast" | "scoop" | "stab", readonly StrokeKey[]> = {
+    cast: [[0, 0, 0, 0], [0.35, 1.15, 0.08, -0.05], [0.52, -0.4, -0.02, 0.1], [0.7, -0.25, 0, 0.05], [1, 0, 0, 0]],
+    scoop: [[0, 0, 0, 0], [0.25, 0.35, 0.05, 0], [0.42, -0.6, -0.04, 0.3], [0.7, -0.45, -0.03, -0.02], [0.85, 0.3, 0.04, -0.02], [1, 0, 0, 0]],
+    stab: [[0, 0, 0, 0], [0.3, 0.25, 0.06, -0.12], [0.42, -0.45, -0.04, 0.55], [0.6, -0.4, -0.03, 0.45], [1, 0, 0, 0]],
+};
+
+function stroke(keys: readonly StrokeKey[], t: number): { pitch: number; rise: number; reach: number } {
+    let i = 0;
+    while (i < keys.length - 2 && t > keys[i + 1][0]) i++;
+    const [t0, p0, r0, f0] = keys[i];
+    const [t1, p1, r1, f1] = keys[i + 1];
+    const k = smooth(Math.min(1, Math.max(0, (t - t0) / Math.max(1e-6, t1 - t0))));
+    return { pitch: lerp(p0, p1, k), rise: lerp(r0, r1, k), reach: lerp(f0, f1, k) };
+}
+
+/**
+ * Gathering strokes, keyed as whole poses over t 0..1 (each key: t, the pose, and whether the move
+ * into it eases in and out or snaps through as a blow). An axe is drawn back over the right
+ * shoulder and brought down across the body into the trunk at the crosshair, where it sticks for a
+ * moment before being worked free; a pickaxe is lifted overhead and driven straight down onto the
+ * rock in front. The impact keys match CHOP_STROKE and MINE_STROKE (src/skills/gathering.ts). [design]
+ */
+type GatherKey = { t: number; pose: Pose; blow?: boolean };
+const GATHER_REST = axes(0.22, -0.3, -0.42, new THREE.Vector3(-0.2, 0.75, -0.65), new THREE.Vector3(-0.6, 0.2, -0.8));
+const GATHER_STROKES: Record<"chop" | "mine", GatherKey[]> = {
+    chop: [
+        { t: 0, pose: GATHER_REST },
+        { t: 0.38, pose: axes(0.34, -0.02, -0.26, new THREE.Vector3(0.45, 0.85, 0.3), new THREE.Vector3(-0.5, 0.15, -0.85)) },
+        { t: 0.5, pose: axes(0.08, -0.24, -0.5, new THREE.Vector3(-0.6, 0.12, -0.8), new THREE.Vector3(-0.55, -0.75, 0.2)), blow: true },
+        { t: 0.66, pose: axes(0.09, -0.25, -0.49, new THREE.Vector3(-0.6, 0.1, -0.8), new THREE.Vector3(-0.55, -0.75, 0.2)) },
+        { t: 1, pose: GATHER_REST },
+    ],
+    mine: [
+        { t: 0, pose: GATHER_REST },
+        { t: 0.42, pose: axes(0.16, 0.08, -0.22, new THREE.Vector3(0.05, 0.8, 0.6), new THREE.Vector3(0, 0.55, -0.85)) },
+        { t: 0.55, pose: axes(0.1, -0.26, -0.48, new THREE.Vector3(-0.12, -0.35, -0.93), new THREE.Vector3(0, -0.95, 0.3)), blow: true },
+        { t: 0.7, pose: axes(0.1, -0.25, -0.47, new THREE.Vector3(-0.12, -0.3, -0.95), new THREE.Vector3(0, -0.95, 0.3)) },
+        { t: 1, pose: GATHER_REST },
+    ],
+};
+
+function gatherPose(kind: "chop" | "mine", t: number): Pose {
+    const keys = GATHER_STROKES[kind];
+    let i = 0;
+    while (i < keys.length - 2 && t > keys[i + 1].t) i++;
+    const a = keys[i];
+    const b = keys[i + 1];
+    const k = Math.min(1, Math.max(0, (t - a.t) / Math.max(1e-6, b.t - a.t)));
+    // A blow accelerates into the target; everything else eases.
+    return lerpPose(a.pose, b.pose, b.blow ? k * k : smooth(k));
+}
+
 /** A shot's kick: the muzzle flips up (radians) and the stock jolts back (tiles) at full recoil. [design] */
 const CROSSBOW_KICK = { pitch: 0.16, back: 0.05 };
 
@@ -71,6 +137,15 @@ const HITSTOP = 0.07;
 /** Camera shake on impact, radians at full strength, and how fast it dies out (1/s). [design] */
 const IMPACT_SHAKE = 0.012;
 const SHAKE_DECAY = 14;
+/**
+ * A blow taken on the held item (a blocked strike, a blocked parry, the blade meeting a guard): it
+ * rattles in the grip (tiles, radians of twist), knocked back towards the player (tiles), dying away
+ * (1/s). [design]
+ */
+const CLASH_RATTLE = 0.01;
+const CLASH_TWIST = 0.07;
+const CLASH_KNOCK = 0.035;
+const CLASH_DECAY = 8;
 /** Tremble of the blade while a charged power attack is held, tiles. [design] */
 const CHARGE_TREMBLE = 0.004;
 
@@ -233,6 +308,10 @@ export class WeaponView {
     private readonly holder = new THREE.Group();
     /** 0..1 through a skilling tool swing (woodcutting, mining), or undefined. */
     private skillSwing: number | undefined;
+    /** What a held fishing tool is doing, or undefined. */
+    private toolMotion: ToolMotion | undefined;
+    /** How far a rod is raised for reeling (radians), eased. */
+    private reelLift = 0;
     private readonly models = new Map<string, THREE.Object3D>();
     private readonly loading = new Set<string>();
     private current: THREE.Object3D | undefined;
@@ -250,6 +329,7 @@ export class WeaponView {
     private lag = 0;
     private freeze = 0;
     private shake = 0;
+    private clashing = 0;
     private clock = 0;
 
     private pose: Pose | undefined;
@@ -364,10 +444,53 @@ export class WeaponView {
         return out.set(0, length, 0).applyMatrix4(this.holder.matrixWorld);
     }
 
+    /** A blow met the held item: it rattles in the hand and the view shudders a little. 0..1. */
+    clash(strength: number): void {
+        this.clashing = Math.max(this.clashing, strength);
+        this.shake = Math.max(this.shake, strength * 0.4);
+    }
+
     /** A melee strike landed: the blade stalls in the target for a moment and the view jolts. 0..1. */
     impact(strength: number): void {
         this.freeze = Math.max(this.freeze, HITSTOP * strength);
         this.shake = Math.max(this.shake, strength);
+    }
+
+    /** Sets what the held tool is doing (fishing, chopping, mining) for the next update; undefined when idle. */
+    setToolMotion(motion: ToolMotion | undefined): void {
+        this.toolMotion = motion;
+    }
+
+    /** A fishing tool's pose: its rest pose turned about the grip by the current motion. */
+    private toolPose(hold: "rod" | "tool", dt: number): Pose {
+        const rest = hold === "rod" ? ROD_REST : TOOL_REST;
+        const m = this.toolMotion;
+        let pitch = 0;
+        let yaw = 0;
+        let rise = 0;
+        let reach = 0;
+        // The rod comes up while the fish is fought, higher while the reel is held.
+        const lift = m?.kind === "reel" ? (m.holding ? 0.5 : 0.28) : 0;
+        this.reelLift += (lift - this.reelLift) * Math.min(1, 8 * dt);
+        if (m && (m.kind === "cast" || m.kind === "scoop" || m.kind === "stab")) {
+            ({ pitch, rise, reach } = stroke(STROKES[m.kind], m.t));
+        } else if (m?.kind === "bite") {
+            // The tip snatched down in jerks.
+            pitch = -0.08 + 0.05 * Math.sin(m.t * 45);
+        } else if (m?.kind === "reel") {
+            // The fish pulling against the rod.
+            pitch = 0.04 * Math.sin(m.t * 23) + 0.03 * Math.sin(m.t * 7.7);
+            yaw = 0.09 * Math.sin(m.t * 1.9) + 0.03 * Math.sin(m.t * 5.3);
+        } else {
+            // Holding still: a slow breathing bob.
+            pitch = 0.02 * Math.sin(this.clock * 1.3);
+        }
+        pitch += this.reelLift;
+        const turn = new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch, yaw, 0, "YXZ"));
+        return {
+            pos: rest.pos.clone().add(new THREE.Vector3(0, rise, -reach)),
+            quat: turn.multiply(rest.quat),
+        };
     }
 
     /** Sets the skilling swing phase for the next update; undefined when not skilling. */
@@ -448,6 +571,15 @@ export class WeaponView {
             pose = workLever(pose, crossbow.slide ?? 0);
         } else {
             pose = this.animate(dt, weapon.family, melee, extra.blocking ?? false);
+            // A fishing tool takes its own pose unless it is being swung or used to block; an axe
+            // chopping or a pickaxe mining takes its stroke.
+            const hold = this.current?.userData.hold as "rod" | "tool" | undefined;
+            const m = this.toolMotion;
+            if (m && (m.kind === "chop" || m.kind === "mine")) {
+                pose = gatherPose(m.kind, m.t);
+            } else if (hold && !melee.swing && !melee.chargedMove && !extra.blocking) {
+                pose = this.toolPose(hold, dt);
+            }
         }
         if (kick?.active) {
             pose = lerpPose(pose, KICK_ASIDE, Math.min(1, (kick.elapsed ?? 0) / 0.1));
@@ -469,6 +601,16 @@ export class WeaponView {
             // Muscles straining against the held power attack.
             this.holder.position.x += Math.sin(this.clock * 31) * CHARGE_TREMBLE;
             this.holder.position.y += Math.sin(this.clock * 23 + 1) * CHARGE_TREMBLE;
+        }
+        if (this.clashing > 1e-3) {
+            const a = this.clashing;
+            this.holder.position.x += Math.sin(this.clock * 95) * CLASH_RATTLE * a;
+            this.holder.position.y += Math.cos(this.clock * 83) * CLASH_RATTLE * a;
+            this.holder.position.z += CLASH_KNOCK * a;
+            this.holder.rotateZ(Math.sin(this.clock * 77) * CLASH_TWIST * a);
+            this.clashing *= Math.exp(-CLASH_DECAY * dt);
+        } else {
+            this.clashing = 0;
         }
         // Impact jolt: a quick decaying shudder of the view.
         if (this.shake > 1e-3) {

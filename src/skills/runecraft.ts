@@ -1,3 +1,5 @@
+import * as THREE from "three";
+
 import type { Npc } from "../npc/Npc";
 import type { AltarDef, LocRole, Tile } from "../world/SkillFormat";
 import type { SkillLocInstance } from "../world/SkillLocs";
@@ -6,13 +8,31 @@ import type { SkillSystem } from "./SkillSystem";
 
 /** Map square of the rune essence mine. */
 const ESSENCE_MINE = { mapX: 45, mapY: 75 };
+/** Footprint of the mysterious ruins, in tiles. */
+const RUINS_SIZE = 3;
 
 /** Altars reached through mysterious ruins with a talisman or tiara; the essence mine via Aubury. */
 export class Runecraft {
     constructor(
         private readonly ctx: SkillContext,
         private readonly sys: SkillSystem,
-    ) {}
+    ) {
+        this.placeRuins();
+    }
+
+    /**
+     * The placed ruins are multilocs (one per talisman/tiara look) whose ids the export does not
+     * know, so the map draws them but has no target. Each altar's ruins become a game-placed
+     * target over the drawn model.
+     */
+    private placeRuins(): void {
+        for (const altar of this.ctx.data.runecraft.altars) {
+            if (!altar.ruins || altar.ruinsLocIds.length === 0) continue;
+            const { x, y, plane } = altar.ruins;
+            const loc = { id: altar.ruinsLocIds[0], name: "Mysterious ruins", actions: ["Enter"], plane, tileX: x, tileY: y, sizeX: RUINS_SIZE, sizeY: RUINS_SIZE, height: 2 };
+            this.ctx.skillLocs.addRuntime(loc, new THREE.Group());
+        }
+    }
 
     private altar(rune: string): AltarDef | undefined {
         return this.ctx.data.runecraft.altars.find((a) => a.rune === rune);
@@ -41,7 +61,8 @@ export class Runecraft {
     private enter(altar: AltarDef): void {
         const ctx = this.ctx;
         if (ctx.items.count(altar.talisman) === 0 && !ctx.items.holds(altar.tiara)) {
-            ctx.log("A mysterious force blocks your way.");
+            const talisman = itemName(ctx, altar.talisman).toLowerCase();
+            ctx.log(`You need ${/^[aeiou]/.test(talisman) ? "an" : "a"} ${talisman} to enter these ruins.`);
             return;
         }
         ctx.log("You feel a powerful force take hold of you...");

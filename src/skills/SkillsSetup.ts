@@ -16,6 +16,7 @@ import { XpDrops } from "../ui/XpDrops";
 import { NpcModelData, decodeNpcModel } from "../world/NpcFormat";
 import { ShopManifest, SkillsManifest, emptySkillsManifest } from "../world/SkillFormat";
 import { FishingBar } from "../ui/FishingBar";
+import { LocAnimations } from "../world/LocAnimations";
 import { FishingSpots } from "../world/FishingSpots";
 import { LocReactions } from "../world/LocReactions";
 import { SkillLocs } from "../world/SkillLocs";
@@ -24,7 +25,9 @@ import { CollisionFlag } from "../world/WorldFormat";
 import { gunzip } from "../world/gunzip";
 import type { SkillContext } from "./SkillContext";
 import { FishJob } from "./fishing";
+import { PickpocketJob } from "./thieving";
 import { FishingView } from "./FishingView";
+import { PickpocketView } from "./PickpocketView";
 import { SkillSystem } from "./SkillSystem";
 
 /** Collision bits a player cannot stand on. */
@@ -95,8 +98,10 @@ export async function createSkills(deps: SkillsDeps) {
     const shops = (await loadJson<ShopManifest>(`${deps.worldUrl}shops.json`)) ?? { format: 1, shops: [], values: {} };
     if (data.source === "none") console.warn("No skills.json: skills are off (npm run export-skills)");
 
-    // Fishing tools are held in hand to fish.
-    for (const spot of data.fishing) for (const tool of spot.tools) deps.db.makeWieldable(tool);
+    // Fishing tools are held in hand to fish. Those that are not weapons anyway (rods, nets, cages,
+    // the plain harpoon) are fishing gear only: they never attack.
+    const fishingGear = new Set<number>();
+    for (const spot of data.fishing) for (const tool of spot.tools) if (deps.db.makeWieldable(tool)) fishingGear.add(tool);
 
     const clock = new TickClock();
     const skillLocs = new SkillLocs(deps.world, deps.scene, deps.materials);
@@ -108,7 +113,10 @@ export async function createSkills(deps: SkillsDeps) {
     shopPanel.closed = deps.panelClosed;
     shopPanel.message = deps.message;
 
-    // Models of the locs the game places (fires, traps): fetched once, new meshes per placement.
+    // Models of the locs the game places (fires, traps): fetched once, new meshes per placement,
+    // playing the loc's cache animation (the fire's flames) when it has one.
+    const locAnimations = new LocAnimations();
+    const modelsUrl = deps.worldUrl.replace(/world\/$/, "models/");
     const decoded = new Map<number, Promise<NpcModelData>>();
     const locModel = async (id: number): Promise<THREE.Object3D> => {
         let model = decoded.get(id);
@@ -120,7 +128,10 @@ export async function createSkills(deps: SkillsDeps) {
             decoded.set(id, model);
         }
         const group = new THREE.Group();
-        group.add(...modelMeshes(await model, 0, deps.materials));
+        const data = await model;
+        const meshes = modelMeshes(data, 0, deps.materials);
+        group.add(...meshes);
+        locAnimations.add(group, data, meshes);
         return group;
     };
 
@@ -167,9 +178,18 @@ export async function createSkills(deps: SkillsDeps) {
     const fishingSpots = new FishingSpots(data.fishingSpots, deps.world, deps.scene, (npcId) => system.fishing.actionsOf(npcId));
     const fishingView = new FishingView(deps.scene, deps.materials, deps.loadItemModel, (item) => deps.db.get(item)?.model);
     const fishingBar = new FishingBar(document.getElementById("fishing-bar")!);
-    const modelsUrl = deps.worldUrl.replace(/world\/$/, "models/fishing/");
-    await Promise.all([fishingSpots.load(`${modelsUrl}spot.glb`), fishingView.load(`${modelsUrl}bobber.glb`)]).catch((e) => console.warn("Fishing models could not be loaded", e));
+    const fishingUrl = `${modelsUrl}fishing/`;
+    await Promise.all([
+        fishingSpots.load(`${fishingUrl}spot.glb`),
+        fishingView.load(`${fishingUrl}bobber.glb`),
+        fishingView.loadSplash(`${fishingUrl}splash.glb`),
+    ]).catch((e) => console.warn("Fishing models could not be loaded", e));
     system.fishing.onCatch = (spot, item) => fishingView.jump(item, spot.x, spot.y, spot.waterZ);
+    system.fishing.onSplash = (spot) => fishingView.splash(spot.x, spot.y, spot.waterZ);
+    // Thieving: the view leans in to the pocket (Blender clips); no hand is drawn.
+    const pickpocketView = new PickpocketView();
+    system.thieving.onAttempt = () => pickpocketView.play("reach");
+    system.thieving.onOutcome = (caught) => pickpocketView.play(caught ? "caught" : "pocket");
     skillLocs.look = (i) => system.look(i);
     skillLocs.actionsOf = (i) => system.actionsOf(i);
     clock.onTick((t) => shopPanel.tick(t));
@@ -183,12 +203,24 @@ export async function createSkills(deps: SkillsDeps) {
         system,
         shopPanel,
         fishingSpots,
-        /** Per frame, after the weapon view: spots, bobber and line, leaping fish and the reel bar. */
-        updateFishing(dt: number, tip: THREE.Vector3, chest: THREE.Vector3): void {
+        /** Whether this item is a fishing tool that is held only to fish (no attacking with it). */
+        isFishingGear: (item: number | undefined): boolean => item !== undefined && fishingGear.has(item),
+        /**
+         * Per frame, after the weapon view: animated locs (fires); fishing spots, bobber and line, splashes,
+         * leaping fish and the reel bar.
+         */
+        updateViews(dt: number, tip: THREE.Vector3, chest: THREE.Vector3): void {
+            locAnimations.update(dt);
             fishingSpots.update(dt, deps.player);
             const job = system.active instanceof FishJob ? system.active : undefined;
             fishingView.update(dt, job, tip, chest);
             fishingBar.update(job?.minigame);
+        },
+        /** Per frame: the pickpocketing look, an offset to add to the first-person view. */
+        updateThieving(dt: number) {
+            // An attempt cut short (walked off, another action) pulls the hand back out.
+            if (pickpocketView.playing === "reach" && !(system.active instanceof PickpocketJob)) pickpocketView.play("pocket");
+            return pickpocketView.update(dt);
         },
         /** Whether a skill panel is open (the click-to-play overlay stays hidden meanwhile). */
         get panelOpen(): boolean {

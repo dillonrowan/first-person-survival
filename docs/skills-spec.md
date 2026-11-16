@@ -49,16 +49,25 @@ Construction, Prayer (bones can be banked, not buried) and Sailing.
   (bronze 8 ticks down to rune 3; dragon, 3rd age and infernal 3 with 1/6 chance of 2, crystal 3
   with 1/4 of 2, counted as their average); every ore empties the rock. Rune essence never empties
   and gives pure essence from Mining 30.
-- **Fishing**: the spot's tool must be wielded. A cast (a click with the crosshair on the spot)
-  lands after 0.7 s; then every 3 s (the OSRS 5-tick roll) catches the player has the level for are
+- **Fishing**: the spot's tool must be wielded. A left click on a spot with one of its tools
+  wielded fishes with the spot's option for that tool (one the player can use first, when the tool
+  serves two). A full inventory does not stop fishing: the catch falls at the player's feet. With a rod, a cast (a click with the crosshair on
+  the spot) lands after 0.7 s; then every 3 s (the OSRS 5-tick roll) catches the player has the level for are
   tried highest level first, and the first success is a bite, which lasts 1.1 s. A click in it
   hooks the fish and starts the reeling minigame; landing it gives the catch, its XP and uses one
-  bait.
+  bait. With a net, pot or harpoon there is no line or minigame: each click (or, held, one after
+  another) is a 1.4 s scoop or strike through the spot that rolls the catches once, the same way.
 - **Cooking**: a failed roll on the item's chart (range series on a range, fire series on a fire)
-  burns it. **Smithing**: iron bars succeed half the time.
-- **Fires**: any log lights at once, for no XP; fires last 100-199 ticks and leave ashes.
+  burns it. Cache recipes whose output is a burnt item are not offered. **Smithing**: iron bars succeed half the time.
+- **Fires**: any log lights at once, for no XP, exactly where the player stands (the player does not
+  move); fires last 100-199 ticks times `1 + (L - 1) / 30`, L being the Woodcutting level of the
+  tree the logs come from (1 for logs from no tree), and leave ashes.
 - **Runecraft**: one action binds all essence: `n * (1 + multiples reached)` runes.
-- **Thieving**: a pickpocket takes 2 ticks; failure deals the wiki damage and stuns for its time.
+- **Thieving**: a pickpocket takes 2 ticks; failure deals the wiki damage, stuns for its time and
+  alerts an attackable NPC (`Npc.becomeAlerted`), which then fights the player. No hand is drawn:
+  the first-person view plays Blender-keyed head clips (`tools/blender/pickpocket.py` →
+  `src/skills/PickpocketClips.ts`, added through `CameraRig`'s offset): `reach` glances down and
+  leans in during the attempt, then `pocket` looks away innocently or `caught` jerks the view back.
 - **Hunter**: up to `1 + floor(level / 20)` traps (max 5). Each tick a creature within 3 tiles of
   a set trap is caught with `successChance / 8`.
 
@@ -81,7 +90,12 @@ Construction, Prayer (bones can be banked, not buried) and Sailing.
 | Shops | an unstocked item sells for 40% of its cache value; stock moves one toward its base every restock time |
 | Moving away | a job stops when the player is 0.75 tiles from where it started |
 | Gathering by hand | an axe blow rolls the full OSRS chance (faster than the OSRS 4-tick cycle when swinging quickly); a pickaxe blow is scaled by its interval |
-| Fishing spots | placed by the game at the wiki's tiles with a Blender model (`tools/blender/fishing.py`: ripples and bubbles); the cache's spot NPCs are not used; casting range 7 tiles; nibbles on half the rolls that bring no bite |
-| Reeling | zone width `0.16 + 0.22 c` and fish speed `1.1 - 0.6 c` (c = the catch's OSRS success chance); the meter starts at 30%, fills 28%/s with the fish in the zone and drains 20%/s otherwise; 25 s limit |
-| Fishing tools | rods, nets, harpoons and pots can be wielded (the cache cannot); held with their inventory model |
+| Fishing spots | placed by the game at the wiki's tiles with a Blender model (`tools/blender/fishing.py`: ripples and bubbles); the cache's spot NPCs are not used; fishing only within 2 tiles of the spot; nibbles on half the rolls that bring no bite |
+| Reeling | zone width `0.16 + 0.22 c` and fish speed `1.1 - 0.6 c` (c = the catch's OSRS success chance); the zone moves at 1.1 bar/s while the button is held and 0.9 bar/s back when let go, reaching that speed within about 0.1 s; the meter starts at 30%, fills 28%/s with the fish in the zone and drains 20%/s otherwise; 25 s limit |
+| Fishing tools | rods, nets, harpoons and pots can be wielded (the cache cannot); those the cache does not make wieldable never attack or block; rods are held as a Blender-made rod (`tools/blender/fishing.py`: spinning rod, fly rod), the others as their inventory model; only a rod has a line and bobber |
+| Fishing with a full inventory | the fishing goes on and each catch falls to the ground at the player's feet |
+| Fire length by logs | the OSRS fire time (100-199 ticks) times `1 + (L - 1) / 30` for logs from a level-L tree |
+| Making | the first item of a make job (cooking, smithing…) comes on the next tick, then one per the recipe's ticks |
+| Woodcutting with a full inventory | the chopping goes on and each log falls to the ground at the player's feet |
+| Fires | the cache fire (loc 26185) with its own animation (sequence 475), baked into its model by `export-skills` and played by `src/world/LocAnimations.ts`; other placed locs with a cache animation play theirs too |
 | Tree and rock reactions | Blender-keyed clips (`tools/blender/loc_reactions.py` writes `src/world/LocReactionClips.ts`): a blow shudders a tree or jolts a rock away from the player, the last log topples the tree, the last ore crumbles the rock |

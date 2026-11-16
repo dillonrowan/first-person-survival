@@ -80,10 +80,12 @@ the exported map: Woodcutting, Mining, Fishing, Cooking, Smithing, Crafting, Fle
 Runecraft, Thieving, Hunter, Farming and Slayer, with the 28-slot inventory, the bank, shops, monster drops and
 NPC respawn. Aim at a tree, rock, fishing spot, furnace or stall and press E; use an inventory item
 on another or on what you aim at. Trees and rocks are gathered by swinging a wielded axe or pickaxe
-into them (every blow that lands rolls). Fishing is cast, watch the bobber, hook and reel (a
-minigame), at spots placed where the wiki lists them. The tree and rock reactions, the bobber, the
-spot ripples and the leaping fish are made in Blender (`tools/blender/loc_reactions.py`,
-`tools/blender/fishing.py`). Other skilling runs on the 0.6 s OSRS
+into them (every blow that lands rolls). Left click a fishing spot with a fishing tool wielded to
+fish there. Rod fishing is cast, watch the bobber, hook and reel (a
+minigame); nets, pots and harpoons scoop through the spot until a fish comes up; spots are placed
+where the wiki lists them. The tree and rock reactions, the bobber, the spot ripples, the splash,
+the held rods and the leaping fish are made in Blender (`tools/blender/loc_reactions.py`,
+`tools/blender/fishing.py`); fires are the cache fire with its own animation. Other skilling runs on the 0.6 s OSRS
 game tick. Data comes from the
 OSRS wiki (`npm run fetch-wiki-skills`, committed in `tools/world-export/data/wiki/`) and the
 cache. The run order is `export-world`, then `export-skills`, then `export-items`
@@ -219,8 +221,9 @@ Defined in `src/world/WorldFormat.ts`, shared by the exporter and the game.
 - `public/world/items.json` and `public/world/items/`: every item and its inventory model
   (`src/world/ItemFormat.ts`, `npm run export-items`).
 - `public/world/skills.json`, `public/world/shops.json` and `public/world/skill-models/`:
-  skill data by loc and NPC id, shops with item values, and the fire and hunter trap models the
-  game places itself (`src/world/SkillFormat.ts`, `npm run export-skills`). Skill locs are
+  skill data by loc and NPC id, shops with item values, and the fire and hunter trap models (with
+  their cache animation baked in) the game places itself (`src/world/SkillFormat.ts`,
+  `npm run export-skills`). Skill locs are
   `InteractiveLoc`s of kind `skill` inside the region files.
 
 Coordinates are OSRS world tiles (`x` east, `y` north; Lumbridge is 3222, 3218). In three.js

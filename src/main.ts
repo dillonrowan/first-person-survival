@@ -22,7 +22,7 @@ import { loadAvatarAsset } from "./avatar/AvatarAsset";
 import { CameraRig } from "./player/CameraRig";
 import { Input } from "./player/Input";
 import { Player } from "./player/Player";
-import { HitFeel, impactStrength } from "./combat/HitFeel";
+import { HitFeel, StunFeel, impactStrength } from "./combat/HitFeel";
 import { CombatTarget, PlayerCombat } from "./combat/PlayerCombat";
 import { tuning } from "./combat/tuning";
 import { WeaponView } from "./combat/WeaponView";
@@ -31,6 +31,7 @@ import { CombatHud } from "./ui/CombatHud";
 import { EnemyHealthBars } from "./ui/EnemyHealthBars";
 import { WeaponMenu } from "./ui/WeaponMenu";
 import { createCacheWeaponModel, heldItemInfo } from "./combat/CacheWeaponModel";
+import { loadRodModel, rodModelFile } from "./combat/HeldRod";
 import { environmentDamage } from "./combat/Osrs";
 import { LevelUp, PlayerSkills, SKILL_NAMES } from "./combat/Skills";
 import { Spellbook } from "./combat/Spells";
@@ -50,6 +51,7 @@ import type { FishingSpot } from "./world/FishingSpots";
 import type { SkillId } from "./combat/SkillId";
 import { xpForLevel } from "./combat/Osrs";
 import { SpellbookPanel } from "./ui/SpellbookPanel";
+import { WorldMap } from "./ui/WorldMap";
 import "./style.css";
 import { NpcManifest, decodeNpcModel } from "./world/NpcFormat";
 import { WorldInteractives } from "./world/Interactives";
@@ -66,6 +68,8 @@ const WORLD_URL = `${import.meta.env.BASE_URL}world/`;
 const SKY_COLOR = 0x8cbee6;
 const FOG_NEAR = 24;
 const FOG_FAR = 80;
+/** How far from the eye a tree or rock can be chopped or mined with a click, tiles. [design] */
+const GATHER_REACH = 2.5;
 
 const canvas = document.getElementById("game") as HTMLCanvasElement;
 const overlay = document.getElementById("overlay")!;
@@ -270,10 +274,19 @@ async function main(): Promise<void> {
         avatar.root.getObjectByName("socket_hand_r") ?? undefined,
         (weaponId) => {
             const info = weaponMenu.find(weaponId);
-            // An item held without a worn model (a fishing rod): its inventory model in the hand.
+            // An item held without a worn model: a rod is the Blender rod, any other tool (a net,
+            // a harpoon) its inventory model in the hand; both take WeaponView's tool poses.
             const item = info ? undefined : itemDb.get(Number(/^cache-(\d+)$/.exec(weaponId)?.[1] ?? NaN));
+            const rod = item && rodModelFile(item.name);
+            if (rod) {
+                return loadRodModel(`${import.meta.env.BASE_URL}models/fishing/${rod}`);
+            }
             if (item?.model) {
-                return loadItemModel(item.model).then((data) => createCacheWeaponModel(heldItemInfo(item.id, item.name, item.model, data), data, materials));
+                return loadItemModel(item.model).then((data) => {
+                    const model = createCacheWeaponModel(heldItemInfo(item.id, item.name, item.model, data), data, materials);
+                    model.userData.hold = "tool";
+                    return model;
+                });
             }
             return info && (async () => {
                 const response = await fetch(`${WORLD_URL}${info.file}`);
@@ -298,7 +311,7 @@ async function main(): Promise<void> {
             ui.showMessage(problem);
         }
     };
-    // The developer cheat menu (I, dev builds only): any cache weapon, shield or item into the inventory.
+    // The developer cheat menu (I, dev builds only): any cache weapon, shield or item into the inventory, and any skill level.
     const weaponMenu = new WeaponMenu(
         weaponMenuElement,
         document.getElementById("weapon-menu-list")!,
@@ -319,6 +332,14 @@ async function main(): Promise<void> {
             }
         },
         { db: itemDb, list: document.getElementById("weapon-menu-items")!, give: (id, qty) => items.give(id, qty) },
+        {
+            list: document.getElementById("weapon-menu-skills")!,
+            level: (id) => skills.level(id),
+            setLevel: (id, level) => {
+                skills.setXp(id, xpForLevel(level));
+                skillsChanged();
+            },
+        },
     );
     /** The weapon of the weapon slot is the weapon in hand. */
     const syncWeapon = () => {
@@ -338,6 +359,7 @@ async function main(): Promise<void> {
     combat.groundHeight = (plane, x, y) => world.groundHeight(plane, x, y);
     combat.obstacleTop = (minX, minY, maxX, maxY) => world.obstacleTop(minX, minY, maxX, maxY);
     const hitFeel = new HitFeel();
+    const stunFeel = new StunFeel();
     combat.onHit = ({ result, move, target, spell }) => {
         // A splashed spell shows only the splash graphic, no hitsplat, as in OSRS.
         if (target.combatStats && !(spell && result.missed)) {
@@ -353,7 +375,13 @@ async function main(): Promise<void> {
         if (combat.melee.swing?.move === move) {
             // A melee blow (not an arrow): power and finishing strikes land heavier. The blade
             // stalls and the view jolts; the struck bodies hold for a moment.
-            weaponView.impact(move.kind === "quick" ? 0.6 : 1);
+            // A parried blade is caught dead: it stalls and shakes the view hardest of all. A blade
+            // taken on a guard does not bite: it glances off, rattling in the hand.
+            if (result.defence === "guard") {
+                weaponView.clash(move.kind === "quick" ? 0.6 : 1);
+            } else {
+                weaponView.impact(result.defence === "parry" ? 2 : move.kind === "quick" ? 0.6 : 1);
+            }
             hitFeel.impact(impactStrength(result));
         }
     };
@@ -388,8 +416,15 @@ async function main(): Promise<void> {
                 ui.showMessage(shielded ? "You manage to resist some of the dragon fire!" : "You're horribly burnt by the dragon fire!");
             }
         } else if (outcome === "parried") {
+            // A blow (an NPC's strike or its blow back from a parry) taken on the held weapon.
             ui.showMessage("Parried!");
+            weaponView.clash(1);
         }
+    };
+    combat.onStunned = () => {
+        ui.showMessage("Your blow is parried and you're stunned!");
+        combatHud.showDamage(); // the red flash of a blow taken, with no damage to show
+        stunFeel.kick(Math.random() < 0.5 ? -1 : 1);
     };
     // Fall damage (spec 19.8).
     player.onLanded = (speed) => {
@@ -620,12 +655,12 @@ async function main(): Promise<void> {
         }
         return false;
     };
-    // Axes and pickaxes swung into standing trees and rocks stop there, and every blow rolls.
+    // A weapon swung into a standing tree or rock stops there. Gathering is not done by swings but
+    // by clicking the tree or rock with the axe or pickaxe (SkillSystem.clickLoc), so a sweep
+    // never chops or mines what is beside the crosshair.
     combat.solids = skilling.skillLocs.solidSource((instance) => skillSystem.isSolid(instance));
-    combat.onSolidHit = (ref) => {
-        weaponView.impact(0.8);
-        skillSystem.strike(ref as SkillLocInstance);
-    };
+    combat.onSolidHit = () => weaponView.impact(0.8);
+    skillSystem.onToolImpact = () => weaponView.impact(0.8);
     const handleWorldAction: ActionHandler = (target, action) => {
         if (target.kind === "skill-loc") {
             skillSystem.locAction(target.ref as SkillLocInstance, action);
@@ -723,6 +758,8 @@ async function main(): Promise<void> {
         },
     );
     skilling.shopPanel.showMenu = (x, y, entries) => sidePanel.showMenu(x, y, entries);
+    const worldMap = new WorldMap(document.getElementById("world-map")!, WORLD_URL, skilling.data.runecraft.altars, () => player);
+    worldMap.closed = panelClosed;
     items.onChange = () => {
         syncWeapon();
         sidePanel.refresh();
@@ -742,6 +779,8 @@ async function main(): Promise<void> {
             sidePanel.toggle("skills");
         } else if (event.code === "KeyB") {
             sidePanel.toggle("spellbook");
+        } else if (event.code === "KeyM") {
+            worldMap.toggle();
         } else if (event.code === "KeyQ" && input.locked) {
             combat.cycleStyle();
             ui.showMessage(`Attack style: ${combat.style.name}`);
@@ -785,7 +824,7 @@ async function main(): Promise<void> {
     };
     playButton.addEventListener("click", play);
     canvas.addEventListener("click", play);
-    input.onLockChange = (locked) => overlay.classList.toggle("hidden", locked || sidePanel.isOpen || skilling.panelOpen);
+    input.onLockChange = (locked) => overlay.classList.toggle("hidden", locked || sidePanel.isOpen || skilling.panelOpen || worldMap.isOpen);
 
     window.addEventListener("resize", () => {
         camera.aspect = window.innerWidth / window.innerHeight;
@@ -803,14 +842,31 @@ async function main(): Promise<void> {
         // A landed blow briefly holds the struck bodies; the player and the swing carry on.
         const npcDt = hitFeel.worldDt(dt);
 
-        // A failed pickpocket stuns: no moving or fighting, only looking around.
-        const stunned = skillSystem.thieving.stunned;
+        // A failed pickpocket stuns, as does an NPC's parry: no moving or fighting, only looking around.
+        const stunned = skillSystem.thieving.stunned || combat.stunned;
         if (stunned) player.boundFor = Math.max(player.boundFor, 0.1);
         player.update(dt, input);
         skilling.clock.update(dt);
         skilling.reactions.update(dt);
-        // Fishing takes the attack button: click to cast and hook, hold to reel.
+        // A left click on a fishing spot with its tool in hand starts fishing there (the same click
+        // casts or scoops). Fishing gear never attacks.
+        const clicked = input.locked && !props.held && input.wasPressed("Mouse0");
+        const gearOnly = skilling.isFishingGear(items.equipment.get("weapon")?.id);
+        const aimedSpot = interaction.target?.kind === "fishing-spot" ? (interaction.target.ref as FishingSpot) : undefined;
+        const fishClick = clicked && aimedSpot !== undefined && skillSystem.fishing.clickSpot(aimedSpot);
+        // A left click on a tree or rock in reach with an axe or pickaxe in hand chops or mines it.
+        const aimedLoc =
+            interaction.target?.kind === "skill-loc" && interaction.target.distance <= GATHER_REACH ? (interaction.target.ref as SkillLocInstance) : undefined;
+        // An attack already under way (a swing or a power attack being charged) plays out: the
+        // click goes to it, not to a chop.
+        const attacking = combat.melee.swing !== undefined || combat.melee.isCharging;
+        if (clicked && !fishClick && aimedLoc && !attacking) skillSystem.clickLoc(aimedLoc);
+        // Fishing, chopping and mining take the attack button: click to cast and hook, hold to reel
+        // or to keep striking.
         const casting = skillSystem.takesClicks;
+        if (clicked && gearOnly && !casting && !fishClick) {
+            ui.showMessage(aimedSpot ? "You can't fish here with that." : "Aim at a fishing spot to fish.");
+        }
         skillSystem.update({
             acted: input.locked && ((input.wasPressed("Mouse0") && !casting) || input.wasPressed("KeyF")),
             panelOpen: sidePanel.isOpen || skilling.panelOpen,
@@ -840,6 +896,8 @@ async function main(): Promise<void> {
         const carrying = props.held !== undefined || propHandled;
         // While carrying or fishing the weapon stays still.
         const armed = !carrying && !casting;
+        // A rod, net or cage in hand: no swings or blocks with it.
+        const swinging = armed && !gearOnly;
         const wheel = input.consumeWheel();
         eatCooldown = Math.max(0, eatCooldown - dt);
         const wheelProblem = items.cycleWeapon(armed ? wheel : 0);
@@ -848,9 +906,9 @@ async function main(): Promise<void> {
         }
         combat.update(dt, player, {
             // A tap that went down and up between frames still counts as down for this one.
-            attackDown: fighting && armed && (input.isDown("Mouse0") || input.wasPressed("Mouse0")),
-            attackPressed: fighting && armed && input.wasPressed("Mouse0"),
-            blockDown: fighting && armed && input.isDown("Mouse2"),
+            attackDown: fighting && swinging && (input.isDown("Mouse0") || input.wasPressed("Mouse0")),
+            attackPressed: fighting && swinging && input.wasPressed("Mouse0"),
+            blockDown: fighting && swinging && input.isDown("Mouse2"),
             kickPressed: fighting && armed && input.wasPressed("KeyF"),
             castPressed:
                 fighting && armed && (input.wasPressed("KeyG") || (combat.holdsCaster && input.wasPressed("Mouse2"))),
@@ -974,6 +1032,7 @@ async function main(): Promise<void> {
         arrowView.update(combat.arrows, (out) => weaponView.launchPoint(out));
         avatar.update(dt, player, cameraRig.mode);
         weaponView.setSkillSwing(skillSystem.swingPhase());
+        weaponView.setToolMotion(skillSystem.toolMotion());
         weaponView.update(combat.melee, cameraRig.mode, player.ready && !player.flying, combat.kick, {
             dt,
             bowDraw: combat.bow.poseProgress,
@@ -993,7 +1052,7 @@ async function main(): Promise<void> {
             // The fishing line leaves the rod tip; a caught fish lands at the chest.
             const chest = camera.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, -0.45, 0));
             const tip = weaponView.tipPoint(new THREE.Vector3()) ?? chest.clone();
-            skilling.updateFishing(dt, tip, chest);
+            skilling.updateViews(dt, tip, chest);
         }
         combatHud.update(dt, {
             health: combat.combatant.healthFraction,
@@ -1021,7 +1080,15 @@ async function main(): Promise<void> {
                           : `${combat.weapon.name} (${combat.crossbow.bolts})`
                       : combat.weapon.name,
         });
-        cameraRig.update(player, weaponView.viewOffset);
+        {
+            // Picking a pocket: the view glances down and leans in on top of the swing's offset.
+            const v = weaponView.viewOffset;
+            const look = skilling.updateThieving(dt);
+            // Knocked about by a parry, then dazed while stunned.
+            stunFeel.update(dt, combat.stunned);
+            const s = stunFeel.view;
+            cameraRig.update(player, { ...look, pitch: v.pitch + look.pitch + s.pitch, yaw: v.yaw + look.yaw + s.yaw, roll: v.roll + look.roll + s.roll });
+        }
         if (collisionDebug && npcs) {
             collisionDebug.update(npcs, player.footprint(), player.plane, player.x, player.y);
         }

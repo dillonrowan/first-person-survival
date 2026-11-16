@@ -7,15 +7,30 @@ Side clips push the body towards its right (struck on its left); the game mirror
 import math
 import bpy
 from bpy_extras import anim_utils
-from mathutils import Euler, Vector
+from mathutils import Euler, Quaternion, Vector
 
 rig = bpy.data.objects['GuardRig']
+
+
+def elbow(side, angle):
+    """Euler (degrees) bending a forearm `angle` about its elbow hinge: the side axis squared to the
+    forearm, so the bend never twists it (the left forearm hangs angled out from the body)."""
+    head = rig.data.bones['forearm.' + side].head_local
+    d = (rig.data.bones['hand.' + side].head_local - head).normalized()
+    x = Vector((1, 0, 0))
+    axis = (x - x.dot(d) * d).normalized()
+    return tuple(round(math.degrees(a), 3) for a in Quaternion(axis, math.radians(angle)).to_euler('XYZ'))
 
 
 def stretch(clip, k, amp, length):
     out = {t: [(round(f * k), tuple(v * amp for v in val)) for f, val in keys] for t, keys in clip.items() if t != 'length'}
     out['length'] = length
     return out
+
+
+def tracks(clip):
+    """The clip's keyed tracks (not its length or impact frame)."""
+    return {t: keys for t, keys in clip.items() if t not in ('length', 'impact')}
 
 
 CLIPS = {}
@@ -129,6 +144,73 @@ CLIPS['stun'] = {
     'forearm.R': [(0, (-10, 0, 0)), (15, (-6, 0, 0)), (30, (-10, 0, 0))],
     'forearm.L': [(0, (-6, 0, 0)), (15, (-10, 0, 0)), (30, (-6, 0, 0))],
 }
+# A blow that does nothing (a 0), taken on the guard: one clip for a body with a shield, one for
+# a weapon in the right hand and one for empty hands. A jolt on frame 5, when the blow lands.
+CLIPS['guard_shield'] = {
+    'length': 22,
+    'upperarm.L': [(0, (0, 0, 0)), (3, (-35, 0, -40)), (5, (-28, 0, -36)), (12, (-35, 0, -40)), (22, (0, 0, 0))],
+    'forearm.L': [(0, elbow('L', 0)), (3, elbow('L', -90)), (5, elbow('L', -84)), (12, elbow('L', -90)), (22, elbow('L', 0))],
+    'upperarm.R': [(0, (0, 0, 0)), (4, (-25, 20, 0)), (12, (-25, 20, 0)), (22, (0, 0, 0))],
+    'forearm.R': [(0, elbow('R', 0)), (4, elbow('R', -70)), (12, elbow('R', -70)), (22, elbow('R', 0))],
+    'spine': [(0, (0, 0, 0)), (3, (10, 0, -20)), (5, (2, 0, -18)), (12, (8, 0, -20)), (22, (0, 0, 0))],
+    'head': [(0, (0, 0, 0)), (3, (12, 0, 16)), (5, (4, 0, 14)), (12, (10, 0, 16)), (22, (0, 0, 0))],
+    'pelvis.loc': [(0, (0, 0, 0)), (3, (0, 0, -0.06)), (5, (0, 0.05, -0.07)), (12, (0, 0.03, -0.06)), (22, (0, 0, 0))],
+}
+CLIPS['guard_weapon'] = {
+    'length': 22,
+    'upperarm.R': [(0, (0, 0, 0)), (3, (-55, 0, 30)), (5, (-50, 0, 26)), (12, (-55, 0, 30)), (22, (0, 0, 0))],
+    'forearm.R': [(0, elbow('R', 0)), (3, elbow('R', -55)), (5, elbow('R', -48)), (12, elbow('R', -55)), (22, elbow('R', 0))],
+    'hand.R': [(0, (0, 0, 0)), (3, (35, 0, 0)), (12, (35, 0, 0)), (22, (0, 0, 0))],
+    'upperarm.L': [(0, (0, 0, 0)), (4, (-40, 25, 0)), (12, (-40, 25, 0)), (22, (0, 0, 0))],
+    'forearm.L': [(0, elbow('L', 0)), (4, elbow('L', -95)), (12, elbow('L', -95)), (22, elbow('L', 0))],
+    'spine': [(0, (0, 0, 0)), (3, (6, 0, -12)), (5, (-2, 0, -14)), (12, (4, 0, -12)), (22, (0, 0, 0))],
+    'head': [(0, (0, 0, 0)), (3, (8, 0, 6)), (5, (0, 0, 6)), (12, (6, 0, 6)), (22, (0, 0, 0))],
+    'pelvis.loc': [(0, (0, 0, 0)), (3, (0, 0, -0.05)), (5, (0, 0.05, -0.06)), (12, (0, 0.03, -0.05)), (22, (0, 0, 0))],
+}
+CLIPS['guard_unarmed'] = {
+    'length': 22,
+    'upperarm.R': [(0, (0, 0, 0)), (3, (-55, -20, 0)), (5, (-50, -18, 0)), (12, (-55, -20, 0)), (22, (0, 0, 0))],
+    'upperarm.L': [(0, (0, 0, 0)), (3, (-55, 20, 0)), (5, (-50, 18, 0)), (12, (-55, 20, 0)), (22, (0, 0, 0))],
+    'forearm.R': [(0, elbow('R', 0)), (3, elbow('R', -120)), (12, elbow('R', -120)), (22, elbow('R', 0))],
+    'forearm.L': [(0, elbow('L', 0)), (3, elbow('L', -120)), (12, elbow('L', -120)), (22, elbow('L', 0))],
+    'spine': [(0, (0, 0, 0)), (3, (14, 0, 0)), (5, (4, 0, 3)), (12, (12, 0, 0)), (22, (0, 0, 0))],
+    'head': [(0, (0, 0, 0)), (3, (16, 0, 0)), (5, (4, 0, 4)), (12, (14, 0, 0)), (22, (0, 0, 0))],
+    'pelvis.loc': [(0, (0, 0, 0)), (3, (0, 0, -0.06)), (5, (0, 0.06, -0.07)), (12, (0, 0.03, -0.06)), (22, (0, 0, 0))],
+}
+# A melee blow parried: caught on frame 5, flung aside with the whole body, then a lunging blow
+# back that stuns the attacker on `impact`. The shield parry bashes with the shield; the other
+# shoves with both hands. Both land on the same frame (the game times the stun by it).
+PARRY_IMPACT = 16
+CLIPS['parry'] = {
+    'length': 40,
+    'impact': PARRY_IMPACT,
+    'upperarm.R': [(0, (0, 0, 0)), (3, (-55, 0, 30)), (5, (-50, 0, 26)), (9, (-50, 60, -30)), (13, (-20, 30, 0)), (16, (-100, -10, 0)), (21, (-95, -10, 0)), (40, (0, 0, 0))],
+    'forearm.R': [(0, elbow('R', 0)), (3, elbow('R', -55)), (9, elbow('R', -40)), (13, elbow('R', -110)), (16, elbow('R', -8)), (21, elbow('R', -12)), (40, elbow('R', 0))],
+    'hand.R': [(0, (0, 0, 0)), (3, (35, 0, 0)), (9, (20, 0, 0)), (16, (0, 0, 0)), (40, (0, 0, 0))],
+    'upperarm.L': [(0, (0, 0, 0)), (4, (-40, 25, 0)), (9, (-20, -10, 0)), (13, (-30, 10, 0)), (16, (-95, 10, 0)), (21, (-90, 10, 0)), (40, (0, 0, 0))],
+    'forearm.L': [(0, elbow('L', 0)), (4, elbow('L', -95)), (9, elbow('L', -60)), (13, elbow('L', -100)), (16, elbow('L', -8)), (21, elbow('L', -12)), (40, elbow('L', 0))],
+    'spine': [(0, (0, 0, 0)), (3, (6, 0, -12)), (5, (-6, 0, -14)), (9, (-10, 0, -24)), (13, (4, 0, -6)), (16, (28, 0, 20)), (21, (24, 0, 16)), (40, (0, 0, 0))],
+    'head': [(0, (0, 0, 0)), (3, (8, 0, 6)), (9, (6, 0, 18)), (13, (0, 0, 4)), (16, (-14, 0, -14)), (21, (-10, 0, -10)), (40, (0, 0, 0))],
+    'pelvis': [(0, (0, 0, 0)), (9, (0, 0, -10)), (16, (8, 0, 10)), (21, (6, 0, 8)), (40, (0, 0, 0))],
+    'pelvis.loc': [(0, (0, 0, 0)), (5, (0, 0.05, -0.06)), (9, (0, 0.04, -0.09)), (13, (0, -0.06, -0.08)), (16, (0, -0.2, -0.1)), (21, (0, -0.18, -0.09)), (40, (0, 0, 0))],
+    'ik.L': [(0, (0, 0, 0)), (10, (0, 0, 0)), (12, (0, -0.15, 0.1)), (15, (0, -0.34, 0)), (26, (0, -0.32, 0)), (40, (0, 0, 0))],
+    'ik.R': [(0, (0, 0, 0)), (17, (0, 0, 0)), (20, (0, -0.06, 0.05)), (23, (0, -0.1, 0)), (40, (0, 0, 0))],
+}
+CLIPS['parry_shield'] = {
+    'length': 40,
+    'impact': PARRY_IMPACT,
+    'upperarm.L': [(0, (0, 0, 0)), (3, (-35, 0, -40)), (5, (-28, 0, -36)), (9, (-55, -30, 25)), (13, (-35, 0, -10)), (16, (-88, 0, -25)), (21, (-84, 0, -25)), (40, (0, 0, 0))],
+    'forearm.L': [(0, elbow('L', 0)), (3, elbow('L', -90)), (5, elbow('L', -84)), (9, elbow('L', -50)), (13, elbow('L', -95)), (16, elbow('L', -20)), (21, elbow('L', -25)), (40, elbow('L', 0))],
+    'hand.L': [(0, (0, 0, 0)), (5, (0, 0, 0)), (9, (0, 0, -10)), (13, (0, 0, -35)), (21, (0, 0, -35)), (40, (0, 0, 0))],
+    'upperarm.R': [(0, (0, 0, 0)), (4, (-25, 20, 0)), (13, (-10, 40, 0)), (16, (-15, 30, 0)), (21, (-15, 30, 0)), (40, (0, 0, 0))],
+    'forearm.R': [(0, elbow('R', 0)), (4, elbow('R', -70)), (13, elbow('R', -80)), (21, elbow('R', -60)), (40, elbow('R', 0))],
+    'spine': [(0, (0, 0, 0)), (3, (10, 0, -20)), (5, (2, 0, -18)), (9, (-4, 0, 24)), (13, (4, 0, 20)), (16, (26, 0, -18)), (21, (22, 0, -14)), (40, (0, 0, 0))],
+    'head': [(0, (0, 0, 0)), (3, (12, 0, 16)), (5, (4, 0, 14)), (9, (4, 0, -16)), (16, (-12, 0, 12)), (21, (-8, 0, 8)), (40, (0, 0, 0))],
+    'pelvis': [(0, (0, 0, 0)), (9, (0, 0, 10)), (16, (8, 0, -10)), (21, (6, 0, -8)), (40, (0, 0, 0))],
+    'pelvis.loc': [(0, (0, 0, 0)), (5, (0, 0.05, -0.07)), (9, (0, 0.04, -0.09)), (13, (0, -0.06, -0.08)), (16, (0, -0.2, -0.1)), (21, (0, -0.18, -0.09)), (40, (0, 0, 0))],
+    'ik.L': [(0, (0, 0, 0)), (10, (0, 0, 0)), (12, (0, -0.15, 0.1)), (15, (0, -0.34, 0)), (26, (0, -0.32, 0)), (40, (0, 0, 0))],
+    'ik.R': [(0, (0, 0, 0)), (17, (0, 0, 0)), (20, (0, -0.06, 0.05)), (23, (0, -0.1, 0)), (40, (0, 0, 0))],
+}
 
 
 def reset_pose():
@@ -147,9 +229,7 @@ def apply_clip(name):
     rig.animation_data_create()
     rig.animation_data.action = action
     reset_pose()
-    for track, keys in clip.items():
-        if track == 'length':
-            continue
+    for track, keys in tracks(clip).items():
         is_loc = track.endswith('.loc') or track.startswith('ik.')
         pb = rig.pose.bones[track[:-4] if track.endswith('.loc') else track]
         rest = pb.bone.matrix_local.to_quaternion()

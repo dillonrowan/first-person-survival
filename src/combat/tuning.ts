@@ -57,6 +57,24 @@ export const tuning = {
     stunChanceMultiplier: 1.5,
     /** [design; the data's 4 s is gated by 20 hits in the game] */
     stunDuration: 1.0,
+    /**
+     * Chance a humanoid NPC parries a player melee blow that would do 0, at most: it scales with
+     * the NPC's Defence against the player's Melee (parryChance). [design]
+     */
+    parryChanceMax: 0.5,
+    /**
+     * An NPC reads a flurry: each earlier melee blow of the player's that reached it within
+     * parryFlurryWindow seconds raises its parry chance by parryFlurryBonus of the base chance, to
+     * at most parryChanceCap. A parry clears the count. [design]
+     */
+    parryFlurryWindow: 3,
+    parryFlurryBonus: 0.5,
+    parryChanceCap: 0.85,
+    /** Seconds the player stays stunned by a parry's blow back. [design] */
+    parryStunTime: 2.2,
+    /** A parry's blow back throws the player this fast away from the NPC, and this fast upwards. [design] */
+    parryKnockback: units(650),
+    parryKnockbackLift: units(70),
     /** [data ai.KnockedDownTime] */
     knockdownDuration: 2.0,
     /** NPC hits push the player. [data ai.PlayerPushOnHit 250 u/s] */

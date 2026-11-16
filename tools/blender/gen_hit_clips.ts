@@ -4,7 +4,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 type Exported = {
     bones: string[];
     joints: number[][];
-    clips: Record<string, { fps: number; loop: boolean; frames: { r: number[]; t: number[] }[] }>;
+    clips: Record<string, { fps: number; loop: boolean; impact?: number; frames: { r: number[]; t: number[] }[] }>;
 };
 
 const src = JSON.parse(readFileSync("tools/blender/hit_clips.json", "utf8")) as Exported;
@@ -41,22 +41,30 @@ for (const [name, c] of Object.entries(src.clips)) {
     lines.push(`    ${name}: clip(${c.fps}, ${c.loop}, [${data.join(", ")}]),`);
 }
 lines.push("};", "", "export type HitClipName = keyof typeof HIT_CLIPS;", "");
-
-// The generic lunge attack (lunge_clip.py), for bodies the cache has no attack animation for.
-const lunge = JSON.parse(readFileSync("tools/blender/lunge_clip.json", "utf8")) as {
-    fps: number;
-    impactFrame: number;
-    frames: number[][];
-};
+const impacts = Object.entries(src.clips).filter(([, c]) => c.impact !== undefined);
 lines.push(
-    "/** Generic lunge attack: per frame the body's pitch (radians, + forward), forward and lift (shares of its height). */",
-    "export const LUNGE_CLIP = {",
-    `    fps: ${lunge.fps},`,
-    `    impactFrame: ${lunge.impactFrame},`,
-    `    frames: ${lunge.frames.length},`,
-    `    data: new Float32Array([${lunge.frames.flat().map(round).join(", ")}]),`,
-    "};",
+    "/** Seconds into a clip that strikes back (the parry) when its blow lands. */",
+    `export const HIT_CLIP_IMPACT: Partial<Record<HitClipName, number>> = { ${impacts.map(([n, c]) => `${n}: ${round(c.impact! / c.fps)}`).join(", ")} };`,
     "",
 );
+
+/** Writes a body-root clip (pitch, forward, lift per frame) sampled by a Blender script. */
+function rootClip(name: string, file: string, doc: string): void {
+    const clip = JSON.parse(readFileSync(file, "utf8")) as { fps: number; impactFrame: number; frames: number[][] };
+    lines.push(
+        `/** ${doc}: per frame the body's pitch (radians, + forward), forward and lift (shares of its height). */`,
+        `export const ${name} = {`,
+        `    fps: ${clip.fps},`,
+        `    impactFrame: ${clip.impactFrame},`,
+        `    frames: ${clip.frames.length},`,
+        `    data: new Float32Array([${clip.frames.flat().map(round).join(", ")}]),`,
+        "};",
+        "",
+    );
+}
+// The generic lunge attack (lunge_clip.py), for bodies the cache has no attack animation for.
+rootClip("LUNGE_CLIP", "tools/blender/lunge_clip.json", "Generic lunge attack");
+// The generic brace (brace_clip.py), for bodies without a human build taking a blow that does nothing.
+rootClip("BRACE_CLIP", "tools/blender/brace_clip.json", "Generic brace against a blow that does nothing");
 writeFileSync("src/npc/HitClips.ts", lines.join("\n"));
 console.log("wrote src/npc/HitClips.ts:", Object.keys(src.clips).join(", "));

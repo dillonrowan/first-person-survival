@@ -45,6 +45,8 @@ export type DamageResult = {
     maxHit?: boolean;
     /** The hit poisoned the target. */
     poisoned?: boolean;
+    /** The target took the blow, which did nothing, on its guard or parried it (shoving back). */
+    defence?: "guard" | "parry";
 };
 
 /**
@@ -62,6 +64,17 @@ export function damageAmount(weapon: WeaponDef, hit: HitEvent, ctx: DamageContex
         (ctx.difficulty ?? 1) *
         (ctx.hitbox ?? 1)
     );
+}
+
+/**
+ * Chance an NPC with `defence` parries a melee blow that would do 0 from a player with `melee`:
+ * parryChanceMax × defence / (defence + melee), so half of it at even levels. Each of `flurry`
+ * earlier blows of the player's that reached the NPC moments ago (tuning.parryFlurryWindow) adds
+ * parryFlurryBonus of that, up to parryChanceCap. [design]
+ */
+export function parryChance(melee: number, defence: number, flurry = 0): number {
+    const base = (tuning.parryChanceMax * Math.max(0, defence)) / Math.max(1, Math.max(0, defence) + Math.max(0, melee));
+    return Math.min(tuning.parryChanceCap, base * (1 + tuning.parryFlurryBonus * Math.max(0, flurry)));
 }
 
 /** Reaction size from damage as a fraction of max health (spec 5.3). */

@@ -12,6 +12,10 @@ const STEAL_TICKS = 2;
 export class Thieving {
     /** Tick until which the player is stunned (a failed pickpocket): no input but looking. */
     stunnedUntil = 0;
+    /** A pickpocket attempt started (the view's hand reaches in). */
+    onAttempt?: () => void;
+    /** A pickpocket attempt ended: the hand pulls the loot out, or is slapped away when caught. */
+    onOutcome?: (caught: boolean) => void;
     /** Emptied stall key → tick it fills again. */
     private readonly emptyUntil = new Map<string, number>();
 
@@ -64,15 +68,17 @@ export class Thieving {
         }
         ctx.log(`You attempt to pick the ${def.name.toLowerCase()}'s pocket.`);
         this.sys.start(new PickpocketJob(this, ctx, npc, def));
+        this.onAttempt?.();
         return true;
     }
 
-    /** Caught: damage and a stun. */
+    /** Caught: damage and a stun, and an NPC that can fight turns on the player. */
     caught(npc: Npc, def: PickpocketDef): void {
         const ctx = this.ctx;
         ctx.log(`You fail to pick the ${def.name.toLowerCase()}'s pocket.`);
         ctx.log(`${def.name}: What do you think you're doing?`);
         npc.faceTowards(ctx.player.x, ctx.player.y);
+        if (npc.attackable) npc.becomeAlerted(ctx.player.x, ctx.player.y);
         ctx.hurt(def.damage);
         this.stunnedUntil = ctx.clock.tick + def.stunTicks;
         ctx.log("You've been stunned!");
@@ -99,8 +105,10 @@ export class PickpocketJob implements Job {
             for (const s of rollLoot(this.def.loot)) giveOrDrop(ctx, s.id, s.qty);
             ctx.gainXp("thieving", this.def.xp);
             ctx.log(`You pick the ${this.def.name.toLowerCase()}'s pocket.`);
+            this.thieving.onOutcome?.(false);
         } else {
             this.thieving.caught(this.target, this.def);
+            this.thieving.onOutcome?.(true);
         }
         return false;
     }

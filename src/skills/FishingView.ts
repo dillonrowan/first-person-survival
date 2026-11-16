@@ -39,15 +39,17 @@ const BLENDER_TO_SCENE = new THREE.Quaternion().setFromAxisAngle(new THREE.Vecto
 type Jump = { object: THREE.Object3D; from: THREE.Vector3; time: number };
 
 /**
- * What fishing looks like: the bobber (Blender model) flying out on the cast, floating, nibbling
- * and going under its waterline mark on a bite; the line from the rod tip; and a landed fish
- * leaping out of the water into the player's arms.
+ * What fishing looks like: with a rod, the bobber (Blender model) flying out on the cast, floating,
+ * nibbling and going under its waterline mark on a bite, and the line from the rod tip; the splash
+ * of a net, pot or harpoon; and a landed fish leaping out of the water into the player's arms.
  */
 export class FishingView {
     private bobber: THREE.Object3D | undefined;
     private readonly line: THREE.Line;
     private readonly linePositions = new Float32Array(LINE_POINTS * 3);
     private readonly jumps: Jump[] = [];
+    private splashTemplate: { scene: THREE.Object3D; clip: THREE.AnimationClip } | undefined;
+    private readonly splashes: { object: THREE.Object3D; mixer: THREE.AnimationMixer; left: number }[] = [];
 
     constructor(
         private readonly scene: THREE.Scene,
@@ -75,6 +77,43 @@ export class FishingView {
         this.scene.add(holder);
     }
 
+    /** The splash (Blender model, one-shot animation) a net, pot or harpoon makes. */
+    async loadSplash(url: string): Promise<void> {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`${url}: HTTP ${response.status}`);
+        const gltf = await new GLTFLoader().parseAsync(await response.arrayBuffer(), "");
+        unlit(gltf.scene);
+        this.splashTemplate = gltf.animations[0] && { scene: gltf.scene, clip: gltf.animations[0] };
+    }
+
+    /** A splash on the water at (x, y, z tiles). */
+    splash(x: number, y: number, z: number): void {
+        const template = this.splashTemplate;
+        if (!template) return;
+        const object = template.scene.clone();
+        object.position.set(x, z, -y);
+        object.rotation.y = Math.random() * Math.PI * 2;
+        const mixer = new THREE.AnimationMixer(object);
+        const action = mixer.clipAction(template.clip);
+        action.setLoop(THREE.LoopOnce, 1);
+        action.clampWhenFinished = true;
+        action.play();
+        this.scene.add(object);
+        this.splashes.push({ object, mixer, left: template.clip.duration });
+    }
+
+    private updateSplashes(dt: number): void {
+        for (let i = this.splashes.length - 1; i >= 0; i--) {
+            const s = this.splashes[i];
+            s.mixer.update(dt);
+            s.left -= dt;
+            if (s.left <= 0) {
+                this.scene.remove(s.object);
+                this.splashes.splice(i, 1);
+            }
+        }
+    }
+
     /** A landed fish leaps from the water at (x, y, z tiles) to the player. */
     jump(item: number, x: number, y: number, z: number): void {
         const file = this.itemModel(item);
@@ -93,8 +132,10 @@ export class FishingView {
      */
     update(dt: number, job: FishJob | undefined, tip: THREE.Vector3, chest: THREE.Vector3): void {
         this.updateJumps(dt, chest);
+        this.updateSplashes(dt);
         const bobber = this.bobber;
-        const out = job && job.phase !== "ready";
+        // Only a rod has a line and bobber; nets, pots and harpoons go into the water themselves.
+        const out = job && job.stroke === "line" && job.phase !== "ready";
         this.line.visible = !!out;
         if (!bobber) return;
         bobber.visible = !!out;

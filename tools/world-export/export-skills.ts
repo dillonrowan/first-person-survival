@@ -15,13 +15,14 @@ import { fileURLToPath } from "node:url";
 import { gzipSync } from "fflate";
 
 import type { ItemManifest } from "../../src/world/ItemFormat";
-import { NpcManifest, encodeNpcModel } from "../../src/world/NpcFormat";
+import { NpcClip, NpcManifest, encodeNpcModel } from "../../src/world/NpcFormat";
 import { LocRole, SKILLS_FORMAT_VERSION, ShopManifest, SkillsManifest } from "../../src/world/SkillFormat";
 import { readCacheFiles } from "./cache-files";
 import { FaceColors } from "./FaceColors";
 import type { Chart } from "./fetch-wiki-skills";
 import { buildModelMeshes, computeBounds } from "./NpcModelBuilder";
 import { LocModelType } from "./rs/config/loctype/LocModelType";
+import { Model } from "./rs/model/Model";
 import { createWorldLoaders } from "./WorldLoaders";
 import { exportFarming } from "./skills/farming";
 import { exportFishing, exportFishingPlaces, exportRocks, exportTools, exportTrees } from "./skills/gathering";
@@ -32,6 +33,30 @@ import { createSkillsContext, loadWikiData } from "./skills/SkillContext";
 import { SKILL_LOC_INDEX_FILE, SkillLocIndex } from "./skills/SkillLocIndex";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
+
+/** A loc's animation (non-skeletal) baked into vertex positions per frame, or undefined. */
+function bakeLocClip(loaders: ReturnType<typeof createWorldLoaders>, base: Model, seqId: number): NpcClip | undefined {
+    if (seqId === -1) return undefined;
+    const seq = loaders.seqTypeLoader.load(seqId);
+    if (!seq || seq.isSkeletalSeq() || !seq.frameIds || seq.frameIds.length === 0) return undefined;
+    const count = base.verticesCount;
+    const frameCount = seq.frameIds.length;
+    const positions = new Int16Array(frameCount * count * 3);
+    const frameLengths = new Uint16Array(frameCount);
+    for (let f = 0; f < frameCount; f++) {
+        const frame = loaders.seqFrameLoader.load(seq.frameIds[f]);
+        let model = base;
+        if (frame) {
+            model = Model.copyAnimated(base, !frame.hasAlphaTransform, !frame.hasColorTransform);
+            model.animate(frame, undefined, seq.op14);
+        }
+        for (let v = 0; v < count; v++) {
+            positions.set([model.verticesX[v], model.verticesY[v], model.verticesZ[v]], (f * count + v) * 3);
+        }
+        frameLengths[f] = Math.max(1, seq.frameLengths[f] ?? 1);
+    }
+    return { frameLengths, frameStep: seq.frameStep, positions };
+}
 const ROOT = path.resolve(HERE, "../..");
 const WORLD = path.join(ROOT, "public", "world");
 const WIKI = path.join(HERE, "data", "wiki");
@@ -130,14 +155,17 @@ function main(): void {
     fs.mkdirSync(modelDir, { recursive: true });
     const faceColors = new FaceColors(loaders.textureLoader);
     for (const id of RUNTIME_LOCS) {
-        const model = loaders.locModelLoader.getModelStatic(loaders.locTypeLoader.load(id), LocModelType.NORMAL, 0);
+        const type = loaders.locTypeLoader.load(id);
+        const model = loaders.locModelLoader.getModelStatic(type, LocModelType.NORMAL, 0);
         if (!model) {
             ctx.log(`models: loc ${id} has no model`);
             continue;
         }
         const meshes = buildModelMeshes(model, faceColors, loaders.textureLoader, 1);
         if (!meshes) continue;
-        const data = encodeNpcModel({ vertexCount: model.verticesCount, bounds: computeBounds(model, []), ...meshes });
+        // A loc that animates (the fire's flames) keeps its cache animation as the idle clip.
+        const idle = bakeLocClip(loaders, model, type.seqId);
+        const data = encodeNpcModel({ vertexCount: model.verticesCount, bounds: computeBounds(model, [idle]), ...meshes, idle });
         fs.writeFileSync(path.join(modelDir, `loc-${id}.bin`), gzipSync(data, { level: 6, mtime: 0 }));
     }
 

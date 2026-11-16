@@ -4,7 +4,7 @@ import { ALL_RUNES, RUNE } from "../combat/Spells";
 import { EQUIP_SLOTS, EquipSlot, EquipmentBonuses, ItemInfo, NO_BONUSES } from "../world/ItemFormat";
 import { EquipmentSlots } from "./EquipmentSlots";
 import type { ItemDb } from "./ItemDb";
-import { ItemContainer, Stack } from "./ItemContainer";
+import { ItemContainer, MAX_STACK, Stack } from "./ItemContainer";
 
 export const INVENTORY_SIZE = 28;
 const STORAGE_KEY = "first-person-survival.items.v1";
@@ -346,7 +346,11 @@ export class PlayerItems implements CombatGear {
                 (s as Stack).qty > 0 &&
                 !!this.db.get((s as Stack).id);
             (saved.inventory ?? []).slice(0, INVENTORY_SIZE).forEach((s, i) => {
-                if (valid(s)) this.inventory.slots[i] = { id: s.id, qty: s.qty };
+                if (!valid(s)) return;
+                // Items that stack now but were saved one per slot (essence) join the first stack.
+                const stack = this.db.get(s.id)?.stackable ? this.inventory.slots.find((t) => t?.id === s.id) : undefined;
+                if (stack) stack.qty = Math.min(MAX_STACK, stack.qty + s.qty);
+                else this.inventory.slots[i] = { id: s.id, qty: s.qty };
             });
             for (const s of saved.bank ?? []) {
                 if (valid(s)) this.bank.add(s.id, s.qty);

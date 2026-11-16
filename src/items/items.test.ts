@@ -196,6 +196,17 @@ describe("PlayerItems", () => {
         expect(again.equipment.get("weapon")?.id).toBe(1277);
     });
 
+    it("stacks essence, and merges essence saved one per slot", () => {
+        const p = items();
+        emptyInventory(p);
+        p.inventory.add(1436, 5);
+        expect(p.inventory.slots.filter(Boolean)).toEqual([{ id: 1436, qty: 5 }]);
+        const storage = fakeStorage();
+        storage.setItem("first-person-survival.items.v1", JSON.stringify({ inventory: [{ id: 1436, qty: 1 }, { id: 995, qty: 3 }, { id: 1436, qty: 1 }] }));
+        const loaded = items(new PlayerSkills(), storage);
+        expect(loaded.inventory.slots.filter(Boolean)).toEqual([{ id: 1436, qty: 2 }, { id: 995, qty: 3 }]);
+    });
+
     it("deposits and withdraws, taking only what fits", () => {
         const p = items();
         emptyInventory(p);

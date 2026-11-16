@@ -1,9 +1,12 @@
 import { SHIELDS, ShieldDef } from "../combat/Shields";
+import { SKILLS, SKILL_NAMES, type SkillId } from "../combat/Skills";
 import type { ItemDb } from "../items/ItemDb";
 import type { CacheWeaponInfo } from "../world/CacheWeaponFormat";
 
 /** The item search of the developer menu: click gives one, shift-click a hundred. */
 export type ItemCheat = { db: ItemDb; list: HTMLElement; give(id: number, qty: number): void };
+/** The Skills tab of the developer menu: every skill's base level, editable. */
+export type SkillCheat = { list: HTMLElement; level(id: SkillId): number; setLevel(id: SkillId, level: number): void };
 
 export class WeaponMenu {
     private weapons: CacheWeaponInfo[] = [];
@@ -21,8 +24,12 @@ export class WeaponMenu {
         private readonly shieldList?: HTMLElement,
         private readonly onShield?: (shield: ShieldDef | undefined) => void,
         private readonly itemCheat?: ItemCheat,
+        private readonly skillCheat?: SkillCheat,
     ) {
         element.querySelector<HTMLButtonElement>("#weapon-menu-close")?.addEventListener("click", () => this.close());
+        for (const tab of element.querySelectorAll<HTMLButtonElement>(".weapon-menu-tabs [data-tab]")) {
+            tab.addEventListener("click", () => this.showTab(tab.dataset.tab!));
+        }
         this.search = element.querySelector<HTMLInputElement>("#weapon-menu-search")!;
         this.search.addEventListener("input", () => this.render(this.search.value));
         // Enter equips the top match, as Enter on a focused row does.
@@ -80,8 +87,55 @@ export class WeaponMenu {
     open(): void {
         this.element.classList.remove("hidden");
         document.exitPointerLock();
-        this.search.focus();
-        this.search.select();
+        this.renderSkills();
+        if (!this.search.closest(".weapon-menu-tab")?.classList.contains("hidden")) {
+            this.search.focus();
+            this.search.select();
+        }
+    }
+
+    private showTab(name: string): void {
+        for (const tab of this.element.querySelectorAll<HTMLElement>(".weapon-menu-tabs [data-tab]")) {
+            tab.setAttribute("aria-selected", String(tab.dataset.tab === name));
+        }
+        for (const panel of this.element.querySelectorAll<HTMLElement>(".weapon-menu-tab")) {
+            panel.classList.toggle("hidden", panel.dataset.tab !== name);
+        }
+        if (name === "items") this.search.focus();
+        if (name === "skills") this.renderSkills();
+    }
+
+    /** One level box per skill (1-99), plus a button that maxes them all. Levels are read fresh on each render. */
+    private renderSkills(): void {
+        const cheat = this.skillCheat;
+        if (!cheat) return;
+        const maxAll = document.createElement("button");
+        maxAll.type = "button";
+        maxAll.className = "weapon-menu-row";
+        maxAll.textContent = "Set all to 99";
+        maxAll.addEventListener("click", () => {
+            for (const id of SKILLS) cheat.setLevel(id, 99);
+            this.renderSkills();
+        });
+        const rows = SKILLS.map((id) => {
+            const row = document.createElement("label");
+            row.className = "weapon-menu-row";
+            const name = document.createElement("span");
+            name.textContent = SKILL_NAMES[id];
+            const input = document.createElement("input");
+            input.type = "number";
+            input.min = "1";
+            input.max = "99";
+            input.value = String(cheat.level(id));
+            input.addEventListener("change", () => {
+                const level = Math.round(Number(input.value));
+                if (Number.isFinite(level)) cheat.setLevel(id, Math.min(99, Math.max(1, level)));
+                input.value = String(cheat.level(id));
+            });
+            row.append(name, input);
+            return row;
+        });
+        cheat.list.replaceChildren(...rows, maxAll);
     }
 
     close(): void {

@@ -2,6 +2,10 @@ import { random } from "../game/Random";
 
 /** Seconds the reeling may last before the fish tires the line out and escapes. [design] */
 export const REEL_TIME_LIMIT = 25;
+/** Zone speeds (bar widths per second) while the button is held and let go, and how fast it gets there (1/s). [design] */
+const ZONE_RISE = 1.1;
+const ZONE_FALL = 0.9;
+const ZONE_RESPONSE = 10;
 
 /**
  * The reeling minigame after a fish is hooked (in the manner of Palworld's fishing): a fish darts
@@ -43,9 +47,11 @@ export class FishingMinigame {
     update(dt: number, holding: boolean): void {
         if (this.result) return;
         this.time += dt;
-        // The zone: pushed right while held, falling back left otherwise, bouncing off the ends.
-        this.zoneSpeed += (holding ? 2.4 : -2.0) * dt;
-        this.zoneSpeed = Math.max(-1.2, Math.min(1.2, this.zoneSpeed));
+        // The zone: pushed right while held, falling back left otherwise, bouncing off the ends. It
+        // answers the button almost at once: its speed closes on the wanted one in about a tenth
+        // of a second, so a press stops a fall straight away. [design]
+        const wanted = holding ? ZONE_RISE : -ZONE_FALL;
+        this.zoneSpeed += (wanted - this.zoneSpeed) * Math.min(1, ZONE_RESPONSE * dt);
         this.zoneAt += this.zoneSpeed * dt;
         if (this.zoneAt < 0) [this.zoneAt, this.zoneSpeed] = [0, Math.max(0, -this.zoneSpeed * 0.3)];
         if (this.zoneAt > 1 - this.zone) [this.zoneAt, this.zoneSpeed] = [1 - this.zone, Math.min(0, -this.zoneSpeed * 0.3)];

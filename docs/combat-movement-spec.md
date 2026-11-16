@@ -250,7 +250,26 @@ Styles: melee accurate (+3 attack), aggressive (+3 strength), defensive (+3 defe
 **Resolving a hit.** An NPC's defence roll is `(defenceLevel + 9) × (defenceBonus + 64)` (its Magic
 level for spells). The hit chance is `1 − (D + 2) / (2 (A + 1))` when the attack roll A beats D, else
 `A / (2 (D + 1))`. A miss deals 0 **but the target still reacts** (at least a flinch, and the XP is
-not paid). A hit rolls uniformly from 0 to the max hit, and 0 becomes 1. The roll is then scaled
+not paid). A standing NPC takes any blow that deals 0 on its guard instead, without a shove
+`[design]`. A humanoid raises what it holds: its shield across its chest (`guard_shield`), its
+weapon upright before it (`guard_weapon`) or its forearms before its face (`guard_unarmed`). The
+cache keeps no record of an NPC's equipment, so the game reads it from the geometry on each hand
+(`heldItem`: a broad flat plate on the left hand is a shield, a long thin shape on the right a
+weapon). Any other body braces: it shies back and hunkers down (`BRACE_CLIP`,
+`tools/blender/brace_clip.py`). A blade taken on a guard glances off: it rattles in the player's
+hand (`WeaponView.clash`) instead of stalling. Against a melee blow a humanoid may parry instead:
+chance `parryChanceMax 0.5 × D / (D + M)` (D its Defence level, M the player's Melee level). It
+reads a flurry: each earlier melee blow of the player's that reached it in the last
+`parryFlurryWindow` 3 s adds `parryFlurryBonus` 0.5 of that chance, up to `parryChanceCap` 0.85,
+and a parry clears the count. A stunned or otherwise incapacitated NPC never parries (the blow's
+own stun roll comes first). A parry stops
+the swing (the blade stalls and the view shakes twice as hard as a heavy blow), flings the blade
+aside and strikes back with a lunging shield bash (`parry_shield`) or two-handed shove (`parry`).
+When that blow lands (frame 16 of 30 fps) the player is thrown back (`parryKnockback`, with a hop),
+the view snaps up and rolls, and the player is stunned for `parryStunTime` 2.2 s, the view swaying.
+A parry stance raised in time and facing the NPC (as against any melee strike) blocks that blow
+instead: no knockback and no stun. Every blow taken on the parry stance rattles the held weapon.
+The humanoid clips are in `tools/blender/hit_clips.py`. A hit rolls uniformly from 0 to the max hit, and 0 becomes 1. The roll is then scaled
 by `rate × move × hit zone × awareness`, at most ×3 (`tuning.osrsMaxDamageMultiplier`):
 
 - `rate` is the share of the weapon's OSRS attack interval (cache param 14 ticks of 0.6 s; spells

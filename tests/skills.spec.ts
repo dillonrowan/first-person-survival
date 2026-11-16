@@ -23,27 +23,28 @@ async function start(page: Page, x: number, y: number): Promise<void> {
     await page.waitForFunction(() => !!window.game?.npcs && window.game.player.ready, undefined, { timeout: 180_000, polling: 1000 });
 }
 
-test("fishing (cast, bite, hook, reel) and banking work", async ({ page }) => {
+test("fishing (rod: cast, bite, hook, reel; net: scoop) and banking work", async ({ page }) => {
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(String(e)));
     await start(page, 3087, 3230); // Draynor's net and bait spots (placed from the wiki)
 
-    // A small net at the nearest spot: the option wields it; a cast lands; wait for the bite.
+    // A rod and bait at the nearest spot: the option wields the rod; a cast lands; wait for the bite.
     const started = await page.evaluate(() => {
         const g = window.game!;
         g.items.depositAll();
         g.setLevel("fishing", 99); // every roll bites, so the test does not wait long
-        g.give("Small fishing net");
+        g.give("Fishing rod");
+        g.give("Fishing bait", 5);
         const spot = g.fishingSpots.spots
             .filter((s: any) => s.plane === g.player.plane)
             .sort((a: any, b: any) => Math.hypot(a.x - g.player.x, a.y - g.player.y) - Math.hypot(b.x - g.player.x, b.y - g.player.y))[0];
         (window as any).__spot = spot;
-        const handled = g.skillSystem.fishing.spotAction(spot, "Small Net");
+        const handled = g.skillSystem.fishing.spotAction(spot, "Bait");
         g.skillSystem.update({ acted: false, panelOpen: false, dead: false, dt: 0.016, pointer: { pressed: true, down: true, aimed: spot } });
         return { handled, wielded: g.items.equipment.get("weapon")?.id, phase: g.skillSystem.active?.phase };
     });
     expect(started.handled).toBe(true);
-    expect(started.wielded).toBe(303);
+    expect(started.wielded).toBe(307);
     expect(started.phase).toBe("cast");
     await page.waitForFunction(() => window.game!.skillSystem.active?.phase === "bite", undefined, { timeout: 90_000, polling: 100 });
     const hooked = await page.evaluate(() => {
@@ -54,7 +55,7 @@ test("fishing (cast, bite, hook, reel) and banking work", async ({ page }) => {
     expect(hooked).toBe("reel");
     // The reel bar shows on the next frame.
     await page.waitForFunction(() => !document.querySelector("#fishing-bar")!.classList.contains("hidden"), undefined, { timeout: 30_000, polling: 100 });
-    const fished = await page.evaluate(() => {
+    const reeled = await page.evaluate(() => {
         const g = window.game!;
         const spot = (window as any).__spot;
         const job = g.skillSystem.active;
@@ -64,12 +65,29 @@ test("fishing (cast, bite, hook, reel) and banking work", async ({ page }) => {
             m.zoneAt = Math.min(1 - m.zone, Math.max(0, m.fishAt - m.zone / 2));
             g.skillSystem.update({ acted: false, panelOpen: false, dead: false, dt: 0.05, pointer: { pressed: false, down: false, aimed: spot } });
         }
-        // At level 99 the net brings anchovies as well as shrimps.
-        const fish = g.items.count(g.db.byName("Raw shrimps").id) + g.items.count(g.db.byName("Raw anchovies").id);
-        return { fish, xp: g.skills.xp("fishing") };
+        // At level 99 bait brings herring as well as sardines.
+        return g.items.count(g.db.byName("Raw sardine").id) + g.items.count(g.db.byName("Raw herring").id);
     });
-    expect(fished.fish).toBe(1);
-    expect(fished.xp).toBeGreaterThan(0);
+    expect(reeled).toBe(1);
+
+    // A small net scoops instead: no line, each scoop rolls; held down, it scoops until a fish comes up.
+    const scooped = await page.evaluate(() => {
+        const g = window.game!;
+        const spot = (window as any).__spot;
+        g.give("Small fishing net");
+        g.skillSystem.fishing.spotAction(spot, "Small Net");
+        const job = g.skillSystem.active;
+        const stroke = job?.stroke;
+        const shrimps = () => g.items.count(g.db.byName("Raw shrimps").id) + g.items.count(g.db.byName("Raw anchovies").id);
+        for (let i = 0; i < 200 && shrimps() === 0 && g.skillSystem.active === job; i++) {
+            g.skillSystem.update({ acted: false, panelOpen: false, dead: false, dt: 0.1, pointer: { pressed: false, down: true, aimed: spot } });
+        }
+        return { stroke, wielded: g.items.equipment.get("weapon")?.id, fish: shrimps(), xp: g.skills.xp("fishing") };
+    });
+    expect(scooped.stroke).toBe("scoop");
+    expect(scooped.wielded).toBe(303);
+    expect(scooped.fish).toBe(1);
+    expect(scooped.xp).toBeGreaterThan(0);
 
     // Banking: deposit everything.
     const banked = await page.evaluate(() => {
@@ -95,27 +113,19 @@ test("a tree gives logs and a range cooks", async ({ page }) => {
             .sort((a: any, b: any) => Math.hypot(a.loc.tileX - g.player.x, a.loc.tileY - g.player.y) - Math.hypot(b.loc.tileX - g.player.x, b.loc.tileY - g.player.y))[0];
         g.skillSystem.locAction(tree, "Chop down"); // wields the axe
         const wielded = g.items.equipment.get("weapon")?.id;
-        // Stand just south of the tree, facing it, and swing: quick strikes driven through combat.
-        const loc = tree.loc;
-        const cx = loc.tileX + loc.sizeX / 2;
-        const cy = loc.tileY + loc.sizeY / 2;
-        const swings: { stopped: boolean }[] = [];
-        for (let n = 0; n < 60 && g.items.count(1511) === 0; n++) {
-            g.player.x = cx;
-            g.player.y = loc.tileY - 0.45;
-            g.player.yaw = Math.atan2(-(cx - g.player.x), cy - g.player.y);
-            g.player.pitch = -0.1;
-            const input = (press: boolean) => ({ attackDown: press, attackPressed: press, blockDown: false, kickPressed: false, castPressed: false, forward: 0, strafe: 0 });
-            g.combat.update(1 / 60, g.player, input(true));
-            let frames = 0;
-            while (g.combat.melee.swing && frames++ < 120) g.combat.update(1 / 60, g.player, input(false));
-            swings.push({ stopped: frames < 120 });
-            g.combat.update(0.5, g.player, input(false));
+        // A click on the tree (as main.ts sends it) starts the chopping; held on the tree, the
+        // strokes go on, and each blow rolls for a log.
+        const started = g.skillSystem.clickLoc(tree);
+        let motions = 0;
+        for (let n = 0; n < 600 && g.items.count(1511) === 0 && g.skillSystem.active; n++) {
+            g.skillSystem.update({ acted: false, panelOpen: false, dead: false, dt: 0.1, pointer: { pressed: false, down: true, aimed: tree } });
+            if (g.skillSystem.toolMotion()?.kind === "chop") motions++;
         }
-        return { wielded, logs: g.items.count(1511), swings: swings.length };
+        return { wielded, started, motions, logs: g.items.count(1511) };
     });
     expect(chopped.wielded).toBe(1351);
-    expect(chopped.swings).toBeGreaterThan(0);
+    expect(chopped.started).toBe(true);
+    expect(chopped.motions).toBeGreaterThan(0);
     const logs = chopped.logs;
     expect(logs).toBeGreaterThanOrEqual(1);
 

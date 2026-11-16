@@ -3,6 +3,9 @@
 Builds a "Fishing" scene and writes
   public/models/fishing/bobber.glb  the float: red cap, white body, a black waterline mark at its origin
   public/models/fishing/spot.glb    a fishing spot: ripple rings and bubbles, one looping animation "spot"
+  public/models/fishing/splash.glb  a net or harpoon going in: droplets and a ring, one animation "splash"
+  public/models/fishing/rod.glb     the held fishing rod (spinning reel), along +Y from the hand
+  public/models/fishing/fly_rod.glb the held fly fishing rod (fly reel at the butt)
   src/skills/FishingClips.ts        per-frame bobber and fish-jump motion, sampled at 30 fps
 
 1 Blender unit = 1 tile; +Z up. The bobber's origin is its waterline mark, so a bobber at z > 0 shows the
@@ -154,6 +157,146 @@ def build_spot(scene):
     return root, [p[2] for p in parts], length
 
 
+def build_rod(scene, name, fly):
+    """A held rod along +Z from the hand (origin): cork grips, reel seat, tapered blank, guides and reel.
+
+    The guides and reel hang on the -Y side (the glTF's +Z, the weapon contract's edge side), which the
+    game's rod pose turns downward. A spinning rod has its reel in front of the hand; a fly rod has a
+    fly reel at the butt, below the hand.
+    """
+    import bmesh
+    from mathutils import Matrix
+
+    length = 1.85 if fly else 1.6
+    cork = material("rod_cork", (0.72, 0.53, 0.32, 1))
+    blank = material("rod_fly_blank" if fly else "rod_blank", (0.55, 0.33, 0.12, 1) if fly else (0.04, 0.16, 0.1, 1))
+    metal = material("rod_metal", (0.62, 0.64, 0.68, 1))
+    dark = material("rod_dark", (0.05, 0.05, 0.06, 1))
+    thread = material("rod_thread", (0.55, 0.05, 0.05, 1) if not fly else (0.1, 0.25, 0.12, 1))
+    mats = (cork, blank, metal, dark, thread)
+    CORK, BLANK, METAL, DARK, THREAD = range(5)
+
+    def tube(bm, z0, z1, r0, r1, mat, segs=12, y=0.0):
+        before = set(bm.faces)
+        bmesh.ops.create_cone(bm, cap_ends=True, segments=segs, radius1=r0, radius2=r1, depth=z1 - z0,
+                              matrix=Matrix.Translation((0, y, (z0 + z1) / 2)))
+        for f in set(bm.faces) - before:
+            f.material_index = mat
+
+    def blank_r(z):
+        t = (z - 0.2) / (length - 0.2)
+        return 0.011 * (1 - t) + 0.0025 * t
+
+    def ring(bm, z, r, mat, offset):
+        before = set(bm.faces)
+        bmesh.ops.create_cone(bm, cap_ends=False, segments=10, radius1=r, radius2=r, depth=0.004,
+                              matrix=Matrix.Translation((0, -offset, z)))
+        for f in set(bm.faces) - before:
+            f.material_index = mat
+
+    def build(bm):
+        # Butt cap and rear grip.
+        tube(bm, -0.3, -0.28, 0.02, 0.022, DARK)
+        tube(bm, -0.28, -0.02 if not fly else 0.18, 0.022, 0.02, CORK)
+        if fly:
+            # Fly reel seat at the butt, the grip above it.
+            tube(bm, -0.27, -0.12, 0.016, 0.016, METAL)
+        else:
+            tube(bm, -0.02, 0.09, 0.017, 0.017, METAL)
+            tube(bm, 0.09, 0.2, 0.019, 0.014, CORK)
+        tube(bm, 0.18 if fly else 0.2, length, blank_r(0.2), blank_r(length), BLANK, segs=8)
+        tube(bm, 0.2, 0.215, 0.015, 0.014, THREAD)
+        # Guides: wrapped feet and rings stepping down towards the tip.
+        guides = [0.45, 0.72, 0.96, 1.18, 1.36, 1.5] if not fly else [0.5, 0.78, 1.02, 1.24, 1.44, 1.62, 1.76]
+        for i, z in enumerate(guides):
+            r = 0.026 * (1 - i / len(guides)) + 0.006
+            tube(bm, z - 0.012, z + 0.012, blank_r(z) + 0.0015, blank_r(z) + 0.0015, THREAD, segs=8)
+            ring(bm, z, r, METAL, blank_r(z) + r + 0.006)
+            # The stem from the blank to the ring.
+            before = set(bm.faces)
+            bmesh.ops.create_cube(bm, size=1, matrix=Matrix.Translation((0, -(blank_r(z) + 0.003), z)) @ Matrix.Diagonal((0.003, 0.012, 0.01, 1)))
+            for f in set(bm.faces) - before:
+                f.material_index = METAL
+        tube(bm, length - 0.006, length + 0.004, 0.004, 0.004, METAL, segs=8)
+        if fly:
+            # Fly reel: a wide disc, its axle across the rod (X), below the seat.
+            before = set(bm.faces)
+            bmesh.ops.create_cone(bm, cap_ends=True, segments=20, radius1=0.05, radius2=0.05, depth=0.028,
+                                  matrix=Matrix.Translation((0, -0.065, -0.2)) @ Matrix.Rotation(math.pi / 2, 4, "Y"))
+            for f in set(bm.faces) - before:
+                f.material_index = DARK
+            before = set(bm.faces)
+            bmesh.ops.create_cone(bm, cap_ends=True, segments=8, radius1=0.006, radius2=0.006, depth=0.02,
+                                  matrix=Matrix.Translation((0.024, -0.095, -0.2)) @ Matrix.Rotation(math.pi / 2, 4, "Y"))
+            bmesh.ops.create_cube(bm, size=1, matrix=Matrix.Translation((0, -0.017, -0.2)) @ Matrix.Diagonal((0.008, 0.012, 0.05, 1)))
+            for f in set(bm.faces) - before:
+                f.material_index = METAL
+        else:
+            # Spinning reel: a foot down from the seat, the body, the spool along the rod and a crank.
+            before = set(bm.faces)
+            bmesh.ops.create_cube(bm, size=1, matrix=Matrix.Translation((0, -0.04, 0.035)) @ Matrix.Diagonal((0.008, 0.05, 0.03, 1)))
+            for f in set(bm.faces) - before:
+                f.material_index = METAL
+            before = set(bm.faces)
+            bmesh.ops.create_uvsphere(bm, u_segments=12, v_segments=8, radius=0.03,
+                                      matrix=Matrix.Translation((0, -0.075, 0.02)) @ Matrix.Diagonal((0.9, 1, 1.2, 1)))
+            for f in set(bm.faces) - before:
+                f.material_index = DARK
+            tube(bm, 0.045, 0.085, 0.032, 0.028, METAL, y=-0.075)
+            before = set(bm.faces)
+            bmesh.ops.create_cube(bm, size=1, matrix=Matrix.Translation((0.045, -0.075, 0.02)) @ Matrix.Diagonal((0.04, 0.006, 0.008, 1)))
+            bmesh.ops.create_cone(bm, cap_ends=True, segments=8, radius1=0.008, radius2=0.007, depth=0.022,
+                                  matrix=Matrix.Translation((0.065, -0.09, 0.02)) @ Matrix.Rotation(math.pi / 2, 4, "X"))
+            for f in set(bm.faces) - before:
+                f.material_index = DARK
+
+    me = mesh_from_bmesh(name, build, mats)
+    for p in me.polygons:
+        p.use_smooth = True
+    return fresh(name, me, scene)
+
+
+def build_splash(scene):
+    """A splash where a net or harpoon goes in: a crown of droplets and a spreading ring. One shot, 24 frames."""
+    import bmesh
+
+    foam = material("spot_foam", (0.95, 0.97, 1.0, 0.7))
+    root = fresh("splash", None, scene)
+    parts = []
+
+    def ring(bm):
+        bmesh.ops.create_circle(bm, cap_ends=False, segments=24, radius=0.3)
+        res = bmesh.ops.extrude_edge_only(bm, edges=list(bm.edges))
+        verts = [e for e in res["geom"] if isinstance(e, bmesh.types.BMVert)]
+        bmesh.ops.scale(bm, vec=(1.2, 1.2, 1), verts=verts)
+
+    o = fresh("splash_ring", mesh_from_bmesh("splash_ring", ring, (foam,)), scene)
+    o.parent = root
+    for f, s in ((0, 0.2), (8, 1.0), (24, 1.8)):
+        o.scale = (s, s, 1)
+        o.location = (0, 0, 0.02)
+        o.keyframe_insert("scale", frame=f)
+    parts.append(o)
+    for i in range(9):
+        o = fresh(f"splash_drop{i}", mesh_from_bmesh(f"splash_drop{i}", lambda bm: bmesh.ops.create_icosphere(bm, subdivisions=1, radius=0.03), (foam,)), scene)
+        o.parent = root
+        a = i * 2 * math.pi / 9 + (0.3 if i % 2 else 0)
+        out = 0.35 + 0.1 * (i % 3)
+        up = 0.45 + 0.15 * ((i * 5) % 3)
+        for f in range(0, 25, 3):
+            t = f / 24
+            z = up * 4 * t * (1 - t) - (0.1 if t > 0.9 else 0)
+            o.location = (math.cos(a) * out * t, math.sin(a) * out * t, z)
+            s = 1.0 if t < 0.85 else 0.01
+            o.scale = (s, s, s * 1.4)
+            o.keyframe_insert("location", frame=f)
+            o.keyframe_insert("scale", frame=f)
+        parts.append(o)
+    for o in parts:
+        o.animation_data.action.name = f"splash_{o.name}"
+    return root, parts, 24
+
+
 # Clip -> (frames, {channel: [(frame, value)]}); loc.* in tiles, rot.* in degrees.
 CLIPS = {
     # Floating: the mark rides just above the water.
@@ -266,6 +409,23 @@ try:
     scene["nla"] = True
     scene.frame_end = spot_len
     export_glb(os.path.join(MODELS, "spot.glb"), [spot] + spot_parts, scene)
+    splash, splash_parts, splash_len = build_splash(scene)
+    for o in splash_parts:
+        ad = o.animation_data
+        track = ad.nla_tracks.new()
+        track.name = "splash"
+        strip = track.strips.new("splash", 0, ad.action)
+        strip.action_frame_end = splash_len
+        ad.action = None
+    scene.frame_end = splash_len
+    export_glb(os.path.join(MODELS, "splash.glb"), [splash] + splash_parts, scene)
+    scene["animate"] = False
+    scene["nla"] = False
+    for name, fly in (("rod", False), ("fly_rod", True)):
+        rod = build_rod(scene, name, fly)
+        export_glb(os.path.join(MODELS, f"{name}.glb"), [rod], scene)
+        rod.location = (2 + fly * 0.3, 0, 0)
+    splash.location = (0, 2, 0)
     bobber.location = (-2, 0, 0)
 finally:
     scene.frame_set(0)

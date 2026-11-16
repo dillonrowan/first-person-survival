@@ -78,7 +78,8 @@ contains "dagger" fights like the daggers, "staff" or "wand" like the staff, "cr
 crossbow and "bow" like the bow; every other weapon fights like the sword. The anti-dragon shield
 cuts dragonfire's damage to a tenth, but not icy breath's, and stops protecting while you hold a
 bow, which takes both hands. In development builds `I` opens a cheat menu that gives any cache
-weapon, shield or item (click for one, shift-click for a hundred).
+weapon, shield or item (click for one, shift-click for a hundred); its Skills tab sets any skill
+to any level from 1 to 99.
 
 - Sword: balanced melee weapon.
 - Daggers: fast attacks and close-range stepping attacks.
@@ -130,7 +131,12 @@ Skills are saved in the browser.
 
 - Every attack rolls to hit against the target's defence for that style and then rolls its damage
   from 0 up to your max hit. Hits show as OSRS hitsplats over the NPC that was hit (up to four at
-  once): red with the damage, blue 0 for a miss (the target still flinches), the trimmed max hit
+  once): red with the damage, blue 0 for a miss (the target takes it on its guard:
+  a person raises their shield, weapon or forearms, a beast hunkers down; a person may instead parry
+  a melee blow that does 0, more often the higher their Defence is against your Melee and the more
+  blows you have just landed on them in quick succession, flinging
+  your blade aside and bashing you back off your feet, dazed and stunned, unless you raise your
+  parry stance in time; a stunned person never parries), the trimmed max hit
   splat when you roll your max hit, and green for poison. Hits on you show the same splats near the
   bottom centre of the screen.
 - Your max hit and accuracy come from your skill and the bonuses of everything you wear. Swinging
@@ -204,32 +210,44 @@ Messages go to the log at the bottom left. Success chances, XP and times are the
 - **Woodcutting**: swing a wielded axe into a tree (`Mouse 1`). The blade stops in the trunk and the
   tree shudders; every blow that lands rolls for a log with your Woodcutting level and the axe's
   chance. Chop down (`E`) wields the best axe you carry. Trees topple when their last log comes and
-  leave a stump that grows back; a stump does not stop the blade.
+  leave a stump that grows back; a stump does not stop the blade. With a full inventory you keep
+  chopping and the logs fall to the ground at your feet.
 - **Mining**: swing a wielded pickaxe into a rock the same way (Mine wields the best one). A blow
   rolls the rock's chance, scaled by how much of the pickaxe's OSRS interval has passed since your
   last blow, so a better pickaxe needs fewer blows and hammering fast gives no more ore. The rock
   crumbles when it empties and refills. Aubury in Varrock teleports you to the rune essence mine.
-- **Fishing**: fishing spots ripple and bubble on the water where the OSRS wiki places them. Use a
-  spot's option (Net, Bait, Lure, Cage, Harpoon) from up to 7 tiles away: you need the right tool
-  and bait, and the option puts the tool in your hand (it must stay wielded). Aim at the spot and
-  click to cast. The bobber floats with its black waterline mark just above the water; nibbles
+- **Fishing**: fishing spots ripple and bubble on the water where the OSRS wiki places them. With a
+  fishing tool wielded, left click a spot from at most 2 tiles away (stand on the shore next to it): you fish with the spot's option
+  for that tool, and the same click casts or scoops. Or use a spot's option (Net, Bait, Lure, Cage,
+  Harpoon), which puts the right tool in your hand (it must stay wielded). You need the tool and
+  any bait. Rods, nets, cages and the plain harpoon cannot attack. With a full inventory the catch
+  falls to the ground at your feet and you keep fishing.
+  With a rod, aim at the spot and click to cast. The bobber floats with its black waterline mark just above the water; nibbles
   only touch the water, but a bite pulls it under, past the mark. Click while it is under (about a
   second) to hook the fish; a click before then reels in empty, and a missed bite gets away. Then
   reel: hold the mouse button to push the zone right and let go to let it drift back, keeping the
-  fish in the zone until the meter fills. Fish you are more likely to catch get a wider zone and
-  swim calmer. A landed fish leaps out of the water to you; cast again for the next.
-- **Cooking**: Cook on a range or fire, or use raw food on it; food can burn.
+  fish in the zone until the meter fills (the zone answers the button at once). Fish you are more
+  likely to catch get a wider zone and swim calmer. A landed fish leaps out of the water to you;
+  cast again for the next. A net, cage or harpoon has no line: aim at the spot and click (or hold
+  the button) to scoop the net or pot through the water, or strike with the harpoon, again and
+  again; each scoop has a chance to bring up a fish.
+- **Cooking**: Cook on a range or fire, or use raw food on it; food can burn. The first item is
+  done on the next tick.
 - **Fires**: use a tinderbox on logs (or Light them). There is no Firemaking skill: the logs always
-  catch at once. You step aside and can cook on the fire until it burns out and leaves ashes.
+  catch at once. The fire burns right where you stand (you do not move) and you can cook on it
+  until it burns out and leaves ashes. Better logs burn longer: plain logs about 1-2 minutes, yew
+  three times as long, redwood four times.
 - **Smithing, Crafting**: Smelt at a furnace, Smith at an anvil with a hammer, Spin at a spinning
   wheel, and so on; the make menu at the bottom lets you pick the item and how many (1, 5, 10, X or
   All, or keys 1-9). Iron ore fails half the time.
 - **Fletching, Herblore**: use a knife on logs, a bowstring on a bow, a herb on a vial of water;
   Clean grimy herbs. Fill vials, buckets and jugs at fountains, wells and sinks.
-- **Runecraft**: Enter mysterious ruins with the rune's talisman or tiara, then Craft-rune at the
-  altar; the portal leads back.
-- **Thieving**: Pickpocket people and Steal-from stalls. Getting caught hurts and stuns you for a
-  few seconds.
+- **Runecraft**: Enter mysterious ruins with the rune's talisman or tiara (without one, a message
+  names the talisman you need), then Craft-rune at the altar; the portal leads back. The world map
+  (`M`) marks every essence altar's ruins.
+- **Thieving**: Pickpocket people and Steal-from stalls. You glance down and lean in while
+  you work the pocket; getting caught jerks you back, hurts and stuns you for a few seconds, and
+  anyone who can fight turns on you.
 - **Hunter**: Lay a bird snare or box trap and Check it once something walks in; Catch butterflies
   and implings with a butterfly net and a jar.
 - **Farming**: Rake a patch, use a seed on it (seed dibber, or a spade for trees and bushes), and
@@ -331,6 +349,7 @@ Combat is unavailable while flying. Target interaction is also unavailable in fl
 | `G` | Cast the equipped spell |
 | `Q` | Cycle attack style |
 | `Tab` / `K` / `B` | Inventory and equipment / skills / spellbook |
+| `M` | World map: drag to pan, wheel to zoom; marks you and the essence altars |
 | Mouse wheel | Wield the next weapon in the inventory |
 | `Shift` | Sprint or fly faster |
 | `Alt` | Walk slowly |

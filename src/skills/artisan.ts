@@ -19,7 +19,12 @@ export class Artisan {
     private recipes(facility: Facility | null): RecipeDef[] {
         // A range recipe can be cooked on a fire and the other way round, as in OSRS.
         const cooking = facility === "range" || facility === "fire";
-        return this.ctx.data.recipes.filter((r) => r.facility === facility || (cooking && (r.facility === "range" || r.facility === "fire")));
+        return this.ctx.data.recipes.filter(
+            (r) =>
+                (r.facility === facility || (cooking && (r.facility === "range" || r.facility === "fire"))) &&
+                // The cache has quest recipes that "make" a burnt item (raw shrimps into Burnt shrimp): not offered.
+                !/^burnt /i.test(itemName(this.ctx, r.output.item)),
+        );
     }
 
     private canMake(r: RecipeDef): boolean {
@@ -127,11 +132,14 @@ export class Artisan {
     }
 }
 
-/** Makes one recipe every `recipe.ticks` until `remaining` are made or something runs out. */
+/**
+ * Makes one recipe every `recipe.ticks` until `remaining` are made or something runs out. The
+ * first is made on the next tick, so picking from the menu shows at once. [design]
+ */
 export class RecipeJob implements Job {
     readonly skill: SkillId;
     readonly swingTicks = 0;
-    private ticks = 0;
+    private ticks: number;
 
     constructor(
         private readonly ctx: SkillContext,
@@ -141,6 +149,7 @@ export class RecipeJob implements Job {
         private readonly onFire: boolean,
     ) {
         this.skill = recipe.skill as SkillId;
+        this.ticks = recipe.ticks - 1;
     }
 
     tick(): boolean {

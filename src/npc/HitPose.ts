@@ -1,6 +1,6 @@
 import type { NpcClip, NpcModelData, NpcSkeleton } from "../world/NpcFormat";
 import { RS_UNITS_PER_TILE } from "../world/WorldFormat";
-import { HIT_BONES, HIT_CLIPS, HIT_RIG_NECK_HEIGHT, HitClip, HitClipName, LUNGE_CLIP } from "./HitClips";
+import { BRACE_CLIP, HIT_BONES, HIT_CLIPS, HIT_RIG_NECK_HEIGHT, HitClip, HitClipName, LUNGE_CLIP } from "./HitClips";
 
 /**
  * Hit reactions drawn on top of an NPC's baked animation frame. Humanoids play the clips authored
@@ -72,6 +72,8 @@ export class BodyRig {
     readonly sizes: number[];
     readonly height: number;
     readonly humanoid: Humanoid | undefined;
+    /** What a humanoid holds, for its guard and parry; "none" for any other body. */
+    readonly held: Held;
     private readonly vertices: number[][];
     private readonly frames = new Map<NpcClip, ({ parts: Float32Array; bones?: Float32Array } | undefined)[]>();
 
@@ -106,6 +108,26 @@ export class BodyRig {
         }
         this.height = Math.max(0.25, top);
         this.humanoid = fitHumanoid(this.parents, this.pivots, this.centroids, this.sizes, this.height);
+        const h = this.humanoid;
+        this.held = h ? heldItem(this.extentOn(h, "hand.L"), this.extentOn(h, "hand.R"), this.height) : "none";
+    }
+
+    /** Size along x, y and z of the base-pose geometry riding on a humanoid bone. */
+    private extentOn(h: Humanoid, bone: BoneName): Vec3 {
+        const lo: Vec3 = [Infinity, Infinity, Infinity];
+        const hi: Vec3 = [-Infinity, -Infinity, -Infinity];
+        for (let p = 0; p < this.partCount; p++) {
+            if (h.boneOfPart[p] !== BONE[bone]) {
+                continue;
+            }
+            for (const v of this.vertices[p]) {
+                for (let k = 0; k < 3; k++) {
+                    lo[k] = Math.min(lo[k], this.base[v * 3 + k]);
+                    hi[k] = Math.max(hi[k], this.base[v * 3 + k]);
+                }
+            }
+        }
+        return lo[0] === Infinity ? [0, 0, 0] : [hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]];
     }
 
     get partCount(): number {
@@ -157,6 +179,41 @@ export class BodyRig {
         }
         return found;
     }
+}
+
+/** A body-root clip (LUNGE_CLIP, BRACE_CLIP) `t` seconds in: pitch, forward and lift. */
+function sampleRoot(clip: typeof LUNGE_CLIP, t: number): [number, number, number] {
+    const f = Math.min(clip.frames - 1, Math.max(0, t * clip.fps));
+    const i = Math.min(Math.floor(f), clip.frames - 2);
+    const k = f - i;
+    const d = clip.data;
+    return [0, 1, 2].map((c) => d[i * 3 + c] + (d[(i + 1) * 3 + c] - d[i * 3 + c]) * k) as [number, number, number];
+}
+
+/** What a humanoid holds: a shield (in its left hand, maybe a weapon too), only a weapon, or nothing. */
+export type Held = "shield" | "weapon" | "none";
+
+/** Smallest share of a body's height a held shield's second-longest side and a weapon's length take. [design] */
+const SHIELD_BREADTH = 0.25;
+const WEAPON_LENGTH = 0.3;
+
+/**
+ * What a humanoid holds, from the size of the geometry on each hand (the cache keeps no record of
+ * an NPC's equipment): a broad flat plate on the left hand, unlike the right, is a shield; a long
+ * thin shape on the right a weapon. Of the 610 attackable humanoid models of the export, this finds
+ * 84 with a shield (Guards, Soldiers, Paladins, Dwarves...), 159 with only a weapon and 367 with
+ * empty hands, and no big-handed monster as either.
+ */
+export function heldItem(left: Vec3, right: Vec3, height: number): Held {
+    const l = [...left].sort((a, b) => a - b);
+    const r = [...right].sort((a, b) => a - b);
+    const plate = l[1] >= SHIELD_BREADTH * height && l[0] <= 0.5 * l[1];
+    // Both hands alike are the body's own (big claws), not something held.
+    const unlike = Math.abs(l[2] - r[2]) + Math.abs(l[1] - r[1]) > 0.065 * height;
+    if (plate && unlike) {
+        return "shield";
+    }
+    return r[2] >= WEAPON_LENGTH * height && r[2] >= 2 * r[1] ? "weapon" : "none";
 }
 
 const rigs = new WeakMap<NpcModelData, BodyRig | null>();
@@ -415,6 +472,8 @@ export class HitReactions {
     private wasActive = false;
     /** The generic lunge attack's pitch, forward and lift now (LUNGE_CLIP), while one plays. */
     private lunge: [number, number, number] | undefined;
+    /** Seconds into the generic brace (BRACE_CLIP) of a body without a human build, while one plays. */
+    private brace: number | undefined;
     /** Local rotation (x, y, z, w) of each bone (humanoids) or part (springs), filled by pose(). */
     readonly local: Float32Array;
     readonly offset: Vec3 = [0, 0, 0];
@@ -434,7 +493,11 @@ export class HitReactions {
 
     /** True while anything moves the body, and for one update after so the rest pose is drawn. */
     get active(): boolean {
-        return this.layers.length > 0 || this.stun !== undefined || this.springing || this.lunge !== undefined || this.wasActive;
+        return this.moving || this.wasActive;
+    }
+
+    private get moving(): boolean {
+        return this.layers.length > 0 || this.stun !== undefined || this.springing || this.lunge !== undefined || this.brace !== undefined;
     }
 
     /**
@@ -454,16 +517,13 @@ export class HitReactions {
             time < hitTime
                 ? (time / Math.max(1e-6, hitTime)) * impact
                 : impact + ((time - hitTime) / Math.max(1e-6, total - hitTime)) * (end - impact);
-        const f = Math.min(LUNGE_CLIP.frames - 1, Math.max(0, t * LUNGE_CLIP.fps));
-        const i = Math.min(Math.floor(f), LUNGE_CLIP.frames - 2);
-        const k = f - i;
-        const d = LUNGE_CLIP.data;
-        this.lunge = [0, 1, 2].map((c) => d[i * 3 + c] + (d[(i + 1) * 3 + c] - d[i * 3 + c]) * k) as [number, number, number];
+        this.lunge = sampleRoot(LUNGE_CLIP, t);
     }
 
     clear(): void {
         this.layers.length = 0;
         this.stun = undefined;
+        this.brace = undefined;
         this.angle.fill(0);
         this.spin.fill(0);
         this.springing = false;
@@ -500,6 +560,33 @@ export class HitReactions {
         }
     }
 
+    /**
+     * A blow that did nothing, taken on the guard: a humanoid raises its shield, its weapon or its
+     * forearms (by what it holds), or parries the blow and strikes back with its shield or both
+     * hands; any hit clips still playing make way. Any other body braces (BRACE_CLIP).
+     */
+    defend(kind: "guard" | "parry"): void {
+        if (!this.rig.humanoid) {
+            // Any other body shies back and hunkers down, its parts shaken by the blow.
+            this.brace = 0;
+            this.kickSprings(STRENGTH.flinch * 0.6, -1, 0, 0.6);
+            return;
+        }
+        const held = this.rig.held;
+        const name: HitClipName =
+            kind === "parry"
+                ? held === "shield"
+                    ? "parry_shield"
+                    : "parry"
+                : held === "shield"
+                  ? "guard_shield"
+                  : held === "weapon"
+                    ? "guard_weapon"
+                    : "guard_unarmed";
+        this.layers.length = 0;
+        this.layers.push({ clip: HIT_CLIPS[name], time: 0, mirror: false, weight: 1, fade: 0 });
+    }
+
     /** Spins every part about its joint away from the hit, the parts near where it struck most. */
     private kickSprings(strength: number, along: number, left: number, height: number): void {
         const rig = this.rig;
@@ -533,7 +620,13 @@ export class HitReactions {
     }
 
     update(dt: number): void {
-        this.wasActive = this.layers.length > 0 || this.stun !== undefined || this.springing || this.lunge !== undefined;
+        this.wasActive = this.moving;
+        if (this.brace !== undefined) {
+            this.brace += dt;
+            if (this.brace >= (BRACE_CLIP.frames - 1) / BRACE_CLIP.fps) {
+                this.brace = undefined;
+            }
+        }
         for (let i = this.layers.length - 1; i >= 0; i--) {
             const l = this.layers[i];
             l.time += dt;
@@ -582,12 +675,15 @@ export class HitReactions {
             local[i + 3] = 1;
         }
         this.offset[0] = this.offset[1] = this.offset[2] = 0;
-        if (this.lunge) {
+        for (const root of [this.lunge, this.brace === undefined ? undefined : sampleRoot(BRACE_CLIP, this.brace)]) {
+            if (!root) {
+                continue;
+            }
             // The whole body leans about its root (+x is its side, so + pitch tips it forward).
-            const [pitch, forward, lift] = this.lunge;
-            local.set([Math.sin(pitch / 2), 0, 0, Math.cos(pitch / 2)], 0);
-            this.offset[1] = lift * this.rig.height;
-            this.offset[2] = forward * this.rig.height;
+            const [pitch, forward, lift] = root;
+            mulInto(local, 0, [Math.sin(pitch / 2), 0, 0, Math.cos(pitch / 2)]);
+            this.offset[1] += lift * this.rig.height;
+            this.offset[2] += forward * this.rig.height;
         }
         const h = this.rig.humanoid;
         if (h) {

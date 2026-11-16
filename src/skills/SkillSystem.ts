@@ -5,10 +5,10 @@ import { Artisan } from "./artisan";
 import { Farming } from "./farming";
 import { Fires } from "./fires";
 import { Fishing } from "./fishing";
-import { Gathering } from "./gathering";
+import { GatherJob, Gathering } from "./gathering";
 import { Hunter } from "./hunter";
 import { Runecraft } from "./runecraft";
-import type { Job, JobInput, SkillContext } from "./SkillContext";
+import type { Job, JobInput, SkillContext, ToolMotion } from "./SkillContext";
 import { Slayer } from "./slayer";
 import { Thieving } from "./thieving";
 
@@ -95,28 +95,56 @@ export class SkillSystem {
     /** 0..1 through the current tool swing, or undefined when nothing swings. */
     swingPhase(): number | undefined {
         const job = this.job;
-        if (job?.swingPhase) return job.swingPhase();
         if (!job || job.swingTicks <= 0) return undefined;
         const clock = this.ctx.clock;
         return ((clock.tick + clock.tickFraction) % job.swingTicks) / job.swingTicks;
     }
 
-    /** Whether the current job takes the attack button instead of the weapon (fishing). */
+    /** What the held fishing tool is doing, or undefined. */
+    toolMotion(): ToolMotion | undefined {
+        return this.job?.toolMotion?.();
+    }
+
+    /** Whether the current job takes the attack button instead of the weapon (fishing, chopping, mining). */
     get takesClicks(): boolean {
         return !!this.job?.frame;
     }
 
-    /** Whether a swung blade stops on this loc: standing trees and rocks. */
+    /** Whether a swung blade stops on this loc (it gathers nothing): standing trees and rocks. */
     isSolid(instance: SkillLocInstance): boolean {
         const role = this.ctx.data.locs[instance.loc.id]?.role;
         return role === "rock" || (role === "tree" && !this.gathering.isDepleted(instance.key));
     }
 
-    /** A swung blade struck a tree or rock. */
+    /** A tool blow landed on a tree or rock. */
     strike(instance: SkillLocInstance): void {
         const role = this.ctx.data.locs[instance.loc.id];
         if (role?.role === "tree") this.gathering.strikeTree(instance, role.index);
         else if (role?.role === "rock") this.gathering.strikeRock(instance, role.index);
+        else return;
+        this.onToolImpact?.();
+    }
+
+    /** A chop or pick blow landed (the view jolts). */
+    onToolImpact?: () => void;
+
+    /**
+     * A left click on a skill loc in reach: with an axe in hand on a standing tree, or a pickaxe on
+     * a rock, starts a GatherJob (the same click is its first stroke). False when the click is not
+     * for this (another tool, another loc, or a stroke at this loc already running).
+     */
+    clickLoc(instance: SkillLocInstance): boolean {
+        const active = this.job;
+        if (active instanceof GatherJob && active.target === instance) return false;
+        const role = this.ctx.data.locs[instance.loc.id]?.role;
+        const weapon = this.ctx.weapon();
+        const tools = this.ctx.data.tools;
+        let kind: "chop" | "mine" | undefined;
+        if (role === "tree" && !this.gathering.isDepleted(instance.key) && tools.axes.some((a) => a.item === weapon)) kind = "chop";
+        else if (role === "rock" && tools.pickaxes.some((p) => p.item === weapon)) kind = "mine";
+        if (!kind) return false;
+        this.start(new GatherJob(instance, kind, (i) => this.strike(i), () => this.isSolid(instance)));
+        return true;
     }
 
     private tick(t: number): void {

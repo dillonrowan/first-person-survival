@@ -173,6 +173,30 @@ describe("a landed blow", () => {
     });
 });
 
+describe("a blow on the held weapon", () => {
+    it("rattles it in the hand, knocked back a little, and it settles", () => {
+        const camera = new THREE.PerspectiveCamera();
+        const view = new WeaponView(camera, "/");
+        const holder = camera.children.find((c) => c.type === "Group" && c.name !== "kick_boot")!;
+        const melee = new MeleeController(weaponById("sword"));
+        const idle = () => {
+            view.update(melee, "first", true, undefined, { dt: DT });
+            return holder.position.clone();
+        };
+        for (let i = 0; i < 60; i++) idle();
+        const rest = idle();
+        view.clash(1);
+        const shaken = Array.from({ length: 30 }, idle);
+        const most = Math.max(...shaken.map((p) => p.distanceTo(rest)));
+        expect(most).toBeGreaterThan(0.01);
+        expect(most).toBeLessThan(0.08);
+        // Knocked back towards the player (+z in view space) at first.
+        expect(shaken[0].z).toBeGreaterThan(rest.z + 0.01);
+        for (let i = 0; i < 120; i++) idle();
+        expect(idle().distanceTo(rest)).toBeLessThan(1e-3);
+    });
+});
+
 describe("a charged power attack held", () => {
     it("trembles in the hand", () => {
         const { samples, melee } = play("sword", () => true, 1.5);

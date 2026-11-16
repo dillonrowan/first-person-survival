@@ -3,7 +3,7 @@ import { random } from "../game/Random";
 import { TICK_SECONDS } from "../game/TickClock";
 import type { AxeDef, PickaxeDef, RockDef, TreeDef } from "../world/SkillFormat";
 import type { SkillLocInstance } from "../world/SkillLocs";
-import { SkillContext, giveOrDrop, itemName, rollLoot } from "./SkillContext";
+import { Job, JobInput, SkillContext, ToolMotion, giveOrDrop, itemName, rollLoot } from "./SkillContext";
 import { successChance } from "./success";
 
 /**
@@ -12,9 +12,15 @@ import { successChance } from "./success";
  */
 export const CHOP_TICKS = 4;
 
+/** Seconds of one axe chop, and the point of it (0..1) where the blade bites. [design] */
+export const CHOP_STROKE = { seconds: 1.0, impact: 0.5 };
+/** Seconds of one overhead pickaxe strike, and the point of it where the pick lands. [design] */
+export const MINE_STROKE = { seconds: 1.15, impact: 0.55 };
+
 /**
  * Woodcutting and Mining: trees and rocks that deplete and grow back. Logs and ore come from
- * swinging the wielded axe or pickaxe into the tree or rock: every blow that lands rolls.
+ * striking the tree or rock under the crosshair with the wielded axe or pickaxe (a GatherJob):
+ * every blow that lands rolls.
  */
 export class Gathering {
     /** Depleted tree or rock key → tick it grows back. */
@@ -95,8 +101,8 @@ export class Gathering {
         }
         const axe = this.bestAxe(tree);
         if (!axe) return ctx.log("You do not have an axe which you have the Woodcutting level to use.");
-        if (!ctx.items.canAdd(tree.logs)) return ctx.log("Your inventory is too full to hold any more logs.");
-        if (this.ready(axe.item)) ctx.log("Swing your axe at the tree to chop it.");
+        // A full inventory does not stop the chopping: the logs fall to the ground (gotLog).
+        if (this.ready(axe.item)) ctx.log("Click the tree to chop it.");
     }
 
     /** An axe blow (or any other blade) landed on a standing tree: the wielded axe rolls for a log. */
@@ -112,7 +118,6 @@ export class Gathering {
         if (level < tree.level) return ctx.log(`You need a Woodcutting level of ${tree.level} to chop down this tree.`);
         const chance = tree.chances[axe.tier];
         if (!chance) return ctx.log("Your axe is not strong enough to cut this tree.");
-        if (!ctx.items.canAdd(tree.logs)) return ctx.log("Your inventory is too full to hold any more logs.");
         if (tree.despawnTicks !== null && !this.treeLeft.has(instance.key)) {
             this.treeLeft.set(instance.key, { left: tree.despawnTicks, full: tree.despawnTicks });
         }
@@ -146,7 +151,7 @@ export class Gathering {
         const pickaxe = this.bestPickaxe();
         if (!pickaxe) return ctx.log("You need a pickaxe to mine this rock. You do not have a pickaxe which you have the Mining level to use.");
         if (!ctx.items.canAdd(rock.ore)) return ctx.log("Your inventory is too full to hold any more ore.");
-        if (this.ready(pickaxe.item)) ctx.log("Swing your pick at the rock to mine it.");
+        if (this.ready(pickaxe.item)) ctx.log("Click the rock to mine it.");
     }
 
     /**
@@ -182,6 +187,57 @@ export class Gathering {
         if (essence) return false;
         ctx.animate(instance, "rockBreak", true);
         this.deplete(instance.key, rock.respawnTicks);
+        return true;
+    }
+}
+
+/**
+ * Chopping or mining by hand: each click (or, held, one after another) on the tree or rock under
+ * the crosshair is one stroke of the wielded tool, an axe chop or an overhead pickaxe strike. The
+ * blow lands on that tree or rock alone, at the stroke's impact, if the crosshair is still on it;
+ * nothing beside it is struck. The job ends when a stroke finishes with the button up or the
+ * crosshair elsewhere. [design]
+ */
+export class GatherJob implements Job {
+    readonly swingTicks = 0;
+    readonly skill: "woodcutting" | "mining";
+    private t = 0;
+    private struck = false;
+
+    constructor(
+        readonly target: SkillLocInstance,
+        private readonly kind: "chop" | "mine",
+        /** Lands a blow on the target (SkillSystem.strike); called at the stroke's impact. */
+        private readonly strike: (instance: SkillLocInstance) => void,
+        /** Whether the target can still be struck (not felled): the next stroke needs it. */
+        private readonly standing: () => boolean,
+    ) {
+        this.skill = kind === "chop" ? "woodcutting" : "mining";
+    }
+
+    private get stroke(): { seconds: number; impact: number } {
+        return this.kind === "chop" ? CHOP_STROKE : MINE_STROKE;
+    }
+
+    tick(): boolean {
+        return true;
+    }
+
+    toolMotion(): ToolMotion {
+        return { kind: this.kind, t: this.t };
+    }
+
+    frame(dt: number, input: JobInput): boolean {
+        const stroke = this.stroke;
+        this.t = Math.min(1, this.t + dt / stroke.seconds);
+        if (!this.struck && this.t >= stroke.impact) {
+            this.struck = true;
+            if (input.aimed === this.target) this.strike(this.target);
+        }
+        if (this.t < 1) return true;
+        if (!input.down || input.aimed !== this.target || !this.standing()) return false;
+        this.t = 0;
+        this.struck = false;
         return true;
     }
 }

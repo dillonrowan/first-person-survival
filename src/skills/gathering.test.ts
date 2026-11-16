@@ -4,6 +4,7 @@ import { setRandom } from "../game/Random";
 import { TickClock } from "../game/TickClock";
 import type { TreeDef } from "../world/SkillFormat";
 import { rollLoot } from "./SkillContext";
+import { CHOP_STROKE } from "./gathering";
 import { successChance } from "./success";
 import { createTestSkills, emptyManifest, testLoc } from "./testContext";
 
@@ -95,6 +96,53 @@ describe("woodcutting", () => {
         expect(t.animations).toEqual(["treeHit@0:10:10:1276", "treeHit@0:10:10:1276", "treeFall@0:10:10:1276"]);
         t.ctx.clock.advance(10);
         expect(t.sys.gathering.isDepleted(loc.key)).toBe(false);
+    });
+
+    it("keeps chopping with a full inventory: the logs fall to the ground", () => {
+        const t = setup();
+        t.inventory.add(BRONZE_AXE, 1);
+        const loc = t.place(testLoc(1276, "Tree"));
+        t.sys.locAction(loc, "Chop down");
+        expect(t.worn[0]).toBe(BRONZE_AXE);
+        while (t.inventory.freeSlots() > 0) t.inventory.add(COPPER, 1);
+        setRandom(() => 0.5); // the roll hits (61 with a bronze axe), the 1/8 fall does not
+        t.sys.strike(loc);
+        expect(t.inventory.count(LOGS)).toBe(0);
+        expect(t.ground).toEqual([{ id: LOGS, qty: 1, x: Math.floor(t.player.x), y: Math.floor(t.player.y) }]);
+        expect(t.xp.woodcutting).toBe(25);
+    });
+
+    it("a click on the tree with an axe in hand chops it: the blow lands only on the aimed tree, at the stroke's impact", () => {
+        const t = setup();
+        t.worn.push(BRONZE_AXE);
+        const tree = t.place(testLoc(1276, "Tree"));
+        const other = t.place(testLoc(1276, "Tree", 11, 10));
+        const frame = (dt: number, down: boolean, aimed: unknown) =>
+            t.sys.update({ acted: false, panelOpen: false, dead: false, dt, pointer: { pressed: false, down, aimed } });
+        expect(t.sys.clickLoc(tree)).toBe(true);
+        expect(t.sys.takesClicks).toBe(true);
+        expect(t.sys.clickLoc(tree)).toBe(false); // the stroke under way takes the click
+        setRandom(() => 0.5); // hits, does not fell
+        frame(CHOP_STROKE.seconds * (CHOP_STROKE.impact - 0.1), true, tree);
+        expect(t.inventory.count(LOGS)).toBe(0);
+        expect(t.sys.toolMotion()).toEqual({ kind: "chop", t: expect.any(Number) });
+        frame(CHOP_STROKE.seconds * 0.2, true, tree);
+        expect(t.inventory.count(LOGS)).toBe(1);
+        expect(t.animations).toEqual(["treeHit@0:10:10:1276"]);
+        frame(CHOP_STROKE.seconds, true, tree); // held on the tree: the next stroke starts
+        expect(t.sys.active).toBeDefined();
+        frame(CHOP_STROKE.seconds, false, other); // the next blow lands while aimed at the other tree: nothing
+        expect(t.animations).toEqual(["treeHit@0:10:10:1276"]);
+        expect(t.sys.active).toBeUndefined(); // let go: the job ends
+    });
+
+    it("a click with a pickaxe on a tree, or an axe on a rock, gathers nothing", () => {
+        const t = setup();
+        t.worn.push(PICK);
+        expect(t.sys.clickLoc(t.place(testLoc(1276, "Tree")))).toBe(false);
+        t.worn[0] = BRONZE_AXE;
+        expect(t.sys.clickLoc(t.place(testLoc(10943, "Copper rocks", 12, 12)))).toBe(false);
+        expect(t.sys.active).toBeUndefined();
     });
 
     it("needs an axe in hand to get logs", () => {

@@ -3,17 +3,21 @@ import type { SkillLocInstance } from "../world/SkillLocs";
 import type { SkillContext } from "./SkillContext";
 
 export const FIRE_LOC = 26185;
-/** Where the player steps after lighting: west, east, south, north [OSRS]. */
-const STEPS: [number, number][] = [
-    [-1, 0],
-    [1, 0],
-    [0, -1],
-    [0, 1],
-];
 
 /**
- * Burning logs into fires that burn for a while, can be cooked on, and leave ashes. There is no
- * Firemaking skill here: any logs light at once, every time, for no XP. [design]
+ * How long a fire of these logs burns, in ticks: 100-199 for plain logs, longer for better logs, by
+ * the Woodcutting level of the tree they come from (oak x1.5, willow x2, maple x2.5, yew x3, magic
+ * x3.5, redwood x4). Logs from no tree here burn as plain logs. [design]
+ */
+export function burnTicks(ctx: Pick<SkillContext, "data">, log: number): number {
+    const level = ctx.data.trees.find((t) => t.logs === log)?.level ?? 1;
+    return Math.round(randInt(100, 199) * (1 + (level - 1) / 30));
+}
+
+/**
+ * Burning logs into fires that burn for a while (longer for better logs), can be cooked on, and
+ * leave ashes. There is no Firemaking skill here: any logs light at once, every time, for no XP.
+ * [design]
  */
 export class Fires {
     private readonly fires = new Map<string, { instance: SkillLocInstance; outAt: number }>();
@@ -48,16 +52,14 @@ export class Fires {
         ctx.items.removeItem(log, 1);
         ctx.log("The fire catches and the logs begin to burn.");
         const loc = { id: FIRE_LOC, name: "Fire", actions: ["Cook"], plane, tileX: x, tileY: y, sizeX: 1, sizeY: 1, height: 1 };
+        // The fire burns exactly where the player stands; the player stays put. [design]
+        const at = { x: ctx.player.x, y: ctx.player.y };
         void ctx.locModel(FIRE_LOC).then((object) => {
             const instance = ctx.skillLocs.addRuntime(loc, object);
-            this.fires.set(instance.key, { instance, outAt: ctx.clock.tick + randInt(100, 199) });
+            object.position.x = at.x;
+            object.position.z = -at.y;
+            this.fires.set(instance.key, { instance, outAt: ctx.clock.tick + burnTicks(ctx, log) });
         });
-        for (const [dx, dy] of STEPS) {
-            if (ctx.walkable(plane, x + dx, y + dy)) {
-                ctx.player.teleport(x + dx + 0.5, y + dy + 0.5, plane);
-                break;
-            }
-        }
         return true;
     }
 

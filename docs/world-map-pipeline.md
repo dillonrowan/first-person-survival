@@ -32,8 +32,10 @@ flowchart LR
 The export also needs the OSRS wiki data once (`npm run fetch-wiki-attacks` for NPC levels, bonuses,
 max hits and attack styles; `npm run fetch-wiki-items` for drop tables, item spawns and food). After
 `export-world`, which clears `public/world/`, run `npm run export-cache-weapons` and
-`npm run export-items` (the item models and `items.json`). The order is: `fetch-wiki-attacks`,
-`fetch-wiki-items`, `export-world`, `export-cache-weapons`, `export-items`.
+`npm run export-items` (the item models and `items.json`), and `npm run export-map` (the world map
+image `map.png` and `map.json`, rendered from the exported regions in a few minutes). The order is:
+`fetch-wiki-attacks`, `fetch-wiki-items`, `export-world`, `export-cache-weapons`, `export-items`,
+`export-map`.
 `npm run export-world -- --npc-data-only` refreshes only the NPC stats, poison and drop tables in
 `npcs.json` after new wiki data, in seconds, without re-baking the NPC models.
 `npm run export-hitsplats` writes the OSRS hitsplat sprites and their digits from the cache to
@@ -106,8 +108,9 @@ attack animations are baked frame by frame into `npcs/{id}_{displayId}.bin`, and
 written to `npcs.json` (with the attack styles of NPCs that use more than melee, from the OSRS wiki). The game plays the baked frames back and wanders the NPCs itself.
 
 **Skill locs.** Trees, rocks, farming patches, facilities (furnaces, ranges,
-anvils…), stalls and runecraft altars and ruins become interactive locs of kind `skill` in the
-region file. Which locs those are comes from `tools/world-export/data/skill-locs.json`, written
+anvils…), stalls and runecraft altars become interactive locs of kind `skill` in the
+region file. Mysterious ruins do not: the placed ruins are multilocs whose ids the wiki does not
+list, so the game places their targets itself at each altar's ruins tile from `skills.json`. Which locs those are comes from `tools/world-export/data/skill-locs.json`, written
 by `npm run export-skills`. Trees and rocks get their own meshes plus a stump or empty-rock mesh,
 and patches one mesh per growth state, so the game can swap them;
 the others stay part of the region meshes. They keep their collision.
@@ -140,6 +143,6 @@ ground (or on a bridge or upper floor), and its collision stops the player at wa
 | You changed...                                                     | Re-run                                   |
 | ------------------------------------------------------------------ | ---------------------------------------- |
 | Want a newer OSRS update                                           | `download-cache`, then `export-world`    |
-| The exporter (`tools/world-export/`) or `src/world/WorldFormat.ts` | `export-world`, then `export-cache-weapons` and `export-items` |
+| The exporter (`tools/world-export/`) or `src/world/WorldFormat.ts` | `export-world`, then `export-cache-weapons`, `export-items` and `export-map` |
 | Skill data or the wiki data (`npm run fetch-wiki-skills`)          | `export-skills`; then `export-world -- --merge --area surface` if skill-locs.json changed |
 | Only the game (`src/`)                                             | Nothing; the dev server reloads the page |

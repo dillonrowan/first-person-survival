@@ -447,14 +447,43 @@ export class Npc {
         }
     }
 
+    /** A standing humanoid body can parry: it has the guard and parry clips to show it. */
+    get canParry(): boolean {
+        return !!this.reactions?.humanoid && !this.ragdoll && !this.combatant.incapacitated;
+    }
+
     /**
      * Reacts to a hit travelling along (dirX, dirY) from an attacker at (fromX, fromY). `push` is the
      * damage result's push level (0 none, 1 medium, 2 long, 3 huge): the NPC slides as far as its
      * medium or long hit animation moves it (spec 5.3); a hit too light to push still shoves it a
      * little along (dirX, dirY), by `hitPow`. `height` is where the hit struck, 0 (feet) to 1 (top
-     * of the head).
+     * of the head). A blow that did nothing (`defence`) is taken on the NPC's guard (a humanoid
+     * raises its shield, weapon or forearms; any other body braces), or parried by a humanoid with
+     * a blow back that drops any attack of its own. Either shows instead of a flinch, without a
+     * shove; a body without hit reactions flinches as before.
      */
-    takeHit(dirX: number, dirY: number, push: number, fromX: number, fromY: number, hitPow = 1, height = 0.5): void {
+    takeHit(
+        dirX: number,
+        dirY: number,
+        push: number,
+        fromX: number,
+        fromY: number,
+        hitPow = 1,
+        height = 0.5,
+        defence?: "guard" | "parry",
+    ): void {
+        const c = this.combatant;
+        if (defence && this.reactions && !this.ragdoll && !c.incapacitated && !c.dead && (defence === "guard" || this.canParry)) {
+            this.becomeAlerted(fromX, fromY);
+            this.sinceHit = 0;
+            this.faceTowards(fromX, fromY);
+            this.rotation = this.orientation;
+            if (defence === "parry") {
+                this.attacker.interrupt();
+            }
+            this.reactions!.defend(defence);
+            return;
+        }
         this.hitHeight = height;
         this.becomeAlerted(fromX, fromY);
         this.sinceHit = 0;
@@ -554,7 +583,8 @@ export class Npc {
      */
     /**
      * Turns hostile towards the player at (x, y): leaves the tile grid and fights (spec 16.7). Only
-     * the player's own attacks call this: NPCs never start a fight on sight or sound.
+     * the player's own attacks and a failed pickpocket call this: NPCs never start a fight on sight
+     * or sound.
      * Returns false if it already was.
      */
     becomeAlerted(x: number, y: number): boolean {

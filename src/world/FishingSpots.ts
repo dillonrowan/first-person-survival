@@ -5,8 +5,11 @@ import type { Target, TargetSource } from "../interaction/Interaction";
 import type { FishingSpotTarget } from "../skills/fishing";
 import type { FishingSpotPlace } from "./SkillFormat";
 
-/** How far a line or net can be cast at a spot, tiles. [design] */
-export const CAST_RANGE = 7;
+/**
+ * How far away a spot can be aimed at, tiles. Farther than FISH_REACH it can be aimed at but not
+ * fished: the player is told to come closer. [design]
+ */
+const AIM_RANGE = 10;
 /** Spots within this many tiles of the player are drawn and animated. */
 const SHOW_RADIUS = 40;
 /** Radius of the cylinder a spot is aimed at, tiles. */
@@ -96,13 +99,13 @@ export class FishingSpots {
         this.shown.set(spot, { object, mixer, rings });
     }
 
-    /** Spots under the crosshair within CAST_RANGE. */
+    /** Spots under the crosshair within AIM_RANGE. */
     targetSource(): TargetSource {
         return (ray) => {
             let best: Target | undefined;
             for (const spot of this.spots) {
-                if (spot.plane !== ray.plane || Math.hypot(spot.x - ray.ox, spot.y - ray.oy) > CAST_RANGE + 1) continue;
-                const t = rayCylinder(ray, spot, CAST_RANGE);
+                if (spot.plane !== ray.plane || Math.hypot(spot.x - ray.ox, spot.y - ray.oy) > AIM_RANGE) continue;
+                const t = rayCylinder(ray, spot, AIM_RANGE);
                 if (t === undefined || (best && t >= best.distance)) continue;
                 const actions = this.actionsOf(spot.npcId);
                 if (actions.length > 0) best = { kind: "fishing-spot", label: "Fishing spot", actions, distance: t, ref: spot };
