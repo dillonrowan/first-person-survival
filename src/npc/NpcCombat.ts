@@ -99,7 +99,7 @@ export function inViewCone(sense: CombatSense, cone: number): boolean {
 
 /**
  * Dark Messiah-style melee movement for one NPC (spec 10): run in all the way, zig-zag while the player looks straight at it, then hold the ideal distance
- * with short combat steps, always facing the player. It never flees, however hurt [design], and
+ * with short combat steps, always facing the player, pressing it at a run when it backs off. It never flees, however hurt [design], and
  * runs, steps and pauses npcCombatPace times faster than the guard.
  */
 export class NpcCombatBrain {
@@ -110,6 +110,8 @@ export class NpcCombatBrain {
     private pause = 0;
     private zigzagSide = 1;
     private zigzagTravel = 0;
+    /** Running back in on a player who backed off, until within Green. */
+    private pressing = false;
 
     constructor(
         private readonly random: () => number = Math.random,
@@ -156,6 +158,20 @@ export class NpcCombatBrain {
                 my = tx * Math.sin(a) + ty * Math.cos(a);
             }
             return { vx: mx * speed, vy: my * speed, faceX: mx, faceY: my, mode: "chase" };
+        }
+
+        // A player backing off past the middle of the fight band is pressed at a run back in to
+        // Green, not stepped after, so a fight cannot be walked away from.
+        if (d > (zones.green + zones.yellow) / 2) {
+            this.pressing = true;
+        } else if (d <= zones.green) {
+            this.pressing = false;
+        }
+        if (this.pressing) {
+            this.step = undefined;
+            this.pause = 0;
+            const speed = tuning.npcRunSpeed * pace;
+            return { vx: tx * speed, vy: ty * speed, faceX: tx, faceY: ty, mode: "fight" };
         }
 
         // Fight: short steps relative to the player, facing them.

@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 
 import { fallbackCombatStats } from "../combat/Osrs";
+import { units } from "../player/MoveMath";
 import { tuning } from "../combat/tuning";
 import type { NpcManifest, NpcModelData } from "../world/NpcFormat";
 import { CollisionFlag, RegionListener } from "../world/WorldFormat";
@@ -728,6 +729,28 @@ describe("NPCs with several attack styles", () => {
         expect(gaps.length).toBeGreaterThan(3);
         expect(Math.min(...gaps)).toBeGreaterThan(2.5);
     });
+
+    for (const [gait, speed] of [["walking", units(100)], ["running", units(180)]] as const) {
+        it(`keeps up with a player ${gait} away and still lands its blows`, async () => {
+            const { npcs, npc } = await styledNpc([{ style: "melee", weight: 1, hitPow: 0.7, minGap: 0 }], ["melee"]);
+            const player = playerAt(3222.5, 3220.5);
+            npc.takeHit(0, 1, 0, player.x, player.y);
+            let reached = 0;
+            let strikes = 0;
+            const strike = (n: typeof npc, e: { attack: { range: number } }) => {
+                strikes++;
+                const gap = Math.hypot(n.body.x - player.x, n.body.y - player.y) - n.body.radius - player.radius;
+                if (gap <= e.attack.range) reached++;
+            };
+            // North, away from it, for 9 s (walk about 2 tiles/s, run about 3.7).
+            for (let i = 0; i < 450; i++) {
+                player.y += speed * 0.02;
+                npcs.update(0.02, player, 0, { strike });
+            }
+            expect(strikes).toBeGreaterThanOrEqual(2);
+            expect(reached).toBe(strikes);
+        });
+    }
 
     it("lets a dragon next to the player both melee and breathe", async () => {
         const breath = { length: 3, halfAngle: 0.5, duration: 0.8, ticks: 4, element: "fire" as const };

@@ -50,6 +50,18 @@ describe("NpcCombatBrain", () => {
     });
 });
 
+describe("pressing a player who backs off", () => {
+    const sense = (d: number) => ({ x: 0, y: -d, playerX: 0, playerY: 0, playerYaw: 0 });
+
+    it("runs after the player within the fight band instead of stepping", () => {
+        const brain = new NpcCombatBrain(() => 0.3);
+        expect(brain.update(0.02, sense(tuning.zoneGreen)).mode).toBe("fight");
+        const press = brain.update(0.02, sense((tuning.zoneGreen + tuning.zoneYellow) / 2 + 0.1));
+        expect(press.mode).toBe("fight");
+        expect(press.vy).toBeCloseTo(tuning.npcRunSpeed * tuning.npcCombatPace, 6);
+    });
+});
+
 describe("an NPC that keeps its distance", () => {
     const sense = (d: number) => ({ x: 0, y: -d, playerX: 0, playerY: 0, playerYaw: 0 });
     const distances = { engage: 6, ideal: 5 };

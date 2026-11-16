@@ -735,6 +735,14 @@ and at least 240 u away, it adds waypoints 50–100 u out at ±35°, alternating
   its last 250 u, `mm_ai_dist_walk_path`) and zig-zagging as above `[design]`.
 - **Fight.** Inside Yellow it faces the player and takes weighted combat steps, with 0.15–0.6 s
   pauses divided by the pace `[design]`.
+- **Pressing.** A player who backs off past halfway from Green to Yellow is run after at the combat
+  run until back within Green, instead of stepped after `[design]`.
+- **Following a blow in.** While a melee strike winds up, an NPC whose player is more than half the
+  strike's reach away moves in fast enough to close to half its reach by the time the blow lands
+  (re-aimed every frame, so it keeps up with a player walking or running away), at most
+  `npcLungeBurst` (1.6) times the combat run, about 8 tiles/s; a sprinting player can still get
+  clear. Without it the 40 u lunge (about 1.3 tiles/s) let a walking player step out of every blow
+  `[design]`.
 - **No fleeing.** Unlike the guard's `life_toflee` (run away below 20% health for up to 20 s), an
   NPC fights on however hurt `[design]`.
 - **Losing the player.** It gives up after 3 s with the player more than 1500 u away or on another

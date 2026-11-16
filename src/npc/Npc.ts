@@ -776,7 +776,16 @@ export class Npc {
             const tx = d > 1e-6 ? (player.x - x) / d : f.x;
             const ty = d > 1e-6 ? (player.y - y) / d : f.y;
             // Only a melee strike lunges; an archer, a caster or a breathing dragon stands and faces.
-            const lunge = gap > 0.05 && this.attacker.current!.style === "melee" ? this.attacker.lungeSpeed : 0;
+            const attack = this.attacker.current!;
+            let lunge = gap > 0.05 && attack.style === "melee" ? this.attacker.lungeSpeed : 0;
+            const close = attack.range * 0.5;
+            if (lunge > 0 && gap > close) {
+                // A player backing off is followed in while the blow winds up, fast enough to be
+                // well within reach when it lands (re-aimed every frame, so it keeps up with them),
+                // up to a burst a sprinting player can still outrun.
+                const needed = (gap - close) / Math.max(dt, this.attacker.untilHit);
+                lunge = Math.max(lunge, Math.min(needed, tuning.npcRunSpeed * tuning.npcCombatPace * tuning.npcLungeBurst));
+            }
             move.vx = tx * lunge;
             move.vy = ty * lunge;
             move.faceX = tx;

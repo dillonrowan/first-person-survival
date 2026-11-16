@@ -205,6 +205,8 @@ export const tuning = {
      * and pause between steps this much faster than the guard's speeds and timings. [design]
      */
     npcCombatPace: 1.5,
+    /** A melee wind-up chases a player backing off at up to this many times the combat run. [design] */
+    npcLungeBurst: 1.6,
     /** Combat zones, centre to centre. [data npc_guard Red 40 / Green 80 / Yellow 120 u] */
     zoneRed: units(40),
     zoneGreen: units(80),
