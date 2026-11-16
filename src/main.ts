@@ -382,6 +382,11 @@ async function main(): Promise<void> {
             } else {
                 weaponView.impact(result.defence === "parry" ? 2 : move.kind === "quick" ? 0.6 : 1);
             }
+            if (result.defence === "parry") {
+                // The blade is wrenched aside, jerking the head with it.
+                weaponView.clash(1);
+                stunFeel.kick(Math.random() < 0.5 ? -1 : 1, 0.35);
+            }
             hitFeel.impact(impactStrength(result));
         }
     };
@@ -419,12 +424,21 @@ async function main(): Promise<void> {
             // A blow (an NPC's strike or its blow back from a parry) taken on the held weapon.
             ui.showMessage("Parried!");
             weaponView.clash(1);
+            if (damage > 0) {
+                // Some of a blow that would have landed gets through the block.
+                combatHud.showDamage(damage, false);
+                hitsplats.addPlayer("damage", damage);
+            }
         }
     };
     combat.onStunned = () => {
         ui.showMessage("Your blow is parried and you're stunned!");
         combatHud.showDamage(); // the red flash of a blow taken, with no damage to show
+        // The blow lands: the world holds on it, the head snaps back, the view punches wide and the
+        // weapon rattles in the hand.
+        hitFeel.impact(1);
         stunFeel.kick(Math.random() < 0.5 ? -1 : 1);
+        weaponView.clash(1);
     };
     // Fall damage (spec 19.8).
     player.onLanded = (speed) => {
@@ -758,7 +772,7 @@ async function main(): Promise<void> {
         },
     );
     skilling.shopPanel.showMenu = (x, y, entries) => sidePanel.showMenu(x, y, entries);
-    const worldMap = new WorldMap(document.getElementById("world-map")!, WORLD_URL, skilling.data.runecraft.altars, () => player);
+    const worldMap = new WorldMap(document.getElementById("world-map")!, WORLD_URL, skilling.data, () => player);
     worldMap.closed = panelClosed;
     items.onChange = () => {
         syncWeapon();
@@ -854,13 +868,15 @@ async function main(): Promise<void> {
         const gearOnly = skilling.isFishingGear(items.equipment.get("weapon")?.id);
         const aimedSpot = interaction.target?.kind === "fishing-spot" ? (interaction.target.ref as FishingSpot) : undefined;
         const fishClick = clicked && aimedSpot !== undefined && skillSystem.fishing.clickSpot(aimedSpot);
-        // A left click on a tree or rock in reach with an axe or pickaxe in hand chops or mines it.
-        const aimedLoc =
-            interaction.target?.kind === "skill-loc" && interaction.target.distance <= GATHER_REACH ? (interaction.target.ref as SkillLocInstance) : undefined;
+        // A left click on a tree or rock with an axe or pickaxe in hand chops or mines it when in
+        // reach and says to come closer when not; it is never a weapon attack, so clicks at the edge
+        // of reach do not mix chops and swings.
+        const aimedLoc = interaction.target?.kind === "skill-loc" ? (interaction.target.ref as SkillLocInstance) : undefined;
+        const workAimed = aimedLoc !== undefined && skillSystem.gatherKind(aimedLoc) !== undefined;
         // An attack already under way (a swing or a power attack being charged) plays out: the
         // click goes to it, not to a chop.
         const attacking = combat.melee.swing !== undefined || combat.melee.isCharging;
-        if (clicked && !fishClick && aimedLoc && !attacking) skillSystem.clickLoc(aimedLoc);
+        if (clicked && !fishClick && workAimed && !attacking) skillSystem.clickLoc(aimedLoc!, interaction.target!.distance <= GATHER_REACH);
         // Fishing, chopping and mining take the attack button: click to cast and hook, hold to reel
         // or to keep striking.
         const casting = skillSystem.takesClicks;
@@ -897,7 +913,7 @@ async function main(): Promise<void> {
         // While carrying or fishing the weapon stays still.
         const armed = !carrying && !casting;
         // A rod, net or cage in hand: no swings or blocks with it.
-        const swinging = armed && !gearOnly;
+        const swinging = armed && !gearOnly && !(workAimed && !attacking);
         const wheel = input.consumeWheel();
         eatCooldown = Math.max(0, eatCooldown - dt);
         const wheelProblem = items.cycleWeapon(armed ? wheel : 0);
@@ -931,7 +947,7 @@ async function main(): Promise<void> {
         }
         // Bow and crossbow zoom: narrow the view while the right mouse is held.
         const zoom = Math.max(combat.bow.zoom, combat.crossbow.zoom);
-        const fov = baseFov * (1 - zoom * (1 - tuning.bowZoomFov));
+        const fov = baseFov * (1 - zoom * (1 - tuning.bowZoomFov)) * (1 + stunFeel.fov);
         if (Math.abs(camera.fov - fov) > 1e-3) {
             camera.fov = fov;
             camera.updateProjectionMatrix();
@@ -1032,6 +1048,9 @@ async function main(): Promise<void> {
         arrowView.update(combat.arrows, (out) => weaponView.launchPoint(out));
         avatar.update(dt, player, cameraRig.mode);
         weaponView.setSkillSwing(skillSystem.swingPhase());
+        // Picking a pocket: the held item is put away, the view glances down and leans in.
+        const thiefLook = skilling.updateThieving(dt);
+        weaponView.setLowered(thiefLook.stow);
         weaponView.setToolMotion(skillSystem.toolMotion());
         weaponView.update(combat.melee, cameraRig.mode, player.ready && !player.flying, combat.kick, {
             dt,
@@ -1081,9 +1100,9 @@ async function main(): Promise<void> {
                       : combat.weapon.name,
         });
         {
-            // Picking a pocket: the view glances down and leans in on top of the swing's offset.
+            // The pickpocketing look goes on top of the swing's offset.
             const v = weaponView.viewOffset;
-            const look = skilling.updateThieving(dt);
+            const look = thiefLook;
             // Knocked about by a parry, then dazed while stunned.
             stunFeel.update(dt, combat.stunned);
             const s = stunFeel.view;

@@ -115,7 +115,7 @@ test("a tree gives logs and a range cooks", async ({ page }) => {
         const wielded = g.items.equipment.get("weapon")?.id;
         // A click on the tree (as main.ts sends it) starts the chopping; held on the tree, the
         // strokes go on, and each blow rolls for a log.
-        const started = g.skillSystem.clickLoc(tree);
+        const started = g.skillSystem.clickLoc(tree, true);
         let motions = 0;
         for (let n = 0; n < 600 && g.items.count(1511) === 0 && g.skillSystem.active; n++) {
             g.skillSystem.update({ acted: false, panelOpen: false, dead: false, dt: 0.1, pointer: { pressed: false, down: true, aimed: tree } });

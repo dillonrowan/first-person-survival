@@ -79,8 +79,8 @@ The OSRS non-combat skills (except Agility, Firemaking and Construction; logs st
 the exported map: Woodcutting, Mining, Fishing, Cooking, Smithing, Crafting, Fletching, Herblore,
 Runecraft, Thieving, Hunter, Farming and Slayer, with the 28-slot inventory, the bank, shops, monster drops and
 NPC respawn. Aim at a tree, rock, fishing spot, furnace or stall and press E; use an inventory item
-on another or on what you aim at. Trees and rocks are gathered by swinging a wielded axe or pickaxe
-into them (every blow that lands rolls). Left click a fishing spot with a fishing tool wielded to
+on another or on what you aim at. Trees and rocks are gathered by clicking them with a wielded axe or
+pickaxe (a chop or overhead strike; every blow rolls). Left click a fishing spot with a fishing tool wielded to
 fish there. Rod fishing is cast, watch the bobber, hook and reel (a
 minigame); nets, pots and harpoons scoop through the spot until a fish comes up; spots are placed
 where the wiki lists them. The tree and rock reactions, the bobber, the spot ripples, the splash,

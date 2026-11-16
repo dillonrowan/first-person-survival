@@ -226,6 +226,22 @@ describe("HitReactions", () => {
         expect(reactions.active).toBe(false);
     });
 
+    it("dodges by ducking aside the way it steps, mirrored for the other side, then recovers", () => {
+        const rig = model(GUARD);
+        const right = new HitReactions(rig);
+        right.dodge(false);
+        const left = new HitReactions(rig);
+        left.dodge(true);
+        play(right, 7 / 30);
+        play(left, 7 / 30);
+        const head = moved(rig, right, 4);
+        expect(head[0]).toBeLessThan(rig.centroids[4 * 3] - 0.1);
+        expect(head[1]).toBeLessThan(rig.centroids[4 * 3 + 1] - 0.05);
+        expect(moved(rig, left, 4)[0]).toBeGreaterThan(rig.centroids[4 * 3] + 0.1);
+        play(right, 1);
+        expect(right.active).toBe(false);
+    });
+
     it("mirrors side hits", () => {
         const rig = model(GUARD);
         const right = new HitReactions(rig);

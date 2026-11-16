@@ -6,6 +6,7 @@ import { tuning } from "../combat/tuning";
 import type { NpcManifest, NpcModelData } from "../world/NpcFormat";
 import { CollisionFlag, RegionListener } from "../world/WorldFormat";
 import { Npc, Occupancy } from "./Npc";
+import { kickThrowScale } from "./NpcPhysics";
 import { Npcs } from "./Npcs";
 
 const APPEARANCE = {
@@ -614,7 +615,7 @@ describe("NPC combat movement and kicks", () => {
         expect(npc.inCombat).toBe(true);
     });
 
-    it("is knocked down onto its ragdoll by a kick, unhurt, sent about as far as its long hit, and gets up", async () => {
+    it("is knocked down onto its ragdoll by a kick, unhurt, sent about as far as its long hit for its weight, and gets up", async () => {
         const { npcs, npc } = await oneNpc();
         npc.faceTowards(3222.5, 3240); // facing away from the kicker (south): cannot dodge
         npc.rotation = npc.orientation;
@@ -628,8 +629,12 @@ describe("NPC combat movement and kicks", () => {
             npcs.update(0.02);
         }
         expect(npc.combatant.health).toBe(health);
-        expect(npc.body.y - y0).toBeGreaterThan(1.1); // long hit from behind: 64 u, about 1.3 tiles
-        expect(npc.body.y - y0).toBeLessThan(2.4);
+        // Long hit from behind: 64 u, about 1.3 tiles for a body of npcBaseMass; this short one is
+        // lighter and goes further.
+        const weight = kickThrowScale(npc.mass);
+        expect(weight).toBeGreaterThan(1);
+        expect(npc.body.y - y0).toBeGreaterThan(1.1 * weight);
+        expect(npc.body.y - y0).toBeLessThan(2.4 * weight);
         for (let t = 0; t < tuning.knockdownKick + tuning.standUpBack + tuning.standUpFront; t += 0.02) {
             npcs.update(0.02);
         }

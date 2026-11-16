@@ -43,6 +43,8 @@ test("the air ruins name the talisman, then take the player to the altar; M show
     await page.keyboard.press("KeyM");
     await expect(page.locator("#world-map")).toBeVisible();
     await expect(page.locator(".world-map-legend")).toContainText("Air altar");
+    await expect(page.locator(".world-map-legend")).toContainText("Mining sites");
+    await expect(page.locator(".world-map-legend")).toContainText("Fishing spots");
     await expect(page.locator(".world-map-status")).toContainText("You are at", { timeout: 180_000 });
     await page.screenshot({ path: "C:/Users/Dillon/AppData/Local/Temp/claude/fea7d02c7be8cc6e/28fc9a82-799d-4890-ac6c-5d56d1a87e43/scratchpad/world-map.png" });
     await page.keyboard.press("Escape");

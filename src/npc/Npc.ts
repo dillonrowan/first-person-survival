@@ -30,7 +30,7 @@ import { Combatant } from "../combat/Combatant";
 import { environmentDamage, fallbackCombatStats } from "../combat/Osrs";
 import { XpLedger } from "../combat/XpLedger";
 import { tuning } from "../combat/tuning";
-import { Knockback, deathLaunch, findSnapTile, massForce, slideSpeedForDistance, stepKnockback } from "./NpcPhysics";
+import { Knockback, deathLaunch, findSnapTile, kickThrowScale, npcMass, slideSpeedForDistance, stepKnockback, weightThrowScale } from "./NpcPhysics";
 import type { SharedNpcModel } from "./NpcModels";
 import { NpcAttack, NpcAttacker, StrikeEvent, attacksFromClips, attacksFromStyles } from "./NpcAttacks";
 import { canSee } from "./NpcSenses";
@@ -376,9 +376,9 @@ export class Npc {
         this.rotation = this.orientation;
     }
 
-    /** Mass for kicks: 80 for a one-tile NPC, growing with its footprint. [design] */
+    /** Weight, kg: from the tiles the NPC takes up and its height (npcMass). Heavier bodies are thrown less far. */
     get mass(): number {
-        return tuning.npcBaseMass * this.size * this.size;
+        return npcMass(this.size, this.body.height);
     }
 
     /** Unit vector the NPC faces, in world tiles (orientation 0 faces south). */
@@ -502,11 +502,11 @@ export class Npc {
         if (push > 0) {
             const side = this.hitSide(dirX, dirY);
             const table = push >= 2 ? tuning.longHitDistance : tuning.mediumHitDistance;
-            const distance = (table[side] * (push >= 3 ? 1.5 : 1)) / this.size;
+            const distance = table[side] * (push >= 3 ? 1.5 : 1) * weightThrowScale(this.mass);
             this.slide(dirX, dirY, distance);
         } else if (!this.combatant.dead) {
             // Killing blows are thrown by deathLaunch instead.
-            this.slide(dirX, dirY, (tuning.hitNudge * Math.min(2, hitPow)) / this.size);
+            this.slide(dirX, dirY, tuning.hitNudge * Math.min(2, hitPow) * weightThrowScale(this.mass));
         }
     }
 
@@ -556,10 +556,11 @@ export class Npc {
         const d = Math.hypot(tx, ty) || 1;
         const facing = (f.x * tx + f.y * ty) / d;
         if (!c.incapacitated && facing > tuning.kickDodgeFacing && this.random() < chance) {
-            // Dodge_left / Dodge_right: about 40 u sideways.
+            // Dodge_left / Dodge_right: about 40 u sideways, s = 1 towards the NPC's left.
             const s = this.random() < 0.5 ? 1 : -1;
             this.slide((-ty / d) * s, (tx / d) * s, units40);
             this.faceTowards(fromX, fromY);
+            this.reactions?.dodge(s > 0);
             return "dodged";
         }
 
@@ -571,9 +572,7 @@ export class Npc {
         this.kickedDown = true;
         // A body already on the ground is shoved by the slide below instead.
         this.kickLaunch = !this.ragdoll;
-        const reference = massForce(tuning.npcBaseMass) / tuning.npcBaseMass;
-        const scale = Math.min(2, Math.max(0.2, massForce(this.mass) / this.mass / reference));
-        this.slide(dirX, dirY, tuning.longHitDistance[this.hitSide(dirX, dirY)] * scale, true);
+        this.slide(dirX, dirY, tuning.longHitDistance[this.hitSide(dirX, dirY)] * kickThrowScale(this.mass), true);
         return "hit";
     }
 
@@ -757,7 +756,6 @@ export class Npc {
             playerX: target.x,
             playerY: target.y,
             playerYaw: player.yaw,
-            healthFraction: this.combatant.healthFraction,
         });
         if (this.searching >= 0 && Math.hypot(target.x - x, target.y - y) < 0.5) {
             move.vx = move.vy = 0;

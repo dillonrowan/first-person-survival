@@ -119,9 +119,9 @@ describe("woodcutting", () => {
         const other = t.place(testLoc(1276, "Tree", 11, 10));
         const frame = (dt: number, down: boolean, aimed: unknown) =>
             t.sys.update({ acted: false, panelOpen: false, dead: false, dt, pointer: { pressed: false, down, aimed } });
-        expect(t.sys.clickLoc(tree)).toBe(true);
+        expect(t.sys.clickLoc(tree, true)).toBe(true);
         expect(t.sys.takesClicks).toBe(true);
-        expect(t.sys.clickLoc(tree)).toBe(false); // the stroke under way takes the click
+        expect(t.sys.clickLoc(tree, true)).toBe(true); // the stroke under way takes the click
         setRandom(() => 0.5); // hits, does not fell
         frame(CHOP_STROKE.seconds * (CHOP_STROKE.impact - 0.1), true, tree);
         expect(t.inventory.count(LOGS)).toBe(0);
@@ -136,12 +136,41 @@ describe("woodcutting", () => {
         expect(t.sys.active).toBeUndefined(); // let go: the job ends
     });
 
+    it("a click during a stroke queues the next; a click on another tree does not cut it short", () => {
+        const t = setup();
+        t.worn.push(BRONZE_AXE);
+        const tree = t.place(testLoc(1276, "Tree"));
+        const other = t.place(testLoc(1276, "Tree", 11, 10));
+        const frame = (dt: number, pressed: boolean, aimed: unknown) =>
+            t.sys.update({ acted: false, panelOpen: false, dead: false, dt, pointer: { pressed, down: false, aimed } });
+        setRandom(() => 0.99); // no logs: only the strokes matter
+        expect(t.sys.clickLoc(tree, true)).toBe(true);
+        frame(0.016, true, tree); // the starting click
+        const job = t.sys.active;
+        expect(t.sys.clickLoc(other, true)).toBe(true); // taken by the stroke, which goes on
+        expect(t.sys.active).toBe(job);
+        frame(0.2, true, tree); // clicked again mid-stroke
+        frame(CHOP_STROKE.seconds, false, tree); // the stroke ends, the queued one starts
+        expect(t.sys.active).toBe(job);
+        frame(CHOP_STROKE.seconds, false, tree); // no click this time: done
+        expect(t.sys.active).toBeUndefined();
+        expect(t.animations.length).toBe(2);
+    });
+
+    it("a click on a tree out of reach says to come closer, and is no attack", () => {
+        const t = setup();
+        t.worn.push(BRONZE_AXE);
+        expect(t.sys.clickLoc(t.place(testLoc(1276, "Tree")), false)).toBe(true);
+        expect(t.logs.at(-1)).toBe("You need to get closer to the tree.");
+        expect(t.sys.active).toBeUndefined();
+    });
+
     it("a click with a pickaxe on a tree, or an axe on a rock, gathers nothing", () => {
         const t = setup();
         t.worn.push(PICK);
-        expect(t.sys.clickLoc(t.place(testLoc(1276, "Tree")))).toBe(false);
+        expect(t.sys.clickLoc(t.place(testLoc(1276, "Tree")), true)).toBe(false);
         t.worn[0] = BRONZE_AXE;
-        expect(t.sys.clickLoc(t.place(testLoc(10943, "Copper rocks", 12, 12)))).toBe(false);
+        expect(t.sys.clickLoc(t.place(testLoc(10943, "Copper rocks", 12, 12)), true)).toBe(false);
         expect(t.sys.active).toBeUndefined();
     });
 

@@ -4,9 +4,10 @@ import { PICKPOCKET_CLIPS, PICKPOCKET_CLIP_FPS, PickpocketClip } from "./Pickpoc
 /** Seconds a new clip crossfades from wherever the view was. [design] */
 const BLEND = 0.1;
 
-type Look = Required<CameraOffset>;
+/** The view offset, and `stow`: how far the held weapon or tool is put away (0 held, 1 lowered). */
+type Look = Required<CameraOffset> & { stow: number };
 
-const zero = (): Look => ({ pitch: 0, yaw: 0, roll: 0, lean: 0, dip: 0 });
+const zero = (): Look => ({ pitch: 0, yaw: 0, roll: 0, lean: 0, dip: 0, stow: 0 });
 
 /** A Blender clip's view offset at `t` seconds, held on its last frame. */
 export function sampleLook(clip: PickpocketClip, t: number, out: Look = zero()): Look {
@@ -23,13 +24,14 @@ export function sampleLook(clip: PickpocketClip, t: number, out: Look = zero()):
     out.pitch = at(2);
     out.yaw = at(3);
     out.roll = at(4);
+    out.stow = at(5);
     return out;
 }
 
 /**
- * What pickpocketing looks like in first person, with no hand drawn: the view glances down at the
- * mark's pocket and leans in, then looks away innocently, or is jerked back upright when caught
- * (clips from tools/blender/pickpocket.py).
+ * What pickpocketing looks like in first person, with no hand drawn: the held weapon is put away,
+ * the view glances down at the mark's pocket and leans in, then looks away innocently, or is jerked
+ * back upright when caught, and the weapon comes back up (clips from tools/blender/pickpocket.py).
  */
 export class PickpocketView {
     private clip: PickpocketClip | undefined;
@@ -49,7 +51,7 @@ export class PickpocketView {
         this.time = 0;
     }
 
-    /** Per frame: the offset to add to the first-person view (all zero when idle). */
+    /** Per frame: the offset to add to the first-person view and the weapon's stow (all zero when idle). */
     update(dt: number): Readonly<Look> {
         const clip = this.clip;
         const look = this.current;

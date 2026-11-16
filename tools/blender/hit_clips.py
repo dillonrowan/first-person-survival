@@ -177,6 +177,22 @@ CLIPS['guard_unarmed'] = {
     'head': [(0, (0, 0, 0)), (3, (16, 0, 0)), (5, (4, 0, 4)), (12, (14, 0, 0)), (22, (0, 0, 0))],
     'pelvis.loc': [(0, (0, 0, 0)), (3, (0, 0, -0.06)), (5, (0, 0.06, -0.07)), (12, (0, 0.03, -0.06)), (22, (0, 0, 0))],
 }
+# A dodge to the body's right (the game mirrors it for one to the left): it drops its hips and
+# ducks its head and shoulders aside, the right foot reaching out first and the left following as
+# the game slides the body over; the right arm swings out for balance, the left comes across the chest.
+CLIPS['dodge_side'] = {
+    'length': 22,
+    'pelvis.loc': [(0, (0, 0, 0)), (3, (-0.03, 0, -0.06)), (7, (-0.08, 0, -0.12)), (11, (-0.06, 0, -0.10)), (16, (-0.02, 0, -0.04)), (22, (0, 0, 0))],
+    'pelvis': [(0, (0, 0, 0)), (4, (0, -6, 0)), (8, (0, -8, 0)), (14, (0, -3, 0)), (22, (0, 0, 0))],
+    'spine': [(0, (0, 0, 0)), (3, (7, -10, 0)), (7, (12, -22, -6)), (11, (10, -16, -4)), (16, (3, -4, 0)), (22, (0, 0, 0))],
+    'head': [(0, (0, 0, 0)), (3, (-4, 8, 0)), (7, (-10, 18, 6)), (11, (-8, 14, 4)), (16, (-2, 4, 0)), (22, (0, 0, 0))],
+    'upperarm.R': [(0, (0, 0, 0)), (3, (-20, 20, 0)), (7, (-35, 40, 0)), (11, (-30, 32, 0)), (16, (-10, 10, 0)), (22, (0, 0, 0))],
+    'forearm.R': [(0, elbow('R', 0)), (4, elbow('R', -30)), (7, elbow('R', -45)), (14, elbow('R', -30)), (22, elbow('R', 0))],
+    'upperarm.L': [(0, (0, 0, 0)), (3, (-30, 0, -30)), (7, (-38, 0, -36)), (12, (-34, 0, -32)), (22, (0, 0, 0))],
+    'forearm.L': [(0, elbow('L', 0)), (3, elbow('L', -85)), (7, elbow('L', -95)), (12, elbow('L', -90)), (22, elbow('L', 0))],
+    'ik.R': [(0, (0, 0, 0)), (2, (-0.04, 0, 0.06)), (5, (-0.2, 0, 0.08)), (7, (-0.24, 0, 0)), (14, (-0.1, 0, 0)), (20, (0, 0, 0))],
+    'ik.L': [(0, (0, 0, 0)), (6, (0.12, 0, 0)), (9, (0.1, 0, 0.08)), (13, (0.02, 0, 0)), (22, (0, 0, 0))],
+}
 # A melee blow parried: caught on frame 5, flung aside with the whole body, then a lunging blow
 # back that stuns the attacker on `impact`. The shield parry bashes with the shield; the other
 # shoves with both hands. Both land on the same frame (the game times the stun by it).

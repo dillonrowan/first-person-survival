@@ -128,21 +128,31 @@ export class SkillSystem {
     /** A chop or pick blow landed (the view jolts). */
     onToolImpact?: () => void;
 
-    /**
-     * A left click on a skill loc in reach: with an axe in hand on a standing tree, or a pickaxe on
-     * a rock, starts a GatherJob (the same click is its first stroke). False when the click is not
-     * for this (another tool, another loc, or a stroke at this loc already running).
-     */
-    clickLoc(instance: SkillLocInstance): boolean {
-        const active = this.job;
-        if (active instanceof GatherJob && active.target === instance) return false;
+    /** What the wielded tool does to this loc: an axe chops a standing tree, a pickaxe mines a rock. */
+    gatherKind(instance: SkillLocInstance): "chop" | "mine" | undefined {
         const role = this.ctx.data.locs[instance.loc.id]?.role;
         const weapon = this.ctx.weapon();
         const tools = this.ctx.data.tools;
-        let kind: "chop" | "mine" | undefined;
-        if (role === "tree" && !this.gathering.isDepleted(instance.key) && tools.axes.some((a) => a.item === weapon)) kind = "chop";
-        else if (role === "rock" && tools.pickaxes.some((p) => p.item === weapon)) kind = "mine";
+        if (role === "tree" && !this.gathering.isDepleted(instance.key) && tools.axes.some((a) => a.item === weapon)) return "chop";
+        if (role === "rock" && tools.pickaxes.some((p) => p.item === weapon)) return "mine";
+        return undefined;
+    }
+
+    /**
+     * A left click on a tree or rock the wielded axe or pickaxe works (gatherKind): in reach, it
+     * starts a GatherJob (the same click is its first stroke); out of reach, the player is told to
+     * come closer. Either way the click is not a weapon attack, so clicks at the edge of reach do
+     * not mix chops and swings. False when the tool does not work this loc; a stroke already under
+     * way takes the click and is never cut short by one on another tree or rock.
+     */
+    clickLoc(instance: SkillLocInstance, inReach: boolean): boolean {
+        const kind = this.gatherKind(instance);
         if (!kind) return false;
+        if (this.job instanceof GatherJob) return true;
+        if (!inReach) {
+            this.ctx.log(kind === "chop" ? "You need to get closer to the tree." : "You need to get closer to the rock.");
+            return true;
+        }
         this.start(new GatherJob(instance, kind, (i) => this.strike(i), () => this.isSolid(instance)));
         return true;
     }

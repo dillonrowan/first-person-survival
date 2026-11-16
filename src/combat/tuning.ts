@@ -72,9 +72,6 @@ export const tuning = {
     parryChanceCap: 0.85,
     /** Seconds the player stays stunned by a parry's blow back. [design] */
     parryStunTime: 2.2,
-    /** A parry's blow back throws the player this fast away from the NPC, and this fast upwards. [design] */
-    parryKnockback: units(650),
-    parryKnockbackLift: units(70),
     /** [data ai.KnockedDownTime] */
     knockdownDuration: 2.0,
     /** NPC hits push the player. [data ai.PlayerPushOnHit 250 u/s] */
@@ -101,14 +98,13 @@ export const tuning = {
     /**
      * A killing blow also launches the whole body along the hit (tiles/s): this much, plus
      * deathLaunchPerPow per unit of the hit's HitPow (counted up to deathLaunchMaxPow), with
-     * deathLaunchLift of that speed upwards so it leaves the ground. Scaled by
-     * sqrt(npcBaseMass / mass) within deathLaunchMassScale. [design]
+     * deathLaunchLift of that speed upwards so it leaves the ground. Scaled by the body's weight
+     * (weightThrowScale). [design]
      */
     deathLaunchSpeed: 2.5,
     deathLaunchPerPow: 1.5,
     deathLaunchMaxPow: 3,
     deathLaunchLift: 0.4,
-    deathLaunchMassScale: [0.5, 1.4] as [number, number],
     /** How much a melee hit drives along the blade's travel rather than away from the attacker. [design] */
     swingPushWeight: 0.7,
     /** A hit too light to push still shoves the target this far per HitPow along the swing. [design] */
@@ -157,8 +153,17 @@ export const tuning = {
     massForceMax: 7000,
     massWeightMin: 1,
     massWeightMax: 100,
-    /** Mass of a one-tile NPC; scales with size². [design] */
+    /**
+     * Weight of an NPC as tall as npcBaseHeight (tiles) on one tile, kg; it grows with the tiles the
+     * NPC takes up (size²) and with its height. [design]
+     */
     npcBaseMass: 80,
+    npcBaseHeight: 1.5,
+    /**
+     * How far blows throw an NPC (pushes, its ragdoll's start, a killing blow's launch) by its
+     * weight: sqrt(npcBaseMass / mass), held within this range. [design]
+     */
+    weightThrowScale: [0.2, 1.4] as [number, number],
     /** NPC kick dodge chance: starts here, grows per kick. [data npc_guard dodge_on_kick_*] */
     kickDodgeInit: 0.2,
     kickDodgeAdd: 0.3,
@@ -195,8 +200,11 @@ export const tuning = {
     npcWalkSpeed: units(37),
     npcCombatWalkSpeed: units(42),
     npcRunSpeed: units(165),
-    /** Beyond this path distance NPCs run, closer they combat-walk. [cvar mm_ai_dist_walk_path 250 u] */
-    npcRunDistance: units(250),
+    /**
+     * In combat with the player NPCs run the whole chase, never combat-walking in, and run, step
+     * and pause between steps this much faster than the guard's speeds and timings. [design]
+     */
+    npcCombatPace: 1.5,
     /** Combat zones, centre to centre. [data npc_guard Red 40 / Green 80 / Yellow 120 u] */
     zoneRed: units(40),
     zoneGreen: units(80),
@@ -212,9 +220,6 @@ export const tuning = {
     zigzagCone: (15 * Math.PI) / 180,
     zigzagSteer: (35 * Math.PI) / 180,
     zigzagMinDistance: units(240),
-    /** Flee below this health fraction for up to TimeFleeStop. [data life_toflee 0.2, ai.TimeFleeStop 20] */
-    fleeHealth: 0.2,
-    fleeTime: 20,
     /** Give up the fight when the player is this far away for TimeUntilNPCLoosePlayer. [data 1500 u, 3 s] */
     loseDistance: units(1500),
     loseTime: 3,
@@ -297,6 +302,8 @@ export const tuning = {
     /** View punch while parrying vs not. [cvar mm_player_punch_factor(_when_parrying)] */
     punch: 0.4,
     punchParrying: 0.15,
+    /** Share of a blow that would have landed which still gets through the player's block (at least 1). [design] */
+    blockDamageShare: 0.3,
     /** Death fade before respawning. [cvar mm_player_death_fadeout_duration] */
     deathFade: 4,
 

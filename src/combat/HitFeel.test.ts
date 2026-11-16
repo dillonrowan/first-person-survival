@@ -35,8 +35,25 @@ describe("StunFeel", () => {
         feel.update(1 / 60, false);
         expect(feel.view.pitch).toBeGreaterThan(0.2);
         expect(feel.view.roll).toBeGreaterThan(0.1);
+        expect(feel.fov).toBeGreaterThan(0.1);
         for (let i = 0; i < 120; i++) feel.update(1 / 60, false);
         expect(Math.abs(feel.view.pitch)).toBeLessThan(0.01);
+        expect(feel.fov).toBeLessThan(0.01);
+    });
+
+    it("jolts the view a little when the blade is caught, fully when the blow lands", () => {
+        const caught = new StunFeel();
+        caught.kick(-1, 0.35);
+        caught.update(1 / 60, false);
+        const struck = new StunFeel();
+        struck.kick(-1);
+        struck.update(1 / 60, false);
+        expect(caught.view.roll).toBeLessThan(0);
+        expect(caught.view.pitch).toBeLessThan(struck.view.pitch * 0.5);
+        // The blow back still lands fully on a head jolted by the catch.
+        caught.kick(1);
+        caught.update(1 / 60, false);
+        expect(caught.view.pitch).toBeGreaterThan(struck.view.pitch * 0.9);
     });
 
     it("sways the view while stunned and settles after", () => {

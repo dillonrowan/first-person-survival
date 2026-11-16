@@ -213,7 +213,7 @@ export class PlayerCombat {
     private parryStunIn = -1;
     /** When the player's melee blows reached each target (this.time), oldest first: a flurry it may read. */
     private readonly blowsOn = new WeakMap<CombatTarget, number[]>();
-    /** Where the NPC that parried stands, to throw the player away from. */
+    /** Where the NPC that parried stands, for whether the player's guard faces its blow back. */
     private readonly parriedBy = { x: 0, y: 0 };
 
     /** The shield worn (the shield slot item) or set directly; tests and dev tools set it. */
@@ -516,11 +516,8 @@ export class PlayerCombat {
         const dy = player.y - strike.fromY;
         const d = Math.hypot(dx, dy) || 1;
         // Only a melee blow can be parried: arrows, spells and breath fly past a raised weapon.
-        if (strike.style === "melee" && !strike.breaksParry && this.guardsAgainst(player, strike.fromX, strike.fromY)) {
-            const report: StrikeReport = { ...none, outcome: "parried", punch: tuning.punchParrying };
-            this.onStruck?.(report);
-            return report;
-        }
+        const guarded =
+            strike.style === "melee" && !strike.breaksParry && this.guardsAgainst(player, strike.fromX, strike.fromY);
         const npc = strike.attacker ?? fallbackCombatStats(1);
         // Breath is rolled as magic, against the player's magic defence.
         const accuracy: "melee" | "ranged" | "magic" =
@@ -550,6 +547,14 @@ export class PlayerCombat {
         }
         const base = success ? Math.floor(this.random() * (max + 1)) : 0;
         const damage = success ? stochasticRound(base * clamp(strike.rate ?? 1, 0, 1), this.random) : 0;
+        if (guarded) {
+            // The weapon takes the blow, but one that would have landed still gets some through.
+            const through = damage > 0 ? Math.max(1, Math.round(damage * tuning.blockDamageShare)) : 0;
+            this.combatant.hurt(through, "none");
+            const report: StrikeReport = { ...none, outcome: "parried", damage: through, punch: tuning.punchParrying };
+            this.onStruck?.(report);
+            return report;
+        }
         this.combatant.hurt(damage, "flinch");
         // A poisonous monster can poison with any strike that reaches the player, hit or miss [wiki];
         // breath does not poison.
@@ -615,12 +620,7 @@ export class PlayerCombat {
                 // The blow back is taken on the parry stance, like any blocked strike.
                 this.onStruck?.({ outcome: "parried", damage: 0, punch: tuning.punchParrying, style: "melee", shielded: false, missed: false });
             } else if (this.parryStunIn < 0 && !this.combatant.dead) {
-                // Thrown back off the feet, away from the NPC, and stunned.
-                const dx = player.x - this.parriedBy.x;
-                const dy = player.y - this.parriedBy.y;
-                const d = Math.hypot(dx, dy);
-                const [ax, ay] = d > 1e-6 ? [dx / d, dy / d] : [Math.sin(player.yaw), -Math.cos(player.yaw)];
-                player.applyImpulse(ax * tuning.parryKnockback, ay * tuning.parryKnockback, tuning.parryKnockbackLift);
+                // Stunned where the player stands: the blow staggers, it does not throw.
                 this.combatant.stun(tuning.parryStunTime);
                 this.melee.cancel();
                 this.kick.cancel();

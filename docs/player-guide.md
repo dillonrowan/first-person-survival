@@ -92,7 +92,8 @@ to any level from 1 to 99.
   longbow.
 
 Hold `Mouse 2` to block during melee. Blocking can stop or weaken incoming melee attacks and can
-leave the attacker exposed to a follow-up. Weapon reach, speed, damage, and parry behavior vary by
+leave the attacker exposed to a follow-up. A blocked blow that would have hit you still deals about
+a third of its damage (at least 1); one that would have done 0 does nothing. Weapon reach, speed, damage, and parry behavior vary by
 weapon. Arrows, spells and dragon breath cannot be blocked. A staff or wand cannot parry: `Mouse 2`
 casts with it instead.
 
@@ -135,7 +136,7 @@ Skills are saved in the browser.
   a person raises their shield, weapon or forearms, a beast hunkers down; a person may instead parry
   a melee blow that does 0, more often the higher their Defence is against your Melee and the more
   blows you have just landed on them in quick succession, flinging
-  your blade aside and bashing you back off your feet, dazed and stunned, unless you raise your
+  your blade aside and bashing you where you stand, dazed and stunned, unless you raise your
   parry stance in time; a stunned person never parries), the trimmed max hit
   splat when you roll your max hit, and green for poison. Hits on you show the same splats near the
   bottom centre of the screen.
@@ -207,17 +208,22 @@ are done by hand (below); other skilling repeats on the 0.6 s OSRS game tick unt
 away, attacking, kicking, opening a panel or dying stops it.
 Messages go to the log at the bottom left. Success chances, XP and times are the OSRS ones.
 
-- **Woodcutting**: swing a wielded axe into a tree (`Mouse 1`). The blade stops in the trunk and the
-  tree shudders; every blow that lands rolls for a log with your Woodcutting level and the axe's
-  chance. Chop down (`E`) wields the best axe you carry. Trees topple when their last log comes and
-  leave a stump that grows back; a stump does not stop the blade. With a full inventory you keep
-  chopping and the logs fall to the ground at your feet.
-- **Mining**: swing a wielded pickaxe into a rock the same way (Mine wields the best one). A blow
+- **Woodcutting**: with an axe wielded, aim at a tree within reach and left click (`Mouse 1`): you
+  draw the axe back over your shoulder and chop it into the trunk. Hold the button (or keep clicking)
+  to keep chopping; a chop always finishes. Clicking a tree that is too far away tells you to get
+  closer instead of swinging the axe. Only the tree under the crosshair is struck, and an attack already under way plays out before you
+  chop. Every blow rolls for a log with your Woodcutting level and the axe's chance; the tree
+  shudders. Chop down (`E`) wields the best axe you carry. Trees topple when their last log comes
+  and leave a stump that grows back. A sword swing stops on a tree but gets no logs. With a full
+  inventory you keep chopping and the logs fall to the ground at your feet.
+- **Mining**: with a pickaxe wielded, click a rock the same way: the pick goes up overhead and comes
+  down on it (Mine wields the best one). A blow
   rolls the rock's chance, scaled by how much of the pickaxe's OSRS interval has passed since your
   last blow, so a better pickaxe needs fewer blows and hammering fast gives no more ore. The rock
   crumbles when it empties and refills. Aubury in Varrock teleports you to the rune essence mine.
 - **Fishing**: fishing spots ripple and bubble on the water where the OSRS wiki places them. With a
-  fishing tool wielded, left click a spot from at most 2 tiles away (stand on the shore next to it): you fish with the spot's option
+  fishing tool wielded, left click a spot from at most 2 tiles away (stand on the shore next to it; farther, you are told
+  to get closer): you fish with the spot's option
   for that tool, and the same click casts or scoops. Or use a spot's option (Net, Bait, Lure, Cage,
   Harpoon), which puts the right tool in your hand (it must stay wielded). You need the tool and
   any bait. Rods, nets, cages and the plain harpoon cannot attack. With a full inventory the catch
@@ -245,8 +251,8 @@ Messages go to the log at the bottom left. Success chances, XP and times are the
 - **Runecraft**: Enter mysterious ruins with the rune's talisman or tiara (without one, a message
   names the talisman you need), then Craft-rune at the altar; the portal leads back. The world map
   (`M`) marks every essence altar's ruins.
-- **Thieving**: Pickpocket people and Steal-from stalls. You glance down and lean in while
-  you work the pocket; getting caught jerks you back, hurts and stuns you for a few seconds, and
+- **Thieving**: Pickpocket people and Steal-from stalls. You lower whatever you hold, glance
+  down and lean in while you work the pocket, and raise it again after; getting caught jerks you back, hurts and stuns you for a few seconds, and
   anyone who can fight turns on you.
 - **Hunter**: Lay a bird snare or box trap and Check it once something walks in; Catch butterflies
   and implings with a butterfly net and a jar.
@@ -282,7 +288,9 @@ Aim at an NPC or interactive object and approach within interaction range. When 
 Available actions depend on the target. NPCs can offer actions such as `Talk-to` or `Attack`.
 NPCs never start a fight on their own: they leave you alone until you hit, kick or shoot them (or
 knock them down with a thrown prop), and only the NPC you attacked fights back. Attacking an NPC
-may cause it to react, flee, retreat, or fight depending on its state and health.
+makes it fight you to the end: NPCs never flee, and they move faster once they are fighting you.
+Bigger and taller NPCs are heavier: blows push them, and knock them flying, less far. An NPC may
+sidestep a kick, ducking out of the way.
 
 Some NPCs fight in more than one way. Dragons sometimes breathe fire in a cone in front of them
 when you stand next to them, so step out of the cone or behind them (or wear the anti-dragon
@@ -349,7 +357,7 @@ Combat is unavailable while flying. Target interaction is also unavailable in fl
 | `G` | Cast the equipped spell |
 | `Q` | Cycle attack style |
 | `Tab` / `K` / `B` | Inventory and equipment / skills / spellbook |
-| `M` | World map: drag to pan, wheel to zoom; marks you and the essence altars |
+| `M` | World map: drag to pan, wheel to zoom; marks you, the essence altars, mining sites and fishing spots |
 | Mouse wheel | Wield the next weapon in the inventory |
 | `Shift` | Sprint or fly faster |
 | `Alt` | Walk slowly |

@@ -587,6 +587,20 @@ export class HitReactions {
         this.layers.push({ clip: HIT_CLIPS[name], time: 0, mirror: false, weight: 1, fade: 0 });
     }
 
+    /**
+     * A sidestep out of the way towards the body's left (`left`) or right: a humanoid drops its
+     * hips and ducks aside, leading with the near foot (dodge_side, authored to its right); any
+     * other body's parts swing as it lurches aside. Hit clips still playing make way.
+     */
+    dodge(left: boolean): void {
+        if (!this.rig.humanoid) {
+            this.kickSprings(STRENGTH.flinch * 0.8, 0, left ? -1 : 1, 0.5);
+            return;
+        }
+        this.layers.length = 0;
+        this.layers.push({ clip: HIT_CLIPS.dodge_side, time: 0, mirror: left, weight: 1, fade: 0 });
+    }
+
     /** Spins every part about its joint away from the hit, the parts near where it struck most. */
     private kickSprings(strength: number, along: number, left: number, height: number): void {
         const rig = this.rig;

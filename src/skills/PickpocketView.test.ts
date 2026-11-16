@@ -17,7 +17,17 @@ describe("pickpocket look", () => {
         expect(look.pitch).toBeLessThan(-0.4);
         expect(look.dip).toBeGreaterThan(0.05);
         expect(look.lean).toBeGreaterThan(0.05);
+        expect(look.stow).toBe(1); // the held item is put away
         expect(view.playing).toBe("reach");
+    });
+
+    it("brings the held item back up after a success", () => {
+        const view = new PickpocketView();
+        view.play("reach");
+        run(view, 1.2);
+        view.play("pocket");
+        expect(run(view, 0.2).stow).toBeGreaterThan(0.9);
+        expect(run(view, 1).stow).toBe(0);
     });
 
     it("is jerked back when caught, then settles upright", () => {
@@ -28,8 +38,9 @@ describe("pickpocket look", () => {
         const jerk = run(view, 0.12);
         expect(jerk.pitch).toBeGreaterThan(0);
         expect(jerk.lean).toBeLessThan(0);
+        expect(jerk.stow).toBeGreaterThan(0.9); // still away while rattled
         const after = run(view, 1);
         expect(view.playing).toBeUndefined();
-        expect(after).toEqual({ pitch: 0, yaw: 0, roll: 0, lean: 0, dip: 0 });
+        expect(after).toEqual({ pitch: 0, yaw: 0, roll: 0, lean: 0, dip: 0, stow: 0 });
     });
 });

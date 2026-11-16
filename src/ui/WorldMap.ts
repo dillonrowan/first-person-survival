@@ -1,5 +1,5 @@
 import type { MapManifest } from "../world/MapFormat";
-import type { AltarDef } from "../world/SkillFormat";
+import type { SkillsManifest } from "../world/SkillFormat";
 
 /** Marker colour per rune altar; others use the default. */
 const RUNE_COLORS: Record<string, string> = {
@@ -23,13 +23,47 @@ const DEFAULT_COLOR = "#c8a2ff";
 const MIN_ZOOM = 0.25;
 const MAX_ZOOM = 16;
 const OPEN_ZOOM = 3;
+/** Rocks or fishing spots this many tiles apart or closer are one site on the map. */
+const SITE_RADIUS = 6;
+/** Zoom (screen pixels per tile) from which site names are drawn. */
+const SITE_LABEL_ZOOM = 2;
+const MINING_COLOR = "#b9a58c";
+const FISHING_COLOR = "#3fc1e0";
 
 type Marker = { label: string; detail: string; x: number; y: number; color: string };
 type Position = { x: number; y: number; plane: number };
+type SiteKind = "mining" | "fishing";
+type Site = { label: string; x: number; y: number };
+
+/**
+ * Joins points into sites: two points `radius` tiles apart or closer (on both axes) share a site,
+ * so a chain of rocks across a mine is one site. Each site sits at its points' centre, named by
+ * their distinct tags in first-seen order.
+ */
+export function clusterSites(points: { x: number; y: number; tag: string }[], radius = SITE_RADIUS): Site[] {
+    const parent = points.map((_, i) => i);
+    const root = (i: number): number => (parent[i] === i ? i : (parent[i] = root(parent[i])));
+    for (let i = 0; i < points.length; i++) {
+        for (let j = i + 1; j < points.length; j++) {
+            if (Math.abs(points[i].x - points[j].x) <= radius && Math.abs(points[i].y - points[j].y) <= radius) parent[root(j)] = root(i);
+        }
+    }
+    const groups = new Map<number, { sx: number; sy: number; n: number; tags: string[] }>();
+    points.forEach((p, i) => {
+        const r = root(i);
+        let g = groups.get(r);
+        if (!g) groups.set(r, (g = { sx: 0, sy: 0, n: 0, tags: [] }));
+        g.sx += p.x;
+        g.sy += p.y;
+        g.n++;
+        if (!g.tags.includes(p.tag)) g.tags.push(p.tag);
+    });
+    return [...groups.values()].map((g) => ({ label: g.tags.join(", "), x: g.sx / g.n + 0.5, y: g.sy / g.n + 0.5 }));
+}
 
 /**
  * The world map (M): the image export-map renders, dragged to pan and wheeled to zoom, with the
- * player and the essence altars (their mysterious ruins) marked.
+ * player, the essence altars (their mysterious ruins), mining sites and fishing spots marked.
  */
 export class WorldMap {
     closed?: () => void;
@@ -37,6 +71,8 @@ export class WorldMap {
     private readonly canvas: HTMLCanvasElement;
     private readonly status: HTMLElement;
     private readonly markers: Marker[];
+    private readonly sites: Record<SiteKind, Site[]> = { mining: [], fishing: [] };
+    private readonly shown: Record<SiteKind, boolean> = { mining: true, fishing: true };
     private manifest?: MapManifest;
     private image?: HTMLImageElement;
     private loading?: Promise<void>;
@@ -51,12 +87,17 @@ export class WorldMap {
         private readonly element: HTMLElement,
         /** Folder holding map.json, ending in "/". */
         private readonly worldUrl: string,
-        altars: AltarDef[],
+        skills: SkillsManifest,
         private readonly player: () => Position,
     ) {
-        this.markers = altars
+        this.markers = skills.runecraft.altars
             .filter((a) => a.ruins)
             .map((a) => ({ label: `${a.rune} altar`, detail: `Runecraft ${a.level}`, x: a.ruins!.x + 1.5, y: a.ruins!.y + 1.5, color: RUNE_COLORS[a.rune] ?? DEFAULT_COLOR }));
+        // A fishing spot is named by its actions ("Net, Bait"); one spot NPC can have several.
+        const actions = (npcId: number) => skills.fishing.filter((f) => f.npcIds.includes(npcId)).map((f) => f.action);
+        this.sites.fishing = clusterSites(
+            skills.fishingSpots.filter((s) => s.plane === 0).flatMap((s) => actions(s.npcId).map((tag) => ({ x: s.x, y: s.y, tag }))),
+        );
 
         const heading = document.createElement("div");
         heading.className = "choice-heading";
@@ -79,6 +120,9 @@ export class WorldMap {
         altarsHeading.textContent = "Essence altars";
         legend.append(altarsHeading);
         for (const m of this.markers) legend.append(this.legendButton(m.label, m.color, m.detail, () => this.centreOn(m)));
+        const layersHeading = document.createElement("h3");
+        layersHeading.textContent = "Show";
+        legend.append(layersHeading, this.layerToggle("mining", "Mining sites", MINING_COLOR), this.layerToggle("fishing", "Fishing spots", FISHING_COLOR));
         this.status = document.createElement("p");
         this.status.className = "world-map-status";
         legend.append(this.status);
@@ -163,6 +207,23 @@ export class WorldMap {
         return button;
     }
 
+    private layerToggle(kind: SiteKind, label: string, color: string): HTMLLabelElement {
+        const row = document.createElement("label");
+        row.className = "world-map-toggle";
+        const box = document.createElement("input");
+        box.type = "checkbox";
+        box.checked = this.shown[kind];
+        box.addEventListener("change", () => {
+            this.shown[kind] = box.checked;
+            this.render();
+        });
+        const dot = document.createElement("span");
+        dot.className = "world-map-dot";
+        dot.style.background = color;
+        row.append(box, dot, label);
+        return row;
+    }
+
     private centreOn(p: { x: number; y: number }): void {
         this.cx = p.x;
         this.cy = p.y;
@@ -179,6 +240,7 @@ export class WorldMap {
             await image.decode();
             this.manifest = manifest;
             this.image = image;
+            this.sites.mining = clusterSites((manifest.rocks ?? []).map((r) => ({ x: r.x, y: r.y, tag: r.name.replace(/ rocks?$/i, "") })));
         })().catch((e) => {
             console.warn("The world map could not be loaded", e);
             this.status.textContent = "No map image: run npm run export-map.";
@@ -219,7 +281,44 @@ export class WorldMap {
 
         g.font = "600 12px system-ui, sans-serif";
         g.textAlign = "center";
-        g.lineWidth = 3;
+        const label = (text: string, x: number, y: number) => {
+            g.lineWidth = 3;
+            g.strokeStyle = "#111";
+            g.strokeText(text, x, y);
+            g.fillStyle = "#fff";
+            g.fillText(text, x, y);
+        };
+        // Mining sites as diamonds, fishing spots as rings; named once zoomed in.
+        for (const kind of ["mining", "fishing"] as const) {
+            if (!this.shown[kind]) continue;
+            for (const site of this.sites[kind]) {
+                const x = sx(site.x);
+                const y = sy(site.y);
+                if (x < -100 || y < -20 || x > width + 100 || y > height + 20) continue;
+                g.beginPath();
+                if (kind === "mining") {
+                    g.moveTo(x, y - 5);
+                    g.lineTo(x + 5, y);
+                    g.lineTo(x, y + 5);
+                    g.lineTo(x - 5, y);
+                    g.closePath();
+                    g.fillStyle = MINING_COLOR;
+                    g.strokeStyle = "#111";
+                    g.lineWidth = 1.5;
+                    g.fill();
+                    g.stroke();
+                } else {
+                    g.arc(x, y, 4, 0, Math.PI * 2);
+                    g.strokeStyle = "#111";
+                    g.lineWidth = 4;
+                    g.stroke();
+                    g.strokeStyle = FISHING_COLOR;
+                    g.lineWidth = 2;
+                    g.stroke();
+                }
+                if (this.zoom >= SITE_LABEL_ZOOM) label(site.label, x, y - 9);
+            }
+        }
         for (const marker of this.markers) {
             const x = sx(marker.x);
             const y = sy(marker.y);
@@ -230,10 +329,7 @@ export class WorldMap {
             g.lineWidth = 2;
             g.fill();
             g.stroke();
-            g.lineWidth = 3;
-            g.strokeText(marker.label, x, y - 11);
-            g.fillStyle = "#fff";
-            g.fillText(marker.label, x, y - 11);
+            label(marker.label, x, y - 11);
         }
 
         const p = this.player();

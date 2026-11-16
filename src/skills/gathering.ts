@@ -195,14 +195,17 @@ export class Gathering {
  * Chopping or mining by hand: each click (or, held, one after another) on the tree or rock under
  * the crosshair is one stroke of the wielded tool, an axe chop or an overhead pickaxe strike. The
  * blow lands on that tree or rock alone, at the stroke's impact, if the crosshair is still on it;
- * nothing beside it is struck. The job ends when a stroke finishes with the button up or the
- * crosshair elsewhere. [design]
+ * nothing beside it is struck. A click during a stroke queues the next one (spam-clicking chops
+ * steadily, like holding); a stroke is never cut short. The job ends when a stroke finishes with
+ * no next one wanted, or the crosshair elsewhere. [design]
  */
 export class GatherJob implements Job {
     readonly swingTicks = 0;
     readonly skill: "woodcutting" | "mining";
     private t = 0;
     private struck = false;
+    /** The button was clicked during this stroke: chop again after it. */
+    private again = false;
 
     constructor(
         readonly target: SkillLocInstance,
@@ -229,15 +232,18 @@ export class GatherJob implements Job {
 
     frame(dt: number, input: JobInput): boolean {
         const stroke = this.stroke;
+        // The click that started this stroke is not a second one.
+        if (input.pressed && this.t > 0) this.again = true;
         this.t = Math.min(1, this.t + dt / stroke.seconds);
         if (!this.struck && this.t >= stroke.impact) {
             this.struck = true;
             if (input.aimed === this.target) this.strike(this.target);
         }
         if (this.t < 1) return true;
-        if (!input.down || input.aimed !== this.target || !this.standing()) return false;
+        if (!(input.down || this.again) || input.aimed !== this.target || !this.standing()) return false;
         this.t = 0;
         this.struck = false;
+        this.again = false;
         return true;
     }
 }

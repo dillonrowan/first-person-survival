@@ -1023,6 +1023,19 @@ kbd {
     background: #272c31;
 }
 
+.world-map-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px;
+    color: #eee;
+    cursor: pointer;
+}
+
+.world-map-toggle input {
+    margin: 0;
+}
+
 .world-map-dot {
     width: 10px;
     height: 10px;

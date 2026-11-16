@@ -40,8 +40,8 @@ Construction, Prayer (bones can be banked, not buried) and Sailing.
   `(floor(low * (99 - L) / 98 + high * (L - 1) / 98 + 0.5) + 1) / 256`, clamped to 0..1.
 - **Loot rolls**: chance-1 rows always come; the rest is one weighted pick when the chances add up
   to at most 1, otherwise each row rolls on its own.
-- **Woodcutting**: every blow of the wielded axe that lands on a standing tree (the melee swing
-  trace stops on it) rolls the axe's chart series at the player's level. Trees with a despawn time
+- **Woodcutting**: every blow of the wielded axe that lands on a standing tree (a chop stroke,
+  see below) rolls the axe's chart series at the player's level. Trees with a despawn time
   fall when their timer (counting down for 4 ticks after each blow, back up otherwise) is spent;
   others fall with 1/8 per log (1/16 for the mature juniper).
 - **Mining**: every blow of the wielded pickaxe that lands on a rock rolls the rock's chance times
@@ -68,6 +68,8 @@ Construction, Prayer (bones can be banked, not buried) and Sailing.
   the first-person view plays Blender-keyed head clips (`tools/blender/pickpocket.py` →
   `src/skills/PickpocketClips.ts`, added through `CameraRig`'s offset): `reach` glances down and
   leans in during the attempt, then `pocket` looks away innocently or `caught` jerks the view back.
+  The clips' `stow` channel lowers the held weapon or tool out of view for the attempt and raises
+  it as the outcome clip ends (`WeaponView.setLowered`).
 - **Hunter**: up to `1 + floor(level / 20)` traps (max 5). Each tick a creature within 3 tiles of
   a set trap is caught with `successChance / 8`.
 
@@ -89,7 +91,7 @@ Construction, Prayer (bones can be banked, not buried) and Sailing.
 | NPC respawn | 30 s after the body is gone |
 | Shops | an unstocked item sells for 40% of its cache value; stock moves one toward its base every restock time |
 | Moving away | a job stops when the player is 0.75 tiles from where it started |
-| Gathering by hand | an axe blow rolls the full OSRS chance (faster than the OSRS 4-tick cycle when swinging quickly); a pickaxe blow is scaled by its interval |
+| Gathering by hand | a left click on a tree or rock under the crosshair, with an axe (tree) or pickaxe (rock) wielded, is never a weapon attack: farther than 2.5 tiles from the eye it logs "You need to get closer to the tree." (or rock); within 2.5 tiles, with an axe or pickaxe wielded and no attack under way, starts a stroke: an axe chop of 1.0 s that lands at 0.5, or an overhead pickaxe strike of 1.15 s that lands at 0.55; the blow lands only on that tree or rock, and only if the crosshair is still on it; holding the button, or a click during a stroke, chains the next stroke; a stroke is never cut short, and a click on another tree or rock meanwhile is ignored; the view blends into and out of the stroke over 0.15 s. An axe blow rolls the full OSRS chance (faster than the OSRS 4-tick cycle); a pickaxe blow is scaled by its interval. Weapon swings stop on trees and rocks but gather nothing |
 | Fishing spots | placed by the game at the wiki's tiles with a Blender model (`tools/blender/fishing.py`: ripples and bubbles); the cache's spot NPCs are not used; fishing only within 2 tiles of the spot; nibbles on half the rolls that bring no bite |
 | Reeling | zone width `0.16 + 0.22 c` and fish speed `1.1 - 0.6 c` (c = the catch's OSRS success chance); the zone moves at 1.1 bar/s while the button is held and 0.9 bar/s back when let go, reaching that speed within about 0.1 s; the meter starts at 30%, fills 28%/s with the fish in the zone and drains 20%/s otherwise; 25 s limit |
 | Fishing tools | rods, nets, harpoons and pots can be wielded (the cache cannot); those the cache does not make wieldable never attack or block; rods are held as a Blender-made rod (`tools/blender/fishing.py`: spinning rod, fly rod), the others as their inventory model; only a rod has a line and bobber |

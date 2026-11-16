@@ -263,12 +263,14 @@ reads a flurry: each earlier melee blow of the player's that reached it in the l
 `parryFlurryWindow` 3 s adds `parryFlurryBonus` 0.5 of that chance, up to `parryChanceCap` 0.85,
 and a parry clears the count. A stunned or otherwise incapacitated NPC never parries (the blow's
 own stun roll comes first). A parry stops
-the swing (the blade stalls and the view shakes twice as hard as a heavy blow), flings the blade
-aside and strikes back with a lunging shield bash (`parry_shield`) or two-handed shove (`parry`).
-When that blow lands (frame 16 of 30 fps) the player is thrown back (`parryKnockback`, with a hop),
-the view snaps up and rolls, and the player is stunned for `parryStunTime` 2.2 s, the view swaying.
+the swing (the blade stalls, rattles and the view shakes twice as hard as a heavy blow, the head
+jerked aside a little), flings the blade aside and strikes back with a lunging shield bash
+(`parry_shield`) or two-handed shove (`parry`). When that blow lands (frame 16 of 30 fps) the world
+holds on it as on a killing blow, the view snaps up and rolls and its field of view punches 15%
+wider, and the player is stunned where they stand (not pushed back) for `parryStunTime` 2.2 s,
+the view swaying.
 A parry stance raised in time and facing the NPC (as against any melee strike) blocks that blow
-instead: no knockback and no stun. Every blow taken on the parry stance rattles the held weapon.
+instead: no stun. Every blow taken on the parry stance rattles the held weapon.
 The humanoid clips are in `tools/blender/hit_clips.py`. A hit rolls uniformly from 0 to the max hit, and 0 becomes 1. The roll is then scaled
 by `rate × move × hit zone × awareness`, at most ×3 (`tuning.osrsMaxDamageMultiplier`):
 
@@ -402,7 +404,8 @@ The parry angle check `[gh: 0x223a83a0]`:
 Our design `[design]`:
 - **Parry** = block pressed within 0.25 s before the hit lands. It negates the hit fully and
   staggers the attacker.
-- **Block** = holding block. It reduces damage by 80% and costs 1 player stamina per hit.
+- **Block** = holding block. A blow that would have landed still gets `blockDamageShare` (30%, at
+  least 1) of its damage through; a 0 or a missed roll does nothing. It costs 1 player stamina per hit.
 
 ## 7. Kick
 
@@ -627,6 +630,10 @@ The orc moves further: about 50 u for a medium hit and 90 u for a long one.
 - **Slide.** A medium or long reaction slides the NPC back the animation's distance for the side
   that was hit. The slide is a friction slide whose start speed is `4·d + stopspeed/2`, the inverse
   of the Source friction in 2.1.
+- **Weight.** An NPC weighs `npcBaseMass` 80 kg × size² (the tiles it takes up) × its height ÷
+  `npcBaseHeight` 1.5 tiles (`npcMass`). Hit slides and a killing blow's launch are scaled by
+  `sqrt(80 / weight)` held within `weightThrowScale` 0.2–1.4, so heavier NPCs are pushed, and
+  their ragdolls thrown, less far `[design]`.
 - **Pose.**
   - The NPC leans away from the hit.
   - Knocked down or killed, it becomes a ragdoll (section 20) and, after a knockdown, gets up over
@@ -677,9 +684,12 @@ The orc moves further: about 50 u for a medium hit and 90 u for a long one.
 - **On the NPC.**
   - It takes `kick_damage` (1).
   - It slides back its long-hit distance for the side that was hit. The distance is scaled by
-    (mass force ÷ mass) relative to an 80 kg NPC, clamped to 0.2–2×, and NPC mass is 80 × size²
-    `[design]`.
-  - A dodging NPC side-steps about 40 u (`Dodge_left` / `Dodge_right` `[mdl]`).
+    (mass force ÷ mass) relative to an 80 kg NPC, clamped to 0.2–2× (`kickThrowScale`), with the
+    NPC's weight from 15.1 `[design]`.
+  - A dodging NPC side-steps about 40 u (`Dodge_left` / `Dodge_right` `[mdl]`). A humanoid plays
+    `dodge_side` (Blender, `tools/blender/hit_clips.py`; mirrored for the left): it drops its hips
+    and ducks aside, the near foot leading and the other following, one arm out for balance and the
+    other across its chest. Any other body sways its parts as it lurches aside.
 - **Wall slam.** It applies when the kicked slide still has 2.5 tiles/s or more when it meets a wall
   `[design]`. It deals 5 damage `[data PhysicsMediumDamages]` and a 2 s knockdown.
 
@@ -719,11 +729,14 @@ and at least 240 u away, it adds waypoints 50–100 u out at ±35°, alternating
 **Implementation** (`src/npc/NpcCombat.ts`, `Npc.fight`):
 - **Leaving the grid.** A hit or kick alerts the NPC. It leaves the tile grid and moves freely, with
   walls, floor edges, the player and other NPCs blocking it.
-- **Chase.** Beyond Yellow it chases: running if farther than 250 u, combat-walking otherwise, and
-  zig-zagging as above.
+- **Pace.** In combat the run and every combat step are `npcCombatPace` (1.5) times the guard's
+  speeds above, the steps and the pauses between them taking that much less time `[design]`.
+- **Chase.** Beyond Yellow it chases, running all the way (about 5 tiles/s; the guard combat-walks
+  its last 250 u, `mm_ai_dist_walk_path`) and zig-zagging as above `[design]`.
 - **Fight.** Inside Yellow it faces the player and takes weighted combat steps, with 0.15–0.6 s
-  pauses `[design]`.
-- **Flee.** Below 20% health it runs away for up to 20 s (`life_toflee`, `TimeFleeStop`).
+  pauses divided by the pace `[design]`.
+- **No fleeing.** Unlike the guard's `life_toflee` (run away below 20% health for up to 20 s), an
+  NPC fights on however hurt `[design]`.
 - **Losing the player.** It gives up after 3 s with the player more than 1500 u away or on another
   floor (`TimeUntilNPCLoosePlayer`), then returns to the tile grid.
 - **Animation.** The OSRS walk clip plays at a rate matched to the speed. The game blends nine
@@ -909,7 +922,9 @@ Event 2152 (weapon swoosh) comes 0.15–0.25 s before the impact; that is the vi
 - An NPC strike rolls the NPC's attack roll (`(level + 9) × (bonus + 64)` for its style, magic for
   dragonfire and icy breath) against the player's defence roll for that style: `(Defence + 8 (+3
   defensive)) × (defence bonus + 64)`, or for magic `(floor(0.7 × Magic + 0.3 × Defence) + 8) ×
-  (magic defence + 64)`. A miss deals 0 and still shoves and flinches the player. A hit rolls 0 to
+  (magic defence + 64)`. A miss deals 0 and still shoves and flinches the player. A melee blow taken
+  on the parry stance is rolled the same way, and `blockDamageShare` (30%, at least 1) of a non-zero
+  roll gets through, with no shove or flinch. A hit rolls 0 to
   the style's wiki max hit (the OSRS formula from its levels without one), scaled by the share of
   its attack interval that has passed since its previous attack. A breath splits its max hit over its
   four damage ticks. `hitPow` now only sizes the NPC's flinch and push.
@@ -1260,7 +1275,7 @@ fall as one rigid body.
   starts rigid (20.8). 2 substeps, 8 iterations a frame. Positions are kept relative to a whole-tile origin near
   the body: at map coordinates (around 3200) single floats only resolve 1/4000 tile, noise that
   kept small bodies such as a goblin's twitching.
-- **Mass.** The NPC's mass (80 × size² kg; the guard's ragdoll is 90) shared out by the volume of
+- **Mass.** The NPC's weight (15.1: from its tiles and height; the guard's ragdoll is 90) shared out by the volume of
   each part's box, like the .phy masses.
 - **Damping.** Each part's spin (its particles' motion relative to their mean) decays at 1.5 per
   second, the .phy's `rotdamping`; linear motion is barely damped (0.995 a substep).

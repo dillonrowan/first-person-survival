@@ -411,6 +411,27 @@ describe("NPC attack styles against the player", () => {
         }
     });
 
+    it("lets some of a blocked blow through when it would have landed, none of a 0", () => {
+        const block = (random: () => number) => {
+            const { combat, player } = setup(random);
+            combat.blocking = true;
+            // Face the attacker.
+            player.yaw = Math.atan2(-(100.5 - player.x), 101.5 - player.y);
+            const before = combat.combatant.health;
+            const report = combat.receiveStrike(player, strike("melee"), true);
+            return { report, lost: before - combat.combatant.health };
+        };
+        const landed = block(scripted(0, 0.99, 0.5));
+        expect(landed.report.outcome).toBe("parried");
+        expect(landed.report.damage).toBe(Math.round(maxHits.melee * tuning.blockDamageShare));
+        expect(landed.lost).toBe(landed.report.damage);
+        const zero = block(scripted(0, 0, 0.5));
+        expect(zero.report).toMatchObject({ outcome: "parried", damage: 0 });
+        expect(zero.lost).toBe(0);
+        const missed = block(scripted(0.99, 0.99, 0.5));
+        expect(missed.report).toMatchObject({ outcome: "parried", damage: 0 });
+    });
+
     it("cuts dragonfire to a tenth with an anti-dragon shield, but not icy breath", () => {
         const bare = setup();
         expect(bare.combat.receiveStrike(bare.player, strike("dragonfire", { direct: true }), true).damage).toBe(50);
@@ -624,17 +645,14 @@ describe("OSRS damage from the player", () => {
         expect(combat.stunned).toBe(false);
     });
 
-    it("a parried melee blow stops the swing and stuns the player when the shove lands", () => {
+    it("a parried melee blow stops the swing and stuns the player where they stand when the shove lands", () => {
         // Miss, no stun, then the parry roll (0 parries).
         const { defences, combat, stunnedAt, impulses } = swingAtParrier(scripted(0.999, 0.999, 0));
         expect(defences).toEqual(["parry"]);
         expect(combat.melee.busy).toBe(false);
         expect(stunnedAt).toBeGreaterThan(0);
-        // Thrown back off the feet: away from the NPC (north of the player, so south) and up.
-        const [x, y, z] = impulses.at(-1)!;
-        expect(Math.hypot(x, y)).toBeCloseTo(tuning.parryKnockback);
-        expect(y).toBeLessThan(0);
-        expect(z).toBe(tuning.parryKnockbackLift);
+        // Not pushed back.
+        expect(impulses).toEqual([]);
         expect(combat.stunned).toBe(true);
         expect(combat.combatant.incapacitated).toBe(true);
     });

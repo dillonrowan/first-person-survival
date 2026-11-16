@@ -33,7 +33,8 @@ The export also needs the OSRS wiki data once (`npm run fetch-wiki-attacks` for 
 max hits and attack styles; `npm run fetch-wiki-items` for drop tables, item spawns and food). After
 `export-world`, which clears `public/world/`, run `npm run export-cache-weapons` and
 `npm run export-items` (the item models and `items.json`), and `npm run export-map` (the world map
-image `map.png` and `map.json`, rendered from the exported regions in a few minutes). The order is:
+image `map.png` and `map.json`, rendered from the exported regions in a few minutes; `map.json` also
+lists the mineable rocks, named from `skills.json`). The order is:
 `fetch-wiki-attacks`, `fetch-wiki-items`, `export-world`, `export-cache-weapons`, `export-items`,
 `export-map`.
 `npm run export-world -- --npc-data-only` refreshes only the NPC stats, poison and drop tables in
@@ -144,5 +145,5 @@ ground (or on a bridge or upper floor), and its collision stops the player at wa
 | ------------------------------------------------------------------ | ---------------------------------------- |
 | Want a newer OSRS update                                           | `download-cache`, then `export-world`    |
 | The exporter (`tools/world-export/`) or `src/world/WorldFormat.ts` | `export-world`, then `export-cache-weapons`, `export-items` and `export-map` |
-| Skill data or the wiki data (`npm run fetch-wiki-skills`)          | `export-skills`; then `export-world -- --merge --area surface` if skill-locs.json changed |
+| Skill data or the wiki data (`npm run fetch-wiki-skills`)          | `export-skills`; then `export-world -- --merge --area surface` if skill-locs.json changed, and `export-map` |
 | Only the game (`src/`)                                             | Nothing; the dev server reloads the page |

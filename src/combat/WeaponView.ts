@@ -100,11 +100,14 @@ const GATHER_STROKES: Record<"chop" | "mine", GatherKey[]> = {
     mine: [
         { t: 0, pose: GATHER_REST },
         { t: 0.42, pose: axes(0.16, 0.08, -0.22, new THREE.Vector3(0.05, 0.8, 0.6), new THREE.Vector3(0, 0.55, -0.85)) },
-        { t: 0.55, pose: axes(0.1, -0.26, -0.48, new THREE.Vector3(-0.12, -0.35, -0.93), new THREE.Vector3(0, -0.95, 0.3)), blow: true },
-        { t: 0.7, pose: axes(0.1, -0.25, -0.47, new THREE.Vector3(-0.12, -0.3, -0.95), new THREE.Vector3(0, -0.95, 0.3)) },
+        { t: 0.55, pose: axes(0.1, -0.2, -0.4, new THREE.Vector3(-0.2, 0.05, -1), new THREE.Vector3(0, -1, -0.1)), blow: true },
+        { t: 0.7, pose: axes(0.1, -0.2, -0.39, new THREE.Vector3(-0.2, 0.08, -1), new THREE.Vector3(0, -1, -0.1)) },
         { t: 1, pose: GATHER_REST },
     ],
 };
+
+/** Seconds to blend into or out of a gathering stroke. [design] */
+const GATHER_BLEND = 0.15;
 
 function gatherPose(kind: "chop" | "mine", t: number): Pose {
     const keys = GATHER_STROKES[kind];
@@ -148,6 +151,11 @@ const CLASH_KNOCK = 0.035;
 const CLASH_DECAY = 8;
 /** Tremble of the blade while a charged power attack is held, tiles. [design] */
 const CHARGE_TREMBLE = 0.004;
+
+/** How far a put-away item drops (tiles), comes back (tiles) and tips back (radians). [design] */
+const LOWER_DROP = 0.55;
+const LOWER_BACK = 0.1;
+const LOWER_TILT = 0.7;
 
 /** Camera rotation offsets (radians) the swing adds on top of the player's view. */
 export type ViewOffset = { pitch: number; yaw: number; roll: number };
@@ -308,10 +316,15 @@ export class WeaponView {
     private readonly holder = new THREE.Group();
     /** 0..1 through a skilling tool swing (woodcutting, mining), or undefined. */
     private skillSwing: number | undefined;
+    /** 0..1 how far the held item is put away (picking a pocket). */
+    private lowered = 0;
     /** What a held fishing tool is doing, or undefined. */
     private toolMotion: ToolMotion | undefined;
     /** How far a rod is raised for reeling (radians), eased. */
     private reelLift = 0;
+    /** How far the view is into the gathering stroke pose (0..1), and the stroke last shown. */
+    private gatherWeight = 0;
+    private gatherLast: { kind: "chop" | "mine"; t: number } = { kind: "chop", t: 1 };
     private readonly models = new Map<string, THREE.Object3D>();
     private readonly loading = new Set<string>();
     private current: THREE.Object3D | undefined;
@@ -498,6 +511,11 @@ export class WeaponView {
         this.skillSwing = phase;
     }
 
+    /** How far the held item is put away for the next update: 0 held, 1 lowered out of view. */
+    setLowered(amount: number): void {
+        this.lowered = amount;
+    }
+
     update(
         melee: MeleeController,
         mode: "first" | "third",
@@ -575,8 +593,13 @@ export class WeaponView {
             // chopping or a pickaxe mining takes its stroke.
             const hold = this.current?.userData.hold as "rod" | "tool" | undefined;
             const m = this.toolMotion;
-            if (m && (m.kind === "chop" || m.kind === "mine")) {
-                pose = gatherPose(m.kind, m.t);
+            const gathering = m !== undefined && (m.kind === "chop" || m.kind === "mine");
+            if (gathering) this.gatherLast = { kind: m.kind as "chop" | "mine", t: m.t };
+            // Into and out of the stroke pose smoothly, never snapping from an attack or to idle.
+            this.gatherWeight = gathering ? Math.min(1, this.gatherWeight + dt / GATHER_BLEND) : Math.max(0, this.gatherWeight - dt / GATHER_BLEND);
+            if (this.gatherWeight > 0) {
+                const stroke = gatherPose(this.gatherLast.kind, gathering ? this.gatherLast.t : 1);
+                pose = lerpPose(pose, stroke, smooth(this.gatherWeight));
             } else if (hold && !melee.swing && !melee.chargedMove && !extra.blocking) {
                 pose = this.toolPose(hold, dt);
             }
@@ -591,6 +614,12 @@ export class WeaponView {
             const s = Math.sin(Math.PI * this.skillSwing);
             this.holder.rotateX(-0.9 * s);
             this.holder.position.y -= 0.04 * s;
+        }
+        if (this.lowered > 0) {
+            // Put away: dropped below the view, tip falling back towards the player. [design]
+            this.holder.position.y -= LOWER_DROP * this.lowered;
+            this.holder.position.z += LOWER_BACK * this.lowered;
+            this.holder.rotateX(LOWER_TILT * this.lowered);
         }
         this.recordLaunchPoint(ready, dt);
         if (this.freeze > 0) {

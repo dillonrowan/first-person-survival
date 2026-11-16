@@ -5,6 +5,7 @@
 // Reads only public/world/ (not the cache), so run it after export-world, which clears that folder.
 // Ground level seen from above: terrain and loc models (trees, walls, fences) of plane 0, lit as
 // the game draws them, with walls traced in white from the collision flags like the OSRS map.
+// map.json also lists the mineable rocks (from skills.json) for the game's map markers.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -12,6 +13,7 @@ import { fileURLToPath } from "node:url";
 import { gunzipSync, unzlibSync } from "fflate";
 
 import { MAP_FORMAT_VERSION, type MapManifest } from "../../src/world/MapFormat";
+import type { SkillsManifest } from "../../src/world/SkillFormat";
 import { CollisionFlag, type MeshData, REGION_SIZE, RS_UNITS_PER_TILE, type WorldManifest, decodeRegion, regionFileName } from "../../src/world/WorldFormat";
 import { encodePng } from "./png";
 
@@ -116,6 +118,8 @@ function main(): void {
     const width = tilesX * SCALE;
     const height = tilesY * SCALE;
     const colors = layerColors(manifest);
+    const skills = JSON.parse(fs.readFileSync(path.join(WORLD, "skills.json"), "utf8")) as SkillsManifest;
+    const rocks: MapManifest["rocks"] = [];
 
     const rgba = new Uint8Array(width * height * 4);
     for (let i = 0; i < width * height; i++) rgba.set([...BACKGROUND, 255], i * 4);
@@ -199,13 +203,17 @@ function main(): void {
                 if (flags & (CollisionFlag.WALL_NORTH_EAST | CollisionFlag.WALL_SOUTH_WEST)) for (let i = 0; i < SCALE; i++) wall(left + SCALE - 1 - i, top + i);
             }
         }
+        for (const loc of region.interactives) {
+            const role = loc.kind === "skill" && loc.plane === 0 ? skills.locs[loc.id] : undefined;
+            if (role?.role === "rock") rocks.push({ name: skills.rocks[role.index].name, x: loc.tileX, y: loc.tileY });
+        }
         if (++done % 100 === 0) console.log(`${done}/${squares.length} map squares`);
     }
 
     fs.writeFileSync(path.join(WORLD, "map.png"), encodePng(width, height, rgba));
-    const out: MapManifest = { format: MAP_FORMAT_VERSION, image: "map.png", originX, originY, tilesX, tilesY, scale: SCALE };
+    const out: MapManifest = { format: MAP_FORMAT_VERSION, image: "map.png", originX, originY, tilesX, tilesY, scale: SCALE, rocks };
     fs.writeFileSync(path.join(WORLD, "map.json"), JSON.stringify(out) + "\n");
-    console.log(`Wrote map.png (${width}x${height}) and map.json`);
+    console.log(`Wrote map.png (${width}x${height}) and map.json (${rocks.length} rocks)`);
 }
 
 main();
