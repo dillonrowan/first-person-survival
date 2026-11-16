@@ -101,10 +101,10 @@ export const tuning = {
      * deathLaunchLift of that speed upwards so it leaves the ground. Scaled by the body's weight
      * (weightThrowScale). [design]
      */
-    deathLaunchSpeed: 2.5,
-    deathLaunchPerPow: 1.5,
+    deathLaunchSpeed: 1.2,
+    deathLaunchPerPow: 1.0,
     deathLaunchMaxPow: 3,
-    deathLaunchLift: 0.4,
+    deathLaunchLift: 0.3,
     /** How much a melee hit drives along the blade's travel rather than away from the attacker. [design] */
     swingPushWeight: 0.7,
     /** A hit too light to push still shoves the target this far per HitPow along the swing. [design] */

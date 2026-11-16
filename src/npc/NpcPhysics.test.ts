@@ -57,8 +57,8 @@ describe("death launch", () => {
         const l = deathLaunch(0.6, -0.8, quick, tuning.npcBaseMass);
         expect(l.vx / speed(l)).toBeCloseTo(0.6);
         expect(l.vy / speed(l)).toBeCloseTo(-0.8);
-        expect(speed(l)).toBeGreaterThan(3);
-        expect(l.up).toBeGreaterThan(1);
+        expect(speed(l)).toBeGreaterThan(1.5);
+        expect(l.up).toBeGreaterThan(0.4);
     });
 
     it("throws harder blows further, up to a limit", () => {
