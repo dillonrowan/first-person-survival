@@ -5,6 +5,7 @@ import { BowString } from "./BowString";
 import { CrossbowRig } from "./CrossbowRig";
 import { DM_CLIPS, DmClip } from "./DmKeyframes";
 import type { KickController } from "./Kick";
+import { LODGE_CLIP, LODGE_FPS } from "./LodgeClip";
 import type { MeleeController } from "./MeleeController";
 import type { MoveDef, PowerDirection } from "./moves";
 import { createPlaceholderWeapon } from "./PlaceholderWeapons";
@@ -81,22 +82,14 @@ function stroke(keys: readonly StrokeKey[], t: number): { pitch: number; rise: n
 }
 
 /**
- * Gathering strokes, keyed as whole poses over t 0..1 (each key: t, the pose, and whether the move
- * into it eases in and out or snaps through as a blow). An axe is drawn back over the right
- * shoulder and brought down across the body into the trunk at the crosshair, where it sticks for a
- * moment before being worked free; a pickaxe is lifted overhead and driven straight down onto the
- * rock in front. The impact keys match CHOP_STROKE and MINE_STROKE (src/skills/gathering.ts). [design]
+ * The mining stroke, keyed as whole poses over t 0..1 (each key: t, the pose, and whether the move
+ * into it eases in and out or snaps through as a blow): a pickaxe is lifted overhead and driven
+ * straight down onto the rock in front. The impact key matches MINE_STROKE (src/skills/gathering.ts).
+ * Woodcutting has no stroke of its own: an axe's attack swing that lodges in a tree chops it. [design]
  */
 type GatherKey = { t: number; pose: Pose; blow?: boolean };
 const GATHER_REST = axes(0.22, -0.3, -0.42, new THREE.Vector3(-0.2, 0.75, -0.65), new THREE.Vector3(-0.6, 0.2, -0.8));
-const GATHER_STROKES: Record<"chop" | "mine", GatherKey[]> = {
-    chop: [
-        { t: 0, pose: GATHER_REST },
-        { t: 0.38, pose: axes(0.34, -0.02, -0.26, new THREE.Vector3(0.45, 0.85, 0.3), new THREE.Vector3(-0.5, 0.15, -0.85)) },
-        { t: 0.5, pose: axes(0.08, -0.24, -0.5, new THREE.Vector3(-0.6, 0.12, -0.8), new THREE.Vector3(-0.55, -0.75, 0.2)), blow: true },
-        { t: 0.66, pose: axes(0.09, -0.25, -0.49, new THREE.Vector3(-0.6, 0.1, -0.8), new THREE.Vector3(-0.55, -0.75, 0.2)) },
-        { t: 1, pose: GATHER_REST },
-    ],
+const GATHER_STROKES: Record<"mine", GatherKey[]> = {
     mine: [
         { t: 0, pose: GATHER_REST },
         { t: 0.42, pose: axes(0.16, 0.08, -0.22, new THREE.Vector3(0.05, 0.8, 0.6), new THREE.Vector3(0, 0.55, -0.85)) },
@@ -109,7 +102,7 @@ const GATHER_STROKES: Record<"chop" | "mine", GatherKey[]> = {
 /** Seconds to blend into or out of a gathering stroke. [design] */
 const GATHER_BLEND = 0.15;
 
-function gatherPose(kind: "chop" | "mine", t: number): Pose {
+function gatherPose(kind: "mine", t: number): Pose {
     const keys = GATHER_STROKES[kind];
     let i = 0;
     while (i < keys.length - 2 && t > keys[i + 1].t) i++;
@@ -284,6 +277,21 @@ function sample(clip: DmClip, time: number, loop = false): Pose {
     return { pos, quat };
 }
 
+/** Poses tried when finding where a lodged blade points at the trunk. [design] */
+const LODGE_SEARCH_STEPS = 48;
+
+/** A lodged blade `time` seconds in: the contact pose moved by the Blender lodge clip (LodgeClip.ts). */
+function lodgedPose(contact: Pose, time: number): Pose {
+    const f = Math.min(LODGE_CLIP.length - 1, Math.max(0, time * LODGE_FPS));
+    const i = Math.min(Math.floor(f), LODGE_CLIP.length - 2);
+    const k = f - i;
+    const [ax, ay, az, aqx, aqy, aqz, aqw] = LODGE_CLIP[i];
+    const [bx, by, bz, bqx, bqy, bqz, bqw] = LODGE_CLIP[i + 1];
+    const offset = new THREE.Vector3(ax, ay, az).lerp(new THREE.Vector3(bx, by, bz), k);
+    const turn = new THREE.Quaternion(aqx, aqy, aqz, aqw).slerp(new THREE.Quaternion(bqx, bqy, bqz, bqw), k);
+    return { pos: contact.pos.clone().add(offset), quat: contact.quat.clone().multiply(turn) };
+}
+
 const powerDir = (move: MoveDef): PowerDirection => (move.id.split("_")[1] as PowerDirection | undefined) ?? "default";
 
 /**
@@ -314,7 +322,7 @@ type Layer = { key: string; clip: DmClip; time: number; loop?: boolean };
 
 export class WeaponView {
     private readonly holder = new THREE.Group();
-    /** 0..1 through a skilling tool swing (woodcutting, mining), or undefined. */
+    /** 0..1 through a skilling tool swing (raking), or undefined. */
     private skillSwing: number | undefined;
     /** 0..1 how far the held item is put away (picking a pocket). */
     private lowered = 0;
@@ -324,7 +332,7 @@ export class WeaponView {
     private reelLift = 0;
     /** How far the view is into the gathering stroke pose (0..1), and the stroke last shown. */
     private gatherWeight = 0;
-    private gatherLast: { kind: "chop" | "mine"; t: number } = { kind: "chop", t: 1 };
+    private gatherLast: { kind: "mine"; t: number } = { kind: "mine", t: 1 };
     private readonly models = new Map<string, THREE.Object3D>();
     private readonly loading = new Set<string>();
     private current: THREE.Object3D | undefined;
@@ -354,6 +362,9 @@ export class WeaponView {
     private blendLength = BLEND;
     private swingRef: unknown;
     private swingCount = 0;
+    /** The lodge last drawn, and the moment of its swing the blade is held at (contactElapsed). */
+    private lodgeRef: unknown;
+    private lodgeElapsed = 0;
     /** The quick strike that last played, to pick the combo end layer. */
     private lastQuick = -1;
     constructor(
@@ -469,7 +480,7 @@ export class WeaponView {
         this.shake = Math.max(this.shake, strength);
     }
 
-    /** Sets what the held tool is doing (fishing, chopping, mining) for the next update; undefined when idle. */
+    /** Sets what the held tool is doing (fishing, mining) for the next update; undefined when idle. */
     setToolMotion(motion: ToolMotion | undefined): void {
         this.toolMotion = motion;
     }
@@ -589,12 +600,12 @@ export class WeaponView {
             pose = workLever(pose, crossbow.slide ?? 0);
         } else {
             pose = this.animate(dt, weapon.family, melee, extra.blocking ?? false);
-            // A fishing tool takes its own pose unless it is being swung or used to block; an axe
-            // chopping or a pickaxe mining takes its stroke.
+            // A fishing tool takes its own pose unless it is being swung or used to block; a
+            // pickaxe mining takes its stroke. (An axe chops with its attack swings.)
             const hold = this.current?.userData.hold as "rod" | "tool" | undefined;
             const m = this.toolMotion;
-            const gathering = m !== undefined && (m.kind === "chop" || m.kind === "mine");
-            if (gathering) this.gatherLast = { kind: m.kind as "chop" | "mine", t: m.t };
+            const gathering = m?.kind === "mine";
+            if (gathering) this.gatherLast = { kind: "mine", t: m.t };
             // Into and out of the stroke pose smoothly, never snapping from an attack or to idle.
             this.gatherWeight = gathering ? Math.min(1, this.gatherWeight + dt / GATHER_BLEND) : Math.max(0, this.gatherWeight - dt / GATHER_BLEND);
             if (this.gatherWeight > 0) {
@@ -610,7 +621,7 @@ export class WeaponView {
         this.holder.position.copy(pose.pos);
         this.holder.quaternion.copy(pose.quat);
         if (this.skillSwing !== undefined) {
-            // A chop or pick swing: tip forward and down once per tool cycle.
+            // A tool swing (raking): tip forward and down once per tool cycle.
             const s = Math.sin(Math.PI * this.skillSwing);
             this.holder.rotateX(-0.9 * s);
             this.holder.position.y -= 0.04 * s;
@@ -670,6 +681,9 @@ export class WeaponView {
             }
         }
         let pose = sample(layer.clip, layer.time, layer.loop);
+        if (melee.lodged && !blocking) {
+            pose = lodgedPose(pose, melee.lodged.time);
+        }
         if (this.blendFrom) {
             this.blendTime += dt;
             if (this.blendTime >= this.blendLength) {
@@ -682,6 +696,41 @@ export class WeaponView {
         return pose;
     }
 
+    /**
+     * The moment of a lodged swing at which the drawn blade's tip points the way the attack ray met
+     * the trunk, so the head is seen stopped at the bark: the clips' contact windows only roughly
+     * follow the ray's sweep. Searched around the hit window; across it for a horizontal ray, up
+     * and down for a vertical one.
+     */
+    private contactElapsed(family: keyof typeof DM_CLIPS, lodged: NonNullable<MeleeController["lodged"]>): number {
+        const { swing, dir } = lodged;
+        const rays = swing.timeline.rays;
+        const ray = rays.find((r) => swing.elapsed >= r.on && swing.elapsed <= r.off) ?? rays[0];
+        const total = swing.timeline.windup + swing.timeline.active + swing.timeline.recovery;
+        const span = ray.off - ray.on;
+        const from = Math.max(0, ray.on - span);
+        const to = Math.min(total, ray.off + span);
+        const length = typeof this.current?.userData.tipLength === "number" ? this.current.userData.tipLength : 0.8;
+        const angle = (x: number, y: number, z: number) => (ray.vertical ? Math.atan2(y, Math.hypot(x, z)) : Math.atan2(x, z));
+        // View space is +z forward; the camera's is −z.
+        const want = angle(dir.x, dir.y, dir.z);
+        const tip = new THREE.Vector3();
+        let best = swing.elapsed;
+        let bestOff = Infinity;
+        for (let i = 0; i <= LODGE_SEARCH_STEPS; i++) {
+            const e = from + ((to - from) * i) / LODGE_SEARCH_STEPS;
+            const { clip, time } = swingClip(family, swing, e);
+            const pose = sample(clip, time);
+            tip.set(0, length, 0).applyQuaternion(pose.quat).add(pose.pos);
+            const off = Math.abs(angle(tip.x, tip.y, -tip.z) - want);
+            if (off < bestOff) {
+                bestOff = off;
+                best = e;
+            }
+        }
+        return best;
+    }
+
     private layer(family: keyof typeof DM_CLIPS, melee: MeleeController, blocking: boolean): Layer {
         const clips = DM_CLIPS[family];
         if (blocking) {
@@ -689,6 +738,17 @@ export class WeaponView {
             return this.layerKey === "parry" && this.layerTime >= enter
                 ? { key: "parry", clip: clips.parry, time: this.layerTime - enter, loop: true }
                 : { key: "parry", clip: clips.parryIn, time: this.layerKey === "parry" ? this.layerTime : 0 };
+        }
+        const lodged = melee.lodged;
+        if (lodged) {
+            // Stuck where the blade met the trunk: the same layer as the swing, so it stops dead
+            // there rather than blending; the pull back to the guard blends from the lodge's end.
+            if (lodged !== this.lodgeRef) {
+                this.lodgeRef = lodged;
+                this.lodgeElapsed = this.contactElapsed(family, lodged);
+            }
+            const { clip, time } = swingClip(family, lodged.swing, this.lodgeElapsed);
+            return { key: `swing${this.swingCount}`, clip, time };
         }
         const swing = melee.swing;
         if (swing) {

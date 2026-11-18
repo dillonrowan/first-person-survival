@@ -58,10 +58,10 @@ export type JobInput = { pressed: boolean; down: boolean; aimed: unknown };
 /**
  * A held tool's motion: a rod casting (`t` 0..1 through the cast), waiting, twitching on a bite or
  * fighting a fish while reeling (`t` seconds, `holding` the reel button); a net or pot scooping, a
- * harpoon stabbing, an axe chopping or a pickaxe striking (`t` 0..1 through the stroke).
+ * harpoon stabbing or a pickaxe striking (`t` 0..1 through the stroke).
  */
 export type ToolMotion =
-    | { kind: "cast" | "wait" | "bite" | "scoop" | "stab" | "chop" | "mine"; t: number }
+    | { kind: "cast" | "wait" | "bite" | "scoop" | "stab" | "mine"; t: number }
     | { kind: "reel"; t: number; holding: boolean };
 
 /** A repeating skilling activity, run once per game tick. */
@@ -74,7 +74,7 @@ export interface Job {
     /** Called every tick while active; return false to stop. */
     tick(tick: number): boolean;
     /**
-     * Set when the job takes the attack button (fishing, chopping, mining): called every frame with the button and
+     * Set when the job takes the attack button (fishing, mining): called every frame with the button and
      * what the crosshair is on; return false to stop.
      */
     frame?(dt: number, input: JobInput): boolean;

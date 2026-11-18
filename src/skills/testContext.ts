@@ -20,7 +20,7 @@ export { emptySkillsManifest as emptyManifest } from "../world/SkillFormat";
 /** A skill loc instance as a region would give it. */
 export function testLoc(id: number, name: string, x = 10, y = 10, skill: InteractiveLoc["skill"] = { mesh: 0, depletedMesh: 1 }): SkillLocInstance {
     const loc: InteractiveLoc = { kind: "skill", id, name, actions: [], plane: 0, level: 0, tileX: x, tileY: y, sizeX: 1, sizeY: 1, rotation: 0, height: 1, skill };
-    return { loc, key: `0:${x}:${y}:${id}`, mapX: 0, mapY: 0, geometries: [], meshes: new Map(), shown: -1 };
+    return { loc, key: `0:${x}:${y}:${id}`, mapX: 0, mapY: 0, geometries: [], meshes: new Map(), shown: -1, trunks: new Map() };
 }
 
 export function testNpc(id: number, name = "Npc", x = 11, y = 10): Npc {

@@ -1065,6 +1065,8 @@ Sources: the player state handlers `[gh: 0x22446a40 sword idle, 0x224473c0 sword
 
 - `speed_attack` (`change_speed 1` in `first_basic.qct`) scales the quick strikes and the power
   releases only; wind-ups, rush, falling, trample and huge attacks keep their own speed `[data]`.
+  Here only the quick strikes scale: a power release plays at its animation's own speed whatever
+  the weapon weighs, so a charged blow lands fast `[design]`.
 - Hit zones scale damage on NPCs (16.5, `hitboxes_modifier`): head ×3, chest ×0.5, stomach ×1,
   limbs ×1.25 `[data: npc_guard]`. Here the zone comes from where the ray meets the body's height:
   top 15% head, next 25% chest, next 15% stomach, the rest legs `[design]`. The zone multiplies the

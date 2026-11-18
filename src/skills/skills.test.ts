@@ -386,6 +386,36 @@ describe("farming", () => {
         now = 80 * 60_000;
         expect(t.sys.farming.value(patch.key, "HERB")).toBe(8);
     });
+
+    it("a grown tree stops the blade; checked, a swung axe chops it and empties the patch", () => {
+        const data = emptyManifest();
+        data.farming = {
+            patches: [{ impl: "TREE", locIds: [8389] }],
+            crops: [{ produce: "OAK", name: "Oak tree", impl: "TREE", seed: 5370, seedQty: 1, level: 15, plantXp: 14, xp: 0, item: -1, stageMinutes: 40, stages: 5, growing: [8, 9, 10, 11], harvestable: 12, checked: 13, checkXp: 467 }],
+            weeds: { TREE: [0, 1, 2, 3] },
+        };
+        data.trees = [{ name: "Oak tree", locIds: [], level: 15, xp: 37.5, logs: 1521, respawnTicks: 14, despawnTicks: 45, depleteChance: 0, chances: { bronze: { low: 64, high: 200 } }, stumpLocId: 0, extraLoot: [] }];
+        data.tools = { axes: [{ item: 1351, level: 1, tier: "bronze" }], pickaxes: [] };
+        data.locs = { 8389: { role: "patch", impl: "TREE" } };
+        const t = createTestSkills(data, [{ id: 1351, name: "Bronze axe" }, { id: 1521, name: "Oak logs" }], { farming: 15, woodcutting: 15 });
+        let now = 0;
+        t.sys.farming.now = () => now;
+        const patch = t.place(testLoc(8389, "Tree patch", 10, 10, { stateMeshes: [] }));
+        const save = (t.sys.farming as unknown as { state(k: string): { weeds: number; produce: string | null; plantedAt: number } }).state(patch.key);
+        Object.assign(save, { weeds: 0, produce: "OAK", plantedAt: 0 });
+        expect(t.sys.isSolid(patch)).toBe(false); // a sapling does not stop the blade
+        now = 200 * 60_000;
+        expect(t.sys.isSolid(patch)).toBe(true);
+        t.worn.push(1351);
+        setRandom(() => 0.01);
+        t.sys.swingHit(patch);
+        expect(t.inventory.count(1521)).toBe(0);
+        expect(t.logs.at(-1)).toBe("You should check the health of the tree before chopping it down.");
+        t.sys.locAction(patch, "Check-health");
+        t.sys.swingHit(patch);
+        expect(t.inventory.count(1521)).toBe(1);
+        expect(t.sys.isSolid(patch)).toBe(false); // cut down: the patch is empty
+    });
 });
 
 describe("slayer", () => {

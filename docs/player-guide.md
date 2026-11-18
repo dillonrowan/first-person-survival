@@ -208,16 +208,20 @@ are done by hand (below); other skilling repeats on the 0.6 s OSRS game tick unt
 away, attacking, kicking, opening a panel or dying stops it.
 Messages go to the log at the bottom left. Success chances, XP and times are the OSRS ones.
 
-- **Woodcutting**: with an axe wielded, aim at a tree within reach and left click (`Mouse 1`): you
-  draw the axe back over your shoulder and chop it into the trunk. Hold the button (or keep clicking)
-  to keep chopping; a chop always finishes. Clicking a tree that is too far away tells you to get
-  closer instead of swinging the axe. Only the tree under the crosshair is struck, and an attack already under way plays out before you
-  chop. Every blow rolls for a log with your Woodcutting level and the axe's chance; the tree
-  shudders. Chop down (`E`) wields the best axe you carry. Trees topple when their last log comes
-  and leave a stump that grows back. A sword swing stops on a tree but gets no logs. With a full
-  inventory you keep chopping and the logs fall to the ground at your feet.
-- **Mining**: with a pickaxe wielded, click a rock the same way: the pick goes up overhead and comes
-  down on it (Mine wields the best one). A blow
+- **Woodcutting**: with an axe wielded, attack a tree: the axe's ordinary swing chops it. A swing
+  that meets the trunk stops where it touches the bark and sticks there for a moment, then you
+  twist it loose and pull it free before you can swing again (clicks meanwhile are kept). Every
+  blow that sticks rolls for a log with your Woodcutting level and the axe's chance, scaled by how
+  much of the OSRS 4-tick woodcutting interval has passed since your last blow, so swinging fast
+  gets no more logs; the tree shudders. Chop down (`E`) wields the best axe you carry. Trees
+  topple when their last log comes and leave a stump that grows back. A sword swing sticks in a
+  tree the same way but gets no logs. With a full inventory you keep chopping and the logs fall to
+  the ground at your feet. Grown farming trees are chopped the same way, once their health is
+  checked.
+- **Mining**: with a pickaxe wielded, aim at a rock within reach and left click (`Mouse 1`): the
+  pick goes up overhead and comes down on it (Mine wields the best one). Hold the button (or keep
+  clicking) to keep striking; a strike always finishes. Clicking a rock that is too far away tells
+  you to get closer, and an attack already under way plays out first. A blow
   rolls the rock's chance, scaled by how much of the pickaxe's OSRS interval has passed since your
   last blow, so a better pickaxe needs fewer blows and hammering fast gives no more ore. The rock
   crumbles when it empties and refills. Aubury in Varrock teleports you to the rune essence mine.

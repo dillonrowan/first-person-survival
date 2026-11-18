@@ -3,8 +3,12 @@ import * as THREE from "three";
 import type { SolidSource } from "../combat/SwingRay";
 import type { Target, TargetSource } from "../interaction/Interaction";
 import { Box3, rayBox } from "../physics/Bodies";
+import { TRUNK_SLICES, Trunk, measureTrunk } from "./TrunkSlice";
 import type { DoorGeometry } from "./World";
 import { InteractiveLoc, REGION_SIZE, RegionListener } from "./WorldFormat";
+
+/** RS units per tile in region meshes. */
+const RS_UNITS = 128;
 
 /** Lowest box a skill target is aimed at, so flat things (patches, stumps) can be hit. */
 const MIN_TARGET_HEIGHT = 1;
@@ -27,6 +31,8 @@ export type SkillLocInstance = {
     readonly meshes: Map<number, THREE.Group>;
     /** The doorMeshes index on show, or -1 for none. */
     shown: number;
+    /** Upright trunks of its looks (doorMeshes index → trunk) that have one: what a blade stops on. */
+    readonly trunks: Map<number, Trunk>;
     /** A runtime loc's own model. */
     object?: THREE.Object3D;
 };
@@ -89,7 +95,7 @@ export class SkillLocs {
         const ground = this.world.groundHeight(loc.plane, loc.tileX + 0.5, loc.tileY + 0.5);
         object.position.set(loc.tileX + loc.sizeX / 2, ground, -(loc.tileY + loc.sizeY / 2));
         this.scene.add(object);
-        const instance: SkillLocInstance = { loc: full, key: skillLocKey(full), mapX: 0, mapY: 0, geometries: [], meshes: new Map(), shown: -1, object };
+        const instance: SkillLocInstance = { loc: full, key: skillLocKey(full), mapX: 0, mapY: 0, geometries: [], meshes: new Map(), shown: -1, trunks: new Map(), object };
         this.runtime.add(instance);
         this.byKey.set(instance.key, instance);
         return instance;
@@ -121,7 +127,39 @@ export class SkillLocs {
         };
     }
 
-    /** The instances `solid` picks (standing trees, rocks) as things a swung blade stops on. */
+    /**
+     * Measures the trunk of each look of a just-loaded instance (TrunkSlice), while its vertices
+     * are still in memory: they are dropped once the GPU has them.
+     */
+    private measureTrunks(instance: SkillLocInstance): void {
+        const { loc } = instance;
+        const looks = [loc.skill?.mesh, ...(loc.skill?.stateMeshes ?? [])].filter((m): m is number => m !== undefined && m >= 0);
+        const cx = loc.tileX + loc.sizeX / 2;
+        const cy = loc.tileY + loc.sizeY / 2;
+        const ground = this.world.groundHeight(loc.plane, cx, cy);
+        const ox = instance.mapX * REGION_SIZE;
+        const oy = instance.mapY * REGION_SIZE;
+        for (const look of new Set(looks)) {
+            const geometry = instance.geometries[look]?.opaque;
+            const positions = geometry?.getAttribute("a_position")?.array as ArrayLike<number> | undefined;
+            const indices = geometry?.getIndex()?.array;
+            if (!positions?.length || !indices?.length) continue;
+            // Region-local RS units (y down, z north) to world tiles above the ground.
+            const vertex = (i: number): [number, number, number] => [
+                ox + positions[i * 4] / RS_UNITS,
+                oy + positions[i * 4 + 2] / RS_UNITS,
+                -positions[i * 4 + 1] / RS_UNITS - ground,
+            ];
+            const trunk = measureTrunk(vertex, indices, cx, cy, TRUNK_SLICES);
+            if (trunk) instance.trunks.set(look, trunk);
+        }
+    }
+
+    /**
+     * The instances `solid` picks (standing trees, rocks) as things a swung blade stops on: the
+     * trunk of the look on show where it has one (so the blade meets the bark, not the canopy's
+     * edge), else its box.
+     */
     solidSource(solid: (instance: SkillLocInstance) => boolean): SolidSource {
         const box: Box3 = { minX: 0, minY: 0, minZ: 0, maxX: 0, maxY: 0, maxZ: 0 };
         return (plane, ox, oy, oz, x1, y1, z1) => {
@@ -133,7 +171,10 @@ export class SkillLocs {
                 const loc = instance.loc;
                 if (loc.plane !== plane || distanceTo(loc, ox, oy) > length || !solid(instance)) continue;
                 this.boxOf(loc, box);
-                const t = rayBox(ox, oy, oz, dx, dy, dz, box, length);
+                const trunk = instance.trunks.get(instance.shown);
+                const t = trunk
+                    ? rayCylinder(ox, oy, oz, dx, dy, dz, trunk, box.minZ, box.maxZ, length)
+                    : rayBox(ox, oy, oz, dx, dy, dz, box, length);
                 if (t !== undefined && (!best || t / length < best.t)) best = { t: t / length, ref: instance };
             }
             return best;
@@ -198,7 +239,17 @@ export class SkillLocs {
         const list: SkillLocInstance[] = [];
         for (const loc of data.locs) {
             if (loc.kind !== "skill") continue;
-            const instance: SkillLocInstance = { loc, key: skillLocKey(loc), mapX, mapY, geometries: data.doorGeometries, meshes: new Map(), shown: -1 };
+            const instance: SkillLocInstance = {
+                loc,
+                key: skillLocKey(loc),
+                mapX,
+                mapY,
+                geometries: data.doorGeometries,
+                meshes: new Map(),
+                shown: -1,
+                trunks: new Map(),
+            };
+            this.measureTrunks(instance);
             list.push(instance);
             this.byKey.set(instance.key, instance);
             this.apply(instance);
@@ -215,6 +266,39 @@ export class SkillLocs {
         }
         this.regions.delete(key);
     }
+}
+
+/**
+ * Distance along a ray (unit direction) to where it enters an upright cylinder standing from
+ * `minZ` to `maxZ`, within `maxT`; 0 when it starts inside, undefined when it misses.
+ */
+export function rayCylinder(
+    ox: number,
+    oy: number,
+    oz: number,
+    dx: number,
+    dy: number,
+    dz: number,
+    c: Trunk,
+    minZ: number,
+    maxZ: number,
+    maxT: number,
+): number | undefined {
+    const fx = ox - c.x;
+    const fy = oy - c.y;
+    const a = dx * dx + dy * dy;
+    const b = fx * dx + fy * dy;
+    const k = fx * fx + fy * fy - c.radius * c.radius;
+    let t: number;
+    if (k <= 0) t = 0;
+    else {
+        const disc = b * b - a * k;
+        if (a < 1e-12 || disc < 0 || b > 0) return undefined;
+        t = (-b - Math.sqrt(disc)) / a;
+    }
+    if (t > maxT) return undefined;
+    const z = oz + dz * t;
+    return z >= minZ && z <= maxZ ? t : undefined;
 }
 
 /** Distance from a point to a loc's footprint (0 inside). */

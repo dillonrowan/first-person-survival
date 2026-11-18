@@ -184,7 +184,7 @@ export class PlayerCombat {
     canDamage?: (target: CombatTarget) => boolean;
     /** Solid things a swing stops on besides NPCs (trees and rocks to chop and mine). */
     solids?: SolidSource;
-    /** The blade struck one of `solids` and stopped there. */
+    /** The blade struck one of `solids` and lodged there (an axe in a tree chops it). */
     onSolidHit?: (ref: unknown) => void;
     /** Called when a kick lands, misses or is dodged. */
     onKick?: (report: KickReport) => void;
@@ -822,7 +822,7 @@ export class PlayerCombat {
                 }
             }
             if (solid) {
-                this.melee.stopSwing();
+                this.melee.lodge(slice.hitIndex, solid.at);
                 this.onSolidHit?.(solid.ref);
                 break;
             }

@@ -23,6 +23,36 @@ async function start(page: Page, x: number, y: number): Promise<void> {
     await page.waitForFunction(() => !!window.game?.npcs && window.game.player.ready, undefined, { timeout: 180_000, polling: 1000 });
 }
 
+/**
+ * Stands the player just south of window.__tree's footprint, facing its trunk at chest height,
+ * and notes each swing that lodges in something solid in window.__lodged.
+ */
+async function faceTrunk(page: Page): Promise<void> {
+    await page.evaluate(() => {
+        const g = window.game!;
+        const tree = (window as any).__tree;
+        const loc = tree.loc;
+        const trunk = tree.trunks.get(tree.shown) ?? { x: loc.tileX + loc.sizeX / 2, y: loc.tileY + loc.sizeY / 2 };
+        g.player.teleport(trunk.x, loc.tileY - 0.35, loc.plane);
+        g.player.yaw = Math.atan2(-(trunk.x - g.player.x), trunk.y - g.player.y);
+        g.player.pitch = -0.2;
+        const solidHit = g.combat.onSolidHit;
+        g.combat.onSolidHit = (ref: unknown) => {
+            (window as any).__lodged = true;
+            solidHit(ref);
+        };
+    });
+}
+
+/** A click of the attack button: pressed here, released by the game's next frame (a quick strike). */
+async function pressAttack(page: Page): Promise<void> {
+    await page.evaluate(() => {
+        (window as any).__lodged = false;
+        const input = { attackDown: true, attackPressed: true, forward: 0, strafe: 0, pitch: 0, megasprinting: false, airborne: false, fallSpeed: 0, aimingAtKnockedDown: false };
+        window.game!.combat.melee.update(0.016, input);
+    });
+}
+
 test("fishing (rod: cast, bite, hook, reel; net: scoop) and banking work", async ({ page }) => {
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(String(e)));
@@ -107,26 +137,30 @@ test("a tree gives logs and a range cooks", async ({ page }) => {
     const chopped = await page.evaluate(() => {
         const g = window.game!;
         g.give("Bronze axe");
+        g.setLevel("woodcutting", 99); // a good chance a blow gets a log, so the test is short
         const tree = g.skillLocs
             .all()
             .filter((i: any) => i.loc.name === "Tree" && i.loc.plane === g.player.plane)
             .sort((a: any, b: any) => Math.hypot(a.loc.tileX - g.player.x, a.loc.tileY - g.player.y) - Math.hypot(b.loc.tileX - g.player.x, b.loc.tileY - g.player.y))[0];
         g.skillSystem.locAction(tree, "Chop down"); // wields the axe
         const wielded = g.items.equipment.get("weapon")?.id;
-        // A click on the tree (as main.ts sends it) starts the chopping; held on the tree, the
-        // strokes go on, and each blow rolls for a log.
-        const started = g.skillSystem.clickLoc(tree, true);
-        let motions = 0;
-        for (let n = 0; n < 600 && g.items.count(1511) === 0 && g.skillSystem.active; n++) {
-            g.skillSystem.update({ acted: false, panelOpen: false, dead: false, dt: 0.1, pointer: { pressed: false, down: true, aimed: tree } });
-            if (g.skillSystem.toolMotion()?.kind === "chop") motions++;
-        }
-        return { wielded, started, motions, logs: g.items.count(1511) };
+        // An axe click on a tree is an attack, not a chopping job of its own.
+        const job = g.skillSystem.clickLoc(tree, true);
+        (window as any).__tree = tree;
+        return { wielded, job };
     });
     expect(chopped.wielded).toBe(1351);
-    expect(chopped.started).toBe(true);
-    expect(chopped.motions).toBeGreaterThan(0);
-    const logs = chopped.logs;
+    expect(chopped.job).toBe(false);
+    // Stand by the trunk, face it and swing: each blow lodges in the trunk and rolls for a log.
+    await faceTrunk(page);
+    let lodged = 0;
+    for (let n = 0; n < 40 && (await page.evaluate(() => window.game!.items.count(1511))) === 0; n++) {
+        await pressAttack(page);
+        await page.waitForFunction(() => window.game!.combat.melee.phase === "idle" && !window.game!.combat.melee.swing, undefined, { timeout: 30_000, polling: 50 });
+        if (await page.evaluate(() => (window as any).__lodged)) lodged++;
+    }
+    expect(lodged).toBeGreaterThan(0);
+    const logs = await page.evaluate(() => window.game!.items.count(1511));
     expect(logs).toBeGreaterThanOrEqual(1);
 
     await page.evaluate(() => window.game!.tp(3209, 3214, 0));

@@ -19,6 +19,7 @@ function tree(): { instance: SkillLocInstance; group: THREE.Group; stump: THREE.
             [1, stump],
         ]),
         shown: 0,
+        trunks: new Map(),
     } as SkillLocInstance;
     return { instance, group, stump };
 }

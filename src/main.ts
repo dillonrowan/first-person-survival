@@ -68,7 +68,7 @@ const WORLD_URL = `${import.meta.env.BASE_URL}world/`;
 const SKY_COLOR = 0x8cbee6;
 const FOG_NEAR = 24;
 const FOG_FAR = 80;
-/** How far from the eye a tree or rock can be chopped or mined with a click, tiles. [design] */
+/** How far from the eye a rock can be mined with a click, tiles. [design] */
 const GATHER_REACH = 2.5;
 
 const canvas = document.getElementById("game") as HTMLCanvasElement;
@@ -669,11 +669,14 @@ async function main(): Promise<void> {
         }
         return false;
     };
-    // A weapon swung into a standing tree or rock stops there. Gathering is not done by swings but
-    // by clicking the tree or rock with the axe or pickaxe (SkillSystem.clickLoc), so a sweep
-    // never chops or mines what is beside the crosshair.
+    // A weapon swung into a standing tree or rock lodges there (the blade meets the trunk); an axe
+    // swung into a tree chops it. Mining is not done by swings but by clicking the rock with the
+    // pickaxe (SkillSystem.clickLoc).
     combat.solids = skilling.skillLocs.solidSource((instance) => skillSystem.isSolid(instance));
-    combat.onSolidHit = () => weaponView.impact(0.8);
+    combat.onSolidHit = (ref) => {
+        weaponView.impact(0.8);
+        skillSystem.swingHit(ref as SkillLocInstance);
+    };
     skillSystem.onToolImpact = () => weaponView.impact(0.8);
     const handleWorldAction: ActionHandler = (target, action) => {
         if (target.kind === "skill-loc") {
@@ -868,17 +871,17 @@ async function main(): Promise<void> {
         const gearOnly = skilling.isFishingGear(items.equipment.get("weapon")?.id);
         const aimedSpot = interaction.target?.kind === "fishing-spot" ? (interaction.target.ref as FishingSpot) : undefined;
         const fishClick = clicked && aimedSpot !== undefined && skillSystem.fishing.clickSpot(aimedSpot);
-        // A left click on a tree or rock with an axe or pickaxe in hand chops or mines it when in
-        // reach and says to come closer when not; it is never a weapon attack, so clicks at the edge
-        // of reach do not mix chops and swings.
+        // A left click on a rock with a pickaxe in hand mines it when in reach and says to come
+        // closer when not; it is never a weapon attack, so clicks at the edge of reach do not mix
+        // strikes and swings. (An axe is just swung: a blow that lodges in a tree chops it.)
         const aimedLoc = interaction.target?.kind === "skill-loc" ? (interaction.target.ref as SkillLocInstance) : undefined;
-        const workAimed = aimedLoc !== undefined && skillSystem.gatherKind(aimedLoc) !== undefined;
-        // An attack already under way (a swing or a power attack being charged) plays out: the
-        // click goes to it, not to a chop.
-        const attacking = combat.melee.swing !== undefined || combat.melee.isCharging;
+        const workAimed = aimedLoc !== undefined && skillSystem.minesWith(aimedLoc);
+        // An attack already under way (a swing, a power attack being charged, a blade lodged) plays
+        // out: the click goes to it, not to a pick strike.
+        const attacking = combat.melee.swing !== undefined || combat.melee.isCharging || combat.melee.lodged !== undefined;
         if (clicked && !fishClick && workAimed && !attacking) skillSystem.clickLoc(aimedLoc!, interaction.target!.distance <= GATHER_REACH);
-        // Fishing, chopping and mining take the attack button: click to cast and hook, hold to reel
-        // or to keep striking.
+        // Fishing and mining take the attack button: click to cast and hook, hold to reel or to
+        // keep striking.
         const casting = skillSystem.takesClicks;
         if (clicked && gearOnly && !casting && !fishClick) {
             ui.showMessage(aimedSpot ? "You can't fish here with that." : "Aim at a fishing spot to fish.");

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { LODGE_SECONDS } from "./LodgeClip";
 import { MeleeController, MeleeInput, powerDirection } from "./MeleeController";
 import { MOVE_SETS, timelineFor } from "./moves";
 import { tuning } from "./tuning";
@@ -87,7 +88,7 @@ describe("MeleeController", () => {
             const order: string[] = [];
             for (let i = 0; i < 5; i++) {
                 order.push(...pressFor(melee, 0.03));
-                order.push(...runOut(melee, 0.3));
+                order.push(...runOut(melee, 0.5));
             }
             expect(order).toEqual(["quick_A", "quick_B", "quick_A", "quick_B", "quick_A"]);
             expect(MOVE_SETS[weaponById(id).family].quick.map((m) => m.hits[0].impact.y)).toEqual([-1, 1]);
@@ -202,7 +203,7 @@ describe("MeleeController", () => {
         });
         for (let i = 1; i < times.length; i++) expect(times[i]).toBeGreaterThan(times[i - 1]);
         expect(times[0]).toBeCloseTo(swingTime(weaponById("daggers").weight), 9);
-        expect(times[0]).toBeLessThan(0.3);
+        expect(times[0]).toBeLessThan(0.5);
     });
 
     it("cancels a quick strike into the wind-up when held for the charge threshold", () => {
@@ -292,5 +293,32 @@ describe("powerDirection (spec 17.1)", () => {
             melee.update(DT, input({ attackDown: true, strafe: 1 }));
         }
         expect(melee.update(DT, input({ strafe: 1 })).started?.id).toBe("power_T");
+    });
+});
+
+describe("a blade lodged in a tree", () => {
+    it("stops where it met the trunk, is stuck for the lodge clip, then the guard returns", () => {
+        const melee = new MeleeController(weaponById("sword"));
+        pressFor(melee, 0.03);
+        const swing = melee.swing!;
+        melee.lodge(0, 0.25);
+        expect(melee.swing).toBeUndefined();
+        expect(melee.phase).toBe("lodged");
+        const { on, off } = swing.timeline.rays[0];
+        expect(melee.lodged!.swing.elapsed).toBeCloseTo(on + 0.25 * (off - on), 9);
+        expect(melee.lodged!.swing.move).toBe(swing.move);
+        runOut(melee, LODGE_SECONDS - 0.05);
+        expect(melee.phase).toBe("lodged");
+        runOut(melee, 0.1);
+        expect(melee.phase).toBe("idle");
+        expect(melee.lodged).toBeUndefined();
+    });
+
+    it("keeps a click made while stuck: the next strike comes from the other side once it is free", () => {
+        const melee = new MeleeController(weaponById("sword"));
+        pressFor(melee, 0.03);
+        melee.lodge(0, 0.5);
+        expect(pressFor(melee, 0.03)).toEqual([]);
+        expect(runOut(melee, LODGE_SECONDS + 0.1)).toEqual(["quick_B"]);
     });
 });

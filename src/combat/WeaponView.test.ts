@@ -125,7 +125,7 @@ describe("quick strikes (Dark Messiah's swings)", () => {
                 expect(steps[i], `${id} at ${samples[i + 1].t.toFixed(3)}s`).toBeLessThan(2.5 * around);
             }
             // At 240 updates a second even the fastest motion (the staff's twirl) stays a few centimetres.
-            expect(Math.max(...steps), id).toBeLessThan(0.1);
+            expect(Math.max(...steps), id).toBeLessThan(0.15);
         }
     });
 

@@ -4,7 +4,7 @@ import { setRandom } from "../game/Random";
 import { TickClock } from "../game/TickClock";
 import type { TreeDef } from "../world/SkillFormat";
 import { rollLoot } from "./SkillContext";
-import { CHOP_STROKE } from "./gathering";
+import { CHOP_TICKS } from "./gathering";
 import { successChance } from "./success";
 import { createTestSkills, emptyManifest, testLoc } from "./testContext";
 
@@ -78,18 +78,20 @@ describe("TickClock", () => {
 });
 
 describe("woodcutting", () => {
-    it("Chop down wields the best axe; each blow that lands rolls for a log", () => {
+    it("Chop down wields the best axe; each swing that lodges in the tree rolls for a log", () => {
         const t = setup();
         t.inventory.add(BRONZE_AXE, 1);
         const loc = t.place(testLoc(1276, "Tree"));
         t.sys.locAction(loc, "Chop down");
         expect(t.worn[0]).toBe(BRONZE_AXE);
+        expect(t.logs.at(-1)).toBe("Swing your axe at the tree to chop it.");
         expect(t.sys.isSolid(loc)).toBe(true);
         setRandom(() => 0.99); // the roll fails
-        t.sys.strike(loc);
+        t.sys.swingHit(loc);
         expect(t.inventory.count(LOGS)).toBe(0);
+        t.ctx.clock.advance(CHOP_TICKS);
         setRandom(() => 0.01); // the roll and the 1/8 fall both hit
-        t.sys.strike(loc);
+        t.sys.swingHit(loc);
         expect(t.inventory.count(LOGS)).toBe(1);
         expect(t.sys.gathering.isDepleted(loc.key)).toBe(true);
         expect(t.sys.isSolid(loc)).toBe(false); // a stump does not stop the blade
@@ -106,62 +108,37 @@ describe("woodcutting", () => {
         expect(t.worn[0]).toBe(BRONZE_AXE);
         while (t.inventory.freeSlots() > 0) t.inventory.add(COPPER, 1);
         setRandom(() => 0.5); // the roll hits (61 with a bronze axe), the 1/8 fall does not
-        t.sys.strike(loc);
+        t.sys.swingHit(loc);
         expect(t.inventory.count(LOGS)).toBe(0);
         expect(t.ground).toEqual([{ id: LOGS, qty: 1, x: Math.floor(t.player.x), y: Math.floor(t.player.y) }]);
         expect(t.xp.woodcutting).toBe(25);
     });
 
-    it("a click on the tree with an axe in hand chops it: the blow lands only on the aimed tree, at the stroke's impact", () => {
+    it("scales a blow's chance by how much of the woodcutting interval has passed", () => {
         const t = setup();
         t.worn.push(BRONZE_AXE);
-        const tree = t.place(testLoc(1276, "Tree"));
-        const other = t.place(testLoc(1276, "Tree", 11, 10));
-        const frame = (dt: number, down: boolean, aimed: unknown) =>
-            t.sys.update({ acted: false, panelOpen: false, dead: false, dt, pointer: { pressed: false, down, aimed } });
-        expect(t.sys.clickLoc(tree, true)).toBe(true);
-        expect(t.sys.takesClicks).toBe(true);
-        expect(t.sys.clickLoc(tree, true)).toBe(true); // the stroke under way takes the click
-        setRandom(() => 0.5); // hits, does not fell
-        frame(CHOP_STROKE.seconds * (CHOP_STROKE.impact - 0.1), true, tree);
-        expect(t.inventory.count(LOGS)).toBe(0);
-        expect(t.sys.toolMotion()).toEqual({ kind: "chop", t: expect.any(Number) });
-        frame(CHOP_STROKE.seconds * 0.2, true, tree);
+        const loc = t.place(testLoc(1276, "Tree"));
+        const full = successChance({ low: 64, high: 200 }, 61);
+        // Just under the full chance: a full-interval blow hits, one half an interval later misses.
+        setRandom(() => full * 0.9);
+        t.sys.swingHit(loc);
         expect(t.inventory.count(LOGS)).toBe(1);
-        expect(t.animations).toEqual(["treeHit@0:10:10:1276"]);
-        frame(CHOP_STROKE.seconds, true, tree); // held on the tree: the next stroke starts
-        expect(t.sys.active).toBeDefined();
-        frame(CHOP_STROKE.seconds, false, other); // the next blow lands while aimed at the other tree: nothing
-        expect(t.animations).toEqual(["treeHit@0:10:10:1276"]);
-        expect(t.sys.active).toBeUndefined(); // let go: the job ends
+        t.ctx.clock.advance(CHOP_TICKS / 2);
+        t.sys.swingHit(loc);
+        expect(t.inventory.count(LOGS)).toBe(1);
+        setRandom(() => full * 0.4);
+        t.ctx.clock.advance(CHOP_TICKS / 2);
+        t.sys.swingHit(loc); // half an interval again: half the chance, and 0.4 of it is under that
+        expect(t.inventory.count(LOGS)).toBe(2);
     });
 
-    it("a click during a stroke queues the next; a click on another tree does not cut it short", () => {
+    it("has no chopping stroke of its own: an axe click on a tree is an attack", () => {
         const t = setup();
         t.worn.push(BRONZE_AXE);
         const tree = t.place(testLoc(1276, "Tree"));
-        const other = t.place(testLoc(1276, "Tree", 11, 10));
-        const frame = (dt: number, pressed: boolean, aimed: unknown) =>
-            t.sys.update({ acted: false, panelOpen: false, dead: false, dt, pointer: { pressed, down: false, aimed } });
-        setRandom(() => 0.99); // no logs: only the strokes matter
-        expect(t.sys.clickLoc(tree, true)).toBe(true);
-        frame(0.016, true, tree); // the starting click
-        const job = t.sys.active;
-        expect(t.sys.clickLoc(other, true)).toBe(true); // taken by the stroke, which goes on
-        expect(t.sys.active).toBe(job);
-        frame(0.2, true, tree); // clicked again mid-stroke
-        frame(CHOP_STROKE.seconds, false, tree); // the stroke ends, the queued one starts
-        expect(t.sys.active).toBe(job);
-        frame(CHOP_STROKE.seconds, false, tree); // no click this time: done
-        expect(t.sys.active).toBeUndefined();
-        expect(t.animations.length).toBe(2);
-    });
-
-    it("a click on a tree out of reach says to come closer, and is no attack", () => {
-        const t = setup();
-        t.worn.push(BRONZE_AXE);
-        expect(t.sys.clickLoc(t.place(testLoc(1276, "Tree")), false)).toBe(true);
-        expect(t.logs.at(-1)).toBe("You need to get closer to the tree.");
+        expect(t.sys.minesWith(tree)).toBe(false);
+        expect(t.sys.clickLoc(tree, true)).toBe(false);
+        expect(t.sys.takesClicks).toBe(false);
         expect(t.sys.active).toBeUndefined();
     });
 
@@ -174,14 +151,26 @@ describe("woodcutting", () => {
         expect(t.sys.active).toBeUndefined();
     });
 
-    it("needs an axe in hand to get logs", () => {
+    it("another blade only shakes the tree", () => {
         const t = setup();
         t.inventory.add(BRONZE_AXE, 1);
         const loc = t.place(testLoc(1276, "Tree"));
         setRandom(() => 0.01);
-        t.sys.strike(loc);
+        t.sys.swingHit(loc);
         expect(t.inventory.count(LOGS)).toBe(0);
-        expect(t.logs.at(-1)).toBe("You need to wield an axe to chop this tree.");
+        expect(t.animations).toEqual(["treeHit@0:10:10:1276"]);
+        expect(t.logs).toEqual([]);
+    });
+
+    it("a swing into a rock just stops: mining is the pickaxe's own stroke", () => {
+        const t = setup();
+        t.worn.push(PICK);
+        const rock = t.place(testLoc(10943, "Copper rocks"));
+        expect(t.sys.isSolid(rock)).toBe(true);
+        setRandom(() => 0.01);
+        t.sys.swingHit(rock);
+        expect(t.inventory.count(COPPER)).toBe(0);
+        expect(t.animations).toEqual([]);
     });
 
     it("counts an oak's timer down while chopped and back up while not", () => {
@@ -190,22 +179,23 @@ describe("woodcutting", () => {
         const loc = t.place(testLoc(10820, "Oak tree"));
         setRandom(() => 0.99); // every roll fails: only the timer runs
         for (let i = 0; i < 5; i++) {
-            t.sys.strike(loc);
+            t.sys.swingHit(loc);
             t.ctx.clock.advance(4);
         }
         t.ctx.clock.advance(30);
         setRandom(() => 0.01);
-        t.sys.strike(loc);
+        t.sys.swingHit(loc);
         // The timer refilled, so the first log does not fell it.
         expect(t.inventory.count(OAK_LOGS)).toBe(1);
         expect(t.sys.gathering.isDepleted(loc.key)).toBe(false);
         setRandom(() => 0.99);
         for (let i = 0; i < 12; i++) {
             t.ctx.clock.advance(4);
-            t.sys.strike(loc);
+            t.sys.swingHit(loc);
         }
+        t.ctx.clock.advance(4);
         setRandom(() => 0.01);
-        t.sys.strike(loc);
+        t.sys.swingHit(loc);
         expect(t.sys.gathering.isDepleted(loc.key)).toBe(true);
     });
 

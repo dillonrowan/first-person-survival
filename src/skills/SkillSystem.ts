@@ -105,55 +105,65 @@ export class SkillSystem {
         return this.job?.toolMotion?.();
     }
 
-    /** Whether the current job takes the attack button instead of the weapon (fishing, chopping, mining). */
+    /** Whether the current job takes the attack button instead of the weapon (fishing, mining). */
     get takesClicks(): boolean {
         return !!this.job?.frame;
     }
 
-    /** Whether a swung blade stops on this loc (it gathers nothing): standing trees and rocks. */
+    /**
+     * Whether a swung blade stops on this loc: standing trees (grown farming trees too) and rocks.
+     * A blade that does lodges there (swingHit).
+     */
     isSolid(instance: SkillLocInstance): boolean {
         const role = this.ctx.data.locs[instance.loc.id]?.role;
+        if (role === "patch") return this.farming.choppable(instance);
         return role === "rock" || (role === "tree" && !this.gathering.isDepleted(instance.key));
     }
 
-    /** A tool blow landed on a tree or rock. */
-    strike(instance: SkillLocInstance): void {
+    /**
+     * A swung weapon lodged in a solid loc (isSolid). That is woodcutting: an axe in a tree rolls
+     * for a log, any other blade only shakes it. A rock is mined with the pickaxe's own stroke
+     * (clickLoc), so a swing into one just stops.
+     */
+    swingHit(instance: SkillLocInstance): void {
         const role = this.ctx.data.locs[instance.loc.id];
         if (role?.role === "tree") this.gathering.strikeTree(instance, role.index);
-        else if (role?.role === "rock") this.gathering.strikeRock(instance, role.index);
-        else return;
+        else if (role?.role === "patch") this.farming.strikeTree(instance);
+    }
+
+    /** A pickaxe blow landed on a rock. */
+    strike(instance: SkillLocInstance): void {
+        const role = this.ctx.data.locs[instance.loc.id];
+        if (role?.role !== "rock") return;
+        this.gathering.strikeRock(instance, role.index);
         this.onToolImpact?.();
     }
 
-    /** A chop or pick blow landed (the view jolts). */
+    /** A pick blow landed (the view jolts). */
     onToolImpact?: () => void;
 
-    /** What the wielded tool does to this loc: an axe chops a standing tree, a pickaxe mines a rock. */
-    gatherKind(instance: SkillLocInstance): "chop" | "mine" | undefined {
+    /** Whether the wielded tool mines this loc with its own stroke: a pickaxe and a rock. */
+    minesWith(instance: SkillLocInstance): boolean {
         const role = this.ctx.data.locs[instance.loc.id]?.role;
         const weapon = this.ctx.weapon();
-        const tools = this.ctx.data.tools;
-        if (role === "tree" && !this.gathering.isDepleted(instance.key) && tools.axes.some((a) => a.item === weapon)) return "chop";
-        if (role === "rock" && tools.pickaxes.some((p) => p.item === weapon)) return "mine";
-        return undefined;
+        return role === "rock" && this.ctx.data.tools.pickaxes.some((p) => p.item === weapon);
     }
 
     /**
-     * A left click on a tree or rock the wielded axe or pickaxe works (gatherKind): in reach, it
-     * starts a GatherJob (the same click is its first stroke); out of reach, the player is told to
-     * come closer. Either way the click is not a weapon attack, so clicks at the edge of reach do
-     * not mix chops and swings. False when the tool does not work this loc; a stroke already under
-     * way takes the click and is never cut short by one on another tree or rock.
+     * A left click on a rock with a pickaxe in hand (minesWith): in reach, it starts a GatherJob
+     * (the same click is its first stroke); out of reach, the player is told to come closer. Either
+     * way the click is not a weapon attack, so clicks at the edge of reach do not mix strikes and
+     * swings. False when the tool does not mine this loc; a stroke already under way takes the
+     * click and is never cut short by one on another rock.
      */
     clickLoc(instance: SkillLocInstance, inReach: boolean): boolean {
-        const kind = this.gatherKind(instance);
-        if (!kind) return false;
+        if (!this.minesWith(instance)) return false;
         if (this.job instanceof GatherJob) return true;
         if (!inReach) {
-            this.ctx.log(kind === "chop" ? "You need to get closer to the tree." : "You need to get closer to the rock.");
+            this.ctx.log("You need to get closer to the rock.");
             return true;
         }
-        this.start(new GatherJob(instance, kind, (i) => this.strike(i), () => this.isSolid(instance)));
+        this.start(new GatherJob(instance, (i) => this.strike(i), () => this.isSolid(instance)));
         return true;
     }
 

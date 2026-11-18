@@ -3,7 +3,6 @@ import type { CropDef, PatchImpl } from "../world/SkillFormat";
 import type { SkillLocInstance } from "../world/SkillLocs";
 import { SkillContext, giveOrDrop, itemName } from "./SkillContext";
 import type { SkillSystem } from "./SkillSystem";
-import { roll } from "./success";
 
 /** Real minutes for one weed to grow back on an empty patch. [design] */
 const WEED_MINUTES = 5;
@@ -131,7 +130,7 @@ export class Farming {
             this.changed(key);
             return;
         }
-        if (a === "chop down") return this.chopTree(instance, save, crop);
+        if (a === "chop down") return this.chopTree(crop);
         if (a === "pick" && crop.pickBase !== undefined) return this.pick(key, save, crop);
         if (a === "harvest" || a === "pick") return this.harvest(instance, save, crop, impl);
         ctx.log("Nothing interesting happens.");
@@ -230,28 +229,44 @@ export class Farming {
         this.changed(key);
     }
 
-    /** A grown, checked tree is cut once; the patch is then empty. */
-    private chopTree(instance: SkillLocInstance, save: PatchSave, crop: CropDef): void {
+    /** The woodcutting tree a tree crop grows into. */
+    private treeOf(crop: CropDef) {
+        return this.ctx.data.trees.find((t) => t.name.toLowerCase() === crop.name.toLowerCase());
+    }
+
+    /** A grown tree stands in the patch: a swung blade stops on it (SkillSystem.isSolid). */
+    choppable(instance: SkillLocInstance): boolean {
+        const save = this.state(instance.key);
+        const crop = this.crop(save);
+        return crop?.impl === "TREE" && this.ready(save, crop);
+    }
+
+    /**
+     * "Chop down": checks the tree can be cut and puts the best axe in hand for the player to
+     * swing; the blows are SkillSystem.swingHit (strikeTree).
+     */
+    private chopTree(crop: CropDef): void {
         const ctx = this.ctx;
-        const tree = ctx.data.trees.find((t) => t.name.toLowerCase() === crop.name.toLowerCase());
+        const tree = this.treeOf(crop);
         const axe = this.sys.gathering.bestAxe(tree);
-        const chance = tree && axe && tree.chances[axe.tier];
-        if (!tree || !chance) return ctx.log("You do not have an axe which you have the Woodcutting level to use.");
+        if (!tree || !axe) return ctx.log("You do not have an axe which you have the Woodcutting level to use.");
         if (ctx.skills.level("woodcutting") < tree.level) return ctx.log(`You need a Woodcutting level of ${tree.level} to chop down this tree.`);
-        ctx.log("You swing your axe at the tree.");
-        let ticks = 0;
-        this.sys.start({
-            skill: "woodcutting",
-            swingTicks: 4,
-            target: instance,
-            tick: () => {
-                if (++ticks % 4 !== 0 || !roll(chance, ctx.skills.level("woodcutting"))) return true;
-                giveOrDrop(ctx, tree.logs, 1);
-                ctx.gainXp("woodcutting", tree.xp);
-                ctx.log(`You get some ${itemName(ctx, tree.logs).toLowerCase()}.`);
-                this.reset(instance.key, save);
-                return false;
-            },
-        });
+        if (this.sys.gathering.ready(axe.item)) ctx.log("Swing your axe at the tree to chop it.");
+    }
+
+    /** A swung blade lodged in a grown tree: it shudders, and an axe chops it; one log empties the patch. */
+    strikeTree(instance: SkillLocInstance): void {
+        const ctx = this.ctx;
+        const save = this.state(instance.key);
+        const crop = this.crop(save);
+        const tree = crop && this.treeOf(crop);
+        if (!crop || !tree || !this.ready(save, crop)) return;
+        ctx.animate(instance, "treeHit");
+        if (!save.checked) return ctx.log("You should check the health of the tree before chopping it down.");
+        if (!this.sys.gathering.chopRoll(tree)) return;
+        giveOrDrop(ctx, tree.logs, 1);
+        ctx.gainXp("woodcutting", tree.xp);
+        ctx.log(`You get some ${itemName(ctx, tree.logs).toLowerCase()}.`);
+        this.reset(instance.key, save);
     }
 }

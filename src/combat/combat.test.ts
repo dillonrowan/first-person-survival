@@ -253,6 +253,7 @@ describe("hit zones (spec 18.3)", () => {
     it("scale quick strikes with weapon speed but not the rush", () => {
         expect(MOVE_SETS.sword.quick[0].changeSpeed).toBe(true);
         expect(MOVE_SETS.sword.rush.changeSpeed).toBeFalsy();
+        expect(MOVE_SETS.staff.power.default.changeSpeed).toBeFalsy();
     });
 });
 
@@ -632,7 +633,7 @@ describe("OSRS damage from the player", () => {
         const impulses: number[][] = [];
         const me = { ...player, applyImpulse: (x: number, y: number, z = 0) => void impulses.push([x, y, z]) };
         let t = 0;
-        for (; t < 0.8; t += 0.01) {
+        for (; t < 1.2; t += 0.01) {
             combat.update(0.01, me, { attackDown: t < 0.03, blockDown: !!opts.block && defences.length > 0, forward: 0, strafe: 0 });
         }
         return { defences, combat, stunnedAt, impulses, struck };
