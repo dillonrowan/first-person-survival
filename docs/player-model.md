@@ -1,9 +1,14 @@
 # Player character: art contract
 
 The player's body is a rigged glTF character at `public/models/player.glb`. If the file is missing
-or breaks the contract below, the game logs why and uses a built-in placeholder, so you can build
-and test everything before the art exists. Make the character yourself or commission one; do not
-extract Jagex's models.
+or breaks the contract below, the game logs why and uses Hans of Lumbridge's model from the
+exported cache (`public/world/npcs/3105_3105.bin`, chosen by name with `PLAYER_BODY_NPC` in
+`src/main.ts`), and failing that a built-in placeholder.
+
+The cache body (`src/avatar/CacheAvatar.ts`) is skinned to the rig below, fitted to the model's
+body parts the same way as the NPC hit reactions (`fitHumanoid` in `src/npc/HitPose.ts`). Each
+vertex follows one bone, it is drawn unlit in its baked vertex colours like the NPCs, and it plays
+the placeholder's procedural idle, walk, run and airborne clips.
 
 Everything below is checked at load time by `src/avatar/AvatarContract.ts`. Names live in
 `src/avatar/avatarConfig.ts`, so you can change them to match your rig.
@@ -27,9 +32,18 @@ Everything below is checked at load time by `src/avatar/AvatarContract.ts`. Name
 
 ## First person
 
-Meshes for the head, hair and headwear are separate objects whose names start with `head_`
-(for example `head_skull`, `head_hair`). They are hidden in first person. Without any, the head
-bone is shrunk instead (a warning).
+The body is drawn in first person; only the head is hidden. Meshes for the head, hair and headwear
+are separate objects whose names start with `head_` (for example `head_skull`, `head_hair`).
+Without any, the head bone is shrunk instead (a warning; the cache body works this way).
+
+So the view never starts inside the body, in first person the neck is held `FP_NECK_BACK` behind
+the eyes along the body's facing, the torso does not lean with the view, and the body sinks with
+the eyes when crouching (there is no crouch clip).
+
+The right arm is bent by two-bone IK (`Avatar.reachRightHand`) so `socket_hand_r` lands on the
+held item's grip (the weapon contract's origin, see [weapon-models.md](weapon-models.md)). Put
+`socket_hand_r` in the middle of the closed fist. When the grip is out of the arm's reach the
+shoulder comes forward by up to `FP_SHOULDER_REACH`.
 
 ## Material roles
 

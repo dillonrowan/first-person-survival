@@ -19,6 +19,7 @@ import { SpellEffects, SpellGfxLibrary } from "./combat/SpellGfxView";
 import { CAST_HEIGHT, IMPACT_HEIGHT, SPELL_GRAPHICS, SPLASH_GRAPHIC } from "./world/SpellGfxFormat";
 import { Avatar } from "./avatar/Avatar";
 import { loadAvatarAsset } from "./avatar/AvatarAsset";
+import { createCacheAvatar } from "./avatar/CacheAvatar";
 import { CameraRig } from "./player/CameraRig";
 import { Input } from "./player/Input";
 import { Player } from "./player/Player";
@@ -64,6 +65,8 @@ import { createWorldMaterials } from "./world/WorldMaterials";
 import { loadWorldTextures } from "./world/WorldTextures";
 
 const WORLD_URL = `${import.meta.env.BASE_URL}world/`;
+/** The NPC whose cache model is the player's body when there is no player.glb. */
+const PLAYER_BODY_NPC = "Hans";
 
 const SKY_COLOR = 0x8cbee6;
 const FOG_NEAR = 24;
@@ -240,7 +243,20 @@ async function main(): Promise<void> {
     const sun = new THREE.DirectionalLight(0xffffff, 1.8);
     sun.position.set(-50, 10, 50); // the exporter's sun direction in three.js axes
     scene.add(sun);
-    const avatar = new Avatar(await loadAvatarAsset(`${import.meta.env.BASE_URL}models/player.glb`));
+    // Without a player.glb the body is Hans of Lumbridge's model from the cache.
+    const avatar = new Avatar(
+        await loadAvatarAsset(`${import.meta.env.BASE_URL}models/player.glb`, async () => {
+            const file = npcManifest?.appearances.find((a) => a.name === PLAYER_BODY_NPC)?.file;
+            if (!file) {
+                return undefined;
+            }
+            const response = await fetch(`${WORLD_URL}${file}`);
+            if (!response.ok) {
+                throw new Error(`${file}: HTTP ${response.status}`);
+            }
+            return createCacheAvatar(decodeNpcModel(await gunzip(await response.arrayBuffer())));
+        }),
+    );
     scene.add(avatar.root);
     const skills = new PlayerSkills(browserStorage());
     const spellbook = new Spellbook(browserStorage());
@@ -1110,6 +1126,13 @@ async function main(): Promise<void> {
             stunFeel.update(dt, combat.stunned);
             const s = stunFeel.view;
             cameraRig.update(player, { ...look, pitch: v.pitch + look.pitch + s.pitch, yaw: v.yaw + look.yaw + s.yaw, roll: v.roll + look.roll + s.roll });
+        }
+        {
+            // The right hand closes on the held item's grip; the arm hangs as animated otherwise.
+            const grip = weaponView.gripPoint(new THREE.Vector3());
+            if (grip) {
+                avatar.reachRightHand(grip);
+            }
         }
         if (collisionDebug && npcs) {
             collisionDebug.update(npcs, player.footprint(), player.plane, player.x, player.y);

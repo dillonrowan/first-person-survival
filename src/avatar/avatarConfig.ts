@@ -44,7 +44,15 @@ export const CLIP_SPEEDS = { walk: 1.4, run: 3.5, walk_back: 1.2 } as const;
 /** Triangle budget of the character model. */
 export const MAX_TRIANGLES = 8000;
 
-/** First person: how far the body is moved back so looking down shows legs, not the torso. */
-export const FP_BODY_BACK_OFFSET = 0.15;
+/**
+ * First person: how far behind the eyes (along the body's facing, tiles) the neck is held, so the
+ * view never starts inside the torso and looking down shows chest and legs.
+ */
+export const FP_NECK_BACK = 0.15;
+/**
+ * First person: how far (tiles) the right shoulder may reach forward when the held item's grip is
+ * beyond the arm's length, so the hand still closes on the grip.
+ */
+export const FP_SHOULDER_REACH = 0.3;
 /** Spine and chest each bend by pitch times this (negative: looking down leans forward). */
 export const TORSO_PITCH_FACTOR = -0.25;

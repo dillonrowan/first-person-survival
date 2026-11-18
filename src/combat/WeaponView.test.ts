@@ -198,6 +198,19 @@ describe("a blow on the held weapon", () => {
 });
 
 describe("a charged power attack held", () => {
+    it("keeps the hand on its grip out of the middle of the view", () => {
+        for (const weapon of ["sword", "daggers", "staff"]) {
+            for (const keys of [{}, { strafe: -1 }, { strafe: 1 }, { forward: 1 }, { forward: -1 }]) {
+                const { samples, melee } = play(weapon, () => true, 1.5, keys);
+                expect(melee.chargedMove).toBeDefined();
+                for (const { grip } of samples.slice(-30)) {
+                    expect(grip.length(), `${weapon} ${JSON.stringify(keys)}`).toBeGreaterThan(0.28);
+                    expect(Math.atan2(Math.hypot(grip.x, grip.y), -grip.z), `${weapon} ${JSON.stringify(keys)}`).toBeGreaterThan(0.5);
+                }
+            }
+        }
+    });
+
     it("trembles in the hand", () => {
         const { samples, melee } = play("sword", () => true, 1.5);
         expect(melee.isCharging).toBe(true);

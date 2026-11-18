@@ -31,7 +31,7 @@ import { environmentDamage, fallbackCombatStats } from "../combat/Osrs";
 import { XpLedger } from "../combat/XpLedger";
 import { tuning } from "../combat/tuning";
 import { Knockback, deathLaunch, findSnapTile, kickThrowScale, npcMass, slideSpeedForDistance, stepKnockback, weightThrowScale } from "./NpcPhysics";
-import type { SharedNpcModel } from "./NpcModels";
+import { basePositions, type SharedNpcModel } from "./NpcModels";
 import { NpcAttack, NpcAttacker, StrikeEvent, attacksFromClips, attacksFromStyles } from "./NpcAttacks";
 import { canSee } from "./NpcSenses";
 import { Ragdoll, RagdollWorld, singlePartSkeleton } from "./Ragdoll";
@@ -852,17 +852,7 @@ export class Npc {
 
     /** Base-pose position of every model vertex: model space in three.js axes, tiles. */
     private basePositions(): Float32Array {
-        const out = new Float32Array(this.model.data.vertexCount * 3);
-        for (const shared of this.model.meshes) {
-            const { positions, sources } = shared.source;
-            for (let i = 0; i < sources.length; i++) {
-                const v = sources[i];
-                out[v * 3] = positions[i * 4] / RS_UNITS_PER_TILE;
-                out[v * 3 + 1] = -positions[i * 4 + 1] / RS_UNITS_PER_TILE;
-                out[v * 3 + 2] = -positions[i * 4 + 2] / RS_UNITS_PER_TILE;
-            }
-        }
-        return out;
+        return basePositions(this.model.data);
     }
 
     /**

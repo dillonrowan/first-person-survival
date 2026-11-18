@@ -101,6 +101,26 @@ const GATHER_STROKES: Record<"mine", GatherKey[]> = {
 
 /** Seconds to blend into or out of a gathering stroke. [design] */
 const GATHER_BLEND = 0.15;
+/**
+ * While a power attack is wound up, the grip (and the hand on it) is held at least this far from
+ * the eyes (tiles) and this far off the line of sight (radians): the wind-up poses bring the grip
+ * in front of the face, where the hand would block the view. Eased in and out over CLEAR_BLEND
+ * seconds. [design]
+ */
+const GRIP_CLEAR_DISTANCE = 0.3;
+const GRIP_CLEAR_ANGLE = 0.55;
+const CLEAR_BLEND = 0.15;
+
+/** `pos` (camera space, -Z ahead) moved out to GRIP_CLEAR_DISTANCE and off the line of sight. */
+export function clearOfView(pos: THREE.Vector3): THREE.Vector3 {
+    const lateral = Math.hypot(pos.x, pos.y);
+    // Straight ahead: aside towards the lower right, where the right hand comes from.
+    const [dx, dy] = lateral < 1e-4 ? [Math.SQRT1_2, -Math.SQRT1_2] : [pos.x / lateral, pos.y / lateral];
+    const angle = Math.max(Math.atan2(lateral, -pos.z), GRIP_CLEAR_ANGLE);
+    const distance = Math.max(pos.length(), GRIP_CLEAR_DISTANCE);
+    const side = Math.sin(angle) * distance;
+    return new THREE.Vector3(dx * side, dy * side, -Math.cos(angle) * distance);
+}
 
 function gatherPose(kind: "mine", t: number): Pose {
     const keys = GATHER_STROKES[kind];
@@ -333,6 +353,8 @@ export class WeaponView {
     /** How far the view is into the gathering stroke pose (0..1), and the stroke last shown. */
     private gatherWeight = 0;
     private gatherLast: { kind: "mine"; t: number } = { kind: "mine", t: 1 };
+    /** How far the grip is moved clear of the view for a wound-up power attack (0..1). */
+    private clearWeight = 0;
     private readonly models = new Map<string, THREE.Object3D>();
     private readonly loading = new Set<string>();
     private current: THREE.Object3D | undefined;
@@ -468,6 +490,16 @@ export class WeaponView {
         return out.set(0, length, 0).applyMatrix4(this.holder.matrixWorld);
     }
 
+    /**
+     * World position of the held item's grip (the contract's origin, where the hand closes) in the
+     * first-person view; undefined in third person or when nothing is drawn.
+     */
+    gripPoint(out: THREE.Vector3): THREE.Vector3 | undefined {
+        if (!this.holder.visible || this.holder.parent !== this.camera) return undefined;
+        this.holder.updateWorldMatrix(true, false);
+        return out.setFromMatrixPosition(this.holder.matrixWorld);
+    }
+
     /** A blow met the held item: it rattles in the hand and the view shudders a little. 0..1. */
     clash(strength: number): void {
         this.clashing = Math.max(this.clashing, strength);
@@ -600,6 +632,11 @@ export class WeaponView {
             pose = workLever(pose, crossbow.slide ?? 0);
         } else {
             pose = this.animate(dt, weapon.family, melee, extra.blocking ?? false);
+            const charging = melee.chargedMove !== undefined && !extra.blocking;
+            this.clearWeight = charging ? Math.min(1, this.clearWeight + dt / CLEAR_BLEND) : Math.max(0, this.clearWeight - dt / CLEAR_BLEND);
+            if (this.clearWeight > 0) {
+                pose = { pos: pose.pos.clone().lerp(clearOfView(pose.pos), smooth(this.clearWeight)), quat: pose.quat };
+            }
             // A fishing tool takes its own pose unless it is being swung or used to block; a
             // pickaxe mining takes its stroke. (An axe chops with its attack swings.)
             const hold = this.current?.userData.hold as "rod" | "tool" | undefined;

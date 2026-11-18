@@ -7,6 +7,16 @@ import { AvatarAnimator, LocomotionInput } from "./AvatarAnimator";
 import { checkAvatarGltf, readGlbJson } from "./AvatarContract";
 import { REQUIRED_CLIPS } from "./avatarConfig";
 import { createPlaceholderAvatar } from "./PlaceholderAvatar";
+import { createCacheAvatar } from "./CacheAvatar";
+import { decodeNpcModel } from "../world/NpcFormat";
+import { readFileSync } from "node:fs";
+import { gunzipSync } from "node:zlib";
+
+/** Hans of Lumbridge from the exported cache: the player's body without a player.glb. */
+function hans() {
+    const raw = readFileSync("public/world/npcs/3105_3105.bin");
+    return createCacheAvatar(decodeNpcModel(new Uint8Array(gunzipSync(raw)).buffer))!;
+}
 
 const target = (overrides: Partial<AvatarTarget> = {}): AvatarTarget => ({
     x: 10,
@@ -132,13 +142,13 @@ describe("AvatarAnimator", () => {
 });
 
 describe("Avatar", () => {
-    it("follows the player and hides the entire body from its first-person view", () => {
+    it("follows the player and hides only its head in first person", () => {
         const asset = createPlaceholderAvatar();
         const avatar = new Avatar(asset);
 
         avatar.update(0.05, target(), "first");
         expect(avatar.root.position.toArray()).toEqual([10, 1, -20]);
-        expect(avatar.root.visible).toBe(false);
+        expect(avatar.root.visible).toBe(true);
         expect(asset.headParts.every((part) => !part.visible)).toBe(true);
 
         avatar.update(0.05, target(), "third");
@@ -146,15 +156,45 @@ describe("Avatar", () => {
         expect(asset.headParts.every((part) => part.visible)).toBe(true);
     });
 
+    it("keeps the torso clear of the first-person eyes whatever the pitch, crouching too", () => {
+        const asset = createPlaceholderAvatar();
+        const avatar = new Avatar(asset);
+        const torso = asset.root.getObjectByName("torso") as THREE.Mesh;
+        torso.geometry.computeBoundingBox();
+        for (const [pitch, eyeHeight] of [[0, EYE_HEIGHT], [-1.5, EYE_HEIGHT], [1.4, EYE_HEIGHT], [-1.2, 0.8]]) {
+            avatar.update(0.05, target({ pitch, eyeHeight }), "first");
+            const eye = new THREE.Vector3(10, 1 + eyeHeight, -20);
+            // The eye, in the torso box's own space, lies outside it with room for the near plane.
+            const local = torso.worldToLocal(eye.clone());
+            const box = torso.geometry.boundingBox!.clone().expandByScalar(0.05);
+            expect(box.containsPoint(local), `pitch ${pitch}, eyes ${eyeHeight}`).toBe(false);
+        }
+    });
+
+    it("puts the right hand on a grip in reach and lets the animation have the arm back", () => {
+        const asset = createPlaceholderAvatar();
+        const avatar = new Avatar(asset);
+        const socket = asset.sockets.handR!;
+        avatar.update(0.05, target(), "first");
+        const animated = asset.bones.forearm_r!.quaternion.clone();
+        // The sword's idle grip, and one beyond the arm's length that the shoulder reaches for.
+        for (const grip of [new THREE.Vector3(10.24, 1.88, -20.26), new THREE.Vector3(10.2, 1.95, -20.6)]) {
+            avatar.reachRightHand(grip);
+            expect(socket.getWorldPosition(new THREE.Vector3()).distanceTo(grip)).toBeLessThan(1e-3);
+            avatar.update(0.05, target(), "first");
+        }
+        expect(asset.bones.forearm_r!.quaternion.angleTo(animated)).toBeLessThan(1e-4);
+    });
+
     it("does not accumulate the torso lean frame after frame", () => {
         const asset = createPlaceholderAvatar();
         const avatar = new Avatar(asset);
         const spine = asset.bones.spine!;
 
-        avatar.update(0.05, target({ pitch: -0.8 }), "first");
+        avatar.update(0.05, target({ pitch: -0.8 }), "third");
         const once = spine.quaternion.clone();
         for (let i = 0; i < 20; i++) {
-            avatar.update(0.05, target({ pitch: -0.8 }), "first");
+            avatar.update(0.05, target({ pitch: -0.8 }), "third");
         }
 
         expect(spine.quaternion.angleTo(once)).toBeLessThan(1e-4);
@@ -169,5 +209,52 @@ describe("Avatar", () => {
             avatar.update(0.05, target({ yaw: 0.3, speed: 3.5, localForward: 3.5 }), "first");
         }
         expect(avatar.bodyYaw).toBeCloseTo(0.3, 2);
+    });
+});
+
+describe("cache NPC avatar", () => {
+    it("fits Hans to the rig with his eyes at the game's eye height", () => {
+        const asset = hans();
+        expect(asset).toBeDefined();
+        expect(asset.sockets.eye.getWorldPosition(new THREE.Vector3()).y).toBeCloseTo(EYE_HEIGHT, 3);
+        // Right hand on the right (-X of the model, +X of the root once turned to face -Z), low down.
+        const hand = asset.sockets.handR!.getWorldPosition(new THREE.Vector3());
+        expect(hand.x).toBeGreaterThan(0.1);
+        expect(hand.y).toBeLessThan(EYE_HEIGHT * 0.8);
+        const skinned = asset.root.getObjectByName("body") as THREE.SkinnedMesh;
+        expect(skinned.isSkinnedMesh).toBe(true);
+    });
+
+    it("plays the clips, hides the head and puts the hand on the grip in first person", () => {
+        const asset = hans();
+        const avatar = new Avatar(asset);
+        for (let i = 0; i < 10; i++) avatar.update(0.05, target({ speed: 3, localForward: 3 }), "first");
+        expect(asset.bones.head!.scale.x).toBeLessThan(0.01);
+        const grip = new THREE.Vector3(10.24, 1.88, -20.26);
+        avatar.reachRightHand(grip);
+        expect(asset.sockets.handR!.getWorldPosition(new THREE.Vector3()).distanceTo(grip)).toBeLessThan(1e-3);
+        avatar.update(0.05, target(), "third");
+        expect(asset.bones.head!.scale.x).toBe(1);
+    });
+
+    it("never has the eyes inside Hans's body in first person", () => {
+        const asset = hans();
+        const avatar = new Avatar(asset);
+        const mesh = asset.root.getObjectByName("body") as THREE.SkinnedMesh;
+        const skin = mesh.geometry.getAttribute("skinIndex");
+        const head = mesh.skeleton.bones.indexOf(asset.bones.head!);
+        const p = new THREE.Vector3();
+        for (const [pitch, eyeHeight] of [[0, EYE_HEIGHT], [-1.5, EYE_HEIGHT], [1.4, EYE_HEIGHT], [-1.2, 0.8]]) {
+            avatar.update(0.05, target({ pitch, eyeHeight }), "first");
+            avatar.reachRightHand(new THREE.Vector3(10.24, 1 + eyeHeight - 0.37, -20.26));
+            const eye = new THREE.Vector3(10, 1 + eyeHeight, -20);
+            let nearest = Infinity;
+            for (let i = 0; i < skin.count; i++) {
+                if (skin.getX(i) === head) continue;
+                nearest = Math.min(nearest, mesh.getVertexPosition(i, p).applyMatrix4(mesh.matrixWorld).distanceTo(eye));
+            }
+            // Further than the camera's near plane (0.05) with room to spare.
+            expect(nearest, `pitch ${pitch}, eyes ${eyeHeight}`).toBeGreaterThan(0.1);
+        }
     });
 });

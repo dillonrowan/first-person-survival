@@ -22,8 +22,11 @@ export type AvatarAsset = {
     headParts: THREE.Object3D[];
 };
 
-/** Loads the character at `url`; falls back to a placeholder if it is missing or invalid. */
-export async function loadAvatarAsset(url: string): Promise<AvatarAsset> {
+/**
+ * Loads the character at `url`; when it is missing or invalid, uses `fallback` (the cache NPC body)
+ * and, failing that too, the placeholder.
+ */
+export async function loadAvatarAsset(url: string, fallback?: () => Promise<AvatarAsset | undefined>): Promise<AvatarAsset> {
     try {
         const response = await fetch(url);
         // Vite's dev server answers missing files with index.html (status 200), so check the type.
@@ -39,7 +42,16 @@ export async function loadAvatarAsset(url: string): Promise<AvatarAsset> {
         }
         return prepareAvatar(gltf.scene, gltf.animations);
     } catch (e) {
-        console.info(`Using the placeholder character (${url}: ${e instanceof Error ? e.message : e})`);
+        const reason = `${url}: ${e instanceof Error ? e.message : e}`;
+        const asset = await fallback?.().catch((f: unknown) => {
+            console.warn("The fallback character could not be loaded", f);
+            return undefined;
+        });
+        if (asset) {
+            console.info(`Using the fallback character (${reason})`);
+            return asset;
+        }
+        console.info(`Using the placeholder character (${reason})`);
         return createPlaceholderAvatar();
     }
 }
