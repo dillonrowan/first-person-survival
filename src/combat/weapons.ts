@@ -27,7 +27,7 @@ export type WeaponDef = {
 };
 
 /** Seconds one quick strike takes with a weapon of `weight` kg: heavier swings slower. [design] */
-export const swingTime = (weight: number) => 0.3 + 0.25 * weight;
+export const swingTime = (weight: number) => 0.4 + 0.25 * weight;
 
 /** Length of the quick strike timelines in moves.ts at speed 1. */
 const QUICK_STRIKE_TIME = 0.4;

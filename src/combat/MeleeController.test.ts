@@ -88,7 +88,7 @@ describe("MeleeController", () => {
             const order: string[] = [];
             for (let i = 0; i < 5; i++) {
                 order.push(...pressFor(melee, 0.03));
-                order.push(...runOut(melee, 0.5));
+                order.push(...runOut(melee, 1));
             }
             expect(order).toEqual(["quick_A", "quick_B", "quick_A", "quick_B", "quick_A"]);
             expect(MOVE_SETS[weaponById(id).family].quick.map((m) => m.hits[0].impact.y)).toEqual([-1, 1]);
@@ -139,7 +139,7 @@ describe("MeleeController", () => {
                 melee.update(DT, input({ attackDown: true }));
                 melee.update(DT, input());
             }
-            started.push(...runOut(melee));
+            started.push(...runOut(melee, 3));
             expect(started).toEqual(["quick_A", "quick_B", "quick_A", "quick_B"]);
         });
 
@@ -203,7 +203,7 @@ describe("MeleeController", () => {
         });
         for (let i = 1; i < times.length; i++) expect(times[i]).toBeGreaterThan(times[i - 1]);
         expect(times[0]).toBeCloseTo(swingTime(weaponById("daggers").weight), 9);
-        expect(times[0]).toBeLessThan(0.5);
+        expect(times[0]).toBeLessThan(0.6);
     });
 
     it("cancels a quick strike into the wind-up when held for the charge threshold", () => {
