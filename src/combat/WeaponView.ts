@@ -5,7 +5,7 @@ import { BowString } from "./BowString";
 import { CrossbowRig } from "./CrossbowRig";
 import { DM_CLIPS, DmClip } from "./DmKeyframes";
 import type { KickController } from "./Kick";
-import { LODGE_CLIP, LODGE_FPS } from "./LodgeClip";
+import { BLOCKED_CLIP, LODGE_CLIP, LODGE_FPS } from "./LodgeClip";
 import type { MeleeController } from "./MeleeController";
 import type { MoveDef, PowerDirection } from "./moves";
 import { createPlaceholderWeapon } from "./PlaceholderWeapons";
@@ -300,13 +300,17 @@ function sample(clip: DmClip, time: number, loop = false): Pose {
 /** Poses tried when finding where a lodged blade points at the trunk. [design] */
 const LODGE_SEARCH_STEPS = 48;
 
-/** A lodged blade `time` seconds in: the contact pose moved by the Blender lodge clip (LodgeClip.ts). */
-function lodgedPose(contact: Pose, time: number): Pose {
-    const f = Math.min(LODGE_CLIP.length - 1, Math.max(0, time * LODGE_FPS));
-    const i = Math.min(Math.floor(f), LODGE_CLIP.length - 2);
+/**
+ * A blade stopped dead `time` seconds in: the contact pose moved by the Blender clip for what
+ * stopped it (LodgeClip.ts): lodged in a trunk, or knocked back off an enemy's guard.
+ */
+function lodgedPose(contact: Pose, lodged: NonNullable<MeleeController["lodged"]>): Pose {
+    const clip = lodged.by === "guard" ? BLOCKED_CLIP : LODGE_CLIP;
+    const f = Math.min(clip.length - 1, Math.max(0, lodged.time * LODGE_FPS));
+    const i = Math.min(Math.floor(f), clip.length - 2);
     const k = f - i;
-    const [ax, ay, az, aqx, aqy, aqz, aqw] = LODGE_CLIP[i];
-    const [bx, by, bz, bqx, bqy, bqz, bqw] = LODGE_CLIP[i + 1];
+    const [ax, ay, az, aqx, aqy, aqz, aqw] = clip[i];
+    const [bx, by, bz, bqx, bqy, bqz, bqw] = clip[i + 1];
     const offset = new THREE.Vector3(ax, ay, az).lerp(new THREE.Vector3(bx, by, bz), k);
     const turn = new THREE.Quaternion(aqx, aqy, aqz, aqw).slerp(new THREE.Quaternion(bqx, bqy, bqz, bqw), k);
     return { pos: contact.pos.clone().add(offset), quat: contact.quat.clone().multiply(turn) };
@@ -719,7 +723,7 @@ export class WeaponView {
         }
         let pose = sample(layer.clip, layer.time, layer.loop);
         if (melee.lodged && !blocking) {
-            pose = lodgedPose(pose, melee.lodged.time);
+            pose = lodgedPose(pose, melee.lodged);
         }
         if (this.blendFrom) {
             this.blendTime += dt;
@@ -778,8 +782,9 @@ export class WeaponView {
         }
         const lodged = melee.lodged;
         if (lodged) {
-            // Stuck where the blade met the trunk: the same layer as the swing, so it stops dead
-            // there rather than blending; the pull back to the guard blends from the lodge's end.
+            // Stopped where the blade met the trunk or the enemy's guard: the same layer as the
+            // swing, so it stops dead there rather than blending; the pull back to the guard blends
+            // from the clip's end.
             if (lodged !== this.lodgeRef) {
                 this.lodgeRef = lodged;
                 this.lodgeElapsed = this.contactElapsed(family, lodged);

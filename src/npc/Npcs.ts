@@ -5,7 +5,7 @@ import { RS_UNITS_PER_TILE, type RegionListener } from "../world/WorldFormat";
 import { CLIENT_CYCLE_SECONDS } from "./NpcAnimation";
 import { SERVER_TICK_SECONDS } from "./NpcMovement";
 import { NpcModels, SharedNpcModel } from "./NpcModels";
-import { Body, BodySource, segmentHitsBoxes2D } from "../physics/Bodies";
+import { Body, BodySource, canStepOver, segmentHitsBoxes2D } from "../physics/Bodies";
 import { Box, collectTileBoxes } from "../physics/TileColliders";
 import { tuning } from "../combat/tuning";
 import { CombatContext, Npc, NpcWorld, Occupancy } from "./Npc";
@@ -117,13 +117,32 @@ export class Npcs implements BodySource<Npc> {
         }
     }
 
+    /**
+     * The bodies of NPCs that block the player's walking (collectBodies without those small enough
+     * to step over: rats, mice, small spiders).
+     */
+    readonly walkBlockers: BodySource<Npc> = {
+        collectBodies: (plane, minX, minY, maxX, maxY, out) => {
+            const start = out.length;
+            this.collectBodies(plane, minX, minY, maxX, maxY, out);
+            let kept = start;
+            for (let i = start; i < out.length; i++) {
+                if (!canStepOver(out[i])) {
+                    out[kept++] = out[i];
+                }
+            }
+            out.length = kept;
+        },
+    };
+
     /** Whether the player's cylinder blocks an NPC from moving to (x, y) in tiles. */
     private readonly blockedByPlayer = (npc: Npc, x: number, y: number): boolean => {
         const player = this.playerBody;
-        if (!player || npc.plane !== player.plane) {
+        const b = npc.body;
+        // The player steps over small NPCs, so they run between the player's feet too.
+        if (!player || npc.plane !== player.plane || canStepOver(b)) {
             return false;
         }
-        const b = npc.body;
         if (!(b.z < player.z + player.height && player.z < b.z + b.height)) {
             return false;
         }

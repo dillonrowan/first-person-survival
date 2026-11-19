@@ -256,8 +256,11 @@ weapon upright before it (`guard_weapon`) or its forearms before its face (`guar
 cache keeps no record of an NPC's equipment, so the game reads it from the geometry on each hand
 (`heldItem`: a broad flat plate on the left hand is a shield, a long thin shape on the right a
 weapon). Any other body braces: it shies back and hunkers down (`BRACE_CLIP`,
-`tools/blender/brace_clip.py`). A blade taken on a guard glances off: it rattles in the player's
-hand (`WeaponView.clash`) instead of stalling. Against a melee blow a humanoid may parry instead:
+`tools/blender/brace_clip.py`). A blade taken on a guard is blocked: the swing stops dead where it
+met the body, hitting nothing past it, and like a blade lodged in a tree it holds the contact pose
+while the Blender `BLOCKED_CLIP` (`tools/blender/axe_lodge.py`, `LodgeClip.ts`) knocks it back
+off the guard, shudders and draws it in over `BLOCKED_SECONDS` (1/3 s); it also rattles in the
+player's hand (`WeaponView.clash`). Clicks meanwhile queue strikes for after. Against a melee blow a humanoid may parry instead:
 chance `parryChanceMax 0.5 × D / (D + M)` (D its Defence level, M the player's Melee level). It
 reads a flurry: each earlier melee blow of the player's that reached it in the last
 `parryFlurryWindow` 3 s adds `parryFlurryBonus` 0.5 of that chance, up to `parryChanceCap` 0.85,

@@ -1,4 +1,4 @@
-import { LODGE_SECONDS } from "./LodgeClip";
+import { BLOCKED_SECONDS, LODGE_SECONDS } from "./LodgeClip";
 import { COMBOS, MOVE_SETS, MoveDef, PowerDirection, Timeline, rayFor, timelineFor } from "./moves";
 import { ViewDir, rayDirection, raySign } from "./SwingRay";
 import { tuning } from "./tuning";
@@ -41,7 +41,13 @@ export type MeleeEvents = {
     active: ActiveSlice[];
 };
 
-/** Where the melee input is (spec 18.1); "lodged": the blade is stuck in a tree being worked free. */
+/** What stopped a blade dead: a tree or rock it lodged in, or an enemy's guard that took a blow of 0. */
+export type StoppedBy = "solid" | "guard";
+
+/**
+ * Where the melee input is (spec 18.1); "lodged": the blade was stopped dead, stuck in a tree being
+ * worked free or knocked back off an enemy's guard.
+ */
 export type MeleePhase = "idle" | "windup" | "charged" | "swing" | "end" | "lodged";
 
 /**
@@ -59,10 +65,10 @@ export class MeleeController {
     swing: SwingState | undefined;
     phase: MeleePhase = "idle";
     /**
-     * The swing whose blade is lodged (its elapsed is the moment of contact), the attack ray's
-     * direction there (view space: where the trunk was met), and seconds since.
+     * The swing whose blade was stopped dead (its elapsed is the moment of contact), the attack
+     * ray's direction there (view space: where it was met), seconds since, and what stopped it.
      */
-    lodged: { swing: SwingState; dir: ViewDir; time: number } | undefined;
+    lodged: { swing: SwingState; dir: ViewDir; time: number; by: StoppedBy } | undefined;
 
     /** Seconds the attack button has been held since its last press, or undefined when up. */
     private pressHeld: number | undefined;
@@ -141,16 +147,17 @@ export class MeleeController {
     }
 
     /**
-     * The blade met something solid (a tree, a rock) `at` (0..1) through hit `hitIndex`'s window:
-     * it stops there, lodged, for LODGE_SECONDS while it is worked free. Clicks meanwhile queue
+     * The blade was stopped dead `at` (0..1) through hit `hitIndex`'s window, by something solid (a
+     * tree, a rock: it lodges for LODGE_SECONDS while it is worked free) or by an enemy's guard (a
+     * blow that did 0: it is knocked back and recovers for BLOCKED_SECONDS). Clicks meanwhile queue
      * strikes for after; the next strike still comes from the other side.
      */
-    lodge(hitIndex: number, at: number): void {
+    lodge(hitIndex: number, at: number, by: StoppedBy = "solid"): void {
         const swing = this.swing;
         if (!swing) return;
         const ray = rayFor(swing.timeline, hitIndex);
         const dir = rayDirection(ray, raySign(ray, swing.move.hits[hitIndex].impact), at);
-        this.lodged = { swing: { ...swing, elapsed: ray.on + at * (ray.off - ray.on) }, dir, time: 0 };
+        this.lodged = { swing: { ...swing, elapsed: ray.on + at * (ray.off - ray.on) }, dir, time: 0, by };
         this.swing = undefined;
         this.phase = "lodged";
         this.queued = 0;
@@ -168,7 +175,7 @@ export class MeleeController {
             case "lodged":
                 if (pressed) this.queue();
                 this.lodged!.time += dt;
-                if (this.lodged!.time >= LODGE_SECONDS) {
+                if (this.lodged!.time >= (this.lodged!.by === "guard" ? BLOCKED_SECONDS : LODGE_SECONDS)) {
                     this.lodged = undefined;
                     this.phase = "idle";
                     if (this.queued > 0) {

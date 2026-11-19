@@ -228,14 +228,21 @@ async function main(): Promise<void> {
         scene,
         materials,
     );
-    /** NPCs and props: what the player cannot walk through and what combat can hit. */
+    /** NPCs and props: what combat can hit. */
     const solidBodies: BodySource<CombatTarget> = {
         collectBodies: (plane, minX, minY, maxX, maxY, out) => {
             npcs?.collectBodies(plane, minX, minY, maxX, maxY, out as never[]);
             props.collectBodies(plane, minX, minY, maxX, maxY, out);
         },
     };
-    const player = new Player(world, spawnFromUrl(manifest.spawn), { bodies: solidBodies });
+    /** What the player cannot walk through: the same, less small NPCs it steps over (rats, spiders). */
+    const walkBlockers: BodySource<CombatTarget> = {
+        collectBodies: (plane, minX, minY, maxX, maxY, out) => {
+            npcs?.walkBlockers.collectBodies(plane, minX, minY, maxX, maxY, out as never[]);
+            props.collectBodies(plane, minX, minY, maxX, maxY, out);
+        },
+    };
+    const player = new Player(world, spawnFromUrl(manifest.spawn), { bodies: walkBlockers });
     const baseFov = camera.fov;
     const cameraRig = new CameraRig(camera, import.meta.env.DEV);
     // Only the character is lit by scene lights; the world shaders have their lighting baked in.
@@ -392,7 +399,7 @@ async function main(): Promise<void> {
             // A melee blow (not an arrow): power and finishing strikes land heavier. The blade
             // stalls and the view jolts; the struck bodies hold for a moment.
             // A parried blade is caught dead: it stalls and shakes the view hardest of all. A blade
-            // taken on a guard does not bite: it glances off, rattling in the hand.
+            // taken on a guard does not bite: it stops dead there (PlayerCombat), rattling in the hand.
             if (result.defence === "guard") {
                 weaponView.clash(move.kind === "quick" ? 0.6 : 1);
             } else {

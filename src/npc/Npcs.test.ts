@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 
 import { fallbackCombatStats } from "../combat/Osrs";
+import { STEP_OVER_HEIGHT } from "../physics/Bodies";
 import { units } from "../player/MoveMath";
 import { tuning } from "../combat/tuning";
 import type { NpcManifest, NpcModelData } from "../world/NpcFormat";
@@ -290,6 +291,7 @@ describe("Npcs and the player", () => {
         world.load(50, 50);
         await flush();
         const npc = npcs.all()[0];
+        npc.body.height = 1.4; // person-sized: the test model is rat-sized
         npcs.update(0.6); // takes the step and is partway there
         const before = npc.fineX;
 
@@ -297,6 +299,19 @@ describe("Npcs and the player", () => {
         expect(npc.fineX).toBe(before);
 
         npcs.update(0.1, undefined);
+        expect(npc.fineX).toBeLessThan(before);
+    });
+
+    it("a small NPC the player steps over runs on between their feet", async () => {
+        const { world, npcs } = setup({ random: () => 0 });
+        world.load(50, 50);
+        await flush();
+        const npc = npcs.all()[0];
+        npc.body.height = STEP_OVER_HEIGHT;
+        npcs.update(0.6);
+        const before = npc.fineX;
+
+        npcs.update(0.1, playerAt(3221.5, 3217.5));
         expect(npc.fineX).toBeLessThan(before);
     });
 
@@ -325,6 +340,27 @@ describe("Npcs and the player", () => {
         npcs.collectBodies(1, 3222, 3218, 3223, 3219, out as never[]);
         npcs.collectBodies(0, 3230, 3230, 3231, 3231, out as never[]);
         expect(out).toHaveLength(0);
+    });
+
+    it("leaves NPCs small enough to step over out of what blocks the player's walking", async () => {
+        const { world, npcs } = setup();
+        world.load(50, 50);
+        await flush();
+        const out: { height: number }[] = [];
+        npcs.collectBodies(0, 3222, 3218, 3223, 3219, out as never[]);
+        const body = out[0];
+        const keep = body.height;
+        const blockers = () => {
+            const found: unknown[] = ["already there"];
+            npcs.walkBlockers.collectBodies(0, 3222, 3218, 3223, 3219, found as never[]);
+            return found;
+        };
+
+        body.height = STEP_OVER_HEIGHT + 0.1;
+        expect(blockers()).toEqual(["already there", body]);
+        body.height = STEP_OVER_HEIGHT;
+        expect(blockers()).toEqual(["already there"]);
+        body.height = keep;
     });
 
     it("turns to face a point and holds still while held", async () => {
@@ -442,7 +478,7 @@ describe("NPC combat", () => {
 });
 
 describe("bodies knocking NPCs over (spec 20.7)", () => {
-    /** A standing box 0.6 × 1.5 × 0.3 tiles (RS units: +y down), idle and walk holding still. */
+    /** A standing box 0.6 Ã— 1.5 Ã— 0.3 tiles (RS units: +y down), idle and walk holding still. */
     function boxModel(): NpcModelData {
         const corners: number[] = [];
         for (const z of [-19, 19]) {

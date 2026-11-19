@@ -57,6 +57,8 @@ export type RayHit<T> = {
     dirX: number;
     dirY: number;
     distance: number;
+    /** How far through the ray's sweep (0..1) the line that struck was. */
+    at: number;
     /** Where on the body's height the line struck, 0 = feet, 1 = top of the head. */
     height: number;
     /**
@@ -219,6 +221,7 @@ export function traceRay<T>(
                 dirX: dist > 1e-6 ? dx / dist : d.x,
                 dirY: dist > 1e-6 ? dy / dist : d.y,
                 distance: dist,
+                at: t,
                 height: best.body.height > 0 ? (best.z - best.body.z) / best.body.height : 0.5,
                 swingX: swing?.x,
                 swingY: swing?.y,

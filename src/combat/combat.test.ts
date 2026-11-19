@@ -5,6 +5,7 @@ import { CollisionFlag } from "../world/WorldFormat";
 import { Combatant } from "./Combatant";
 import { applyHit, damageAmount, hitboxMultiplier, parryChance, reactionFor } from "./Damage";
 import { PlayerCombat, type CombatTarget } from "./PlayerCombat";
+import { BLOCKED_SECONDS } from "./LodgeClip";
 import { pushDirection, rayDirection, sweepDirection, traceRay, traceSolid, viewToWorld } from "./SwingRay";
 import { MOVE_SETS, Ray } from "./moves";
 import { tuning } from "./tuning";
@@ -644,6 +645,26 @@ describe("OSRS damage from the player", () => {
         const { defences, combat } = swingAtParrier(scripted(0.999));
         expect(defences).toEqual(["guard"]);
         expect(combat.stunned).toBe(false);
+    });
+
+    it("a blow of 0 is blocked: the blade stops dead on the guard, then recovers", () => {
+        const { target, bodies } = dummy(1000);
+        const defences: (string | undefined)[] = [];
+        Object.assign(target, { canParry: false, takeHit: (...args: unknown[]) => void defences.push(args[7] as string | undefined) });
+        const combat = new PlayerCombat(bodies, noWalls, scripted(0.999));
+        combat.melee.weapon = sword;
+        let t = 0;
+        for (; t < 1 && defences.length === 0; t += 0.01) {
+            combat.update(0.01, player, { attackDown: t < 0.03, forward: 0, strafe: 0 });
+        }
+        expect(defences).toEqual(["guard"]);
+        expect(combat.melee.swing).toBeUndefined();
+        expect(combat.melee.phase).toBe("lodged");
+        expect(combat.melee.lodged?.by).toBe("guard");
+        for (let s = 0; s < BLOCKED_SECONDS + 0.05; s += 0.01) {
+            combat.update(0.01, player, { attackDown: false, forward: 0, strafe: 0 });
+        }
+        expect(combat.melee.phase).toBe("idle");
     });
 
     it("a parried melee blow stops the swing and stuns the player where they stand when the shove lands", () => {

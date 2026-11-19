@@ -820,6 +820,11 @@ export class PlayerCombat {
                     this.parriedBy.y = arcHit.body.y;
                     return reports;
                 }
+                if (result.defence === "guard") {
+                    // A blow of 0 is blocked: the blade stops dead on the guard, hitting nothing past it.
+                    this.melee.lodge(slice.hitIndex, arcHit.at, "guard");
+                    return reports;
+                }
             }
             if (solid) {
                 this.melee.lodge(slice.hitIndex, solid.at);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { LODGE_SECONDS } from "./LodgeClip";
+import { BLOCKED_SECONDS, LODGE_SECONDS } from "./LodgeClip";
 import { MeleeController, MeleeInput, powerDirection } from "./MeleeController";
 import { MOVE_SETS, timelineFor } from "./moves";
 import { tuning } from "./tuning";
@@ -312,6 +312,18 @@ describe("a blade lodged in a tree", () => {
         runOut(melee, 0.1);
         expect(melee.phase).toBe("idle");
         expect(melee.lodged).toBeUndefined();
+    });
+
+    it("a blade stopped by a guard recovers in the shorter blocked clip", () => {
+        const melee = new MeleeController(weaponById("sword"));
+        pressFor(melee, 0.03);
+        melee.lodge(0, 0.5, "guard");
+        expect(melee.lodged!.by).toBe("guard");
+        expect(BLOCKED_SECONDS).toBeLessThan(LODGE_SECONDS);
+        runOut(melee, BLOCKED_SECONDS - 0.05);
+        expect(melee.phase).toBe("lodged");
+        runOut(melee, 0.1);
+        expect(melee.phase).toBe("idle");
     });
 
     it("keeps a click made while stuck: the next strike comes from the other side once it is free", () => {
