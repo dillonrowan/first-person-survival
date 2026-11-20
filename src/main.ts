@@ -1073,8 +1073,7 @@ async function main(): Promise<void> {
         groundItems.update(dt, player.x, player.y, player.plane);
         arrowView.update(combat.arrows, (out) => weaponView.launchPoint(out));
         const melee = combat.melee;
-        const kickPose = kickSample(combat.kick.elapsed, combat.kick.low);
-        avatar.setKick(kickPose);
+        avatar.setKick(kickSample(combat.kick.elapsed, combat.kick.low));
         avatar.update(
             dt,
             player,
@@ -1143,13 +1142,7 @@ async function main(): Promise<void> {
             const s = stunFeel.view;
             cameraRig.update(
                 player,
-                // First person: the view dips with the kick so the leg comes into view.
-                {
-                    ...look,
-                    pitch: v.pitch + look.pitch + s.pitch + (cameraRig.mode === "first" ? (kickPose?.look ?? 0) : 0),
-                    yaw: v.yaw + look.yaw + s.yaw,
-                    roll: v.roll + look.roll + s.roll,
-                },
+                { ...look, pitch: v.pitch + look.pitch + s.pitch, yaw: v.yaw + look.yaw + s.yaw, roll: v.roll + look.roll + s.roll },
                 dt,
             );
         }

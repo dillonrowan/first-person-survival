@@ -80,8 +80,7 @@ foot is set down. Looking ahead gives a push kick at stomach height (fully out a
 medium kick's hit event); looking down gives a front kick at knee height (frame 6). The ankle
 target is in leg lengths from the hip, so the keys fit any rig; the kicking leg is bent by two-bone
 IK with the knee towards a keyed direction, the foot turned by a keyed angle, and the standing foot
-held where it was. In first person the view dips with the kick (the key's `look`) so the boot comes
-up into view under the crosshair.
+held where it was. The first-person camera does not move with the kick.
 
 ## Material roles
 
