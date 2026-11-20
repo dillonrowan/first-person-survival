@@ -70,6 +70,19 @@ Fishing tools and mining strokes reuse their first-person poses, moved down from
 hands and tilted with the view about the shoulder (`heldToolPose`), so the shaft stays clear of the
 body when looking down at the water. Bows and crossbows keep their first-person poses.
 
+## Kick
+
+The kick is posed on the body itself, so first and third person show the same leg
+(`src/avatar/KickPose.ts`, applied by `Avatar.setKick`). The keys were authored and previewed in
+Blender on the placeholder rig, at the kick animation's 24 fps: the knee chambers, the hips thrust
+forward and the torso leans back as the leg extends heel first, then the knee re-chambers and the
+foot is set down. Looking ahead gives a push kick at stomach height (fully out at frame 8, the
+medium kick's hit event); looking down gives a front kick at knee height (frame 6). The ankle
+target is in leg lengths from the hip, so the keys fit any rig; the kicking leg is bent by two-bone
+IK with the knee towards a keyed direction, the foot turned by a keyed angle, and the standing foot
+held where it was. In first person the view dips with the kick (the key's `look`) so the boot comes
+up into view under the crosshair.
+
 ## Material roles
 
 Name materials by role so customisation can recolour them later: `skin hair top bottom shoes

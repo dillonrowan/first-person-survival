@@ -213,22 +213,6 @@ function warp(t: number, swing: { on: number; off: number }, clip: { on: number;
     return Math.min(length, contactOff + (t - swing.off) * QUICK_PLAY_RATE);
 }
 
-/** Placeholder boot for the first-person kick. */
-function createBoot(): THREE.Group {
-    const boot = new THREE.Group();
-    const leather = new THREE.MeshStandardMaterial({ color: 0x3b2618, roughness: 0.9 });
-    const sole = new THREE.MeshStandardMaterial({ color: 0x1c140e, roughness: 1 });
-    const shin = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.4, 0.13), leather);
-    shin.position.set(0, 0.2, 0.05);
-    const foot = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.12, 0.3), leather);
-    foot.position.set(0, 0.0, -0.08);
-    const bottom = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.03, 0.31), sole);
-    bottom.position.set(0, -0.07, -0.08);
-    boot.add(shin, foot, bottom);
-    boot.name = "kick_boot";
-    return boot;
-}
-
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 const smooth = (t: number) => t * t * (3 - 2 * t);
 function lerpPose(a: Pose, b: Pose, t: number): Pose {
@@ -377,7 +361,6 @@ export class WeaponView {
     private crossbowRig: CrossbowRig | undefined;
     private readonly lastArrowHead = new THREE.Vector3();
     private sinceNocked = Infinity;
-    private readonly boot = createBoot();
     /** Added to the first-person camera's rotation: the view following the swing and shaking on impact. */
     readonly viewOffset: ViewOffset = { pitch: 0, yaw: 0, roll: 0 };
     /** Seconds the drawn swing runs behind the real one (hit-stop); it catches up at double speed. */
@@ -427,8 +410,6 @@ export class WeaponView {
     ) {
         this.holder.rotation.order = "YXZ";
         camera.add(this.holder);
-        this.boot.visible = false;
-        camera.add(this.boot);
     }
 
     private modelFor(weapon: WeaponDef): THREE.Object3D {
@@ -618,7 +599,6 @@ export class WeaponView {
             this.lag = Math.max(0, this.lag - dt);
         }
         this.viewOffset.pitch = this.viewOffset.yaw = this.viewOffset.roll = 0;
-        this.updateBoot(mode === "first" && visible ? kick : undefined);
         const weapon = melee.weapon;
         if (weapon.id !== this.currentId) {
             this.currentId = weapon.id;
@@ -928,20 +908,5 @@ export class WeaponView {
             return { key: "end", clip: end, time: this.layerTime };
         }
         return { key: "idle", clip: clips.idle, time: 0 };
-    }
-
-    private updateBoot(kick: KickController | undefined): void {
-        if (!kick?.active || kick.elapsed === undefined) {
-            this.boot.visible = false;
-            return;
-        }
-        this.boot.visible = true;
-        const t = kick.elapsed;
-        const hit = kick.hitTime;
-        const out = t < hit ? t / hit : Math.max(0, 1 - (t - hit) / (tuning.kickDuration - hit));
-        const s = smooth(Math.min(1, out));
-        const lowY = kick.low ? -0.75 : -0.55;
-        this.boot.position.set(0.12, lerp(-1.1, lowY, s), lerp(-0.2, -0.85, s));
-        this.boot.rotation.set(lerp(0.6, -0.15, s), 0, 0);
     }
 }

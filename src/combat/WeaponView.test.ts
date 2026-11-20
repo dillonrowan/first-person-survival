@@ -37,7 +37,7 @@ function play(
 ): Run {
     const camera = new THREE.PerspectiveCamera();
     const view = new WeaponView(camera, "/");
-    const holder = camera.children.find((c) => c.type === "Group" && c.name !== "kick_boot")!;
+    const holder = camera.children.find((c) => c.type === "Group")!;
     const melee = new MeleeController(weaponById(weaponId));
     const run: Run = { samples: [], view, melee };
     for (let t = 0; t < seconds; t += DT) {
@@ -177,7 +177,7 @@ describe("a blow on the held weapon", () => {
     it("rattles it in the hand, knocked back a little, and it settles", () => {
         const camera = new THREE.PerspectiveCamera();
         const view = new WeaponView(camera, "/");
-        const holder = camera.children.find((c) => c.type === "Group" && c.name !== "kick_boot")!;
+        const holder = camera.children.find((c) => c.type === "Group")!;
         const melee = new MeleeController(weaponById("sword"));
         const idle = () => {
             view.update(melee, "first", true, undefined, { dt: DT });

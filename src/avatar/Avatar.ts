@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { EYE_HEIGHT, SPRINT_SPEED, WALK_SPEED } from "../player/Player";
 import { AvatarAnimator, LocomotionInput } from "./AvatarAnimator";
 import type { AvatarAsset } from "./AvatarAsset";
+import type { KickSample } from "./KickPose";
 import { FP_NECK_BACK, FP_SHOULDER_REACH, SWING_TWIST_FACTOR, SWING_TWIST_MAX, TORSO_PITCH_FACTOR } from "./avatarConfig";
 
 const BODY_TURN_DAMPING = 10;
@@ -28,6 +29,9 @@ const UP = new THREE.Vector3(0, 1, 0);
 const ELBOW_POLE = new THREE.Vector3(0.5, -1, 0.3).normalize();
 /** The left elbow's: the mirror image. */
 const ELBOW_POLE_L = new THREE.Vector3(-0.5, -1, 0.3).normalize();
+/** Where the standing knee points while kicking, in the body's space: ahead. */
+const KNEE_AHEAD = new THREE.Vector3(0, 0, -1);
+const RIGHT = new THREE.Vector3(1, 0, 0);
 
 /**
  * The player's body: follows the player, animates, and hides its head in first person, where it is
@@ -51,6 +55,7 @@ export class Avatar {
     private readonly saved: { bone: THREE.Bone; quat: THREE.Quaternion; pos: THREE.Vector3 }[] = [];
     private readonly v = [0, 1, 2, 3, 4].map(() => new THREE.Vector3());
     private readonly q2 = new THREE.Quaternion();
+    private kick: KickSample | undefined;
 
     constructor(
         private readonly asset: AvatarAsset,
@@ -60,6 +65,11 @@ export class Avatar {
         this.animator = new AvatarAnimator(asset, walkSpeed, sprintSpeed);
         this.viewFrame.rotation.order = "YXZ";
         asset.root.add(this.viewFrame);
+    }
+
+    /** The kick to pose on the next `update` (KickPose.kickSample), or undefined. */
+    setKick(sample: KickSample | undefined): void {
+        this.kick = sample;
     }
 
     get root(): THREE.Group {
@@ -92,6 +102,9 @@ export class Avatar {
         // back out of view.
         this.lastLean = mode === "first" ? 0 : target.pitch * TORSO_PITCH_FACTOR;
         this.lean(this.lastLean);
+        if (this.kick) {
+            this.poseKick(this.kick);
+        }
 
         const firstPerson = mode === "first";
         for (const part of this.asset.headParts) {
@@ -165,14 +178,79 @@ export class Avatar {
         }
     }
 
+    /**
+     * Poses the right leg's kick over the animation: hips forward and down, torso back, the kicking
+     * leg bent (two-bone IK) to put the ankle on the keyed spot with the knee towards the keyed
+     * direction, the foot turned by the keyed angle, and the standing foot kept where it was.
+     * Undone by the next `update`.
+     */
+    private poseKick(kick: KickSample): void {
+        const { hips, spine, chest, thigh_r, shin_r, foot_r, thigh_l, shin_l, foot_l } = this.asset.bones;
+        if (!hips?.parent || !thigh_r || !shin_r || !foot_r) {
+            return;
+        }
+        const root = this.asset.root;
+        root.updateMatrixWorld(true);
+        const rootQ = root.getWorldQuaternion(new THREE.Quaternion());
+        const thighAt = thigh_r.getWorldPosition(new THREE.Vector3());
+        const kneeAt = shin_r.getWorldPosition(new THREE.Vector3());
+        const ankleR = foot_r.getWorldPosition(new THREE.Vector3());
+        const ankleL = foot_l?.getWorldPosition(new THREE.Vector3());
+        const footQR = foot_r.getWorldQuaternion(new THREE.Quaternion());
+        const footQL = foot_l?.getWorldQuaternion(new THREE.Quaternion());
+        const leg = thighAt.distanceTo(kneeAt) + kneeAt.distanceTo(ankleR);
+        const right = RIGHT.clone().applyQuaternion(rootQ);
+
+        for (const bone of [spine, chest]) {
+            if (bone) {
+                this.save(bone);
+                this.turnAboutWorld(bone, right, kick.lean / 2);
+            }
+        }
+        this.save(hips);
+        const shift = new THREE.Vector3(0, kick.hips[0] * leg, kick.hips[1] * leg).applyQuaternion(rootQ);
+        hips.position.copy(hips.parent.worldToLocal(hips.getWorldPosition(new THREE.Vector3()).add(shift)));
+        hips.updateWorldMatrix(true, true);
+
+        const foot = new THREE.Vector3(...kick.foot).multiplyScalar(leg).applyQuaternion(rootQ);
+        const target = thigh_r.getWorldPosition(new THREE.Vector3()).add(foot).lerp(ankleR, 1 - kick.weight);
+        this.bendArm(thigh_r, shin_r, foot_r, target, new THREE.Vector3(...kick.knee).normalize(), 0);
+        if (thigh_l && shin_l && foot_l && ankleL) {
+            this.bendArm(thigh_l, shin_l, foot_l, ankleL, KNEE_AHEAD, 0);
+        }
+        // Feet: the kicking one turned about the body's right axis, the standing one as animated.
+        this.setWorldQuaternion(foot_r, footQR.premultiply(this.q.setFromAxisAngle(right, kick.toes)));
+        if (foot_l && footQL) {
+            this.setWorldQuaternion(foot_l, footQL);
+        }
+    }
+
+    private setWorldQuaternion(bone: THREE.Bone, world: THREE.Quaternion): void {
+        if (!bone.parent) return;
+        this.save(bone);
+        bone.parent.updateWorldMatrix(true, false);
+        bone.quaternion.copy(bone.parent.getWorldQuaternion(this.q2).invert().multiply(world));
+        bone.updateWorldMatrix(false, true);
+    }
+
     private save(bone: THREE.Bone): void {
         if (!this.saved.some((s) => s.bone === bone)) {
             this.saved.push({ bone, quat: bone.quaternion.clone(), pos: bone.position.clone() });
         }
     }
 
-    /** Two-bone IK: turns `upper` and `fore` so `effector` lands on `grip`, the elbow towards `elbowPole`. */
-    private bendArm(upper: THREE.Bone, fore: THREE.Bone, effector: THREE.Object3D, grip: THREE.Vector3, elbowPole: THREE.Vector3): void {
+    /**
+     * Two-bone IK: turns `upper` and `fore` so `effector` lands on `grip`, the elbow towards `elbowPole`.
+     * Beyond reach, `upper` slides towards `grip` by up to `maxSlide`.
+     */
+    private bendArm(
+        upper: THREE.Bone,
+        fore: THREE.Bone,
+        effector: THREE.Object3D,
+        grip: THREE.Vector3,
+        elbowPole: THREE.Vector3,
+        maxSlide = FP_SHOULDER_REACH,
+    ): void {
         if (!upper.parent) return;
         this.save(upper);
         this.save(fore);
@@ -188,9 +266,9 @@ export class Avatar {
         }
         let c = shoulder.distanceTo(grip);
         const excess = c - (a + b) * 0.999;
-        if (excess > 0) {
+        if (excess > 0 && maxSlide > 0) {
             // Out of reach: the shoulder comes forward along the line to the grip.
-            const slide = Math.min(excess, FP_SHOULDER_REACH);
+            const slide = Math.min(excess, maxSlide);
             dir.subVectors(grip, shoulder).normalize().multiplyScalar(slide);
             const target = upper.parent.worldToLocal(dir.add(shoulder));
             upper.position.copy(target);

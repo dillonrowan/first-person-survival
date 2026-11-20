@@ -20,6 +20,7 @@ import { CAST_HEIGHT, IMPACT_HEIGHT, SPELL_GRAPHICS, SPLASH_GRAPHIC } from "./wo
 import { Avatar } from "./avatar/Avatar";
 import { loadAvatarAsset } from "./avatar/AvatarAsset";
 import { createCacheAvatar } from "./avatar/CacheAvatar";
+import { kickSample } from "./avatar/KickPose";
 import { CameraRig } from "./player/CameraRig";
 import { Input } from "./player/Input";
 import { Player } from "./player/Player";
@@ -1072,6 +1073,8 @@ async function main(): Promise<void> {
         groundItems.update(dt, player.x, player.y, player.plane);
         arrowView.update(combat.arrows, (out) => weaponView.launchPoint(out));
         const melee = combat.melee;
+        const kickPose = kickSample(combat.kick.elapsed, combat.kick.low);
+        avatar.setKick(kickPose);
         avatar.update(
             dt,
             player,
@@ -1140,7 +1143,13 @@ async function main(): Promise<void> {
             const s = stunFeel.view;
             cameraRig.update(
                 player,
-                { ...look, pitch: v.pitch + look.pitch + s.pitch, yaw: v.yaw + look.yaw + s.yaw, roll: v.roll + look.roll + s.roll },
+                // First person: the view dips with the kick so the leg comes into view.
+                {
+                    ...look,
+                    pitch: v.pitch + look.pitch + s.pitch + (cameraRig.mode === "first" ? (kickPose?.look ?? 0) : 0),
+                    yaw: v.yaw + look.yaw + s.yaw,
+                    roll: v.roll + look.roll + s.roll,
+                },
                 dt,
             );
         }
