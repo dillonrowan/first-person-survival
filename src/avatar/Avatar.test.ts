@@ -179,7 +179,7 @@ describe("Avatar", () => {
         const animated = asset.bones.forearm_r!.quaternion.clone();
         // The sword's idle grip, and one beyond the arm's length that the shoulder reaches for.
         for (const grip of [new THREE.Vector3(10.24, 1.88, -20.26), new THREE.Vector3(10.2, 1.95, -20.6)]) {
-            avatar.reachRightHand(grip);
+            avatar.reachRightHand(grip, avatar.viewFrame);
             expect(socket.getWorldPosition(new THREE.Vector3()).distanceTo(grip)).toBeLessThan(1e-3);
             avatar.update(0.05, target(), "first");
         }
@@ -210,6 +210,59 @@ describe("Avatar", () => {
         }
         expect(avatar.bodyYaw).toBeCloseTo(0.3, 2);
     });
+
+    it("squares up to the view at once while fighting", () => {
+        const avatar = new Avatar(createPlaceholderAvatar());
+        for (let i = 0; i < 40; i++) {
+            avatar.update(0.05, target({ yaw: 0.3 }), "third", true);
+        }
+        expect(avatar.bodyYaw).toBeCloseTo(0.3, 2);
+    });
+
+    it("aims from where the first-person camera is, turned to the view", () => {
+        const avatar = new Avatar(createPlaceholderAvatar());
+        avatar.update(0.05, target({ yaw: 0.4, pitch: -0.3, speed: 3, localForward: 3 }), "first");
+        const camera = new THREE.Object3D();
+        camera.position.set(10, 1 + EYE_HEIGHT, -20);
+        camera.rotation.set(-0.3, 0.4, 0, "YXZ");
+        camera.updateMatrixWorld();
+        const ahead = (o: THREE.Object3D) => o.localToWorld(new THREE.Vector3(0.2, -0.3, -0.5));
+        expect(ahead(avatar.viewFrame).distanceTo(ahead(camera))).toBeLessThan(0.02);
+    });
+
+    it("puts the free hand on its target and gives both arms back to the animation", () => {
+        const asset = createPlaceholderAvatar();
+        const avatar = new Avatar(asset);
+        avatar.update(0.05, target(), "third");
+        avatar.update(0, target(), "third"); // dt 0 from here: the idle clip holds still
+        const animated = asset.bones.forearm_l!.quaternion.clone();
+        const hand = asset.sockets.handL ?? asset.bones.hand_l!;
+        const want = avatar.viewFrame.localToWorld(new THREE.Vector3(-0.14, -0.42, -0.02));
+        avatar.reachRightHand(avatar.viewFrame.localToWorld(new THREE.Vector3(0.18, -0.42, -0.1)), avatar.viewFrame);
+        avatar.reachLeftHand(want);
+        expect(hand.getWorldPosition(new THREE.Vector3()).distanceTo(want)).toBeLessThan(1e-3);
+        avatar.update(0, target(), "third");
+        expect(asset.bones.forearm_l!.quaternion.angleTo(animated)).toBeLessThan(1e-4);
+    });
+
+    it("turns the torso with the swing in third person and gives it back to the animation", () => {
+        const asset = createPlaceholderAvatar();
+        const avatar = new Avatar(asset);
+        const chest = asset.bones.chest!;
+        avatar.update(0.05, target(), "third");
+        avatar.update(0, target(), "third"); // dt 0 from here: the idle clip holds still
+        const animated = chest.quaternion.clone();
+        const socket = asset.sockets.handR!;
+        // Swung across to the left of the view, then out to the right.
+        for (const side of [-0.25, 0.3]) {
+            const grip = avatar.viewFrame.localToWorld(new THREE.Vector3(side, -0.15, -0.35));
+            avatar.reachRightHand(grip, avatar.viewFrame);
+            expect(socket.getWorldPosition(new THREE.Vector3()).distanceTo(grip)).toBeLessThan(1e-3);
+            expect(chest.quaternion.angleTo(animated)).toBeGreaterThan(0.02);
+            avatar.update(0, target(), "third");
+            expect(chest.quaternion.angleTo(animated)).toBeLessThan(1e-4);
+        }
+    });
 });
 
 describe("cache NPC avatar", () => {
@@ -231,7 +284,7 @@ describe("cache NPC avatar", () => {
         for (let i = 0; i < 10; i++) avatar.update(0.05, target({ speed: 3, localForward: 3 }), "first");
         expect(asset.bones.head!.scale.x).toBeLessThan(0.01);
         const grip = new THREE.Vector3(10.24, 1.88, -20.26);
-        avatar.reachRightHand(grip);
+        avatar.reachRightHand(grip, avatar.viewFrame);
         expect(asset.sockets.handR!.getWorldPosition(new THREE.Vector3()).distanceTo(grip)).toBeLessThan(1e-3);
         avatar.update(0.05, target(), "third");
         expect(asset.bones.head!.scale.x).toBe(1);
@@ -246,7 +299,7 @@ describe("cache NPC avatar", () => {
         const p = new THREE.Vector3();
         for (const [pitch, eyeHeight] of [[0, EYE_HEIGHT], [-1.5, EYE_HEIGHT], [1.4, EYE_HEIGHT], [-1.2, 0.8]]) {
             avatar.update(0.05, target({ pitch, eyeHeight }), "first");
-            avatar.reachRightHand(new THREE.Vector3(10.24, 1 + eyeHeight - 0.37, -20.26));
+            avatar.reachRightHand(new THREE.Vector3(10.24, 1 + eyeHeight - 0.37, -20.26), avatar.viewFrame);
             const eye = new THREE.Vector3(10, 1 + eyeHeight, -20);
             let nearest = Infinity;
             for (let i = 0; i < skin.count; i++) {

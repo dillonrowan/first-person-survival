@@ -101,6 +101,12 @@ export function createCacheWeaponModel(
         geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(cx, cy, cz), radius);
         const result = new THREE.Mesh(geometry, transparent ? effect : materials.opaque);
         result.renderOrder = transparent ? WEAPON_EFFECT_RENDER_ORDER : 1;
+        if (transparent && materials.overlay) {
+            // Only over everything in the first-person view: seen from outside (third person), it
+            // is drawn depth tested so the holder's body hides it (WeaponView swaps the material).
+            result.userData.overlayMaterial = materials.overlay;
+            result.userData.depthMaterial = materials.transparent;
+        }
         return result;
     };
     /** Meshes in RS model space, turned into the contract (grip at the origin). */

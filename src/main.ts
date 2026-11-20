@@ -244,7 +244,7 @@ async function main(): Promise<void> {
     };
     const player = new Player(world, spawnFromUrl(manifest.spawn), { bodies: walkBlockers });
     const baseFov = camera.fov;
-    const cameraRig = new CameraRig(camera, import.meta.env.DEV);
+    const cameraRig = new CameraRig(camera);
     // Only the character is lit by scene lights; the world shaders have their lighting baked in.
     scene.add(new THREE.HemisphereLight(SKY_COLOR, 0x5a4a3a, 1.6));
     const sun = new THREE.DirectionalLight(0xffffff, 1.8);
@@ -294,7 +294,7 @@ async function main(): Promise<void> {
     const weaponView = new WeaponView(
         camera,
         import.meta.env.BASE_URL,
-        avatar.root.getObjectByName("socket_hand_r") ?? undefined,
+        avatar.viewFrame,
         (weaponId) => {
             const info = weaponMenu.find(weaponId);
             // An item held without a worn model: a rod is the Blender rod, any other tool (a net,
@@ -821,7 +821,7 @@ async function main(): Promise<void> {
             sidePanel.toggle("spellbook");
         } else if (event.code === "KeyM") {
             worldMap.toggle();
-        } else if (event.code === "KeyQ" && input.locked) {
+        } else if (event.code === "KeyX" && input.locked) {
             combat.cycleStyle();
             ui.showMessage(`Attack style: ${combat.style.name}`);
         } else if (import.meta.env.DEV && event.code === "KeyI") {
@@ -940,11 +940,11 @@ async function main(): Promise<void> {
         const armed = !carrying && !casting;
         // A rod, net or cage in hand: no swings or blocks with it.
         const swinging = armed && !gearOnly && !(workAimed && !attacking);
-        const wheel = input.consumeWheel();
+        cameraRig.zoomBy(input.consumeWheel());
         eatCooldown = Math.max(0, eatCooldown - dt);
-        const wheelProblem = items.cycleWeapon(armed ? wheel : 0);
-        if (wheelProblem) {
-            ui.showMessage(wheelProblem);
+        const wieldProblem = items.cycleWeapon(armed && input.wasPressed("KeyQ") ? 1 : 0);
+        if (wieldProblem) {
+            ui.showMessage(wieldProblem);
         }
         combat.update(dt, player, {
             // A tap that went down and up between frames still counts as down for this one.
@@ -978,7 +978,6 @@ async function main(): Promise<void> {
             camera.fov = fov;
             camera.updateProjectionMatrix();
         }
-        cameraRig.handleInput(input);
         if (carrying) {
             interaction.showPrompt(props.held ? `[LMB] Throw ${props.held.loc.name}   [E] Drop` : "");
         } else {
@@ -1072,7 +1071,13 @@ async function main(): Promise<void> {
         });
         groundItems.update(dt, player.x, player.y, player.plane);
         arrowView.update(combat.arrows, (out) => weaponView.launchPoint(out));
-        avatar.update(dt, player, cameraRig.mode);
+        const melee = combat.melee;
+        avatar.update(
+            dt,
+            player,
+            cameraRig.mode,
+            !!(melee.swing || melee.chargedMove || melee.lodged) || combat.blocking || combat.kick.active || combat.bow.poseProgress > 0,
+        );
         weaponView.setSkillSwing(skillSystem.swingPhase());
         // Picking a pocket: the held item is put away, the view glances down and leans in.
         const thiefLook = skilling.updateThieving(dt);
@@ -1094,8 +1099,9 @@ async function main(): Promise<void> {
             blocking: combat.blocking,
         });
         {
-            // The fishing line leaves the rod tip; a caught fish lands at the chest.
-            const chest = camera.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, -0.45, 0));
+            // The fishing line leaves the rod tip; a caught fish lands at the body's chest (below
+            // where the first-person eye would be, not the camera, which is behind in third person).
+            const chest = avatar.viewFrame.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, -0.45, 0));
             const tip = weaponView.tipPoint(new THREE.Vector3()) ?? chest.clone();
             skilling.updateViews(dt, tip, chest);
         }
@@ -1132,13 +1138,24 @@ async function main(): Promise<void> {
             // Knocked about by a parry, then dazed while stunned.
             stunFeel.update(dt, combat.stunned);
             const s = stunFeel.view;
-            cameraRig.update(player, { ...look, pitch: v.pitch + look.pitch + s.pitch, yaw: v.yaw + look.yaw + s.yaw, roll: v.roll + look.roll + s.roll });
+            cameraRig.update(
+                player,
+                { ...look, pitch: v.pitch + look.pitch + s.pitch, yaw: v.yaw + look.yaw + s.yaw, roll: v.roll + look.roll + s.roll },
+                dt,
+            );
         }
         {
-            // The right hand closes on the held item's grip; the arm hangs as animated otherwise.
+            // The right hand closes on the held item's grip, the torso turning with it; the arm
+            // hangs as animated otherwise. The item is posed in the camera in first person, in the
+            // body's own view frame in third.
             const grip = weaponView.gripPoint(new THREE.Vector3());
             if (grip) {
-                avatar.reachRightHand(grip);
+                avatar.reachRightHand(grip, cameraRig.mode === "first" ? camera : avatar.viewFrame);
+            }
+            // Third person: the free hand guards and counters the swing.
+            const offHand = weaponView.offHandPoint(new THREE.Vector3());
+            if (offHand) {
+                avatar.reachLeftHand(offHand);
             }
         }
         if (collisionDebug && npcs) {

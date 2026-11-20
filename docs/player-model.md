@@ -45,6 +45,31 @@ held item's grip (the weapon contract's origin, see [weapon-models.md](weapon-mo
 `socket_hand_r` in the middle of the closed fist. When the grip is out of the arm's reach the
 shoulder comes forward by up to `FP_SHOULDER_REACH`.
 
+## Third person and swings
+
+The mouse wheel zooms out to a camera behind the player and back into first person. First person
+plays the view-model clips; third person (and so what other players will see) plays the body's own
+holds and swings from `src/combat/BodySwings.ts`, posed in `Avatar.viewFrame` (where the
+first-person camera would be relative to the neck, turned with the view):
+
+- Idle, the weapon is held ready in front of the right hip, blade up; after `RELAX_AFTER` seconds
+  without fighting it is lowered to hang at the side, blade down.
+- A strike follows its own attack ray: during the hit window the blade points along the ray as it
+  sweeps, so what is seen to hit is what the hit trace tests. Before the window the arc runs back
+  into a wind-up with the blade raised behind the shoulder, after it on into a follow-through, the
+  arm bent at both ends and straight at contact. Combos wind up from where the last strike ended;
+  a finished swing eases back to the guard. Charging holds the power attack's wind-up; blocking
+  holds the blade across in front of the face.
+- Holds stay at the body whatever the player looks at; strikes tilt with most of the view's pitch.
+- The right arm reaches the grip and the left hand (`Avatar.reachLeftHand`) guards the chest,
+  pulled the opposite way to the weapon. The torso turns with the swing (the grip's bearing from
+  straight ahead times `SWING_TWIST_FACTOR`, at most `SWING_TWIST_MAX`), and while fighting the
+  body squares up to the view at once.
+
+Fishing tools and mining strokes reuse their first-person poses, moved down from the eyes to the
+hands and tilted with the view about the shoulder (`heldToolPose`), so the shaft stays clear of the
+body when looking down at the water. Bows and crossbows keep their first-person poses.
+
 ## Material roles
 
 Name materials by role so customisation can recolour them later: `skin hair top bottom shoes
@@ -64,4 +89,4 @@ unless you author them for the game's speeds.
 npm run dev      # the console prints contract errors and falls back to the placeholder
 ```
 
-Press `V` in a dev build to see the whole body from behind.
+Scroll the mouse wheel down in game to see the whole body from behind.

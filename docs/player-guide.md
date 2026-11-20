@@ -72,7 +72,7 @@ attack. The adrenaline bar decays gradually if it is not used.
 
 ## Weapons and Blocking
 
-Use the mouse wheel to wield the next weapon in your inventory. You fight with the item in your
+Press `Q` to wield the next weapon in your inventory. You fight with the item in your
 weapon slot (fists with none): wield one from the inventory (see below). A weapon whose name
 contains "dagger" fights like the daggers, "staff" or "wand" like the staff, "crossbow" like a
 crossbow and "bow" like the bow; every other weapon fights like the sword. The anti-dragon shield
@@ -147,7 +147,7 @@ Skills are saved in the browser.
   damage to the skill of your attack style and 1.33 to Hitpoints. Magic XP comes straight away when
   a spell does damage: the spell's base XP plus 2 Magic and 1.33 Hitpoints per damage (a spell that
   splashes for 0 gives none). A level-up shows a message and gives the extra health.
-- Press `Q` to cycle your attack style: melee accurate, aggressive or defensive; ranged accurate,
+- Press `X` to cycle your attack style: melee accurate, aggressive or defensive; ranged accurate,
   rapid (a tick faster) or longrange (half the XP to Defence).
 - Health comes back by eating food (below) and by one point a minute.
 - **Poison.** Some monsters are poisonous (the OSRS wiki's list, for example tribesmen) and can poison
@@ -341,9 +341,11 @@ Combat is unavailable while flying. Target interaction is also unavailable in fl
 
 ## Camera and Interface
 
-- Mouse: first-person camera.
+- Mouse: look.
 - `Esc`: release mouse capture and return to the start overlay.
-- `V`: toggle third-person camera in development builds.
+- Mouse wheel: zoom out of first person into a third-person view behind the player, further with each
+  notch; scroll back in to return to first person. Your character swings, blocks and aims the same
+  in both views.
 - On-screen weapon name identifies the selected weapon.
 - A charge ring shows attack charge progress.
 - Hit markers confirm successful attacks.
@@ -359,10 +361,11 @@ Combat is unavailable while flying. Target interaction is also unavailable in fl
 | `Mouse 2` | Block; with a bow or crossbow, hold to zoom; with a staff or wand, cast |
 | `F` | Kick |
 | `G` | Cast the equipped spell |
-| `Q` | Cycle attack style |
+| `Q` | Wield the next weapon in the inventory |
+| `X` | Cycle attack style |
 | `Tab` / `K` / `B` | Inventory and equipment / skills / spellbook |
 | `M` | World map: drag to pan, wheel to zoom; marks you, the essence altars, mining sites and fishing spots |
-| Mouse wheel | Wield the next weapon in the inventory |
+| Mouse wheel | Zoom between first and third person |
 | `Shift` | Sprint or fly faster |
 | `Alt` | Walk slowly |
 | `C` | Crouch or descend while flying |
@@ -372,4 +375,3 @@ Combat is unavailable while flying. Target interaction is also unavailable in fl
 | `E` | Pick up or drop a held prop; take an item from the ground; use a bank |
 | `Mouse 1` while carrying | Throw prop |
 | `Esc` | Release mouse |
-| `V` | Third-person camera in development builds |

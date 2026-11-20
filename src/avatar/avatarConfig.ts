@@ -56,3 +56,9 @@ export const FP_NECK_BACK = 0.15;
 export const FP_SHOULDER_REACH = 0.3;
 /** Spine and chest each bend by pitch times this (negative: looking down leans forward). */
 export const TORSO_PITCH_FACTOR = -0.25;
+/**
+ * How far the torso turns with a swing: the held item's bearing from straight ahead (radians, seen
+ * from the eyes) times this, up to SWING_TWIST_MAX either way. [design]
+ */
+export const SWING_TWIST_FACTOR = 0.35;
+export const SWING_TWIST_MAX = 0.5;

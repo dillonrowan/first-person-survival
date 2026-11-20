@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
+import { blockPose, BodyPose, chargePose, guardPose, heldToolPose, lerpBodyPose, swingPose } from "./BodySwings";
 import { BowString } from "./BowString";
 import { CrossbowRig } from "./CrossbowRig";
 import { DM_CLIPS, DmClip } from "./DmKeyframes";
@@ -169,6 +170,13 @@ const CHARGE_TREMBLE = 0.004;
 const LOWER_DROP = 0.55;
 const LOWER_BACK = 0.1;
 const LOWER_TILT = 0.7;
+
+/** Third person: idle this long (seconds), the guard is lowered to an at-ease hold over RELAX_BLEND. [design] */
+const RELAX_AFTER = 2;
+const RELAX_BLEND = 0.6;
+/** Third person: crossfade between body layers, and from a finished swing back to the guard (seconds). [design] */
+const BODY_BLEND = 0.12;
+const BODY_RECOVER = 0.35;
 
 /** Camera rotation offsets (radians) the swing adds on top of the player's view. */
 export type ViewOffset = { pitch: number; yaw: number; roll: number };
@@ -393,10 +401,27 @@ export class WeaponView {
     private lodgeElapsed = 0;
     /** The quick strike that last played, to pick the combo end layer. */
     private lastQuick = -1;
+    /** Third person: the body's pose last drawn, the layer it belongs to, and the crossfade into it. */
+    private bodyPose: BodyPose | undefined;
+    private bodyKey = "";
+    private bodyBlendFrom: BodyPose | undefined;
+    private bodyBlendTime = 0;
+    private bodyBlendLength = BODY_BLEND;
+    /** The swing the body is playing and the pose it started from. */
+    private bodySwingRef: unknown;
+    private bodySwingStart: BodyPose | undefined;
+    /** Seconds the body has stood idle in its guard (it relaxes after RELAX_AFTER). */
+    private idleFor = 0;
+    /** Third person: where the free hand goes, in the body's view frame; undefined to leave it animated. */
+    private offHand: THREE.Vector3 | undefined;
     constructor(
         private readonly camera: THREE.Camera,
         private readonly baseUrl: string,
-        private readonly handSocket?: THREE.Object3D,
+        /**
+         * Third person: the body's view frame (Avatar.viewFrame), set like the first-person camera, so the
+         * held item takes the same poses there and the body's hand follows it.
+         */
+        private readonly bodyAim?: THREE.Object3D,
         /** The model of a weapon exported from the cache, undefined for other weapons. */
         private readonly loadCacheModel?: (weaponId: string) => Promise<THREE.Object3D> | undefined,
     ) {
@@ -495,11 +520,11 @@ export class WeaponView {
     }
 
     /**
-     * World position of the held item's grip (the contract's origin, where the hand closes) in the
-     * first-person view; undefined in third person or when nothing is drawn.
+     * World position of the held item's grip (the contract's origin, where the hand closes);
+     * undefined when nothing is drawn.
      */
     gripPoint(out: THREE.Vector3): THREE.Vector3 | undefined {
-        if (!this.holder.visible || this.holder.parent !== this.camera) return undefined;
+        if (!this.holder.visible || !this.holder.parent) return undefined;
         this.holder.updateWorldMatrix(true, false);
         return out.setFromMatrixPosition(this.holder.matrixWorld);
     }
@@ -600,13 +625,19 @@ export class WeaponView {
             this.attach(this.modelFor(weapon));
         }
         const firstPerson = mode === "first";
-        const parent = firstPerson ? this.camera : this.handSocket;
+        const parent = firstPerson ? this.camera : this.bodyAim;
         if (!parent || !visible) {
             this.holder.visible = false;
+            this.offHand = undefined;
             this.sinceNocked = Infinity;
             return;
         }
         this.holder.visible = true;
+        // Effect faces draw over everything only in first person; seen from outside, the body hides them.
+        this.holder.traverse((o) => {
+            const want = (firstPerson ? o.userData.overlayMaterial : o.userData.depthMaterial) as THREE.Material | undefined;
+            if (want && (o as THREE.Mesh).material !== want) (o as THREE.Mesh).material = want;
+        });
         this.bowString?.update(extra.bowString ?? 0, extra.arrowNocked ?? false);
         const crossbow = extra.crossbow ?? { lowered: 0, cocked: 0, boltSeat: 0, recoil: 0 };
         this.crossbowRig?.update(crossbow.cocked, crossbow.boltSeat, crossbow.slide ?? 0, crossbow.loading ?? 0);
@@ -614,13 +645,8 @@ export class WeaponView {
         if (this.holder.parent !== parent) {
             parent.add(this.holder);
         }
-        if (!firstPerson) {
-            this.holder.position.set(0, 0, 0);
-            this.holder.rotation.set(Math.PI / 2, 0, 0);
-            this.recordLaunchPoint(ready, dt);
-            return;
-        }
         let pose: Pose;
+        let offHand: THREE.Vector3 | undefined;
         if (weapon.family === "bow") {
             pose = lerpPose(BOW_REST, BOW_DRAWN, extra.bowDraw ?? 0);
             if (this.bowString && extra.arrowNocked) {
@@ -634,6 +660,12 @@ export class WeaponView {
             }
             pose = kickBack(pose, crossbow.recoil);
             pose = workLever(pose, crossbow.slide ?? 0);
+        } else if (!firstPerson && !this.current?.userData.hold && this.toolMotion?.kind !== "mine" && this.gatherWeight === 0) {
+            // Third person: the body's own holds and swings (BodySwings), not the view model's.
+            // (Fishing tools and mining strokes keep their first-person poses.)
+            const body = this.animateBody(dt, melee, extra.blocking ?? false);
+            pose = { pos: body.pos, quat: body.quat };
+            offHand = body.offHand;
         } else {
             pose = this.animate(dt, weapon.family, melee, extra.blocking ?? false);
             const charging = melee.chargedMove !== undefined && !extra.blocking;
@@ -655,8 +687,13 @@ export class WeaponView {
             } else if (hold && !melee.swing && !melee.chargedMove && !extra.blocking) {
                 pose = this.toolPose(hold, dt);
             }
+            if (!firstPerson) {
+                // Third person: held by the body, not floating at the eyes inside the head.
+                pose = heldToolPose(pose.pos, pose.quat, this.bodyAim?.rotation.x ?? 0);
+            }
         }
-        if (kick?.active) {
+        this.offHand = offHand;
+        if (kick?.active && firstPerson) {
             pose = lerpPose(pose, KICK_ASIDE, Math.min(1, (kick.elapsed ?? 0) / 0.1));
         }
         this.holder.position.copy(pose.pos);
@@ -703,6 +740,77 @@ export class WeaponView {
         } else {
             this.shake = 0;
         }
+    }
+
+    /**
+     * World position the free (left) hand should reach for in third person, or undefined when it
+     * should hang as animated.
+     */
+    offHandPoint(out: THREE.Vector3): THREE.Vector3 | undefined {
+        if (!this.offHand || !this.holder.visible || !this.bodyAim || this.holder.parent !== this.bodyAim) return undefined;
+        return this.bodyAim.localToWorld(out.copy(this.offHand));
+    }
+
+    /**
+     * Third person: the body's hold or swing for the melee state (BodySwings), crossfading when it
+     * changes. A swing starts from whatever was drawn, so combos flow from one strike into the next.
+     */
+    private animateBody(dt: number, melee: MeleeController, blocking: boolean): BodyPose {
+        const pitch = this.bodyAim?.rotation.x ?? 0;
+        const guard = () => guardPose(pitch, smooth(Math.min(1, Math.max(0, (this.idleFor - RELAX_AFTER) / RELAX_BLEND))));
+        const startOf = (swing: unknown) => {
+            if (swing !== this.bodySwingRef) {
+                this.bodySwingRef = swing;
+                this.bodySwingStart = this.bodyPose ?? guard();
+                this.lag = this.freeze = 0;
+            }
+            return this.bodySwingStart!;
+        };
+        this.idleFor += dt;
+        let key: string;
+        let pose: BodyPose;
+        const lodged = melee.lodged;
+        const swing = melee.swing;
+        const charging = melee.chargedMove;
+        if (blocking) {
+            key = "block";
+            pose = blockPose(pitch);
+        } else if (lodged) {
+            // Stopped where the blade met the trunk or a guard: the swing held at that moment.
+            key = "swing";
+            const start = this.bodySwingStart ?? guard();
+            pose = swingPose(lodged.swing.move, lodged.swing.timeline, lodged.swing.elapsed, start, pitch);
+        } else if (swing) {
+            key = "swing";
+            const start = startOf(swing);
+            // Hit-stop: the drawn swing runs `lag` behind the real one, as in first person.
+            pose = swingPose(swing.move, swing.timeline, Math.max(0, swing.elapsed - this.lag), start, pitch);
+        } else if (charging) {
+            key = "charge";
+            pose = chargePose(charging, melee.phase === "charged" ? 1 : melee.chargeProgress, pitch);
+        } else {
+            key = "guard";
+            pose = guard();
+        }
+        if (key !== "guard") this.idleFor = 0;
+        if (key !== this.bodyKey) {
+            // A swing starts from what was drawn, so it needs no crossfade of its own.
+            this.bodyBlendFrom = key === "swing" ? undefined : this.bodyPose;
+            this.bodyBlendTime = 0;
+            this.bodyBlendLength = this.bodyKey === "swing" && key === "guard" ? BODY_RECOVER : BODY_BLEND;
+            this.bodyKey = key;
+            if (key !== "swing") this.bodySwingRef = undefined;
+        }
+        if (this.bodyBlendFrom) {
+            this.bodyBlendTime += dt;
+            if (this.bodyBlendTime >= this.bodyBlendLength) {
+                this.bodyBlendFrom = undefined;
+            } else {
+                pose = lerpBodyPose(this.bodyBlendFrom, pose, smooth(this.bodyBlendTime / this.bodyBlendLength));
+            }
+        }
+        this.bodyPose = pose;
+        return pose;
     }
 
     /** Plays Dark Messiah's first-person layer for the melee state, crossfading when the layer changes. */

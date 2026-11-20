@@ -34,7 +34,8 @@ For movement, combat, interactions, props, flying, and the HUD, see the
 | Mouse      | Look                                                            |
 | Left mouse | Attack: tap for quick strikes, hold to charge a power attack    |
 | F          | Kick: shoves an enemy back; into a wall or off a ledge it falls |
-| Wheel      | Switch weapon (sword, daggers, club, staff)                     |
+| Wheel      | Zoom between first and third person                             |
+| Q          | Switch weapon (sword, daggers, club, staff)                     |
 | Shift      | Sprint, costs stamina (or fly faster)                           |
 | Alt        | Walk slowly                                                     |
 | C          | Crouch (while flying: sink)                                     |

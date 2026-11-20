@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { EYE_HEIGHT, SPRINT_SPEED, WALK_SPEED } from "../player/Player";
 import { AvatarAnimator, LocomotionInput } from "./AvatarAnimator";
 import type { AvatarAsset } from "./AvatarAsset";
-import { FP_NECK_BACK, FP_SHOULDER_REACH, TORSO_PITCH_FACTOR } from "./avatarConfig";
+import { FP_NECK_BACK, FP_SHOULDER_REACH, SWING_TWIST_FACTOR, SWING_TWIST_MAX, TORSO_PITCH_FACTOR } from "./avatarConfig";
 
 const BODY_TURN_DAMPING = 10;
 /** An idle body only turns once the view is this far from where it faces. */
@@ -23,8 +23,11 @@ export type AvatarTarget = LocomotionInput & {
 
 const wrapAngle = (angle: number) => THREE.MathUtils.euclideanModulo(angle + Math.PI, Math.PI * 2) - Math.PI;
 const PITCH_AXIS = new THREE.Vector3(1, 0, 0);
+const UP = new THREE.Vector3(0, 1, 0);
 /** Where the right elbow points while reaching, in the body's space: out to the right, down, back. */
 const ELBOW_POLE = new THREE.Vector3(0.5, -1, 0.3).normalize();
+/** The left elbow's: the mirror image. */
+const ELBOW_POLE_L = new THREE.Vector3(-0.5, -1, 0.3).normalize();
 
 /**
  * The player's body: follows the player, animates, and hides its head in first person, where it is
@@ -34,11 +37,18 @@ const ELBOW_POLE = new THREE.Vector3(0.5, -1, 0.3).normalize();
 export class Avatar {
     readonly animator: AvatarAnimator;
     bodyYaw = 0;
+    /**
+     * Where the body looks from: turned to the view's yaw and pitch (-Z ahead, +X right, like the
+     * first-person camera) and placed relative to the neck exactly as the first-person camera is.
+     * Third-person holds and swings (combat/BodySwings.ts) are posed in it, so they sit the same on
+     * the player's body and on other players' bodies.
+     */
+    readonly viewFrame = new THREE.Group();
 
     private readonly q = new THREE.Quaternion();
     private lastLean = 0;
-    /** The right arm as the animation left it, before `reachRightHand` moved it. */
-    private armPose: { upper: THREE.Quaternion; shoulder: THREE.Vector3; fore: THREE.Quaternion } | undefined;
+    /** Bones as the animation left them, before `reachRightHand` / `reachLeftHand` moved them. */
+    private readonly saved: { bone: THREE.Bone; quat: THREE.Quaternion; pos: THREE.Vector3 }[] = [];
     private readonly v = [0, 1, 2, 3, 4].map(() => new THREE.Vector3());
     private readonly q2 = new THREE.Quaternion();
 
@@ -48,6 +58,8 @@ export class Avatar {
         sprintSpeed = SPRINT_SPEED,
     ) {
         this.animator = new AvatarAnimator(asset, walkSpeed, sprintSpeed);
+        this.viewFrame.rotation.order = "YXZ";
+        asset.root.add(this.viewFrame);
     }
 
     get root(): THREE.Group {
@@ -60,17 +72,18 @@ export class Avatar {
         }
     }
 
-    update(dt: number, target: AvatarTarget, mode: "first" | "third"): void {
+    /** `engaged`: fighting (swinging, charging, blocking, aiming), so the body squares up to the view at once. */
+    update(dt: number, target: AvatarTarget, mode: "first" | "third", engaged = false): void {
         const root = this.asset.root;
         root.position.set(target.x, target.z, -target.y);
 
         const difference = wrapAngle(target.yaw - this.bodyYaw);
-        if (target.speed > MOVING_SPEED || Math.abs(difference) > IDLE_TURN_THRESHOLD) {
+        if (engaged || target.speed > MOVING_SPEED || Math.abs(difference) > IDLE_TURN_THRESHOLD) {
             this.bodyYaw += difference * (1 - Math.exp(-BODY_TURN_DAMPING * dt));
         }
         root.rotation.y = this.bodyYaw;
 
-        this.restoreArm();
+        this.restoreBones();
         // Undo last frame's lean first: bones the clips do not animate would otherwise keep adding it.
         this.lean(-this.lastLean);
         this.animator.update(dt, target);
@@ -103,21 +116,66 @@ export class Avatar {
             model.position.y = (target.eyeHeight ?? EYE_HEIGHT) - EYE_HEIGHT;
         }
         root.updateMatrixWorld(true);
+        // The view frame: FP_NECK_BACK ahead of the neck at eye height, where the first-person
+        // camera is relative to the neck (there the body is moved instead). Root space is +Z behind.
+        const neckZ = neck ? root.worldToLocal(neck.getWorldPosition(this.v[0])).z : 0;
+        this.viewFrame.position.set(0, target.eyeHeight ?? EYE_HEIGHT, neckZ - FP_NECK_BACK);
+        this.viewFrame.rotation.set(target.pitch, wrapAngle(target.yaw - this.bodyYaw), 0);
+        this.viewFrame.updateMatrixWorld(true);
     }
 
     /**
-     * Bends the right arm (two-bone IK on the upper arm and forearm) so the hand socket lands on
-     * `grip`, a world position: call after `update` and after the camera has moved. Beyond the
-     * arm's length the shoulder reaches forward by up to FP_SHOULDER_REACH. Undone by the next
-     * `update`, before the animation runs.
+     * Turns the torso with the held item, then bends the right arm (two-bone IK on the upper arm
+     * and forearm) so the hand socket lands on `grip`, a world position: call after `update` and
+     * after the camera has moved. `frame` is what the item is posed in (the first-person camera or
+     * `viewFrame`): the further the grip is to one side of it, the further the chest turns that way, so a
+     * swing is thrown from the body, not just the arm. Beyond the arm's length the shoulder reaches
+     * forward by up to FP_SHOULDER_REACH. Undone by the next `update`, before the animation runs.
      */
-    reachRightHand(grip: THREE.Vector3): void {
-        const { upperarm_r: upper, forearm_r: fore, hand_r: hand } = this.asset.bones;
+    reachRightHand(grip: THREE.Vector3, frame: THREE.Object3D): void {
+        const { upperarm_r: upper, forearm_r: fore, hand_r: hand, spine, chest } = this.asset.bones;
         const effector = this.asset.sockets.handR ?? hand;
         if (!upper || !fore || !effector || !upper.parent) {
             return;
         }
-        this.armPose = { upper: upper.quaternion.clone(), shoulder: upper.position.clone(), fore: fore.quaternion.clone() };
+        // The grip's bearing from straight ahead in the frame (+ to the right), split over spine
+        // and chest. Turning right is clockwise seen from above: about world up by -twist.
+        const local = frame.worldToLocal(this.v[0].copy(grip));
+        const bearing = Math.atan2(local.x, -local.z);
+        const twist = THREE.MathUtils.clamp(bearing * SWING_TWIST_FACTOR, -SWING_TWIST_MAX, SWING_TWIST_MAX);
+        for (const bone of [spine, chest]) {
+            if (bone) {
+                this.save(bone);
+                this.turnAboutWorld(bone, UP, -twist / 2);
+            }
+        }
+        this.bendArm(upper, fore, effector, grip, ELBOW_POLE);
+    }
+
+    /**
+     * Bends the left arm so its hand (socket_hand_l, or the hand bone) lands on `target`, a world
+     * position: the free hand in a third-person guard or swing. Call after `reachRightHand`, which
+     * turns the torso. Undone by the next `update`.
+     */
+    reachLeftHand(target: THREE.Vector3): void {
+        const { upperarm_l: upper, forearm_l: fore, hand_l: hand } = this.asset.bones;
+        const effector = this.asset.sockets.handL ?? hand;
+        if (upper && fore && effector && upper.parent) {
+            this.bendArm(upper, fore, effector, target, ELBOW_POLE_L);
+        }
+    }
+
+    private save(bone: THREE.Bone): void {
+        if (!this.saved.some((s) => s.bone === bone)) {
+            this.saved.push({ bone, quat: bone.quaternion.clone(), pos: bone.position.clone() });
+        }
+    }
+
+    /** Two-bone IK: turns `upper` and `fore` so `effector` lands on `grip`, the elbow towards `elbowPole`. */
+    private bendArm(upper: THREE.Bone, fore: THREE.Bone, effector: THREE.Object3D, grip: THREE.Vector3, elbowPole: THREE.Vector3): void {
+        if (!upper.parent) return;
+        this.save(upper);
+        this.save(fore);
         const [shoulder, elbow, end, dir, pole] = this.v;
         upper.updateWorldMatrix(true, true);
         upper.getWorldPosition(shoulder);
@@ -144,7 +202,7 @@ export class Avatar {
         c = THREE.MathUtils.clamp(c, Math.abs(a - b) + 1e-4, (a + b) * 0.999);
         // The elbow on the circle the two lengths allow, turned towards the pole.
         dir.subVectors(grip, shoulder).normalize();
-        pole.copy(ELBOW_POLE).transformDirection(this.asset.root.matrixWorld);
+        pole.copy(elbowPole).transformDirection(this.asset.root.matrixWorld);
         pole.addScaledVector(dir, -pole.dot(dir));
         if (pole.lengthSq() < 1e-8) {
             pole.set(0, -1, 0).addScaledVector(dir, dir.y);
@@ -161,6 +219,13 @@ export class Avatar {
         fore.updateWorldMatrix(false, true);
     }
 
+    /** Turns `bone` by `angle` about the world direction `axis`. */
+    private turnAboutWorld(bone: THREE.Bone, axis: THREE.Vector3, angle: number): void {
+        bone.updateWorldMatrix(true, false);
+        const local = this.v[1].copy(axis).applyQuaternion(bone.getWorldQuaternion(this.q2).invert());
+        bone.quaternion.multiply(this.q.setFromAxisAngle(local, angle));
+    }
+
     /** Turns `bone` (at world `from`) so the point now at `current` lies towards `wanted`. */
     private aim(bone: THREE.Bone, from: THREE.Vector3, current: THREE.Vector3, wanted: THREE.Vector3): void {
         const now = this.v[3].subVectors(current, from).normalize();
@@ -171,14 +236,13 @@ export class Avatar {
         bone.quaternion.premultiply(parent).premultiply(turn).premultiply(parent.invert());
     }
 
-    private restoreArm(): void {
-        const pose = this.armPose;
-        const { upperarm_r: upper, forearm_r: fore } = this.asset.bones;
-        if (pose && upper && fore) {
-            upper.quaternion.copy(pose.upper);
-            upper.position.copy(pose.shoulder);
-            fore.quaternion.copy(pose.fore);
+    /** Gives the bones the reaches moved back to the animation, last moved first. */
+    private restoreBones(): void {
+        for (let i = this.saved.length - 1; i >= 0; i--) {
+            const { bone, quat, pos } = this.saved[i];
+            bone.quaternion.copy(quat);
+            bone.position.copy(pos);
         }
-        this.armPose = undefined;
+        this.saved.length = 0;
     }
 }
