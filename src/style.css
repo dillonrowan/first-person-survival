@@ -108,12 +108,61 @@ body {
     justify-content: space-between;
 }
 
-.weapon-menu-heading h1 {
-    margin: 0;
-}
-
 .weapon-menu-heading button {
     padding: 6px 10px;
+}
+
+.weapon-menu-tabs {
+    display: flex;
+    gap: 6px;
+}
+
+.weapon-menu-tabs button {
+    border: 1px solid #59616a;
+    border-radius: 4px;
+    background: #272c31;
+    color: #9aa4ad;
+    font: inherit;
+    cursor: pointer;
+}
+
+.weapon-menu-tabs button[aria-selected="true"] {
+    border-color: #b58cff;
+    color: #eee;
+}
+
+.weapon-menu-tab.hidden {
+    display: none;
+}
+
+#weapon-menu-skills {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    margin-top: 12px;
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+#weapon-menu-skills label.weapon-menu-row {
+    align-items: center;
+    cursor: default;
+}
+
+#weapon-menu-skills input {
+    width: 4em;
+    padding: 2px 4px;
+    border: 1px solid #59616a;
+    border-radius: 4px;
+    background: #1b1f23;
+    color: #eee;
+    font: inherit;
+}
+
+@media (max-width: 520px) {
+    #weapon-menu-skills {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 
 #weapon-menu-search {
@@ -654,4 +703,347 @@ kbd {
 
 #item-menu button:hover {
     background: #354250;
+}
+
+/* --- Skilling: message log, XP drops, level banner, make/build menus, shop --- */
+#message-log {
+    position: fixed;
+    left: 12px;
+    bottom: 12px;
+    z-index: 5;
+    max-width: min(520px, 60vw);
+    color: #fff;
+    font: 13px/1.45 system-ui, sans-serif;
+    text-shadow: 0 1px 2px #000, 0 0 3px #000;
+    pointer-events: none;
+}
+
+#message-log div {
+    transition: opacity 1s;
+}
+
+#message-log div.faded {
+    opacity: 0;
+}
+
+#xp-drops {
+    position: fixed;
+    top: 60px;
+    right: 24px;
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    pointer-events: none;
+}
+
+.xp-drop {
+    color: #fff;
+    font: bold 14px/1.3 system-ui, sans-serif;
+    text-shadow: 1px 1px 0 #000;
+    animation: xp-rise 1.5s ease-out forwards;
+}
+
+@keyframes xp-rise {
+    from {
+        transform: translateY(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateY(-40px);
+        opacity: 0;
+    }
+}
+
+#level-banner {
+    position: fixed;
+    top: 22%;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 6;
+    max-width: 80vw;
+    padding: 10px 18px;
+    border: 1px solid #c9a64a;
+    border-radius: 6px;
+    background: rgba(40, 32, 18, 0.92);
+    color: #ffd76a;
+    font: 15px/1.4 system-ui, sans-serif;
+    text-align: center;
+    pointer-events: none;
+}
+
+#make-menu,
+#shop-panel {
+    position: fixed;
+    z-index: 20;
+    box-sizing: border-box;
+    padding: 12px;
+    border: 1px solid #59616a;
+    border-radius: 8px;
+    background: rgba(18, 22, 26, 0.96);
+    color: #eee;
+    font: 13px/1.4 system-ui, sans-serif;
+}
+
+#make-menu {
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%);
+    width: min(720px, calc(100vw - 32px));
+}
+
+#shop-panel {
+    left: 16px;
+    top: 16px;
+    width: min(640px, calc(100vw - 360px));
+}
+
+#make-menu.hidden,
+#shop-panel.hidden,
+#level-banner.hidden {
+    display: none;
+}
+
+.choice-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.choice-heading button,
+.choice-quantities button {
+    padding: 4px 10px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: #272c31;
+    color: #eee;
+    cursor: pointer;
+}
+
+.choice-quantities {
+    display: flex;
+    gap: 4px;
+    margin-top: 10px;
+}
+
+.choice-quantities button.active {
+    border-color: #8aa4bd;
+    background: #354250;
+}
+
+.choice-quantities input {
+    width: 64px;
+}
+
+.choice-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-height: 40vh;
+    overflow-y: auto;
+}
+
+.choice-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 112px;
+    padding: 6px;
+    border: 1px solid #3a4148;
+    border-radius: 4px;
+    background: #272c31;
+    color: #eee;
+    cursor: pointer;
+}
+
+.choice-option img {
+    width: 54px;
+    height: 48px;
+    image-rendering: pixelated;
+}
+
+.choice-option:disabled {
+    opacity: 0.55;
+    cursor: default;
+}
+
+.choice-option small {
+    color: #ff6b6b;
+}
+
+
+.slot.using {
+    outline: 2px solid #ffff00;
+}
+
+.slot.out {
+    opacity: 0.4;
+}
+
+.shop-hint {
+    margin: 8px 0 0;
+    color: #aaa;
+}
+
+/* --- Fishing: the reeling minigame --- */
+#fishing-bar {
+    position: fixed;
+    z-index: 15;
+    left: 50%;
+    bottom: 22%;
+    transform: translateX(-50%);
+    width: min(420px, calc(100vw - 32px));
+    padding: 10px 12px 12px;
+    border: 1px solid #59616a;
+    border-radius: 8px;
+    background: rgba(18, 22, 26, 0.85);
+    color: #eee;
+    font: 13px/1.4 system-ui, sans-serif;
+    text-align: center;
+    pointer-events: none;
+}
+
+#fishing-bar.hidden {
+    display: none;
+}
+
+.fishing-track {
+    position: relative;
+    height: 28px;
+    margin: 6px 0 8px;
+    border-radius: 14px;
+    background: linear-gradient(#1c4a6e, #12324b);
+    overflow: hidden;
+}
+
+.fishing-zone {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border-radius: 14px;
+    background: rgba(120, 200, 255, 0.35);
+    box-shadow: inset 0 0 0 2px rgba(160, 220, 255, 0.7);
+}
+
+.fishing-zone.on-fish {
+    background: rgba(110, 230, 120, 0.45);
+    box-shadow: inset 0 0 0 2px rgba(150, 255, 160, 0.9);
+}
+
+.fishing-fish {
+    position: absolute;
+    top: 2px;
+    font-size: 20px;
+    line-height: 24px;
+    transform: translateX(-50%);
+}
+
+.fishing-meter {
+    height: 8px;
+    border-radius: 4px;
+    background: #2a2f35;
+    overflow: hidden;
+}
+
+.fishing-meter-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #e0a030, #6ee07a);
+}
+
+
+/* --- World map (M) --- */
+#world-map {
+    position: fixed;
+    z-index: 20;
+    inset: 16px;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    padding: 12px;
+    border: 1px solid #59616a;
+    border-radius: 8px;
+    background: rgba(18, 22, 26, 0.97);
+    color: #eee;
+    font: 13px/1.4 system-ui, sans-serif;
+}
+
+#world-map.hidden {
+    display: none;
+}
+
+.world-map-body {
+    flex: 1;
+    display: flex;
+    gap: 12px;
+    min-height: 0;
+}
+
+.world-map-body canvas {
+    flex: 1;
+    min-width: 0;
+    border-radius: 4px;
+    cursor: grab;
+    touch-action: none;
+}
+
+.world-map-body canvas:active {
+    cursor: grabbing;
+}
+
+.world-map-legend {
+    width: 180px;
+    overflow-y: auto;
+}
+
+.world-map-legend h3 {
+    margin: 12px 0 6px;
+    font-size: 12px;
+    color: #aab3bc;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.world-map-legend button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 4px 6px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: #eee;
+    text-align: left;
+    cursor: pointer;
+}
+
+.world-map-legend button:hover,
+.world-map-legend button:focus-visible {
+    background: #272c31;
+}
+
+.world-map-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px;
+    color: #eee;
+    cursor: pointer;
+}
+
+.world-map-toggle input {
+    margin: 0;
+}
+
+.world-map-dot {
+    width: 10px;
+    height: 10px;
+    border: 1px solid #111;
+    border-radius: 50%;
+}
+
+.world-map-status {
+    margin-top: 12px;
+    color: #aab3bc;
 }

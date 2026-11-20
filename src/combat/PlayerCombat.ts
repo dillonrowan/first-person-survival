@@ -1,8 +1,8 @@
 import type { Body, BodySource } from "../physics/Bodies";
 import type { FlagsAt } from "../physics/TileColliders";
 import { Combatant } from "./Combatant";
-import { DamageResult, applyDamage, applyHit, hitboxMultiplier } from "./Damage";
-import { pushDirection, raySign, traceRay } from "./SwingRay";
+import { DamageResult, applyDamage, applyHit, hitboxMultiplier, parryChance } from "./Damage";
+import { SolidSource, pushDirection, raySign, traceRay, traceSolid } from "./SwingRay";
 import { rayFor, timelineFor } from "./moves";
 import { KickController, traceKick } from "./Kick";
 import { MeleeController, MeleeInput } from "./MeleeController";
@@ -10,6 +10,7 @@ import type { MoveDef } from "./moves";
 import { tuning } from "./tuning";
 import { WEAPONS, WeaponDef } from "./weapons";
 import type { AttackStyle } from "../npc/AttackStyle";
+import { HIT_CLIP_IMPACT } from "../npc/HitClips";
 import type { ShieldDef } from "./Shields";
 import { SHIELDS } from "./Shields";
 import type { DefenceType, NpcCombatStats } from "../world/NpcFormat";
@@ -66,12 +67,24 @@ export interface CombatTarget {
     readonly combatStats?: NpcCombatStats;
     /** The XP the player is owed for the damage dealt, paid out when the target dies. */
     readonly xpLedger?: XpLedger;
+    /** True if the target can parry a melee blow now (a standing humanoid NPC). */
+    readonly canParry?: boolean;
     /**
      * A hit driving the target along (dirX, dirY). `hitPow` is the move's HitPow: physics props
      * scale their push by it (spec 19), NPCs their shove and how far a killing blow throws them.
-     * `height` is where the hit struck the body, 0 (feet) to 1 (top).
+     * `height` is where the hit struck the body, 0 (feet) to 1 (top). `defence`: the blow did
+     * nothing and the target guards against it or parries it.
      */
-    takeHit(dirX: number, dirY: number, push: number, fromX: number, fromY: number, hitPow?: number, height?: number): void;
+    takeHit(
+        dirX: number,
+        dirY: number,
+        push: number,
+        fromX: number,
+        fromY: number,
+        hitPow?: number,
+        height?: number,
+        defence?: "guard" | "parry",
+    ): void;
     /** A kick: the target may dodge it. */
     kick(dirX: number, dirY: number, fromX: number, fromY: number): "dodged" | "hit";
 }
@@ -102,6 +115,8 @@ export type CombatInput = {
     kickPressed?: boolean;
     /** True in the update a cast was asked for (G, or right click with a staff or wand). */
     castPressed?: boolean;
+    /** Pitch a spell leaves the eyes along (the reticule's line in third person); the view's when absent. */
+    aimPitch?: number;
     forward: number;
     strafe: number;
 };
@@ -167,10 +182,18 @@ export class PlayerCombat {
     weaponIndex = 0;
     /** Called for every hit, for hit markers and sounds. */
     onHit?: (report: HitReport) => void;
+    /** False for a target the player cannot hurt yet (Slayer level too low): its hits do 0. */
+    canDamage?: (target: CombatTarget) => boolean;
+    /** Solid things a swing stops on besides NPCs (trees and rocks to chop and mine). */
+    solids?: SolidSource;
+    /** The blade struck one of `solids` and lodged there (an axe in a tree chops it). */
+    onSolidHit?: (ref: unknown) => void;
     /** Called when a kick lands, misses or is dodged. */
     onKick?: (report: KickReport) => void;
     /** Called for every NPC strike that reaches the player. */
     onStruck?: (report: StrikeReport) => void;
+    /** Called when an NPC's parry shoves the player and stuns them. */
+    onStunned?: () => void;
     /** True while holding the parry stance. */
     blocking = false;
     /** Seconds since the player last attacked (NPCs go berserk after 2 s, spec 10.1). */
@@ -188,6 +211,12 @@ export class PlayerCombat {
     private castCooldown = 0;
     private regenTimer = 0;
     private swingAttack: PlayerAttack | undefined = undefined;
+    /** Seconds until a parry's blow back lands and stuns the player; negative while none is coming. */
+    private parryStunIn = -1;
+    /** When the player's melee blows reached each target (this.time), oldest first: a flurry it may read. */
+    private readonly blowsOn = new WeakMap<CombatTarget, number[]>();
+    /** Where the NPC that parried stands, for whether the player's guard faces its blow back. */
+    private readonly parriedBy = { x: 0, y: 0 };
 
     /** The shield worn (the shield slot item) or set directly; tests and dev tools set it. */
     get shield(): ShieldDef | undefined {
@@ -318,7 +347,8 @@ export class PlayerCombat {
         const success = this.random() < hitChance(attack.attackRoll, npcDefenceRoll(stats, attack.defenceType));
         const base = success ? Math.max(1, Math.floor(this.random() * (attack.maxHit + 1))) : 0;
         const multiplier = clamp(attack.rate * extra, 0, tuning.osrsMaxDamageMultiplier);
-        const amount = success ? stochasticRound(base * multiplier, this.random) : 0;
+        const allowed = this.canDamage?.(target) ?? true;
+        const amount = success && allowed ? stochasticRound(base * multiplier, this.random) : 0;
         const before = target.combatant.health;
         const result = applyDamage(target.combatant, amount, hit, this.weapon.stunMultiplier, this.random, {
             minReaction: "flinch",
@@ -352,6 +382,36 @@ export class PlayerCombat {
         return result;
     }
 
+    /**
+     * How a target with stats meets a blow that did nothing: on its guard, or (a melee blow) with a
+     * parry, by parryChance of the player's Melee against its Defence and the `flurry` of earlier
+     * blows that reached it moments ago. A target stunned or
+     * otherwise incapacitated (by this blow's stun roll too, which comes first) cannot parry.
+     * Undefined for a blow that did damage, and for targets without stats. Draws one random number
+     * only for a parry roll.
+     */
+    private defenceAgainst(target: CombatTarget, result: DamageResult, melee: boolean, flurry = 0): "guard" | "parry" | undefined {
+        const stats = target.combatStats;
+        if (!stats || result.amount > 0 || result.killed) {
+            return undefined;
+        }
+        const parry =
+            melee &&
+            !!target.canParry &&
+            !target.combatant.incapacitated &&
+            this.random() < parryChance(this.skills.current("melee"), stats.defence, flurry);
+        return parry ? "parry" : "guard";
+    }
+
+    /** Earlier melee blows that reached `target` within tuning.parryFlurryWindow; then notes this one. */
+    private flurryOn(target: CombatTarget): number {
+        const times = (this.blowsOn.get(target) ?? []).filter((t) => this.time - t <= tuning.parryFlurryWindow);
+        const earlier = times.length;
+        times.push(this.time);
+        this.blowsOn.set(target, times);
+        return earlier;
+    }
+
     /** Casts the equipped spell as a projectile along the view, if the level and runes allow. */
     private tryCast(player: CombatPlayer, input: CombatInput): void {
         if (
@@ -380,7 +440,7 @@ export class PlayerCombat {
         const cast = launchArrow(
             { x: player.x, y: player.y, z: player.z + player.eyeHeight, plane: player.plane },
             player.yaw,
-            player.pitch,
+            input.aimPitch ?? player.pitch,
             { speed: tuning.spellSpeed, gravity: 0 },
         );
         cast.spell = { color: spell.color, id: spell.id };
@@ -394,6 +454,11 @@ export class PlayerCombat {
     /** The weapon arrows and bolts hit with: the held bow or crossbow, else the plain bow. */
     private get bowWeapon(): WeaponDef {
         return this.ranged ? this.weapon : WEAPONS.find((w) => w.family === "bow")!;
+    }
+
+    /** Stunned by an NPC's parry: no moving or fighting until it wears off. */
+    get stunned(): boolean {
+        return this.combatant.reaction === "stun" && this.combatant.reactionTime > 0;
     }
 
     /** A bow or crossbow is held: no melee, no parry. */
@@ -452,14 +517,9 @@ export class PlayerCombat {
         const dx = player.x - strike.fromX;
         const dy = player.y - strike.fromY;
         const d = Math.hypot(dx, dy) || 1;
-        // Parry angle test (spec 6): the attack must come from the front within acos(parry_cos).
-        const facing = (-Math.sin(player.yaw) * -dx + Math.cos(player.yaw) * -dy) / d;
         // Only a melee blow can be parried: arrows, spells and breath fly past a raised weapon.
-        if (strike.style === "melee" && this.blocking && !strike.breaksParry && facing >= this.weapon.parryCos) {
-            const report: StrikeReport = { ...none, outcome: "parried", punch: tuning.punchParrying };
-            this.onStruck?.(report);
-            return report;
-        }
+        const guarded =
+            strike.style === "melee" && !strike.breaksParry && this.guardsAgainst(player, strike.fromX, strike.fromY);
         const npc = strike.attacker ?? fallbackCombatStats(1);
         // Breath is rolled as magic, against the player's magic defence.
         const accuracy: "melee" | "ranged" | "magic" =
@@ -489,6 +549,14 @@ export class PlayerCombat {
         }
         const base = success ? Math.floor(this.random() * (max + 1)) : 0;
         const damage = success ? stochasticRound(base * clamp(strike.rate ?? 1, 0, 1), this.random) : 0;
+        if (guarded) {
+            // The weapon takes the blow, but one that would have landed still gets some through.
+            const through = damage > 0 ? Math.max(1, Math.round(damage * tuning.blockDamageShare)) : 0;
+            this.combatant.hurt(through, "none");
+            const report: StrikeReport = { ...none, outcome: "parried", damage: through, punch: tuning.punchParrying };
+            this.onStruck?.(report);
+            return report;
+        }
         this.combatant.hurt(damage, "flinch");
         // A poisonous monster can poison with any strike that reaches the player, hit or miss [wiki];
         // breath does not poison.
@@ -525,6 +593,21 @@ export class PlayerCombat {
         return report;
     }
 
+    /**
+     * True while the parry stance faces a blow from (fromX, fromY): it must come from the front
+     * within acos(parry_cos) (spec 6).
+     */
+    private guardsAgainst(player: CombatPlayer, fromX: number, fromY: number): boolean {
+        if (!this.blocking) {
+            return false;
+        }
+        const dx = player.x - fromX;
+        const dy = player.y - fromY;
+        const d = Math.hypot(dx, dy) || 1;
+        const facing = (-Math.sin(player.yaw) * -dx + Math.cos(player.yaw) * -dy) / d;
+        return facing >= this.weapon.parryCos;
+    }
+
     update(dt: number, player: CombatPlayer, input: CombatInput): HitReport[] {
         // Read every update so it can be switched live (window.game.tuning).
         this.combatant.unlimitedHealth = tuning.playerUnlimitedHealth;
@@ -533,6 +616,19 @@ export class PlayerCombat {
         this.time += dt;
         this.castCooldown = Math.max(0, this.castCooldown - dt);
         this.regen(dt);
+        if (this.parryStunIn >= 0) {
+            this.parryStunIn -= dt;
+            if (this.parryStunIn < 0 && !this.combatant.dead && this.guardsAgainst(player, this.parriedBy.x, this.parriedBy.y)) {
+                // The blow back is taken on the parry stance, like any blocked strike.
+                this.onStruck?.({ outcome: "parried", damage: 0, punch: tuning.punchParrying, style: "melee", shielded: false, missed: false });
+            } else if (this.parryStunIn < 0 && !this.combatant.dead) {
+                // Stunned where the player stands: the blow staggers, it does not throw.
+                this.combatant.stun(tuning.parryStunTime);
+                this.melee.cancel();
+                this.kick.cancel();
+                this.onStunned?.();
+            }
+        }
         // Arrows and bolts come from the ammo slot.
         this.bow.arrows = this.gear.ammoCount("arrow");
         this.crossbow.bolts = this.gear.ammoCount("bolt");
@@ -673,13 +769,16 @@ export class PlayerCombat {
             const seen = this.hitThisSwing[slice.hitIndex] ?? new Set();
             // The attack ray (spec 17.2): lines from the eye sweeping the move's 90° fan.
             const ray = rayFor(timeline, slice.hitIndex);
+            const sign = raySign(ray, hit.impact);
+            // A tree or rock in the blade's path stops it: nothing past that line is hit.
+            const solid = this.solids && traceSolid(attacker, this.weapon.reach, ray, sign, slice.from, slice.to, this.solids, this.flagsAt);
             for (const arcHit of traceRay(
                 attacker,
                 this.weapon.reach,
                 ray,
-                raySign(ray, hit.impact),
+                sign,
                 slice.from,
-                slice.to,
+                solid?.at ?? slice.to,
                 this.bodies,
                 this.flagsAt,
                 seen,
@@ -705,13 +804,34 @@ export class PlayerCombat {
                               { unaware: !target.inCombat, hitbox: hitboxMultiplier(arcHit.height) },
                               this.random,
                           );
+                result.defence = this.defenceAgainst(target, result, true, this.flurryOn(target));
                 // Driven the way the blade was moving, not only away from the player.
                 const push = pushDirection(arcHit);
-                target.takeHit(push.x, push.y, result.push, player.x, player.y, hit.hitPow, arcHit.height);
+                target.takeHit(push.x, push.y, result.push, player.x, player.y, hit.hitPow, arcHit.height, result.defence);
                 this.melee.addAdrenaline(hit.adrenaline);
                 const report = { target, result, move };
                 reports.push(report);
                 this.onHit?.(report);
+                if (result.defence === "parry") {
+                    // The blade is caught and swept aside; the shove lands with the parry clip's blow.
+                    this.melee.stopSwing();
+                    this.parryStunIn = HIT_CLIP_IMPACT.parry ?? 0;
+                    // Having read the flurry and answered it, the NPC starts counting afresh.
+                    this.blowsOn.delete(target);
+                    this.parriedBy.x = arcHit.body.x;
+                    this.parriedBy.y = arcHit.body.y;
+                    return reports;
+                }
+                if (result.defence === "guard") {
+                    // A blow of 0 is blocked: the blade stops dead on the guard, hitting nothing past it.
+                    this.melee.lodge(slice.hitIndex, arcHit.at, "guard");
+                    return reports;
+                }
+            }
+            if (solid) {
+                this.melee.lodge(slice.hitIndex, solid.at);
+                this.onSolidHit?.(solid.ref);
+                break;
             }
         }
         return reports;
@@ -757,7 +877,8 @@ export class PlayerCombat {
                           { unaware: !target.inCombat, hitbox: hitboxMultiplier(height) },
                           this.random,
                       );
-            target.takeHit(hit.dirX, hit.dirY, result.push, player.x, player.y, ARROW_HIT.hitPow, height);
+            result.defence = this.defenceAgainst(target, result, false);
+            target.takeHit(hit.dirX, hit.dirY, result.push, player.x, player.y, ARROW_HIT.hitPow, height, result.defence);
             this.melee.addAdrenaline(ARROW_HIT.adrenaline);
             const report: HitReport = { target, result, move: ARROW_MOVE, spell: hit.arrow.spell?.id };
             this.onHit?.(report);

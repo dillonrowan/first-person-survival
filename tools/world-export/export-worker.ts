@@ -1,3 +1,4 @@
+import { loadSkillLocIndex } from "./skills/SkillLocIndex";
 import { gzipSync } from "fflate";
 import fs from "node:fs";
 import path from "node:path";
@@ -55,7 +56,7 @@ const loaders = createWorldLoaders({
     xteas: new Map(data.xteas),
 });
 const faceColors = new FaceColors(loaders.textureLoader);
-const regionBuilder = new RegionBuilder(loaders, faceColors);
+const regionBuilder = new RegionBuilder(loaders, faceColors, loadSkillLocIndex());
 const npcBuilder = new NpcModelBuilder(
     loaders.npcTypeLoader,
     loaders.npcModelLoader,

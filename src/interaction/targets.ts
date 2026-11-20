@@ -4,6 +4,8 @@ import type { ActionHandler, InteractionUi, Target, TargetSource } from "./Inter
 
 /** Ticks (600 ms each) an NPC stands still and faces the player after being talked to. */
 export const NPC_HOLD_TICKS = 8;
+/** Fishing spots stand on water, so they can be used from further away. */
+export const FISHING_RANGE = 4;
 
 /** Names in the cache can carry colour markup such as <col=00ffff>. */
 export function cleanName(name: string): string {
@@ -14,8 +16,9 @@ export function cleanName(name: string): string {
 export function npcTargetSource(npcs: BodySource<Npc>): TargetSource {
     const bodies: Body<Npc>[] = [];
     return (ray) => {
-        const x1 = ray.ox + ray.dx * ray.range;
-        const y1 = ray.oy + ray.dy * ray.range;
+        const reach = Math.max(ray.range, FISHING_RANGE);
+        const x1 = ray.ox + ray.dx * reach;
+        const y1 = ray.oy + ray.dy * reach;
         bodies.length = 0;
         npcs.collectBodies(
             ray.plane,
@@ -27,7 +30,8 @@ export function npcTargetSource(npcs: BodySource<Npc>): TargetSource {
         );
         let best: Target | undefined;
         for (const body of bodies) {
-            const t = rayCylinder(ray.ox, ray.oy, ray.oz, ray.dx, ray.dy, ray.dz, body, ray.range);
+            const range = /fishing spot/i.test(body.owner.appearance.name) ? FISHING_RANGE : ray.range;
+            const t = rayCylinder(ray.ox, ray.oy, ray.oz, ray.dx, ray.dy, ray.dz, body, range);
             if (t !== undefined && (!best || t < best.distance)) {
                 const npc = body.owner;
                 best = {
@@ -53,6 +57,8 @@ export function createNpcActionHandler(
     next?: ActionHandler,
     /** Called for a "Bank" option (bankers). */
     onBank?: () => void,
+    /** Skill actions (fish, pickpocket, trade…); true when handled, which skips the default reaction. */
+    npcSkill?: (npc: Npc, action: string) => boolean,
 ): ActionHandler {
     return (target, action, index) => {
         if (target.kind !== "npc") {
@@ -64,6 +70,7 @@ export function createNpcActionHandler(
             return;
         }
         const npc = target.ref as Npc;
+        if (npcSkill?.(npc, action)) return;
         npc.faceTowards(player.x, player.y);
         npc.hold(NPC_HOLD_TICKS);
         ui.showMessage(`${action} ${target.label}`);

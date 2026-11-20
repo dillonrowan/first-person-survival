@@ -26,6 +26,8 @@ const SKELETON: [BoneRole, BoneRole | undefined, [number, number, number]][] = [
 ];
 
 const SKIN = 0xd9a577;
+/** From the wrist to the middle of the fist, where a held item's grip sits. */
+const HAND_REACH = 0.05;
 const TOP = 0x4a6b3a;
 const BOTTOM = 0x6b4a2f;
 
@@ -39,6 +41,8 @@ const PARTS: [BoneRole, [number, number, number], [number, number, number], numb
     ["forearm_l", [0.08, 0.28, 0.08], [0, -0.13, 0], SKIN, "arm_fl"],
     ["upperarm_r", [0.09, 0.3, 0.09], [0, -0.14, 0], TOP, "arm_ur"],
     ["forearm_r", [0.08, 0.28, 0.08], [0, -0.13, 0], SKIN, "arm_fr"],
+    ["hand_l", [0.09, 0.1, 0.09], [0, -HAND_REACH, 0], SKIN, "hand_l"],
+    ["hand_r", [0.09, 0.1, 0.09], [0, -HAND_REACH, 0], SKIN, "hand_r"],
     ["thigh_l", [0.13, 0.36, 0.13], [0, -0.17, 0], BOTTOM, "leg_ul"],
     ["shin_l", [0.11, 0.36, 0.11], [0, -0.17, 0], BOTTOM, "leg_ll"],
     ["foot_l", [0.12, 0.06, 0.24], [0, -0.02, 0.05], 0x2b2b2b, "foot_l"],
@@ -79,6 +83,28 @@ function gait(name: string, duration: number, amplitude: number): THREE.Animatio
     ]);
 }
 
+/**
+ * Procedural idle, walk, run and airborne clips (bones turned about X from an unrotated rest pose),
+ * timed for the game's own walk and sprint speeds.
+ */
+export function placeholderClips(): Map<string, THREE.AnimationClip> {
+    const breathe = (p: number) => Math.sin(p * Math.PI * 2) * 0.03;
+    return new Map<string, THREE.AnimationClip>([
+        ["idle", new THREE.AnimationClip("idle", 3, [swing("chest", 3, breathe)])],
+        ["walk", gait("walk", 0.8, 0.6)],
+        ["run", gait("run", 0.5, 0.95)],
+        [
+            "airborne",
+            new THREE.AnimationClip("airborne", 1, [
+                swing("thigh_l", 1, () => -0.5),
+                swing("thigh_r", 1, () => 0.2),
+                swing("shin_l", 1, () => 0.8),
+                swing("shin_r", 1, () => 0.4),
+            ]),
+        ],
+    ]);
+}
+
 /** A stand-in character built in code, with the same shape as a loaded glTF avatar. */
 export function createPlaceholderAvatar(): AvatarAsset {
     const root = new THREE.Group();
@@ -110,23 +136,8 @@ export function createPlaceholderAvatar(): AvatarAsset {
     bones.head.add(eye);
     const handR = new THREE.Object3D();
     handR.name = SOCKET_HAND_R;
+    handR.position.set(0, -HAND_REACH, 0);
     bones.hand_r.add(handR);
-
-    const breathe = (p: number) => Math.sin(p * Math.PI * 2) * 0.03;
-    const clips = new Map<string, THREE.AnimationClip>([
-        ["idle", new THREE.AnimationClip("idle", 3, [swing("chest", 3, breathe)])],
-        ["walk", gait("walk", 0.8, 0.6)],
-        ["run", gait("run", 0.5, 0.95)],
-        [
-            "airborne",
-            new THREE.AnimationClip("airborne", 1, [
-                swing("thigh_l", 1, () => -0.5),
-                swing("thigh_r", 1, () => 0.2),
-                swing("shin_l", 1, () => 0.8),
-                swing("shin_r", 1, () => 0.4),
-            ]),
-        ],
-    ]);
 
     root.updateMatrixWorld(true);
     return {
@@ -135,7 +146,7 @@ export function createPlaceholderAvatar(): AvatarAsset {
         scale: 1,
         bones,
         sockets: { eye, handR },
-        clips,
+        clips: placeholderClips(),
         // The placeholder's cycles are timed for the game's own speeds.
         clipSpeeds: { walk: WALK_SPEED, run: SPRINT_SPEED, walk_back: WALK_SPEED },
         headParts: [bones.head.getObjectByName(`${HEAD_PART_PREFIX}skull`)!],

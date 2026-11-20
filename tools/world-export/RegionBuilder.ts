@@ -26,6 +26,7 @@ import { FaceColors, BRIGHTNESS } from "./FaceColors";
 import { MeshBuilder } from "./MeshBuilder";
 import { WorldLoaders } from "./WorldLoaders";
 import type { OverlayFloorTypeLoader } from "./rs/config/floortype/FloorTypeLoader";
+import type { SkillLocIndex } from "./skills/SkillLocIndex";
 
 // Neighbouring tiles are decoded too, so underlay blending, lighting and ground contouring are
 // seamless across region edges.
@@ -55,8 +56,12 @@ type FoundInteractives = {
     doorByWall: Map<SceneLoc, number>;
     /** Physics prop loc -> index into doorBuilders (props get their own meshes like doors). */
     propByLoc: Map<SceneLoc, number>;
+    /** Skill locs whose look can change (trees, rocks, patches), drawn into their own meshes. */
+    skillByLoc: Map<SceneLoc, InteractiveLoc>;
     doorBuilders: { opaque: MeshBuilder; transparent: MeshBuilder }[];
 };
+
+type Builders = { opaque: MeshBuilder; transparent: MeshBuilder };
 
 type PlacedEntity = {
     entity: Entity;
@@ -71,6 +76,8 @@ export class RegionBuilder {
     constructor(
         readonly loaders: WorldLoaders,
         private readonly colors: FaceColors = new FaceColors(loaders.textureLoader),
+        /** Which locs are skill targets (data/skill-locs.json); none without it. */
+        private readonly skillLocs?: SkillLocIndex,
     ) {}
 
     /** Texture ids in texture-array order (layer = index + 1). */
@@ -127,6 +134,12 @@ export class RegionBuilder {
 
         let locs = 0;
         for (const p of placed) {
+            const skillLoc = found.skillByLoc.get(p.sceneLoc);
+            if (skillLoc) {
+                this.addSkillLocMeshes(scene, found, p, skillLoc);
+                locs++;
+                continue;
+            }
             const resolved = this.resolveModel(scene, p);
             if (resolved) {
                 const doorIndex = found.doorByWall.get(p.sceneLoc);
@@ -275,6 +288,7 @@ export class RegionBuilder {
             doorWalls: new Set(),
             doorByWall: new Map(),
             propByLoc: new Map(),
+            skillByLoc: new Map(),
             doorBuilders: [],
         };
         const shownType = (id: number) => {
@@ -335,6 +349,9 @@ export class RegionBuilder {
                         const id = getIdFromTag(loc.tag);
                         const { locType, shown } = shownType(id);
                         if (this.addProp(found, scene, { level, x, y, worldX, worldY, loc, id, locType, shown })) {
+                            continue;
+                        }
+                        if (this.addSkillLoc(found, scene, { level, x, y, worldX, worldY, loc, id, locType, shown })) {
                             continue;
                         }
                         const bank = isBank(shown.name, shown.actions);
@@ -473,6 +490,135 @@ export class RegionBuilder {
         });
         return true;
     }
+
+    /**
+     * Makes a loc a skill target if data/skill-locs.json lists it. It keeps its tile collision.
+     * Trees, rocks and patches get their own meshes (built in addSkillLocMeshes), so the
+     * game can swap their look; the others stay part of the map. Returns false otherwise.
+     */
+    private addSkillLoc(
+        found: FoundInteractives,
+        scene: Scene,
+        p: { level: number; x: number; y: number; worldX: number; worldY: number; loc: Loc; id: number; locType: LocType; shown: LocType },
+    ): boolean {
+        const index = this.skillLocs;
+        if (!index) return false;
+        const key = String(p.id);
+        const ownMesh = key in index.resources || index.patches.includes(p.id);
+        if (!ownMesh && !index.statics.includes(p.id)) return false;
+        // Same level remapping SceneBuilder.decodeLocs applies under bridges.
+        let plane = p.level;
+        if ((scene.tileRenderFlags[1][p.x][p.y] & 0x2) === 2) {
+            plane--;
+        }
+        if (plane < 0) return false;
+        const swap = p.loc.rotation === 1 || p.loc.rotation === 3;
+        const interactive: InteractiveLoc = {
+            kind: "skill",
+            id: p.id,
+            name: stripNameTags(p.shown.name),
+            actions: p.shown.actions.filter((action): action is string => !!action),
+            plane,
+            level: p.level,
+            tileX: p.worldX,
+            tileY: p.worldY,
+            sizeX: swap ? p.locType.sizeY : p.locType.sizeX,
+            sizeY: swap ? p.locType.sizeX : p.locType.sizeY,
+            rotation: p.loc.rotation,
+            height: DEFAULT_INTERACTIVE_HEIGHT,
+            skill: {},
+        };
+        found.interactives.push(interactive);
+        if (ownMesh) found.skillByLoc.set(p.loc, interactive);
+        return true;
+    }
+
+    /** Draws a skill loc into new meshes: as placed, depleted or per patch state. */
+    private addSkillLocMeshes(scene: Scene, found: FoundInteractives, p: PlacedEntity, loc: InteractiveLoc): void {
+        const { locTypeLoader } = this.loaders;
+        const index = this.skillLocs!;
+        const skill = loc.skill!;
+        let height = 0;
+        const newMesh = (): [number, Builders] => {
+            const builders = { opaque: new MeshBuilder(256), transparent: new MeshBuilder(64) };
+            found.doorBuilders.push(builders);
+            return [found.doorBuilders.length - 1, builders];
+        };
+        const variant = (locType: LocType): number | undefined => {
+            const [i, builders] = newMesh();
+            const h = this.buildLocVariant(scene, p, locType, builders);
+            if (h === undefined) return undefined;
+            height = Math.max(height, h);
+            return i;
+        };
+        const key = String(loc.id);
+        if (index.patches.includes(loc.id)) {
+            const transforms = locTypeLoader.load(loc.id).transforms ?? [];
+            const meshOf = new Map<number, number>();
+            skill.stateMeshes = transforms.map((t) => {
+                if (t < 0) return -1;
+                if (!meshOf.has(t)) meshOf.set(t, variant(locTypeLoader.load(t)) ?? -1);
+                return meshOf.get(t)!;
+            });
+            loc.height = Math.max(1, height);
+            return;
+        }
+        const placed = this.resolveModel(scene, p);
+        if (placed) {
+            const [i, builders] = newMesh();
+            this.addModel({ doubleSided: builders.opaque, ...builders }, placed.model, p, placed.height);
+            skill.mesh = i;
+            height = modelHeight(placed.model);
+        }
+        const depleted = index.resources[key];
+        if (depleted !== undefined) {
+            const type = depleted >= 1_000_000 ? plainRock(locTypeLoader.load(depleted - 1_000_000), depleted) : locTypeLoader.load(depleted);
+            skill.depletedMesh = variant(type);
+        }
+        loc.height = Math.max(1, height);
+    }
+
+    /**
+     * Builds another loc type's model where a placed loc stands (same tile and rotation), centred on
+     * its own footprint, into `builders`. Returns the model's height in tiles, or undefined.
+     */
+    private buildLocVariant(scene: Scene, p: PlacedEntity, locType: LocType, builders: Builders): number | undefined {
+        const sceneLoc = p.sceneLoc as Loc;
+        const type: LocModelType = sceneLoc.flags & 0x3f;
+        const rotation = (sceneLoc.flags >> 6) & 0x3;
+        const swap = rotation === 1 || rotation === 3;
+        const sizeX = swap ? locType.sizeY : locType.sizeX;
+        const sizeY = swap ? locType.sizeX : locType.sizeY;
+        const tileX = sceneLoc.startX;
+        const tileY = sceneLoc.startY;
+        const heightMap = scene.tileHeights[p.level];
+        const last = heightMap.length - 1;
+        const startX = Math.min((sizeX >> 1) + tileX, last);
+        const endX = Math.min(((sizeX + 1) >> 1) + tileX, last);
+        const startY = Math.min((sizeY >> 1) + tileY, last);
+        const endY = Math.min(((sizeY + 1) >> 1) + tileY, last);
+        const centerHeight = (heightMap[endX][endY] + heightMap[startX][endY] + heightMap[startX][startY] + heightMap[endX][startY]) >> 2;
+        const centerX = (tileX << 7) + (sizeX << 6);
+        const centerZ = (tileY << 7) + (sizeY << 6);
+        const model = this.loaders.locModelLoader.getModelStatic(locType, type, rotation, {
+            type: locType.contourGroundType,
+            param: locType.contourGroundParam,
+            heightMap,
+            heightMapAbove: p.level < scene.levels - 1 ? scene.tileHeights[p.level + 1] : undefined,
+            entityX: centerX,
+            entityY: centerHeight,
+            entityZ: centerZ,
+        });
+        if (!model) return undefined;
+        this.addModel(
+            { doubleSided: builders.opaque, ...builders },
+            model,
+            { ...p, offsetX: p.offsetX + centerX - sceneLoc.x, offsetZ: p.offsetZ + centerZ - sceneLoc.y },
+            centerHeight,
+        );
+        return modelHeight(model);
+    }
+
 
     private addDoor(
         found: FoundInteractives,
@@ -809,6 +955,15 @@ function modelHeight(model: Model): number {
         top = Math.max(top, -model.verticesY[i]);
     }
     return top / RS_UNITS_PER_TILE;
+}
+
+/** A rock without its ore colours, as a separate type (its own id keeps the model cache apart). */
+function plainRock(rock: LocType, id: number): LocType {
+    const copy = Object.assign(Object.create(Object.getPrototypeOf(rock)), rock) as LocType;
+    copy.recolorFrom = undefined as never;
+    copy.recolorTo = undefined as never;
+    (copy as { id: number }).id = id;
+    return copy;
 }
 
 function isOpenable(actions: (string | undefined)[]): boolean {

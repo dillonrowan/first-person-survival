@@ -1,15 +1,19 @@
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
+import { blockPose, BodyPose, chargePose, guardPose, heldToolPose, lerpBodyPose, swingPose } from "./BodySwings";
 import { BowString } from "./BowString";
 import { CrossbowRig } from "./CrossbowRig";
 import { DM_CLIPS, DmClip } from "./DmKeyframes";
 import type { KickController } from "./Kick";
+import { BLOCKED_CLIP, LODGE_CLIP, LODGE_FPS } from "./LodgeClip";
 import type { MeleeController } from "./MeleeController";
 import type { MoveDef, PowerDirection } from "./moves";
+import { castFrame, castStyle, OFF_HAND_REST } from "./CastGesture";
 import { createPlaceholderWeapon } from "./PlaceholderWeapons";
 import { tuning } from "./tuning";
 import { UNARMED, type WeaponDef } from "./weapons";
+import type { ToolMotion } from "../skills/SkillContext";
 
 /** Position (camera space, tiles) and orientation of the held weapon. */
 type Pose = { pos: THREE.Vector3; quat: THREE.Quaternion };
@@ -51,6 +55,86 @@ const CROSSBOW_AIM = euler(0.13, -0.2, -0.44, -Math.PI / 2, 0, 0);
  * the string is seen pulled back toward the butt, and the bolt laid in its groove.
  */
 const CROSSBOW_RELOAD = axes(0.06, -0.18, -0.5, new THREE.Vector3(-0.15, -0.6, -0.78), new THREE.Vector3(0, -0.78, 0.6));
+/**
+ * Fishing tools (models with `userData.hold`). A rod is held low on the right, angled up and out
+ * with its reel and guides underneath; a net, pot or harpoon is held out in front, head forward.
+ */
+const ROD_REST = axes(0.2, -0.32, -0.32, new THREE.Vector3(-0.1, 0.5, -1), new THREE.Vector3(0, -1, 0.3));
+const TOOL_REST = axes(0.2, -0.26, -0.36, new THREE.Vector3(-0.25, 0.32, -1), new THREE.Vector3(0, -1, 0));
+/**
+ * Keyed tool strokes over t 0..1: [t, pitch about the grip (radians, + lifts the far end), rise,
+ * forward reach (tiles)]. The cast swings the rod back over the shoulder and whips it out; a scoop
+ * lifts the net, plunges it into the water, drags it back through and lifts it out; a stab draws the
+ * harpoon back and drives it down and forward. [design]
+ */
+type StrokeKey = readonly [t: number, pitch: number, rise: number, reach: number];
+const STROKES: Record<"cast" | "scoop" | "stab", readonly StrokeKey[]> = {
+    cast: [[0, 0, 0, 0], [0.35, 1.15, 0.08, -0.05], [0.52, -0.4, -0.02, 0.1], [0.7, -0.25, 0, 0.05], [1, 0, 0, 0]],
+    scoop: [[0, 0, 0, 0], [0.25, 0.35, 0.05, 0], [0.42, -0.6, -0.04, 0.3], [0.7, -0.45, -0.03, -0.02], [0.85, 0.3, 0.04, -0.02], [1, 0, 0, 0]],
+    stab: [[0, 0, 0, 0], [0.3, 0.25, 0.06, -0.12], [0.42, -0.45, -0.04, 0.55], [0.6, -0.4, -0.03, 0.45], [1, 0, 0, 0]],
+};
+
+function stroke(keys: readonly StrokeKey[], t: number): { pitch: number; rise: number; reach: number } {
+    let i = 0;
+    while (i < keys.length - 2 && t > keys[i + 1][0]) i++;
+    const [t0, p0, r0, f0] = keys[i];
+    const [t1, p1, r1, f1] = keys[i + 1];
+    const k = smooth(Math.min(1, Math.max(0, (t - t0) / Math.max(1e-6, t1 - t0))));
+    return { pitch: lerp(p0, p1, k), rise: lerp(r0, r1, k), reach: lerp(f0, f1, k) };
+}
+
+/**
+ * The mining stroke, keyed as whole poses over t 0..1 (each key: t, the pose, and whether the move
+ * into it eases in and out or snaps through as a blow): a pickaxe is lifted overhead and driven
+ * straight down onto the rock in front. The impact key matches MINE_STROKE (src/skills/gathering.ts).
+ * Woodcutting has no stroke of its own: an axe's attack swing that lodges in a tree chops it. [design]
+ */
+type GatherKey = { t: number; pose: Pose; blow?: boolean };
+const GATHER_REST = axes(0.22, -0.3, -0.42, new THREE.Vector3(-0.2, 0.75, -0.65), new THREE.Vector3(-0.6, 0.2, -0.8));
+const GATHER_STROKES: Record<"mine", GatherKey[]> = {
+    mine: [
+        { t: 0, pose: GATHER_REST },
+        { t: 0.42, pose: axes(0.16, 0.08, -0.22, new THREE.Vector3(0.05, 0.8, 0.6), new THREE.Vector3(0, 0.55, -0.85)) },
+        { t: 0.55, pose: axes(0.1, -0.2, -0.4, new THREE.Vector3(-0.2, 0.05, -1), new THREE.Vector3(0, -1, -0.1)), blow: true },
+        { t: 0.7, pose: axes(0.1, -0.2, -0.39, new THREE.Vector3(-0.2, 0.08, -1), new THREE.Vector3(0, -1, -0.1)) },
+        { t: 1, pose: GATHER_REST },
+    ],
+};
+
+/** Seconds to blend into or out of a gathering stroke. [design] */
+const GATHER_BLEND = 0.15;
+/**
+ * While a power attack is wound up, the grip (and the hand on it) is held at least this far from
+ * the eyes (tiles) and this far off the line of sight (radians): the wind-up poses bring the grip
+ * in front of the face, where the hand would block the view. Eased in and out over CLEAR_BLEND
+ * seconds. [design]
+ */
+const GRIP_CLEAR_DISTANCE = 0.3;
+const GRIP_CLEAR_ANGLE = 0.55;
+const CLEAR_BLEND = 0.15;
+
+/** `pos` (camera space, -Z ahead) moved out to GRIP_CLEAR_DISTANCE and off the line of sight. */
+export function clearOfView(pos: THREE.Vector3): THREE.Vector3 {
+    const lateral = Math.hypot(pos.x, pos.y);
+    // Straight ahead: aside towards the lower right, where the right hand comes from.
+    const [dx, dy] = lateral < 1e-4 ? [Math.SQRT1_2, -Math.SQRT1_2] : [pos.x / lateral, pos.y / lateral];
+    const angle = Math.max(Math.atan2(lateral, -pos.z), GRIP_CLEAR_ANGLE);
+    const distance = Math.max(pos.length(), GRIP_CLEAR_DISTANCE);
+    const side = Math.sin(angle) * distance;
+    return new THREE.Vector3(dx * side, dy * side, -Math.cos(angle) * distance);
+}
+
+function gatherPose(kind: "mine", t: number): Pose {
+    const keys = GATHER_STROKES[kind];
+    let i = 0;
+    while (i < keys.length - 2 && t > keys[i + 1].t) i++;
+    const a = keys[i];
+    const b = keys[i + 1];
+    const k = Math.min(1, Math.max(0, (t - a.t) / Math.max(1e-6, b.t - a.t)));
+    // A blow accelerates into the target; everything else eases.
+    return lerpPose(a.pose, b.pose, b.blow ? k * k : smooth(k));
+}
+
 /** A shot's kick: the muzzle flips up (radians) and the stock jolts back (tiles) at full recoil. [design] */
 const CROSSBOW_KICK = { pitch: 0.16, back: 0.05 };
 
@@ -71,8 +155,29 @@ const HITSTOP = 0.07;
 /** Camera shake on impact, radians at full strength, and how fast it dies out (1/s). [design] */
 const IMPACT_SHAKE = 0.012;
 const SHAKE_DECAY = 14;
+/**
+ * A blow taken on the held item (a blocked strike, a blocked parry, the blade meeting a guard): it
+ * rattles in the grip (tiles, radians of twist), knocked back towards the player (tiles), dying away
+ * (1/s). [design]
+ */
+const CLASH_RATTLE = 0.01;
+const CLASH_TWIST = 0.07;
+const CLASH_KNOCK = 0.035;
+const CLASH_DECAY = 8;
 /** Tremble of the blade while a charged power attack is held, tiles. [design] */
 const CHARGE_TREMBLE = 0.004;
+
+/** How far a put-away item drops (tiles), comes back (tiles) and tips back (radians). [design] */
+const LOWER_DROP = 0.55;
+const LOWER_BACK = 0.1;
+const LOWER_TILT = 0.7;
+
+/** Third person: idle this long (seconds), the guard is lowered to an at-ease hold over RELAX_BLEND. [design] */
+const RELAX_AFTER = 2;
+const RELAX_BLEND = 0.6;
+/** Third person: crossfade between body layers, and from a finished swing back to the guard (seconds). [design] */
+const BODY_BLEND = 0.12;
+const BODY_RECOVER = 0.35;
 
 /** Camera rotation offsets (radians) the swing adds on top of the player's view. */
 export type ViewOffset = { pitch: number; yaw: number; roll: number };
@@ -107,22 +212,6 @@ function warp(t: number, swing: { on: number; off: number }, clip: { on: number;
         return contactOn + ((t - swing.on) / Math.max(1e-6, swing.off - swing.on)) * (contactOff - contactOn);
     }
     return Math.min(length, contactOff + (t - swing.off) * QUICK_PLAY_RATE);
-}
-
-/** Placeholder boot for the first-person kick. */
-function createBoot(): THREE.Group {
-    const boot = new THREE.Group();
-    const leather = new THREE.MeshStandardMaterial({ color: 0x3b2618, roughness: 0.9 });
-    const sole = new THREE.MeshStandardMaterial({ color: 0x1c140e, roughness: 1 });
-    const shin = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.4, 0.13), leather);
-    shin.position.set(0, 0.2, 0.05);
-    const foot = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.12, 0.3), leather);
-    foot.position.set(0, 0.0, -0.08);
-    const bottom = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.03, 0.31), sole);
-    bottom.position.set(0, -0.07, -0.08);
-    boot.add(shin, foot, bottom);
-    boot.name = "kick_boot";
-    return boot;
 }
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -201,6 +290,25 @@ function sample(clip: DmClip, time: number, loop = false): Pose {
     return { pos, quat };
 }
 
+/** Poses tried when finding where a lodged blade points at the trunk. [design] */
+const LODGE_SEARCH_STEPS = 48;
+
+/**
+ * A blade stopped dead `time` seconds in: the contact pose moved by the Blender clip for what
+ * stopped it (LodgeClip.ts): lodged in a trunk, or knocked back off an enemy's guard.
+ */
+function lodgedPose(contact: Pose, lodged: NonNullable<MeleeController["lodged"]>): Pose {
+    const clip = lodged.by === "guard" ? BLOCKED_CLIP : LODGE_CLIP;
+    const f = Math.min(clip.length - 1, Math.max(0, lodged.time * LODGE_FPS));
+    const i = Math.min(Math.floor(f), clip.length - 2);
+    const k = f - i;
+    const [ax, ay, az, aqx, aqy, aqz, aqw] = clip[i];
+    const [bx, by, bz, bqx, bqy, bqz, bqw] = clip[i + 1];
+    const offset = new THREE.Vector3(ax, ay, az).lerp(new THREE.Vector3(bx, by, bz), k);
+    const turn = new THREE.Quaternion(aqx, aqy, aqz, aqw).slerp(new THREE.Quaternion(bqx, bqy, bqz, bqw), k);
+    return { pos: contact.pos.clone().add(offset), quat: contact.quat.clone().multiply(turn) };
+}
+
 const powerDir = (move: MoveDef): PowerDirection => (move.id.split("_")[1] as PowerDirection | undefined) ?? "default";
 
 /**
@@ -231,6 +339,19 @@ type Layer = { key: string; clip: DmClip; time: number; loop?: boolean };
 
 export class WeaponView {
     private readonly holder = new THREE.Group();
+    /** 0..1 through a skilling tool swing (raking), or undefined. */
+    private skillSwing: number | undefined;
+    /** 0..1 how far the held item is put away (picking a pocket). */
+    private lowered = 0;
+    /** What a held fishing tool is doing, or undefined. */
+    private toolMotion: ToolMotion | undefined;
+    /** How far a rod is raised for reeling (radians), eased. */
+    private reelLift = 0;
+    /** How far the view is into the gathering stroke pose (0..1), and the stroke last shown. */
+    private gatherWeight = 0;
+    private gatherLast: { kind: "mine"; t: number } = { kind: "mine", t: 1 };
+    /** How far the grip is moved clear of the view for a wound-up power attack (0..1). */
+    private clearWeight = 0;
     private readonly models = new Map<string, THREE.Object3D>();
     private readonly loading = new Set<string>();
     private current: THREE.Object3D | undefined;
@@ -241,13 +362,13 @@ export class WeaponView {
     private crossbowRig: CrossbowRig | undefined;
     private readonly lastArrowHead = new THREE.Vector3();
     private sinceNocked = Infinity;
-    private readonly boot = createBoot();
     /** Added to the first-person camera's rotation: the view following the swing and shaking on impact. */
     readonly viewOffset: ViewOffset = { pitch: 0, yaw: 0, roll: 0 };
     /** Seconds the drawn swing runs behind the real one (hit-stop); it catches up at double speed. */
     private lag = 0;
     private freeze = 0;
     private shake = 0;
+    private clashing = 0;
     private clock = 0;
 
     private pose: Pose | undefined;
@@ -259,19 +380,40 @@ export class WeaponView {
     private blendLength = BLEND;
     private swingRef: unknown;
     private swingCount = 0;
+    /** The lodge last drawn, and the moment of its swing the blade is held at (contactElapsed). */
+    private lodgeRef: unknown;
+    private lodgeElapsed = 0;
     /** The quick strike that last played, to pick the combo end layer. */
     private lastQuick = -1;
+    /** Third person: the body's pose last drawn, the layer it belongs to, and the crossfade into it. */
+    private bodyPose: BodyPose | undefined;
+    private bodyKey = "";
+    private bodyBlendFrom: BodyPose | undefined;
+    private bodyBlendTime = 0;
+    private bodyBlendLength = BODY_BLEND;
+    /** The swing the body is playing and the pose it started from. */
+    private bodySwingRef: unknown;
+    private bodySwingStart: BodyPose | undefined;
+    /** Seconds the body has stood idle in its guard (it relaxes after RELAX_AFTER). */
+    private idleFor = 0;
+    /** Third person: where the free hand goes, in the body's view frame; undefined to leave it animated. */
+    private offHand: THREE.Vector3 | undefined;
+    /** Seconds into the spell cast gesture (CastGesture), and how hard the spell kicks. */
+    private castTime = Infinity;
+    private castStrength = 1;
     constructor(
         private readonly camera: THREE.Camera,
         private readonly baseUrl: string,
-        private readonly handSocket?: THREE.Object3D,
+        /**
+         * Third person: the body's view frame (Avatar.viewFrame), set like the first-person camera, so the
+         * held item takes the same poses there and the body's hand follows it.
+         */
+        private readonly bodyAim?: THREE.Object3D,
         /** The model of a weapon exported from the cache, undefined for other weapons. */
         private readonly loadCacheModel?: (weaponId: string) => Promise<THREE.Object3D> | undefined,
     ) {
         this.holder.rotation.order = "YXZ";
         camera.add(this.holder);
-        this.boot.visible = false;
-        camera.add(this.boot);
     }
 
     private modelFor(weapon: WeaponDef): THREE.Object3D {
@@ -350,10 +492,91 @@ export class WeaponView {
         }
     }
 
+    /**
+     * World position of the far end of the held model (a fishing rod's tip): models follow the
+     * weapon contract, grip at the origin and blade along +Y. Undefined when nothing is drawn.
+     */
+    tipPoint(out: THREE.Vector3): THREE.Vector3 | undefined {
+        const model = this.current;
+        if (!model || !this.holder.visible) return undefined;
+        const length = typeof model.userData.tipLength === "number" ? model.userData.tipLength : 0.8;
+        this.holder.updateWorldMatrix(true, false);
+        return out.set(0, length, 0).applyMatrix4(this.holder.matrixWorld);
+    }
+
+    /**
+     * World position of the held item's grip (the contract's origin, where the hand closes);
+     * undefined when nothing is drawn.
+     */
+    gripPoint(out: THREE.Vector3): THREE.Vector3 | undefined {
+        if (!this.holder.visible || !this.holder.parent) return undefined;
+        this.holder.updateWorldMatrix(true, false);
+        return out.setFromMatrixPosition(this.holder.matrixWorld);
+    }
+
+    /** A blow met the held item: it rattles in the hand and the view shudders a little. 0..1. */
+    clash(strength: number): void {
+        this.clashing = Math.max(this.clashing, strength);
+        this.shake = Math.max(this.shake, strength * 0.4);
+    }
+
     /** A melee strike landed: the blade stalls in the target for a moment and the view jolts. 0..1. */
     impact(strength: number): void {
         this.freeze = Math.max(this.freeze, HITSTOP * strength);
         this.shake = Math.max(this.shake, strength);
+    }
+
+    /** Sets what the held tool is doing (fishing, mining) for the next update; undefined when idle. */
+    setToolMotion(motion: ToolMotion | undefined): void {
+        this.toolMotion = motion;
+    }
+
+    /** A fishing tool's pose: its rest pose turned about the grip by the current motion. */
+    private toolPose(hold: "rod" | "tool", dt: number): Pose {
+        const rest = hold === "rod" ? ROD_REST : TOOL_REST;
+        const m = this.toolMotion;
+        let pitch = 0;
+        let yaw = 0;
+        let rise = 0;
+        let reach = 0;
+        // The rod comes up while the fish is fought, higher while the reel is held.
+        const lift = m?.kind === "reel" ? (m.holding ? 0.5 : 0.28) : 0;
+        this.reelLift += (lift - this.reelLift) * Math.min(1, 8 * dt);
+        if (m && (m.kind === "cast" || m.kind === "scoop" || m.kind === "stab")) {
+            ({ pitch, rise, reach } = stroke(STROKES[m.kind], m.t));
+        } else if (m?.kind === "bite") {
+            // The tip snatched down in jerks.
+            pitch = -0.08 + 0.05 * Math.sin(m.t * 45);
+        } else if (m?.kind === "reel") {
+            // The fish pulling against the rod.
+            pitch = 0.04 * Math.sin(m.t * 23) + 0.03 * Math.sin(m.t * 7.7);
+            yaw = 0.09 * Math.sin(m.t * 1.9) + 0.03 * Math.sin(m.t * 5.3);
+        } else {
+            // Holding still: a slow breathing bob.
+            pitch = 0.02 * Math.sin(this.clock * 1.3);
+        }
+        pitch += this.reelLift;
+        const turn = new THREE.Quaternion().setFromEuler(new THREE.Euler(pitch, yaw, 0, "YXZ"));
+        return {
+            pos: rest.pos.clone().add(new THREE.Vector3(0, rise, -reach)),
+            quat: turn.multiply(rest.quat),
+        };
+    }
+
+    /** Sets the skilling swing phase for the next update; undefined when not skilling. */
+    setSkillSwing(phase: number | undefined): void {
+        this.skillSwing = phase;
+    }
+
+    /** How far the held item is put away for the next update: 0 held, 1 lowered out of view. */
+    /** A spell was cast: the hands thrust it out (CastGesture). `strength` ~1, more for bigger spells. */
+    cast(strength = 1): void {
+        this.castTime = 0;
+        this.castStrength = strength;
+    }
+
+    setLowered(amount: number): void {
+        this.lowered = amount;
     }
 
     update(
@@ -379,6 +602,7 @@ export class WeaponView {
     ): void {
         const dt = extra.dt ?? 0;
         this.clock += dt;
+        this.castTime += dt;
         if (this.freeze > 0) {
             this.freeze = Math.max(0, this.freeze - dt);
             this.lag += dt;
@@ -386,20 +610,25 @@ export class WeaponView {
             this.lag = Math.max(0, this.lag - dt);
         }
         this.viewOffset.pitch = this.viewOffset.yaw = this.viewOffset.roll = 0;
-        this.updateBoot(mode === "first" && visible ? kick : undefined);
         const weapon = melee.weapon;
         if (weapon.id !== this.currentId) {
             this.currentId = weapon.id;
             this.attach(this.modelFor(weapon));
         }
         const firstPerson = mode === "first";
-        const parent = firstPerson ? this.camera : this.handSocket;
+        const parent = firstPerson ? this.camera : this.bodyAim;
         if (!parent || !visible) {
             this.holder.visible = false;
+            this.offHand = undefined;
             this.sinceNocked = Infinity;
             return;
         }
         this.holder.visible = true;
+        // Effect faces draw over everything only in first person; seen from outside, the body hides them.
+        this.holder.traverse((o) => {
+            const want = (firstPerson ? o.userData.overlayMaterial : o.userData.depthMaterial) as THREE.Material | undefined;
+            if (want && (o as THREE.Mesh).material !== want) (o as THREE.Mesh).material = want;
+        });
         this.bowString?.update(extra.bowString ?? 0, extra.arrowNocked ?? false);
         const crossbow = extra.crossbow ?? { lowered: 0, cocked: 0, boltSeat: 0, recoil: 0 };
         this.crossbowRig?.update(crossbow.cocked, crossbow.boltSeat, crossbow.slide ?? 0, crossbow.loading ?? 0);
@@ -407,13 +636,8 @@ export class WeaponView {
         if (this.holder.parent !== parent) {
             parent.add(this.holder);
         }
-        if (!firstPerson) {
-            this.holder.position.set(0, 0, 0);
-            this.holder.rotation.set(Math.PI / 2, 0, 0);
-            this.recordLaunchPoint(ready, dt);
-            return;
-        }
         let pose: Pose;
+        let offHand: THREE.Vector3 | undefined;
         if (weapon.family === "bow") {
             pose = lerpPose(BOW_REST, BOW_DRAWN, extra.bowDraw ?? 0);
             if (this.bowString && extra.arrowNocked) {
@@ -427,14 +651,68 @@ export class WeaponView {
             }
             pose = kickBack(pose, crossbow.recoil);
             pose = workLever(pose, crossbow.slide ?? 0);
+        } else if (!firstPerson && !this.current?.userData.hold && this.toolMotion?.kind !== "mine" && this.gatherWeight === 0) {
+            // Third person: the body's own holds and swings (BodySwings), not the view model's.
+            // (Fishing tools and mining strokes keep their first-person poses.)
+            const body = this.animateBody(dt, melee, extra.blocking ?? false);
+            pose = { pos: body.pos, quat: body.quat };
+            offHand = body.offHand;
         } else {
             pose = this.animate(dt, weapon.family, melee, extra.blocking ?? false);
+            const charging = melee.chargedMove !== undefined && !extra.blocking;
+            this.clearWeight = charging ? Math.min(1, this.clearWeight + dt / CLEAR_BLEND) : Math.max(0, this.clearWeight - dt / CLEAR_BLEND);
+            if (this.clearWeight > 0) {
+                pose = { pos: pose.pos.clone().lerp(clearOfView(pose.pos), smooth(this.clearWeight)), quat: pose.quat };
+            }
+            // A fishing tool takes its own pose unless it is being swung or used to block; a
+            // pickaxe mining takes its stroke. (An axe chops with its attack swings.)
+            const hold = this.current?.userData.hold as "rod" | "tool" | undefined;
+            const m = this.toolMotion;
+            const gathering = m?.kind === "mine";
+            if (gathering) this.gatherLast = { kind: "mine", t: m.t };
+            // Into and out of the stroke pose smoothly, never snapping from an attack or to idle.
+            this.gatherWeight = gathering ? Math.min(1, this.gatherWeight + dt / GATHER_BLEND) : Math.max(0, this.gatherWeight - dt / GATHER_BLEND);
+            if (this.gatherWeight > 0) {
+                const stroke = gatherPose(this.gatherLast.kind, gathering ? this.gatherLast.t : 1);
+                pose = lerpPose(pose, stroke, smooth(this.gatherWeight));
+            } else if (hold && !melee.swing && !melee.chargedMove && !extra.blocking) {
+                pose = this.toolPose(hold, dt);
+            }
+            if (!firstPerson) {
+                // Third person: held by the body, not floating at the eyes inside the head.
+                pose = heldToolPose(pose.pos, pose.quat, this.bodyAim?.rotation.x ?? 0);
+            }
         }
-        if (kick?.active) {
+        const cast = castFrame(castStyle(weapon.family, weapon.id === UNARMED.id), this.castTime, this.castStrength);
+        if (cast) {
+            // Casting: both hands thrust the spell out over whatever they were doing. The keys are
+            // in the eye frame, which both the camera and the body's view frame are.
+            const w = cast.weight;
+            pose = { pos: pose.pos.clone().lerp(cast.grip, w), quat: cast.quat ? pose.quat.clone().slerp(cast.quat, w) : pose.quat };
+            offHand = (offHand ?? OFF_HAND_REST).clone().lerp(cast.offHand, w);
+            if (firstPerson) {
+                this.viewOffset.pitch += cast.viewPitch;
+                this.viewOffset.roll += cast.viewRoll;
+            }
+        }
+        this.offHand = offHand;
+        if (kick?.active && firstPerson) {
             pose = lerpPose(pose, KICK_ASIDE, Math.min(1, (kick.elapsed ?? 0) / 0.1));
         }
         this.holder.position.copy(pose.pos);
         this.holder.quaternion.copy(pose.quat);
+        if (this.skillSwing !== undefined) {
+            // A tool swing (raking): tip forward and down once per tool cycle.
+            const s = Math.sin(Math.PI * this.skillSwing);
+            this.holder.rotateX(-0.9 * s);
+            this.holder.position.y -= 0.04 * s;
+        }
+        if (this.lowered > 0) {
+            // Put away: dropped below the view, tip falling back towards the player. [design]
+            this.holder.position.y -= LOWER_DROP * this.lowered;
+            this.holder.position.z += LOWER_BACK * this.lowered;
+            this.holder.rotateX(LOWER_TILT * this.lowered);
+        }
         this.recordLaunchPoint(ready, dt);
         if (this.freeze > 0) {
             // Stuck in the target: a fine judder rather than a dead stop.
@@ -444,6 +722,16 @@ export class WeaponView {
             // Muscles straining against the held power attack.
             this.holder.position.x += Math.sin(this.clock * 31) * CHARGE_TREMBLE;
             this.holder.position.y += Math.sin(this.clock * 23 + 1) * CHARGE_TREMBLE;
+        }
+        if (this.clashing > 1e-3) {
+            const a = this.clashing;
+            this.holder.position.x += Math.sin(this.clock * 95) * CLASH_RATTLE * a;
+            this.holder.position.y += Math.cos(this.clock * 83) * CLASH_RATTLE * a;
+            this.holder.position.z += CLASH_KNOCK * a;
+            this.holder.rotateZ(Math.sin(this.clock * 77) * CLASH_TWIST * a);
+            this.clashing *= Math.exp(-CLASH_DECAY * dt);
+        } else {
+            this.clashing = 0;
         }
         // Impact jolt: a quick decaying shudder of the view.
         if (this.shake > 1e-3) {
@@ -455,6 +743,77 @@ export class WeaponView {
         } else {
             this.shake = 0;
         }
+    }
+
+    /**
+     * World position the free (left) hand should reach for (a third-person guard or swing, or a
+     * spell cast in either view), or undefined when it should hang as animated.
+     */
+    offHandPoint(out: THREE.Vector3): THREE.Vector3 | undefined {
+        if (!this.offHand || !this.holder.visible || !this.holder.parent) return undefined;
+        return this.holder.parent.localToWorld(out.copy(this.offHand));
+    }
+
+    /**
+     * Third person: the body's hold or swing for the melee state (BodySwings), crossfading when it
+     * changes. A swing starts from whatever was drawn, so combos flow from one strike into the next.
+     */
+    private animateBody(dt: number, melee: MeleeController, blocking: boolean): BodyPose {
+        const pitch = this.bodyAim?.rotation.x ?? 0;
+        const guard = () => guardPose(pitch, smooth(Math.min(1, Math.max(0, (this.idleFor - RELAX_AFTER) / RELAX_BLEND))));
+        const startOf = (swing: unknown) => {
+            if (swing !== this.bodySwingRef) {
+                this.bodySwingRef = swing;
+                this.bodySwingStart = this.bodyPose ?? guard();
+                this.lag = this.freeze = 0;
+            }
+            return this.bodySwingStart!;
+        };
+        this.idleFor += dt;
+        let key: string;
+        let pose: BodyPose;
+        const lodged = melee.lodged;
+        const swing = melee.swing;
+        const charging = melee.chargedMove;
+        if (blocking) {
+            key = "block";
+            pose = blockPose(pitch);
+        } else if (lodged) {
+            // Stopped where the blade met the trunk or a guard: the swing held at that moment.
+            key = "swing";
+            const start = this.bodySwingStart ?? guard();
+            pose = swingPose(lodged.swing.move, lodged.swing.timeline, lodged.swing.elapsed, start, pitch);
+        } else if (swing) {
+            key = "swing";
+            const start = startOf(swing);
+            // Hit-stop: the drawn swing runs `lag` behind the real one, as in first person.
+            pose = swingPose(swing.move, swing.timeline, Math.max(0, swing.elapsed - this.lag), start, pitch);
+        } else if (charging) {
+            key = "charge";
+            pose = chargePose(charging, melee.phase === "charged" ? 1 : melee.chargeProgress, pitch);
+        } else {
+            key = "guard";
+            pose = guard();
+        }
+        if (key !== "guard") this.idleFor = 0;
+        if (key !== this.bodyKey) {
+            // A swing starts from what was drawn, so it needs no crossfade of its own.
+            this.bodyBlendFrom = key === "swing" ? undefined : this.bodyPose;
+            this.bodyBlendTime = 0;
+            this.bodyBlendLength = this.bodyKey === "swing" && key === "guard" ? BODY_RECOVER : BODY_BLEND;
+            this.bodyKey = key;
+            if (key !== "swing") this.bodySwingRef = undefined;
+        }
+        if (this.bodyBlendFrom) {
+            this.bodyBlendTime += dt;
+            if (this.bodyBlendTime >= this.bodyBlendLength) {
+                this.bodyBlendFrom = undefined;
+            } else {
+                pose = lerpBodyPose(this.bodyBlendFrom, pose, smooth(this.bodyBlendTime / this.bodyBlendLength));
+            }
+        }
+        this.bodyPose = pose;
+        return pose;
     }
 
     /** Plays Dark Messiah's first-person layer for the melee state, crossfading when the layer changes. */
@@ -474,6 +833,9 @@ export class WeaponView {
             }
         }
         let pose = sample(layer.clip, layer.time, layer.loop);
+        if (melee.lodged && !blocking) {
+            pose = lodgedPose(pose, melee.lodged);
+        }
         if (this.blendFrom) {
             this.blendTime += dt;
             if (this.blendTime >= this.blendLength) {
@@ -486,6 +848,41 @@ export class WeaponView {
         return pose;
     }
 
+    /**
+     * The moment of a lodged swing at which the drawn blade's tip points the way the attack ray met
+     * the trunk, so the head is seen stopped at the bark: the clips' contact windows only roughly
+     * follow the ray's sweep. Searched around the hit window; across it for a horizontal ray, up
+     * and down for a vertical one.
+     */
+    private contactElapsed(family: keyof typeof DM_CLIPS, lodged: NonNullable<MeleeController["lodged"]>): number {
+        const { swing, dir } = lodged;
+        const rays = swing.timeline.rays;
+        const ray = rays.find((r) => swing.elapsed >= r.on && swing.elapsed <= r.off) ?? rays[0];
+        const total = swing.timeline.windup + swing.timeline.active + swing.timeline.recovery;
+        const span = ray.off - ray.on;
+        const from = Math.max(0, ray.on - span);
+        const to = Math.min(total, ray.off + span);
+        const length = typeof this.current?.userData.tipLength === "number" ? this.current.userData.tipLength : 0.8;
+        const angle = (x: number, y: number, z: number) => (ray.vertical ? Math.atan2(y, Math.hypot(x, z)) : Math.atan2(x, z));
+        // View space is +z forward; the camera's is −z.
+        const want = angle(dir.x, dir.y, dir.z);
+        const tip = new THREE.Vector3();
+        let best = swing.elapsed;
+        let bestOff = Infinity;
+        for (let i = 0; i <= LODGE_SEARCH_STEPS; i++) {
+            const e = from + ((to - from) * i) / LODGE_SEARCH_STEPS;
+            const { clip, time } = swingClip(family, swing, e);
+            const pose = sample(clip, time);
+            tip.set(0, length, 0).applyQuaternion(pose.quat).add(pose.pos);
+            const off = Math.abs(angle(tip.x, tip.y, -tip.z) - want);
+            if (off < bestOff) {
+                bestOff = off;
+                best = e;
+            }
+        }
+        return best;
+    }
+
     private layer(family: keyof typeof DM_CLIPS, melee: MeleeController, blocking: boolean): Layer {
         const clips = DM_CLIPS[family];
         if (blocking) {
@@ -493,6 +890,18 @@ export class WeaponView {
             return this.layerKey === "parry" && this.layerTime >= enter
                 ? { key: "parry", clip: clips.parry, time: this.layerTime - enter, loop: true }
                 : { key: "parry", clip: clips.parryIn, time: this.layerKey === "parry" ? this.layerTime : 0 };
+        }
+        const lodged = melee.lodged;
+        if (lodged) {
+            // Stopped where the blade met the trunk or the enemy's guard: the same layer as the
+            // swing, so it stops dead there rather than blending; the pull back to the guard blends
+            // from the clip's end.
+            if (lodged !== this.lodgeRef) {
+                this.lodgeRef = lodged;
+                this.lodgeElapsed = this.contactElapsed(family, lodged);
+            }
+            const { clip, time } = swingClip(family, lodged.swing, this.lodgeElapsed);
+            return { key: `swing${this.swingCount}`, clip, time };
         }
         const swing = melee.swing;
         if (swing) {
@@ -522,20 +931,5 @@ export class WeaponView {
             return { key: "end", clip: end, time: this.layerTime };
         }
         return { key: "idle", clip: clips.idle, time: 0 };
-    }
-
-    private updateBoot(kick: KickController | undefined): void {
-        if (!kick?.active || kick.elapsed === undefined) {
-            this.boot.visible = false;
-            return;
-        }
-        this.boot.visible = true;
-        const t = kick.elapsed;
-        const hit = kick.hitTime;
-        const out = t < hit ? t / hit : Math.max(0, 1 - (t - hit) / (tuning.kickDuration - hit));
-        const s = smooth(Math.min(1, out));
-        const lowY = kick.low ? -0.75 : -0.55;
-        this.boot.position.set(0.12, lerp(-1.1, lowY, s), lerp(-0.2, -0.85, s));
-        this.boot.rotation.set(lerp(0.6, -0.15, s), 0, 0);
     }
 }

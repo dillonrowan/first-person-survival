@@ -1,0 +1,1707 @@
+[
+ {
+  "master": "turael",
+  "tasks": [
+   {
+    "category": "Banshees",
+    "weight": 8,
+    "slayerLevel": 15
+   },
+   {
+    "category": "Bats",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Birds",
+    "weight": 6,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Bears",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Cave bugs",
+    "weight": 8,
+    "slayerLevel": 7
+   },
+   {
+    "category": "Cave crawlers",
+    "weight": 8,
+    "slayerLevel": 10
+   },
+   {
+    "category": "Cave slime",
+    "weight": 8,
+    "slayerLevel": 17
+   },
+   {
+    "category": "Cows",
+    "weight": 8,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Crawling Hands",
+    "weight": 8,
+    "slayerLevel": 5
+   },
+   {
+    "category": "Dogs",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Dwarves",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Ghosts",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Goblins",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Icefiends",
+    "weight": 8,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Kalphites",
+    "weight": 6,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Lizards",
+    "weight": 8,
+    "slayerLevel": 22
+   },
+   {
+    "category": "Minotaurs",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Monkeys",
+    "weight": 6,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Rats",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Scorpions",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Skeletons",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Spiders",
+    "weight": 6,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Wolves",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Zombies",
+    "weight": 7,
+    "slayerLevel": 1
+   }
+  ]
+ },
+ {
+  "master": "krystilia",
+  "tasks": [
+   {
+    "category": "Abyssal demons",
+    "weight": 5,
+    "slayerLevel": 85
+   },
+   {
+    "category": "Ankou",
+    "weight": 6,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Aviansie",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Bandits",
+    "weight": 4,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Bear",
+    "weight": 6,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Black demon",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Black dragon",
+    "weight": 4,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Black knight",
+    "weight": 3,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Bloodveld",
+    "weight": 4,
+    "slayerLevel": 50
+   },
+   {
+    "category": "Boss",
+    "weight": 8,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Chaos druid",
+    "weight": 5,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Dark warrior",
+    "weight": 4,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Dust devils",
+    "weight": 5,
+    "slayerLevel": 65
+   },
+   {
+    "category": "Earth warrior",
+    "weight": 6,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Ent",
+    "weight": 5,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Fire giant",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Greater demon",
+    "weight": 8,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Green dragon",
+    "weight": 4,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Hellhound",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Hill giant",
+    "weight": 3,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Ice giant",
+    "weight": 6,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Ice warrior",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Jellies",
+    "weight": 5,
+    "slayerLevel": 52
+   },
+   {
+    "category": "Lava dragon",
+    "weight": 3,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Lesser demon",
+    "weight": 6,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Magic axe",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Mammoth",
+    "weight": 6,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Moss giant",
+    "weight": 4,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Nechryael",
+    "weight": 5,
+    "slayerLevel": 80
+   },
+   {
+    "category": "Pirate",
+    "weight": 3,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Revenant",
+    "weight": 5,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Rogue",
+    "weight": 5,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Scorpion",
+    "weight": 6,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Skeleton",
+    "weight": 5,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Spider",
+    "weight": 6,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Spiritual creatures",
+    "weight": 6,
+    "slayerLevel": 63
+   },
+   {
+    "category": "Zombie",
+    "weight": 3,
+    "slayerLevel": 1
+   }
+  ]
+ },
+ {
+  "master": "mazchna",
+  "tasks": [
+   {
+    "category": "Banshee",
+    "weight": 8,
+    "slayerLevel": 15
+   },
+   {
+    "category": "Bat",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Bears",
+    "weight": 6,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Catablepon",
+    "weight": 8,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Cave bugs",
+    "weight": 8,
+    "slayerLevel": 7
+   },
+   {
+    "category": "Cave crawlers",
+    "weight": 8,
+    "slayerLevel": 10
+   },
+   {
+    "category": "Cave slime",
+    "weight": 8,
+    "slayerLevel": 17
+   },
+   {
+    "category": "Cockatrice",
+    "weight": 8,
+    "slayerLevel": 25
+   },
+   {
+    "category": "Crawling Hands",
+    "weight": 8,
+    "slayerLevel": 5
+   },
+   {
+    "category": "Lizards",
+    "weight": 8,
+    "slayerLevel": 22
+   },
+   {
+    "category": "Dogs",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Flesh Crawler",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Ghosts",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Ghouls",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Hill Giants",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Hobgoblins",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Ice warriors",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Kalphites",
+    "weight": 6,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Killerwatt",
+    "weight": 6,
+    "slayerLevel": 37
+   },
+   {
+    "category": "Mogres",
+    "weight": 8,
+    "slayerLevel": 32
+   },
+   {
+    "category": "Pyrefiend",
+    "weight": 8,
+    "slayerLevel": 30
+   },
+   {
+    "category": "Rockslug",
+    "weight": 8,
+    "slayerLevel": 20
+   },
+   {
+    "category": "Scorpion",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Shades",
+    "weight": 8,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Skeletons",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Vampyres",
+    "weight": 6,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Wall beasts",
+    "weight": 7,
+    "slayerLevel": 35
+   },
+   {
+    "category": "Wolves",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Zombies",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Crabs",
+    "weight": 8,
+    "slayerLevel": 1
+   }
+  ]
+ },
+ {
+  "master": "vannaka",
+  "tasks": [
+   {
+    "category": "Aberrant spectres",
+    "weight": 8,
+    "slayerLevel": 60
+   },
+   {
+    "category": "Abyssal demons",
+    "weight": 5,
+    "slayerLevel": 85
+   },
+   {
+    "category": "Ankou",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Basilisks",
+    "weight": 8,
+    "slayerLevel": 40
+   },
+   {
+    "category": "Bloodveld",
+    "weight": 8,
+    "slayerLevel": 50
+   },
+   {
+    "category": "Blue dragons",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Brine rat",
+    "weight": 7,
+    "slayerLevel": 47
+   },
+   {
+    "category": "Cockatrice",
+    "weight": 8,
+    "slayerLevel": 25
+   },
+   {
+    "category": "Crocodile",
+    "weight": 6,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Dagannoth",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Dust devils",
+    "weight": 8,
+    "slayerLevel": 65
+   },
+   {
+    "category": "Elves",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Fever spiders",
+    "weight": 7,
+    "slayerLevel": 42
+   },
+   {
+    "category": "Fire giants",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Gargoyles",
+    "weight": 5,
+    "slayerLevel": 75
+   },
+   {
+    "category": "Ghouls",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Gryphons",
+    "weight": 10,
+    "slayerLevel": 51
+   },
+   {
+    "category": "Harpie Bug Swarm",
+    "weight": 8,
+    "slayerLevel": 33
+   },
+   {
+    "category": "Hellhounds",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Hill Giant",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Hobgoblins",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Ice giants",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Ice warriors",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Infernal Mages",
+    "weight": 8,
+    "slayerLevel": 45
+   },
+   {
+    "category": "Jellies",
+    "weight": 8,
+    "slayerLevel": 52
+   },
+   {
+    "category": "Jungle horrors",
+    "weight": 8,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Kalphites",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Kurask",
+    "weight": 7,
+    "slayerLevel": 70
+   },
+   {
+    "category": "Lesser demons",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Mogres",
+    "weight": 7,
+    "slayerLevel": 32
+   },
+   {
+    "category": "Molanisk",
+    "weight": 7,
+    "slayerLevel": 39
+   },
+   {
+    "category": "Moss giant",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Nechryael",
+    "weight": 5,
+    "slayerLevel": 80
+   },
+   {
+    "category": "Ogres",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Otherworldly beings",
+    "weight": 8,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Pyrefiends",
+    "weight": 8,
+    "slayerLevel": 30
+   },
+   {
+    "category": "Shades",
+    "weight": 8,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Sea snakes",
+    "weight": 6,
+    "slayerLevel": 40
+   },
+   {
+    "category": "Shadow warriors",
+    "weight": 8,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Spiritual creatures",
+    "weight": 8,
+    "slayerLevel": 63
+   },
+   {
+    "category": "Terror dogs",
+    "weight": 6,
+    "slayerLevel": 40
+   },
+   {
+    "category": "Trolls",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Turoth",
+    "weight": 8,
+    "slayerLevel": 55
+   },
+   {
+    "category": "Vampyre",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Werewolf",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Crabs",
+    "weight": 8,
+    "slayerLevel": 1
+   }
+  ]
+ },
+ {
+  "master": "chaeldar",
+  "tasks": [
+   {
+    "category": "Aberrant spectres",
+    "weight": 8,
+    "slayerLevel": 60
+   },
+   {
+    "category": "Abyssal demons",
+    "weight": 12,
+    "slayerLevel": 85
+   },
+   {
+    "category": "Aviansies",
+    "weight": 9,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Basilisks",
+    "weight": 7,
+    "slayerLevel": 40
+   },
+   {
+    "category": "Black demons",
+    "weight": 10,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Bloodveld",
+    "weight": 8,
+    "slayerLevel": 50
+   },
+   {
+    "category": "Blue dragons",
+    "weight": 8,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Brine rat",
+    "weight": 7,
+    "slayerLevel": 47
+   },
+   {
+    "category": "Cave horror",
+    "weight": 10,
+    "slayerLevel": 58
+   },
+   {
+    "category": "Cave kraken",
+    "weight": 12,
+    "slayerLevel": 87
+   },
+   {
+    "category": "Custodian stalker",
+    "weight": 11,
+    "slayerLevel": 54
+   },
+   {
+    "category": "Dagannoth",
+    "weight": 11,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Dust devils",
+    "weight": 9,
+    "slayerLevel": 65
+   },
+   {
+    "category": "Elves",
+    "weight": 8,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Fever spider",
+    "weight": 7,
+    "slayerLevel": 42
+   },
+   {
+    "category": "Fire giant",
+    "weight": 12,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Fossil Island Wyverns",
+    "weight": 7,
+    "slayerLevel": 66
+   },
+   {
+    "category": "Gargoyles",
+    "weight": 11,
+    "slayerLevel": 75
+   },
+   {
+    "category": "Greater demons",
+    "weight": 9,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Gryphons",
+    "weight": 10,
+    "slayerLevel": 51
+   },
+   {
+    "category": "Hellhound",
+    "weight": 9,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Jellies",
+    "weight": 10,
+    "slayerLevel": 52
+   },
+   {
+    "category": "Jungle horrors",
+    "weight": 10,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Kalphite",
+    "weight": 11,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Kurask",
+    "weight": 12,
+    "slayerLevel": 70
+   },
+   {
+    "category": "Lesser demons",
+    "weight": 9,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Lesser naguas",
+    "weight": 4,
+    "slayerLevel": 48
+   },
+   {
+    "category": "Lizardmen",
+    "weight": 8,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Mutated Zygomites",
+    "weight": 7,
+    "slayerLevel": 57
+   },
+   {
+    "category": "Nechryael",
+    "weight": 12,
+    "slayerLevel": 80
+   },
+   {
+    "category": "Shadow warriors",
+    "weight": 8,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Skeletal Wyverns",
+    "weight": 7,
+    "slayerLevel": 72
+   },
+   {
+    "category": "Spiritual creatures",
+    "weight": 12,
+    "slayerLevel": 63
+   },
+   {
+    "category": "Trolls",
+    "weight": 11,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Turoth",
+    "weight": 10,
+    "slayerLevel": 55
+   },
+   {
+    "category": "TzHaar",
+    "weight": 8,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Vampyres",
+    "weight": 6,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Warped Creatures",
+    "weight": 6,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Wyrm",
+    "weight": 6,
+    "slayerLevel": 62
+   },
+   {
+    "category": "Crabs",
+    "weight": 8,
+    "slayerLevel": 1
+   }
+  ]
+ },
+ {
+  "master": "konar",
+  "tasks": [
+   {
+    "category": "Aberrant spectres",
+    "weight": 6,
+    "slayerLevel": 60
+   },
+   {
+    "category": "Abyssal demons",
+    "weight": 9,
+    "slayerLevel": 85
+   },
+   {
+    "category": "Ankou",
+    "weight": 5,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Aviansie",
+    "weight": 6,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Basilisk",
+    "weight": 5,
+    "slayerLevel": 40
+   },
+   {
+    "category": "Black demons",
+    "weight": 9,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Black dragons",
+    "weight": 6,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Bloodvelds",
+    "weight": 9,
+    "slayerLevel": 50
+   },
+   {
+    "category": "Blue dragons",
+    "weight": 4,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Boss",
+    "weight": 8,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Brine rats",
+    "weight": 2,
+    "slayerLevel": 47
+   },
+   {
+    "category": "Cave kraken",
+    "weight": 9,
+    "slayerLevel": 87
+   },
+   {
+    "category": "Dagannoth",
+    "weight": 8,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Dark beasts",
+    "weight": 5,
+    "slayerLevel": 90
+   },
+   {
+    "category": "Drakes",
+    "weight": 10,
+    "slayerLevel": 84
+   },
+   {
+    "category": "Dust devils",
+    "weight": 6,
+    "slayerLevel": 65
+   },
+   {
+    "category": "Fire giants",
+    "weight": 9,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Fossil Island Wyverns",
+    "weight": 5,
+    "slayerLevel": 66
+   },
+   {
+    "category": "Gargoyles",
+    "weight": 6,
+    "slayerLevel": 75
+   },
+   {
+    "category": "Greater demons",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Hellhounds",
+    "weight": 8,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Hydras",
+    "weight": 10,
+    "slayerLevel": 95
+   },
+   {
+    "category": "Jellies",
+    "weight": 6,
+    "slayerLevel": 52
+   },
+   {
+    "category": "Kalphites",
+    "weight": 9,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Kurasks",
+    "weight": 3,
+    "slayerLevel": 70
+   },
+   {
+    "category": "Lesser naguas",
+    "weight": 2,
+    "slayerLevel": 48
+   },
+   {
+    "category": "Lizardmen",
+    "weight": 8,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Metal dragons",
+    "weight": 15,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Mutated Zygomites",
+    "weight": 2,
+    "slayerLevel": 57
+   },
+   {
+    "category": "Nechryael",
+    "weight": 7,
+    "slayerLevel": 80
+   },
+   {
+    "category": "Red dragons",
+    "weight": 5,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Skeletal Wyverns",
+    "weight": 5,
+    "slayerLevel": 72
+   },
+   {
+    "category": "Smoke devils",
+    "weight": 7,
+    "slayerLevel": 93
+   },
+   {
+    "category": "Trolls",
+    "weight": 6,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Turoth",
+    "weight": 3,
+    "slayerLevel": 55
+   },
+   {
+    "category": "Vampyres",
+    "weight": 4,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Warped Creatures",
+    "weight": 4,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Waterfiends",
+    "weight": 2,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Wyrms",
+    "weight": 10,
+    "slayerLevel": 62
+   }
+  ]
+ },
+ {
+  "master": "nieve",
+  "tasks": [
+   {
+    "category": "Aberrant spectre",
+    "weight": 6,
+    "slayerLevel": 60
+   },
+   {
+    "category": "Abyssal demon",
+    "weight": 9,
+    "slayerLevel": 85
+   },
+   {
+    "category": "Ankou",
+    "weight": 5,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Araxyte",
+    "weight": 8,
+    "slayerLevel": 92
+   },
+   {
+    "category": "Aquanites",
+    "weight": 5,
+    "slayerLevel": 78
+   },
+   {
+    "category": "Aviansie",
+    "weight": 6,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Basilisk",
+    "weight": 6,
+    "slayerLevel": 40
+   },
+   {
+    "category": "Black demons",
+    "weight": 9,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Black dragons",
+    "weight": 6,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Bloodvelds",
+    "weight": 9,
+    "slayerLevel": 50
+   },
+   {
+    "category": "Blue dragons",
+    "weight": 4,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Boss",
+    "weight": 8,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Brine rat",
+    "weight": 3,
+    "slayerLevel": 47
+   },
+   {
+    "category": "Cave horrors",
+    "weight": 5,
+    "slayerLevel": 58
+   },
+   {
+    "category": "Cave kraken",
+    "weight": 6,
+    "slayerLevel": 87
+   },
+   {
+    "category": "Custodian stalker",
+    "weight": 8,
+    "slayerLevel": 54
+   },
+   {
+    "category": "Dagannoth",
+    "weight": 8,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Dark beasts",
+    "weight": 5,
+    "slayerLevel": 90
+   },
+   {
+    "category": "Drakes",
+    "weight": 7,
+    "slayerLevel": 84
+   },
+   {
+    "category": "Dust devils",
+    "weight": 6,
+    "slayerLevel": 65
+   },
+   {
+    "category": "Elves",
+    "weight": 4,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Fire giant",
+    "weight": 9,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Fossil Island Wyverns",
+    "weight": 5,
+    "slayerLevel": 66
+   },
+   {
+    "category": "Gargoyles",
+    "weight": 6,
+    "slayerLevel": 75
+   },
+   {
+    "category": "Greater demons",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Gryphons",
+    "weight": 7,
+    "slayerLevel": 51
+   },
+   {
+    "category": "Hellhounds",
+    "weight": 8,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Kalphite",
+    "weight": 9,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Kurask",
+    "weight": 3,
+    "slayerLevel": 70
+   },
+   {
+    "category": "Lizardmen",
+    "weight": 8,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Metal dragons",
+    "weight": 12,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Minions of Scabaras",
+    "weight": 4,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Mutated Zygomites",
+    "weight": 2,
+    "slayerLevel": 57
+   },
+   {
+    "category": "Nechryael",
+    "weight": 7,
+    "slayerLevel": 80
+   },
+   {
+    "category": "Red dragons",
+    "weight": 5,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Skeletal Wyverns",
+    "weight": 5,
+    "slayerLevel": 72
+   },
+   {
+    "category": "Smoke devils",
+    "weight": 7,
+    "slayerLevel": 93
+   },
+   {
+    "category": "Spiritual creatures",
+    "weight": 6,
+    "slayerLevel": 63
+   },
+   {
+    "category": "Suqah",
+    "weight": 8,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Trolls",
+    "weight": 6,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Turoth",
+    "weight": 3,
+    "slayerLevel": 55
+   },
+   {
+    "category": "TzHaar",
+    "weight": 10,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Vampyres",
+    "weight": 6,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Warped Creatures",
+    "weight": 6,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Wyrms",
+    "weight": 7,
+    "slayerLevel": 62
+   }
+  ]
+ },
+ {
+  "master": "duradel",
+  "tasks": [
+   {
+    "category": "Aberrant spectre",
+    "weight": 7,
+    "slayerLevel": 60
+   },
+   {
+    "category": "Abyssal demon",
+    "weight": 12,
+    "slayerLevel": 85
+   },
+   {
+    "category": "Ankou",
+    "weight": 5,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Aquanites",
+    "weight": 5,
+    "slayerLevel": 78
+   },
+   {
+    "category": "Aviansie",
+    "weight": 8,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Araxyte",
+    "weight": 10,
+    "slayerLevel": 92
+   },
+   {
+    "category": "Basilisk",
+    "weight": 7,
+    "slayerLevel": 40
+   },
+   {
+    "category": "Black demons",
+    "weight": 8,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Black dragons",
+    "weight": 9,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Bloodvelds",
+    "weight": 8,
+    "slayerLevel": 50
+   },
+   {
+    "category": "Blue dragons",
+    "weight": 4,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Boss",
+    "weight": 12,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Cave horrors",
+    "weight": 4,
+    "slayerLevel": 58
+   },
+   {
+    "category": "Cave kraken",
+    "weight": 9,
+    "slayerLevel": 87
+   },
+   {
+    "category": "Dagannoth",
+    "weight": 9,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Dark beasts",
+    "weight": 11,
+    "slayerLevel": 90
+   },
+   {
+    "category": "Drakes",
+    "weight": 8,
+    "slayerLevel": 84
+   },
+   {
+    "category": "Dust devils",
+    "weight": 5,
+    "slayerLevel": 65
+   },
+   {
+    "category": "Elves",
+    "weight": 4,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Fire giant",
+    "weight": 7,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Fossil Island Wyverns",
+    "weight": 7,
+    "slayerLevel": 66
+   },
+   {
+    "category": "Gargoyles",
+    "weight": 8,
+    "slayerLevel": 75
+   },
+   {
+    "category": "Greater demons",
+    "weight": 9,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Gryphons",
+    "weight": 7,
+    "slayerLevel": 51
+   },
+   {
+    "category": "Hellhounds",
+    "weight": 10,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Kalphite",
+    "weight": 9,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Kurask",
+    "weight": 4,
+    "slayerLevel": 70
+   },
+   {
+    "category": "Lizardmen",
+    "weight": 10,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Metal dragons",
+    "weight": 14,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Mutated Zygomites",
+    "weight": 2,
+    "slayerLevel": 57
+   },
+   {
+    "category": "Nechryael",
+    "weight": 9,
+    "slayerLevel": 80
+   },
+   {
+    "category": "Red dragons",
+    "weight": 8,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Skeletal Wyverns",
+    "weight": 7,
+    "slayerLevel": 72
+   },
+   {
+    "category": "Smoke devils",
+    "weight": 9,
+    "slayerLevel": 93
+   },
+   {
+    "category": "Spiritual creatures",
+    "weight": 7,
+    "slayerLevel": 63
+   },
+   {
+    "category": "Suqah",
+    "weight": 8,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Trolls",
+    "weight": 6,
+    "slayerLevel": 1
+   },
+   {
+    "category": "TzHaar",
+    "weight": 10,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Vampyres",
+    "weight": 8,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Warped Creatures",
+    "weight": 8,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Waterfiends",
+    "weight": 2,
+    "slayerLevel": 1
+   },
+   {
+    "category": "Wyrms",
+    "weight": 8,
+    "slayerLevel": 62
+   }
+  ]
+ },
+ {
+  "master": "mortimer",
+  "tasks": [
+   {
+    "category": "Crawling Hands",
+    "weight": 10,
+    "slayerLevel": 5
+   },
+   {
+    "category": "Cave crawlers",
+    "weight": 10,
+    "slayerLevel": 10
+   },
+   {
+    "category": "Banshees",
+    "weight": 10,
+    "slayerLevel": 15
+   },
+   {
+    "category": "Rockslugs",
+    "weight": 10,
+    "slayerLevel": 20
+   },
+   {
+    "category": "Cockatrice",
+    "weight": 10,
+    "slayerLevel": 25
+   },
+   {
+    "category": "Pyrefiends",
+    "weight": 10,
+    "slayerLevel": 30
+   },
+   {
+    "category": "Infernal Mages",
+    "weight": 10,
+    "slayerLevel": 45
+   },
+   {
+    "category": "Bloodvelds",
+    "weight": 8,
+    "slayerLevel": 50
+   },
+   {
+    "category": "Gryphons",
+    "weight": 10,
+    "slayerLevel": 51
+   },
+   {
+    "category": "Jellies",
+    "weight": 10,
+    "slayerLevel": 52
+   },
+   {
+    "category": "Custodian stalkers",
+    "weight": 8,
+    "slayerLevel": 54
+   },
+   {
+    "category": "Turoth",
+    "weight": 10,
+    "slayerLevel": 55
+   },
+   {
+    "category": "Warped Creatures",
+    "weight": 10,
+    "slayerLevel": 56
+   },
+   {
+    "category": "Cave horrors",
+    "weight": 10,
+    "slayerLevel": 58
+   },
+   {
+    "category": "Aberrant spectres",
+    "weight": 10,
+    "slayerLevel": 60
+   },
+   {
+    "category": "Basilisks",
+    "weight": 10,
+    "slayerLevel": 40
+   },
+   {
+    "category": "Wyrms",
+    "weight": 10,
+    "slayerLevel": 62
+   },
+   {
+    "category": "Dust devils",
+    "weight": 8,
+    "slayerLevel": 65
+   },
+   {
+    "category": "Kurask",
+    "weight": 10,
+    "slayerLevel": 70
+   },
+   {
+    "category": "Venators",
+    "weight": 10,
+    "slayerLevel": 74
+   },
+   {
+    "category": "Gargoyles",
+    "weight": 10,
+    "slayerLevel": 75
+   },
+   {
+    "category": "Aquanites",
+    "weight": 10,
+    "slayerLevel": 78
+   },
+   {
+    "category": "Nechryael",
+    "weight": 8,
+    "slayerLevel": 80
+   },
+   {
+    "category": "Drakes",
+    "weight": 10,
+    "slayerLevel": 84
+   },
+   {
+    "category": "Abyssal demons",
+    "weight": 8,
+    "slayerLevel": 85
+   },
+   {
+    "category": "Dark beasts",
+    "weight": 10,
+    "slayerLevel": 90
+   },
+   {
+    "category": "Araxytes",
+    "weight": 8,
+    "slayerLevel": 92
+   },
+   {
+    "category": "Smoke devils",
+    "weight": 8,
+    "slayerLevel": 93
+   },
+   {
+    "category": "Hydras",
+    "weight": 10,
+    "slayerLevel": 95
+   }
+  ]
+ }
+]

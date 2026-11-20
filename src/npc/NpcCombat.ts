@@ -7,7 +7,6 @@ export type CombatSense = {
     playerX: number;
     playerY: number;
     playerYaw: number;
-    healthFraction: number;
 };
 
 /** The brain's decision: a velocity (tiles/s) and a direction to face. */
@@ -19,7 +18,7 @@ export type CombatMove = {
     mode: CombatMode;
 };
 
-export type CombatMode = "chase" | "fight" | "flee";
+export type CombatMode = "chase" | "fight";
 
 /** The Red, Green and Yellow distances of the combat steps (spec 10), tiles. */
 export type Zones = { red: number; green: number; yellow: number };
@@ -99,9 +98,9 @@ export function inViewCone(sense: CombatSense, cone: number): boolean {
 }
 
 /**
- * Dark Messiah-style melee movement for one NPC (spec 10): run in from far away and combat-walk
- * the last stretch, zig-zag while the player looks straight at it, then hold the ideal distance
- * with short combat steps, always facing the player; flee when badly hurt.
+ * Dark Messiah-style melee movement for one NPC (spec 10): run in all the way, zig-zag while the player looks straight at it, then hold the ideal distance
+ * with short combat steps, always facing the player, pressing it at a run when it backs off. It never flees, however hurt [design], and
+ * runs, steps and pauses npcCombatPace times faster than the guard.
  */
 export class NpcCombatBrain {
     mode: CombatMode = "chase";
@@ -111,8 +110,8 @@ export class NpcCombatBrain {
     private pause = 0;
     private zigzagSide = 1;
     private zigzagTravel = 0;
-    private fleeLeft = 0;
-    private fled = false;
+    /** Running back in on a player who backed off, until within Green. */
+    private pressing = false;
 
     constructor(
         private readonly random: () => number = Math.random,
@@ -132,16 +131,7 @@ export class NpcCombatBrain {
         const tx = d > 1e-6 ? dx / d : 0;
         const ty = d > 1e-6 ? dy / d : 1;
 
-        if (!this.fled && sense.healthFraction < tuning.fleeHealth) {
-            this.fled = true;
-            this.fleeLeft = tuning.fleeTime;
-        }
-        if (this.fleeLeft > 0) {
-            this.fleeLeft -= dt;
-            this.mode = "flee";
-            return { vx: -tx * tuning.npcRunSpeed, vy: -ty * tuning.npcRunSpeed, faceX: -tx, faceY: -ty, mode: "flee" };
-        }
-
+        const pace = tuning.npcCombatPace;
         // Hysteresis so the NPC does not flip between chasing and fighting at the Yellow edge.
         if (this.mode !== "fight" && d <= zones.yellow) {
             this.mode = "fight";
@@ -149,12 +139,11 @@ export class NpcCombatBrain {
             this.pause = 0;
         } else if (this.mode === "fight" && d > zones.yellow + 0.4) {
             this.mode = "chase";
-        } else if (this.mode === "flee") {
-            this.mode = "chase";
         }
 
         if (this.mode === "chase") {
-            const speed = d > tuning.npcRunDistance ? tuning.npcRunSpeed : tuning.npcCombatWalkSpeed;
+            // The guard combat-walks the last 250 u (mm_ai_dist_walk_path); here it runs all the way.
+            const speed = tuning.npcRunSpeed * pace;
             let mx = tx;
             let my = ty;
             if (d >= tuning.zigzagMinDistance && inViewCone(sense, tuning.zigzagCone)) {
@@ -171,24 +160,38 @@ export class NpcCombatBrain {
             return { vx: mx * speed, vy: my * speed, faceX: mx, faceY: my, mode: "chase" };
         }
 
+        // A player backing off past the middle of the fight band is pressed at a run back in to
+        // Green, not stepped after, so a fight cannot be walked away from.
+        if (d > (zones.green + zones.yellow) / 2) {
+            this.pressing = true;
+        } else if (d <= zones.green) {
+            this.pressing = false;
+        }
+        if (this.pressing) {
+            this.step = undefined;
+            this.pause = 0;
+            const speed = tuning.npcRunSpeed * pace;
+            return { vx: tx * speed, vy: ty * speed, faceX: tx, faceY: ty, mode: "fight" };
+        }
+
         // Fight: short steps relative to the player, facing them.
         if (this.step) {
             this.stepLeft -= dt;
             if (this.stepLeft <= 0) {
                 this.step = undefined;
-                this.pause = tuning.stepPauseMin + this.random() * (tuning.stepPauseMax - tuning.stepPauseMin);
+                this.pause = (tuning.stepPauseMin + this.random() * (tuning.stepPauseMax - tuning.stepPauseMin)) / pace;
             }
         } else {
             this.pause -= dt;
             if (this.pause <= 0) {
                 this.step = chooseStep(d, this.random, undefined, zones);
-                this.stepLeft = tuning.stepTime;
+                this.stepLeft = tuning.stepTime / pace;
             }
         }
         if (!this.step) {
             return { vx: 0, vy: 0, faceX: tx, faceY: ty, mode: "fight" };
         }
-        const speed = this.step.length / tuning.stepTime;
+        const speed = (this.step.length / tuning.stepTime) * pace;
         // Left of the NPC while it faces the player: (-ty, tx).
         const mx = this.step.forward * tx + this.step.side * -ty;
         const my = this.step.forward * ty + this.step.side * tx;

@@ -2,10 +2,13 @@ import * as THREE from "three";
 import { describe, expect, it } from "vitest";
 
 import { fallbackCombatStats } from "../combat/Osrs";
+import { STEP_OVER_HEIGHT } from "../physics/Bodies";
+import { units } from "../player/MoveMath";
 import { tuning } from "../combat/tuning";
 import type { NpcManifest, NpcModelData } from "../world/NpcFormat";
 import { CollisionFlag, RegionListener } from "../world/WorldFormat";
 import { Npc, Occupancy } from "./Npc";
+import { kickThrowScale } from "./NpcPhysics";
 import { Npcs } from "./Npcs";
 
 const APPEARANCE = {
@@ -115,6 +118,22 @@ describe("Npcs", () => {
         expect(npc.group.children).toHaveLength(1); // only the opaque mesh; the transparent one is empty
         expect(npcs.occupiedTileCount).toBe(1);
         expect(npcs.loadedModelCount).toBe(1);
+    });
+
+    it("brings a killed NPC back at its spawn 30 s after its corpse is gone", async () => {
+        const { world, npcs } = setup();
+        world.load(50, 50);
+        await flush();
+        const dead = npcs.all()[0];
+        dead.gone = true;
+        npcs.update(0.1);
+        for (let i = 0; i < 29; i++) npcs.update(1);
+        expect(npcs.all()[0]).toBe(dead);
+        npcs.update(1.5);
+        const back = npcs.all()[0];
+        expect(back).not.toBe(dead);
+        expect(back.gone).toBe(false);
+        expect(npcs.count).toBe(1);
     });
 
     it("ignores regions without NPCs and loads each region once", async () => {
@@ -272,6 +291,7 @@ describe("Npcs and the player", () => {
         world.load(50, 50);
         await flush();
         const npc = npcs.all()[0];
+        npc.body.height = 1.4; // person-sized: the test model is rat-sized
         npcs.update(0.6); // takes the step and is partway there
         const before = npc.fineX;
 
@@ -279,6 +299,19 @@ describe("Npcs and the player", () => {
         expect(npc.fineX).toBe(before);
 
         npcs.update(0.1, undefined);
+        expect(npc.fineX).toBeLessThan(before);
+    });
+
+    it("a small NPC the player steps over runs on between their feet", async () => {
+        const { world, npcs } = setup({ random: () => 0 });
+        world.load(50, 50);
+        await flush();
+        const npc = npcs.all()[0];
+        npc.body.height = STEP_OVER_HEIGHT;
+        npcs.update(0.6);
+        const before = npc.fineX;
+
+        npcs.update(0.1, playerAt(3221.5, 3217.5));
         expect(npc.fineX).toBeLessThan(before);
     });
 
@@ -307,6 +340,27 @@ describe("Npcs and the player", () => {
         npcs.collectBodies(1, 3222, 3218, 3223, 3219, out as never[]);
         npcs.collectBodies(0, 3230, 3230, 3231, 3231, out as never[]);
         expect(out).toHaveLength(0);
+    });
+
+    it("leaves NPCs small enough to step over out of what blocks the player's walking", async () => {
+        const { world, npcs } = setup();
+        world.load(50, 50);
+        await flush();
+        const out: { height: number }[] = [];
+        npcs.collectBodies(0, 3222, 3218, 3223, 3219, out as never[]);
+        const body = out[0];
+        const keep = body.height;
+        const blockers = () => {
+            const found: unknown[] = ["already there"];
+            npcs.walkBlockers.collectBodies(0, 3222, 3218, 3223, 3219, found as never[]);
+            return found;
+        };
+
+        body.height = STEP_OVER_HEIGHT + 0.1;
+        expect(blockers()).toEqual(["already there", body]);
+        body.height = STEP_OVER_HEIGHT;
+        expect(blockers()).toEqual(["already there"]);
+        body.height = keep;
     });
 
     it("turns to face a point and holds still while held", async () => {
@@ -424,7 +478,7 @@ describe("NPC combat", () => {
 });
 
 describe("bodies knocking NPCs over (spec 20.7)", () => {
-    /** A standing box 0.6 × 1.5 × 0.3 tiles (RS units: +y down), idle and walk holding still. */
+    /** A standing box 0.6 Ã— 1.5 Ã— 0.3 tiles (RS units: +y down), idle and walk holding still. */
     function boxModel(): NpcModelData {
         const corners: number[] = [];
         for (const z of [-19, 19]) {
@@ -598,7 +652,7 @@ describe("NPC combat movement and kicks", () => {
         expect(npc.inCombat).toBe(true);
     });
 
-    it("is knocked down onto its ragdoll by a kick, unhurt, sent about as far as its long hit, and gets up", async () => {
+    it("is knocked down onto its ragdoll by a kick, unhurt, sent about as far as its long hit for its weight, and gets up", async () => {
         const { npcs, npc } = await oneNpc();
         npc.faceTowards(3222.5, 3240); // facing away from the kicker (south): cannot dodge
         npc.rotation = npc.orientation;
@@ -612,8 +666,12 @@ describe("NPC combat movement and kicks", () => {
             npcs.update(0.02);
         }
         expect(npc.combatant.health).toBe(health);
-        expect(npc.body.y - y0).toBeGreaterThan(1.1); // long hit from behind: 64 u, about 1.3 tiles
-        expect(npc.body.y - y0).toBeLessThan(2.4);
+        // Long hit from behind: 64 u, about 1.3 tiles for a body of npcBaseMass; this short one is
+        // lighter and goes further.
+        const weight = kickThrowScale(npc.mass);
+        expect(weight).toBeGreaterThan(1);
+        expect(npc.body.y - y0).toBeGreaterThan(1.1 * weight);
+        expect(npc.body.y - y0).toBeLessThan(2.4 * weight);
         for (let t = 0; t < tuning.knockdownKick + tuning.standUpBack + tuning.standUpFront; t += 0.02) {
             npcs.update(0.02);
         }
@@ -707,6 +765,28 @@ describe("NPCs with several attack styles", () => {
         expect(gaps.length).toBeGreaterThan(3);
         expect(Math.min(...gaps)).toBeGreaterThan(2.5);
     });
+
+    for (const [gait, speed] of [["walking", units(100)], ["running", units(180)]] as const) {
+        it(`keeps up with a player ${gait} away and still lands its blows`, async () => {
+            const { npcs, npc } = await styledNpc([{ style: "melee", weight: 1, hitPow: 0.7, minGap: 0 }], ["melee"]);
+            const player = playerAt(3222.5, 3220.5);
+            npc.takeHit(0, 1, 0, player.x, player.y);
+            let reached = 0;
+            let strikes = 0;
+            const strike = (n: typeof npc, e: { attack: { range: number } }) => {
+                strikes++;
+                const gap = Math.hypot(n.body.x - player.x, n.body.y - player.y) - n.body.radius - player.radius;
+                if (gap <= e.attack.range) reached++;
+            };
+            // North, away from it, for 9 s (walk about 2 tiles/s, run about 3.7).
+            for (let i = 0; i < 450; i++) {
+                player.y += speed * 0.02;
+                npcs.update(0.02, player, 0, { strike });
+            }
+            expect(strikes).toBeGreaterThanOrEqual(2);
+            expect(reached).toBe(strikes);
+        });
+    }
 
     it("lets a dragon next to the player both melee and breathe", async () => {
         const breath = { length: 3, halfAngle: 0.5, duration: 0.8, ticks: 4, element: "fire" as const };

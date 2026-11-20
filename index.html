@@ -35,20 +35,35 @@
         </div>
         <div id="bank-panel" class="hidden" role="dialog" aria-label="Bank"></div>
         <div id="item-menu" class="hidden"></div>
+        <div id="fishing-bar" class="hidden" aria-label="Reeling"></div>
+        <div id="make-menu" class="hidden" role="dialog" aria-label="Make"></div>
+        <div id="shop-panel" class="hidden" role="dialog" aria-label="Shop"></div>
+        <div id="world-map" class="hidden" role="dialog" aria-label="World map"></div>
+        <div id="message-log" aria-live="polite"></div>
+        <div id="xp-drops"></div>
+        <div id="level-banner" class="hidden"></div>
         <div id="prompt"></div>
         <div id="message"></div>
         <div id="hud"></div>
-        <div id="weapon-menu" class="hidden" role="dialog" aria-label="Weapon menu">
+        <div id="weapon-menu" class="hidden" role="dialog" aria-label="Cheat menu">
             <div class="weapon-menu-panel">
                 <div class="weapon-menu-heading">
-                    <h1>Weapons</h1>
+                    <div class="weapon-menu-tabs" role="tablist">
+                        <button type="button" role="tab" data-tab="items" aria-selected="true">Items</button>
+                        <button type="button" role="tab" data-tab="skills" aria-selected="false">Skills</button>
+                    </div>
                     <button id="weapon-menu-close" type="button">Close</button>
                 </div>
-                <input id="weapon-menu-search" type="search" placeholder="Search weapons" aria-label="Search weapons" autocomplete="off">
-                <div id="weapon-menu-shields"></div>
-                <div id="weapon-menu-status"></div>
-                <div id="weapon-menu-list"></div>
-                <div id="weapon-menu-items"></div>
+                <div class="weapon-menu-tab" data-tab="items" role="tabpanel">
+                    <input id="weapon-menu-search" type="search" placeholder="Search weapons" aria-label="Search weapons" autocomplete="off">
+                    <div id="weapon-menu-shields"></div>
+                    <div id="weapon-menu-status"></div>
+                    <div id="weapon-menu-list"></div>
+                    <div id="weapon-menu-items"></div>
+                </div>
+                <div class="weapon-menu-tab hidden" data-tab="skills" role="tabpanel">
+                    <div id="weapon-menu-skills"></div>
+                </div>
             </div>
         </div>
         <div id="overlay">
@@ -60,15 +75,17 @@
                     <li><kbd>Mouse</kbd> look</li>
                     <li><kbd>Mouse 1</kbd> attack: tap to strike, hold to charge (direction keys pick the swing)</li>
                     <li><kbd>F</kbd> kick (costs stamina)</li>
-                    <li><kbd>Wheel</kbd> switch to the next weapon in your inventory</li>
-                    <li><kbd>Tab</kbd> inventory and equipment, <kbd>K</kbd> skills, <kbd>B</kbd> spellbook</li>
-                    <li><kbd>Q</kbd> cycle attack style</li>
+                    <li><kbd>Wheel</kbd> zoom out to third person and back in</li>
+                    <li><kbd>Q</kbd> switch to the next weapon in your inventory</li>
+                    <li><kbd>Tab</kbd> inventory and equipment, <kbd>K</kbd> skills, <kbd>B</kbd> spellbook, <kbd>M</kbd> world map</li>
+                    <li><kbd>X</kbd> cycle attack style</li>
                     <li><kbd>G</kbd> cast your spell (or <kbd>Mouse 2</kbd> while holding a staff or wand)</li>
                     <li><kbd>I</kbd> developer cheat menu (weapons and items)</li>
                     <li><kbd>Shift</kbd> sprint, <kbd>Alt</kbd> walk, <kbd>C</kbd> crouch</li>
                     <li><kbd>Space</kbd> jump</li>
                     <li><kbd>N</kbd> toggle flying (<kbd>Space</kbd>/<kbd>C</kbd> up/down)</li>
-                    <li><kbd>E</kbd> / <kbd>R</kbd> interact with what you look at (take items, use banks)</li>
+                    <li><kbd>E</kbd> / <kbd>R</kbd> / <kbd>T</kbd> the options of what you look at (chop, mine, fish, bank, trade…)</li>
+                    <li>Inventory <em>Use</em>, then click another item or aim at something and press <kbd>E</kbd></li>
                     <li><kbd>Esc</kbd> release the mouse</li>
                 </ul>
                 <p id="status">Loading world...</p>

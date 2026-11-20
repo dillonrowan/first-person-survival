@@ -23,6 +23,10 @@ def three_v(v):
 clips = {}
 worst = 0.0
 for name in CLIPS:
+    # Bones the clip does not key keep whatever pose they had: start each clip from rest.
+    for pb in rig.pose.bones:
+        pb.rotation_quaternion = (1, 0, 0, 0)
+        pb.location = (0, 0, 0)
     rig.animation_data.action = bpy.data.actions[name]
     frames = []
     for f in range(CLIPS[name]['length'] + 1):
@@ -43,6 +47,8 @@ for name in CLIPS:
         head = rig.pose.bones['pelvis'].bone.head_local
         frames.append({'r': rots, 't': three_v(delta['pelvis'] @ head - head)})
     clips[name] = {'fps': scene.render.fps, 'loop': name == 'stun', 'frames': frames}
+    if 'impact' in CLIPS[name]:
+        clips[name]['impact'] = CLIPS[name]['impact']
 
 # Bone joints in three.js model space, so the game can scale the clips' offsets to each body.
 joints = [three_v(rig.pose.bones[b].bone.head_local) for b in BONES]

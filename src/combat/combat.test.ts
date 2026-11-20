@@ -3,9 +3,10 @@ import { describe, expect, it } from "vitest";
 import type { Body, BodySource } from "../physics/Bodies";
 import { CollisionFlag } from "../world/WorldFormat";
 import { Combatant } from "./Combatant";
-import { applyHit, damageAmount, hitboxMultiplier, reactionFor } from "./Damage";
+import { applyHit, damageAmount, hitboxMultiplier, parryChance, reactionFor } from "./Damage";
 import { PlayerCombat, type CombatTarget } from "./PlayerCombat";
-import { pushDirection, rayDirection, sweepDirection, traceRay, viewToWorld } from "./SwingRay";
+import { BLOCKED_SECONDS } from "./LodgeClip";
+import { pushDirection, rayDirection, sweepDirection, traceRay, traceSolid, viewToWorld } from "./SwingRay";
 import { MOVE_SETS, Ray } from "./moves";
 import { tuning } from "./tuning";
 import { ANTI_DRAGON_SHIELD } from "./Shields";
@@ -103,6 +104,21 @@ describe("attack ray (spec 17.2)", () => {
         const b = target(100.5, 102.6); // within reach, but past the wall on the edge at y = 102
         const wall = (_p: number, x: number, y: number) => (x === 100 && y === 101 ? CollisionFlag.WALL_NORTH : 0);
         expect(traceRay(attacker, sword.reach, flat, 1, 0, 1, source([b]), wall, new Set())).toHaveLength(0);
+    });
+
+    it("stops the blade on a solid thing in its path, not past it", () => {
+        // A tree box 1.2 tiles ahead: the solid source reports where each line enters it.
+        const solids = (_p: number, ox: number, oy: number, _oz: number, x1: number, y1: number) => {
+            const t = (101.7 - oy) / (y1 - oy);
+            const x = ox + (x1 - ox) * t;
+            return t > 0 && t <= 1 && x >= 100 && x <= 101 ? { t, ref: "tree" } : undefined;
+        };
+        const hit = traceSolid(attacker, sword.reach, flat, 1, 0, 1, solids, noWalls);
+        expect(hit?.ref).toBe("tree");
+        expect(hit!.at).toBeGreaterThan(0);
+        expect(hit!.at).toBeLessThan(1);
+        const wall = (_p: number, x: number, y: number) => (x === 100 && y === 100 ? CollisionFlag.WALL_NORTH : 0);
+        expect(traceSolid(attacker, sword.reach, flat, 1, 0, 1, solids, wall)).toBeUndefined();
     });
 
     it("a thrust traces only the centre line", () => {
@@ -238,6 +254,7 @@ describe("hit zones (spec 18.3)", () => {
     it("scale quick strikes with weapon speed but not the rush", () => {
         expect(MOVE_SETS.sword.quick[0].changeSpeed).toBe(true);
         expect(MOVE_SETS.sword.rush.changeSpeed).toBeFalsy();
+        expect(MOVE_SETS.staff.power.default.changeSpeed).toBeFalsy();
     });
 });
 
@@ -394,6 +411,27 @@ describe("NPC attack styles against the player", () => {
             combat.blocking = true;
             expect(combat.receiveStrike(player, strike(style, { breaksParry: false, direct: true }), true).outcome).toBe("hit");
         }
+    });
+
+    it("lets some of a blocked blow through when it would have landed, none of a 0", () => {
+        const block = (random: () => number) => {
+            const { combat, player } = setup(random);
+            combat.blocking = true;
+            // Face the attacker.
+            player.yaw = Math.atan2(-(100.5 - player.x), 101.5 - player.y);
+            const before = combat.combatant.health;
+            const report = combat.receiveStrike(player, strike("melee"), true);
+            return { report, lost: before - combat.combatant.health };
+        };
+        const landed = block(scripted(0, 0.99, 0.5));
+        expect(landed.report.outcome).toBe("parried");
+        expect(landed.report.damage).toBe(Math.round(maxHits.melee * tuning.blockDamageShare));
+        expect(landed.lost).toBe(landed.report.damage);
+        const zero = block(scripted(0, 0, 0.5));
+        expect(zero.report).toMatchObject({ outcome: "parried", damage: 0 });
+        expect(zero.lost).toBe(0);
+        const missed = block(scripted(0.99, 0.99, 0.5));
+        expect(missed.report).toMatchObject({ outcome: "parried", damage: 0 });
     });
 
     it("cuts dragonfire to a tenth with an anti-dragon shield, but not icy breath", () => {
@@ -573,6 +611,128 @@ describe("OSRS damage from the player", () => {
         expect(target.combatant.health).toBe(1000);
         expect(target.combatant.reaction).toBe("flinch");
         expect(ledger.empty).toBe(true);
+    });
+
+    /** Swings once at a target that can parry; returns how it defended and the player's state. */
+    /**
+     * Swings once at a target that can parry; `stunned` stuns it first, `block` raises the parry
+     * stance once the blow is defended. Returns how it defended and what befell the player.
+     */
+    function swingAtParrier(random: () => number, canParry = true, opts: { stunned?: boolean; block?: boolean } = {}) {
+        const { target, bodies } = dummy(1000);
+        if (opts.stunned) {
+            target.combatant.stun(5);
+        }
+        const defences: (string | undefined)[] = [];
+        Object.assign(target, { canParry, takeHit: (...args: unknown[]) => void defences.push(args[7] as string | undefined) });
+        const combat = new PlayerCombat(bodies, noWalls, random);
+        combat.melee.weapon = sword;
+        let stunnedAt = -1;
+        combat.onStunned = () => (stunnedAt = t);
+        const struck: string[] = [];
+        combat.onStruck = (report) => void struck.push(report.outcome);
+        const impulses: number[][] = [];
+        const me = { ...player, applyImpulse: (x: number, y: number, z = 0) => void impulses.push([x, y, z]) };
+        let t = 0;
+        for (; t < 1.2; t += 0.01) {
+            combat.update(0.01, me, { attackDown: t < 0.03, blockDown: !!opts.block && defences.length > 0, forward: 0, strafe: 0 });
+        }
+        return { defences, combat, stunnedAt, impulses, struck };
+    }
+
+    it("a blow that does 0 is taken on the target's guard", () => {
+        // Miss, no stun, no parry.
+        const { defences, combat } = swingAtParrier(scripted(0.999));
+        expect(defences).toEqual(["guard"]);
+        expect(combat.stunned).toBe(false);
+    });
+
+    it("a blow of 0 is blocked: the blade stops dead on the guard, then recovers", () => {
+        const { target, bodies } = dummy(1000);
+        const defences: (string | undefined)[] = [];
+        Object.assign(target, { canParry: false, takeHit: (...args: unknown[]) => void defences.push(args[7] as string | undefined) });
+        const combat = new PlayerCombat(bodies, noWalls, scripted(0.999));
+        combat.melee.weapon = sword;
+        let t = 0;
+        for (; t < 1 && defences.length === 0; t += 0.01) {
+            combat.update(0.01, player, { attackDown: t < 0.03, forward: 0, strafe: 0 });
+        }
+        expect(defences).toEqual(["guard"]);
+        expect(combat.melee.swing).toBeUndefined();
+        expect(combat.melee.phase).toBe("lodged");
+        expect(combat.melee.lodged?.by).toBe("guard");
+        for (let s = 0; s < BLOCKED_SECONDS + 0.05; s += 0.01) {
+            combat.update(0.01, player, { attackDown: false, forward: 0, strafe: 0 });
+        }
+        expect(combat.melee.phase).toBe("idle");
+    });
+
+    it("a parried melee blow stops the swing and stuns the player where they stand when the shove lands", () => {
+        // Miss, no stun, then the parry roll (0 parries).
+        const { defences, combat, stunnedAt, impulses } = swingAtParrier(scripted(0.999, 0.999, 0));
+        expect(defences).toEqual(["parry"]);
+        expect(combat.melee.busy).toBe(false);
+        expect(stunnedAt).toBeGreaterThan(0);
+        // Not pushed back.
+        expect(impulses).toEqual([]);
+        expect(combat.stunned).toBe(true);
+        expect(combat.combatant.incapacitated).toBe(true);
+    });
+
+    it("a stunned target cannot parry: it only guards", () => {
+        // Miss, no stun roll, and a parry roll of 0 that is never drawn.
+        expect(swingAtParrier(scripted(0.999, 0.999, 0), true, { stunned: true }).defences).toEqual(["guard"]);
+    });
+
+    it("the parry stance blocks the blow back: no stun, no knockback", () => {
+        const { defences, combat, stunnedAt, impulses, struck } = swingAtParrier(scripted(0.999, 0.999, 0), true, { block: true });
+        expect(defences).toEqual(["parry"]);
+        expect(struck).toEqual(["parried"]);
+        expect(stunnedAt).toBe(-1);
+        expect(combat.stunned).toBe(false);
+        expect(impulses.every(([, , z]) => z === 0)).toBe(true);
+    });
+
+    it("a body that cannot parry only guards", () => {
+        expect(swingAtParrier(scripted(0.999, 0.999, 0), false).defences).toEqual(["guard"]);
+    });
+
+    it("a blow that does damage is not defended", () => {
+        expect(swingAtParrier(scripted(0, 0.99, 0)).defences).toEqual([undefined]);
+    });
+
+    /** Swings `count` times at a target that can parry, `gap` seconds between swings; returns its defences. */
+    function flurry(count: number, gap: number) {
+        const { target, bodies } = dummy(1000);
+        const defences: (string | undefined)[] = [];
+        Object.assign(target, { canParry: true, takeHit: (...args: unknown[]) => void defences.push(args[7] as string | undefined) });
+        // Each blow: a miss, no stun, then a parry roll of 0.4 (Melee 1 against Defence 1: base chance 0.25).
+        const combat = new PlayerCombat(bodies, noWalls, scripted(0.999, 0.999, 0.4));
+        combat.melee.weapon = sword;
+        for (let k = 0; k < count && !defences.includes("parry"); k++) {
+            for (let t = 0; t < gap; t += 0.01) {
+                combat.update(0.01, player, { attackDown: t < 0.03, forward: 0, strafe: 0 });
+            }
+        }
+        return defences;
+    }
+
+    it("an NPC reads a flurry: blows landing in quick succession make a parry likelier", () => {
+        // 0.25, then 0.375, then 0.5 beats the roll of 0.4.
+        expect(flurry(5, 0.8)).toEqual(["guard", "guard", "parry"]);
+    });
+
+    it("blows spread out give the NPC nothing to read", () => {
+        expect(flurry(4, tuning.parryFlurryWindow + 0.5)).toEqual(["guard", "guard", "guard", "guard"]);
+    });
+
+    it("the parry chance follows the NPC's Defence against the player's Melee", () => {
+        expect(parryChance(10, 10, 2)).toBeCloseTo(tuning.parryChanceMax);
+        expect(parryChance(1, 99, 10)).toBe(tuning.parryChanceCap);
+        expect(parryChance(10, 10)).toBeCloseTo(tuning.parryChanceMax / 2);
+        expect(parryChance(99, 1)).toBeLessThan(0.01);
+        expect(parryChance(1, 99)).toBeGreaterThan(tuning.parryChanceMax * 0.95);
+        expect(parryChance(1, 0)).toBe(0);
     });
 
     function casting(gear: Partial<CombatGear> = {}, skills = new PlayerSkills(), book = new Spellbook()) {

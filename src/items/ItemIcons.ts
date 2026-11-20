@@ -93,6 +93,8 @@ export class ItemIcons {
                 this.queue = next.catch(() => undefined);
                 return next;
             });
+            // A failed load (a dropped request) is tried again the next time the icon is shown.
+            icon.catch(() => this.cache.delete(key));
             this.cache.set(key, icon);
         }
         return icon;

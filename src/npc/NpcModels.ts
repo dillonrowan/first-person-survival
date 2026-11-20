@@ -32,6 +32,20 @@ export function modelHeight(data: NpcModelData): number {
     return Math.max(MIN_NPC_HEIGHT, top / RS_UNITS_PER_TILE);
 }
 
+/** Base-pose position of every model vertex: model space in three.js axes, tiles. */
+export function basePositions(data: Pick<NpcModelData, "vertexCount" | "opaque" | "transparent">): Float32Array {
+    const out = new Float32Array(data.vertexCount * 3);
+    for (const { positions, sources } of [data.opaque, data.transparent]) {
+        for (let i = 0; i < sources.length; i++) {
+            const v = sources[i];
+            out[v * 3] = positions[i * 4] / RS_UNITS_PER_TILE;
+            out[v * 3 + 1] = -positions[i * 4 + 1] / RS_UNITS_PER_TILE;
+            out[v * 3 + 2] = -positions[i * 4 + 2] / RS_UNITS_PER_TILE;
+        }
+    }
+    return out;
+}
+
 function createShared(source: NpcMeshData, transparent: boolean): SharedNpcMesh {
     // Never release the CPU arrays: disposing one NPC's geometry frees the buffers of the shared
     // attributes, and the other NPCs upload them again from the arrays on their next draw.

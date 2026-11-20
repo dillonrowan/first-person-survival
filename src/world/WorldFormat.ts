@@ -81,7 +81,7 @@ export type PropData = {
 
 /** A door, gate, ladder, staircase, bank booth or physics prop the player can act on. */
 export type InteractiveLoc = {
-    kind: "door" | "climb" | "prop" | "bank";
+    kind: "door" | "climb" | "prop" | "bank" | "skill";
     /** Loc id in the cache. */
     id: number;
     name: string;
@@ -101,6 +101,20 @@ export type InteractiveLoc = {
     height: number;
     door?: DoorData;
     prop?: PropData;
+    skill?: SkillLocData;
+};
+
+/**
+ * A skill target (tree, rock, facility, patch…); what it does comes from skills.json by
+ * loc id. Mesh fields index RegionData.doorMeshes; a loc without them is drawn with the map.
+ */
+export type SkillLocData = {
+    /** The loc as placed, when its look can change. */
+    mesh?: number;
+    /** Depleted look (stump, empty rock). */
+    depletedMesh?: number;
+    /** Farming patch: mesh per varbit value (-1 draws nothing); values past the end use the last. */
+    stateMeshes?: number[];
 };
 
 /** Meshes of one door or prop, in region-local RS units like the region's own meshes. */

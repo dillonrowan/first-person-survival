@@ -242,6 +242,16 @@ export class NpcAttacker {
         return this.elapsed < until ? a.lunge / until : 0;
     }
 
+    /** Seconds until the attack in progress lands its next blow (0 with none). */
+    get untilHit(): number {
+        const a = this.current;
+        if (!a) {
+            return 0;
+        }
+        const at = a.hitTimes[this.nextHit] ?? a.hitTimes[a.hitTimes.length - 1];
+        return Math.max(0, at - this.elapsed);
+    }
+
     /** Stops an attack in progress (the NPC was staggered) and delays the next one. */
     interrupt(): void {
         this.current = undefined;

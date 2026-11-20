@@ -4,7 +4,7 @@ import { ALL_RUNES, RUNE } from "../combat/Spells";
 import { EQUIP_SLOTS, EquipSlot, EquipmentBonuses, ItemInfo, NO_BONUSES } from "../world/ItemFormat";
 import { EquipmentSlots } from "./EquipmentSlots";
 import type { ItemDb } from "./ItemDb";
-import { ItemContainer, Stack } from "./ItemContainer";
+import { ItemContainer, MAX_STACK, Stack } from "./ItemContainer";
 
 export const INVENTORY_SIZE = 28;
 const STORAGE_KEY = "first-person-survival.items.v1";
@@ -158,6 +158,47 @@ export class PlayerItems implements CombatGear {
         this.changed();
     }
 
+    // ---------------------------------------------------------------- skilling
+
+    /** How many of an item the inventory holds. */
+    count(id: number): number {
+        return this.inventory.count(id);
+    }
+
+    /** Whether the item is in the inventory or worn (tools count either way). */
+    holds(id: number): boolean {
+        return this.inventory.count(id) > 0 || this.equipment.all().some(([, s]) => s.id === id);
+    }
+
+    /** Whether `qty` of an item fits in the inventory now. */
+    canAdd(id: number, qty = 1): boolean {
+        const stackable = !!this.db.get(id)?.stackable;
+        if (stackable) return this.inventory.count(id) > 0 || this.inventory.freeSlots() > 0;
+        return this.inventory.freeSlots() >= qty;
+    }
+
+    /** Adds items to the inventory; returns how many did not fit. */
+    addItem(id: number, qty: number): number {
+        const left = this.inventory.add(id, qty);
+        if (left < qty) this.changed();
+        return left;
+    }
+
+    /** Removes items from the inventory; returns how many were removed. */
+    removeItem(id: number, qty: number): number {
+        const removed = this.inventory.remove(id, qty);
+        if (removed > 0) this.changed();
+        return removed;
+    }
+
+    /** Replaces the item in one slot (a potion dose, a filled vial). */
+    replaceAt(slot: number, id: number): void {
+        const stack = this.inventory.slots[slot];
+        if (!stack) return;
+        this.inventory.slots[slot] = { id, qty: stack.qty };
+        this.changed();
+    }
+
     // ---------------------------------------------------------------- bank
 
     deposit(invSlot: number, qty: number): void {
@@ -305,7 +346,11 @@ export class PlayerItems implements CombatGear {
                 (s as Stack).qty > 0 &&
                 !!this.db.get((s as Stack).id);
             (saved.inventory ?? []).slice(0, INVENTORY_SIZE).forEach((s, i) => {
-                if (valid(s)) this.inventory.slots[i] = { id: s.id, qty: s.qty };
+                if (!valid(s)) return;
+                // Items that stack now but were saved one per slot (essence) join the first stack.
+                const stack = this.db.get(s.id)?.stackable ? this.inventory.slots.find((t) => t?.id === s.id) : undefined;
+                if (stack) stack.qty = Math.min(MAX_STACK, stack.qty + s.qty);
+                else this.inventory.slots[i] = { id: s.id, qty: s.qty };
             });
             for (const s of saved.bank ?? []) {
                 if (valid(s)) this.bank.add(s.id, s.qty);
