@@ -325,6 +325,22 @@ once, 100 RS units above the target's feet `[design: the height is server data]`
 cast graphic plays once at the hands, 0.45 scale, 0.9 tiles ahead of and 0.45 below the eye
 `[design: at full size round the caster it would fill a first-person view]`.
 
+**Cast gesture** (`src/combat/CastGesture.ts`) `[design]`. A cast is thrown with both hands over
+whatever they were doing, keyed in the eye frame so the same keys pose the first-person view and the
+third-person body: overshot out to a thrust by 0.06 s, thrown back by the recoil by 0.14 s, driven
+out again to channel the spell by 0.3 s and held to 0.42 s, then faded back by 0.75 s. A staff is held
+in both hands, the free hand 0.22 tiles up the shaft, and driven like a spear so the shaft passes
+through the cast graphic; the recoil flings its head up along the projectile's line. Bare hands push
+both palms together under the graphic and are flung apart by the recoil. Any other weapon is raised
+point-up and out to the right, clear of the reticule, beside the free hand's palm. In first person
+the view kicks up (0.06 rad) and rolls (0.02 rad) with the recoil for a mid-tier spell, scaled by
+tier (strike 0.8 to surge 1.4).
+
+**Aim in third person.** The camera sits 0.3 tiles above the line behind the eyes and looks at them,
+so the reticule's line passes through the eyes a little steeper down than the view. A spell leaves
+the eyes along that line (`CameraRig.aimPitch`), so it goes where the reticule is, and the body's
+head turns to look along it (`Avatar.lookAlong`, at most 1.1 rad from the animated pose).
+
 **NPC attack graphics and effects** (`NPC_EFFECTS` in `src/npc/NpcSpells.ts`). The cache has
 every graphic but not which NPC uses which (server data), so each ranged and magic NPC is matched to
 Jagex's spot animation names (RuneLite's gameval `SpotanimID`, e.g. `LIZARDMAN_SPIT`) and to the wiki's

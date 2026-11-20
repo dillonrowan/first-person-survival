@@ -15,6 +15,7 @@ import { applyDrain, curseMessage, runHitEffects } from "./npc/NpcHitEffects";
 import { NpcProjectile, ProjectileTarget, launchNpcProjectile, stepNpcProjectiles } from "./npc/NpcProjectiles";
 import { presenceFor } from "./npc/NpcSenses";
 import { ArrowView } from "./combat/ArrowView";
+import { castStrength } from "./combat/CastGesture";
 import { SpellEffects, SpellGfxLibrary } from "./combat/SpellGfxView";
 import { CAST_HEIGHT, IMPACT_HEIGHT, SPELL_GRAPHICS, SPLASH_GRAPHIC } from "./world/SpellGfxFormat";
 import { Avatar } from "./avatar/Avatar";
@@ -423,6 +424,8 @@ async function main(): Promise<void> {
         yaw: player.yaw,
     });
     combat.onCast = (spell) => {
+        // The hands thrust the spell out through the cast graphic (CastGesture), in both views.
+        weaponView.cast(castStrength(spell.id));
         const graphics = SPELL_GRAPHICS[spell.id];
         if (graphics) {
             // OSRS draws the cast graphic round the caster's hands. Seen from the
@@ -955,6 +958,7 @@ async function main(): Promise<void> {
             kickPressed: fighting && armed && input.wasPressed("KeyF"),
             castPressed:
                 fighting && armed && (input.wasPressed("KeyG") || (combat.holdsCaster && input.wasPressed("Mouse2"))),
+            aimPitch: cameraRig.aimPitch(player.pitch),
             forward: input.axis("KeyW", "KeyS"),
             strafe: input.axis("KeyD", "KeyA"),
         });
@@ -1154,10 +1158,14 @@ async function main(): Promise<void> {
             if (grip) {
                 avatar.reachRightHand(grip, cameraRig.mode === "first" ? camera : avatar.viewFrame);
             }
-            // Third person: the free hand guards and counters the swing.
+            // Third person: the free hand guards and counters the swing; either view: it casts.
             const offHand = weaponView.offHandPoint(new THREE.Vector3());
             if (offHand) {
                 avatar.reachLeftHand(offHand);
+            }
+            // Third person: the head looks where the reticule is (the camera's line through the eyes).
+            if (cameraRig.mode === "third") {
+                avatar.lookAlong(camera.getWorldDirection(new THREE.Vector3()));
             }
         }
         if (collisionDebug && npcs) {

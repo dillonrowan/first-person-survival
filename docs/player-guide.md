@@ -160,8 +160,9 @@ Skills are saved in the browser.
 **Spells.** Press `B` for the spellbook: the 20 combat spells from Wind Strike to Fire Surge, locked
 ones greyed out with their level. Click an unlocked spell to equip it; one is equipped at a time and
 is saved. Press `G` to cast it with any weapon, or `Mouse 2` while holding a staff or wand. Spells
-look as they do in OSRS (the models and animations come from the game cache): the cast swirl plays
-at your hands, the spell flies straight and stops at walls, and on a hit its impact bursts on the
+look as they do in OSRS (the models and animations come from the game cache): you thrust the spell out with both hands
+(two-handed with a staff, palms together bare-handed) through the cast swirl at your hands, in third person
+it flies to the reticule while your character looks there, the spell flies straight and stops at walls, and on a hit its impact bursts on the
 target. A spell that misses splashes: a blue-grey cloud, and no hitsplat. Dark wizards cast their
 OSRS spells at you the same way: the level 7 ones Water Strike and Confuse, the level 20 ones Earth
 Strike and Weaken. Every ranged and magic monster fires its OSRS projectile: archers' arrows, guards'

@@ -61,6 +61,18 @@ export class CameraRig {
     }
 
     /**
+     * Pitch of the line through the reticule, from the eyes, for a view at `pitch`. In third person
+     * the camera sits THIRD_PERSON_LIFT above the line behind the eyes and looks at them, so the
+     * reticule's line passes through the eyes a little steeper down than the view: a shot from the
+     * eyes along it goes where the reticule is.
+     */
+    aimPitch(pitch: number): number {
+        if (this.mode === "first") return pitch;
+        const d = this.distance;
+        return Math.atan2(d * Math.sin(pitch) - THIRD_PERSON_LIFT, d * Math.cos(pitch));
+    }
+
+    /**
      * `offset` (first person only) is added to the view: swing follow, impact shake, leaning in to
      * pick a pocket.
      */

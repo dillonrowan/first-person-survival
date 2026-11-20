@@ -9,6 +9,7 @@ import type { KickController } from "./Kick";
 import { BLOCKED_CLIP, LODGE_CLIP, LODGE_FPS } from "./LodgeClip";
 import type { MeleeController } from "./MeleeController";
 import type { MoveDef, PowerDirection } from "./moves";
+import { castFrame, castStyle, OFF_HAND_REST } from "./CastGesture";
 import { createPlaceholderWeapon } from "./PlaceholderWeapons";
 import { tuning } from "./tuning";
 import { UNARMED, type WeaponDef } from "./weapons";
@@ -397,6 +398,9 @@ export class WeaponView {
     private idleFor = 0;
     /** Third person: where the free hand goes, in the body's view frame; undefined to leave it animated. */
     private offHand: THREE.Vector3 | undefined;
+    /** Seconds into the spell cast gesture (CastGesture), and how hard the spell kicks. */
+    private castTime = Infinity;
+    private castStrength = 1;
     constructor(
         private readonly camera: THREE.Camera,
         private readonly baseUrl: string,
@@ -565,6 +569,12 @@ export class WeaponView {
     }
 
     /** How far the held item is put away for the next update: 0 held, 1 lowered out of view. */
+    /** A spell was cast: the hands thrust it out (CastGesture). `strength` ~1, more for bigger spells. */
+    cast(strength = 1): void {
+        this.castTime = 0;
+        this.castStrength = strength;
+    }
+
     setLowered(amount: number): void {
         this.lowered = amount;
     }
@@ -592,6 +602,7 @@ export class WeaponView {
     ): void {
         const dt = extra.dt ?? 0;
         this.clock += dt;
+        this.castTime += dt;
         if (this.freeze > 0) {
             this.freeze = Math.max(0, this.freeze - dt);
             this.lag += dt;
@@ -672,6 +683,18 @@ export class WeaponView {
                 pose = heldToolPose(pose.pos, pose.quat, this.bodyAim?.rotation.x ?? 0);
             }
         }
+        const cast = castFrame(castStyle(weapon.family, weapon.id === UNARMED.id), this.castTime, this.castStrength);
+        if (cast) {
+            // Casting: both hands thrust the spell out over whatever they were doing. The keys are
+            // in the eye frame, which both the camera and the body's view frame are.
+            const w = cast.weight;
+            pose = { pos: pose.pos.clone().lerp(cast.grip, w), quat: cast.quat ? pose.quat.clone().slerp(cast.quat, w) : pose.quat };
+            offHand = (offHand ?? OFF_HAND_REST).clone().lerp(cast.offHand, w);
+            if (firstPerson) {
+                this.viewOffset.pitch += cast.viewPitch;
+                this.viewOffset.roll += cast.viewRoll;
+            }
+        }
         this.offHand = offHand;
         if (kick?.active && firstPerson) {
             pose = lerpPose(pose, KICK_ASIDE, Math.min(1, (kick.elapsed ?? 0) / 0.1));
@@ -723,12 +746,12 @@ export class WeaponView {
     }
 
     /**
-     * World position the free (left) hand should reach for in third person, or undefined when it
-     * should hang as animated.
+     * World position the free (left) hand should reach for (a third-person guard or swing, or a
+     * spell cast in either view), or undefined when it should hang as animated.
      */
     offHandPoint(out: THREE.Vector3): THREE.Vector3 | undefined {
-        if (!this.offHand || !this.holder.visible || !this.bodyAim || this.holder.parent !== this.bodyAim) return undefined;
-        return this.bodyAim.localToWorld(out.copy(this.offHand));
+        if (!this.offHand || !this.holder.visible || !this.holder.parent) return undefined;
+        return this.holder.parent.localToWorld(out.copy(this.offHand));
     }
 
     /**

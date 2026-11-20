@@ -11,6 +11,8 @@ const BODY_TURN_DAMPING = 10;
 const IDLE_TURN_THRESHOLD = (50 * Math.PI) / 180;
 const MOVING_SPEED = 0.2;
 const HIDDEN_HEAD_SCALE = 1e-3;
+/** Furthest the head turns from the animated pose to look where the player aims (radians). [design] */
+const HEAD_TURN_MAX = 1.1;
 
 export type AvatarTarget = LocomotionInput & {
     x: number;
@@ -55,6 +57,8 @@ export class Avatar {
     private readonly saved: { bone: THREE.Bone; quat: THREE.Quaternion; pos: THREE.Vector3 }[] = [];
     private readonly v = [0, 1, 2, 3, 4].map(() => new THREE.Vector3());
     private readonly q2 = new THREE.Quaternion();
+    /** The head bone's forward in its own space (lookAlong), found once from the bind pose. */
+    private headForward: THREE.Vector3 | undefined;
     private kick: KickSample | undefined;
 
     constructor(
@@ -62,6 +66,13 @@ export class Avatar {
         walkSpeed = WALK_SPEED,
         sprintSpeed = SPRINT_SPEED,
     ) {
+        const head = asset.bones.head;
+        if (head) {
+            // The head's facing in its own space, from the bind pose: the body's forward (-Z of the root).
+            asset.root.updateMatrixWorld(true);
+            const toHead = head.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(asset.root.getWorldQuaternion(new THREE.Quaternion()));
+            this.headForward = new THREE.Vector3(0, 0, -1).applyQuaternion(toHead);
+        }
         this.animator = new AvatarAnimator(asset, walkSpeed, sprintSpeed);
         this.viewFrame.rotation.order = "YXZ";
         asset.root.add(this.viewFrame);
@@ -176,6 +187,27 @@ export class Avatar {
         if (upper && fore && effector && upper.parent) {
             this.bendArm(upper, fore, effector, target, ELBOW_POLE_L);
         }
+    }
+
+    /**
+     * Turns the head to look along `direction` (world, e.g. the third-person reticule's line), at
+     * most HEAD_TURN_MAX from where the animation and torso left it. Call last, after the reaches
+     * have turned the torso. Undone by the next `update`.
+     */
+    lookAlong(direction: THREE.Vector3): void {
+        const head = this.asset.bones.head;
+        if (!head?.parent || !this.headForward) return;
+        this.save(head);
+        head.updateWorldMatrix(true, false);
+        const facing = this.v[0].copy(this.headForward).applyQuaternion(head.getWorldQuaternion(this.q2));
+        const want = this.v[1].copy(direction).normalize();
+        const angle = facing.angleTo(want);
+        const turn = this.q.setFromUnitVectors(facing, want);
+        if (angle > HEAD_TURN_MAX) turn.slerp(this.q2.identity(), 1 - HEAD_TURN_MAX / angle);
+        const parent = head.parent.getWorldQuaternion(this.q2);
+        // local' = parent⁻¹ · turn · parent · local
+        head.quaternion.premultiply(parent).premultiply(turn).premultiply(parent.invert());
+        head.updateMatrixWorld(true);
     }
 
     /**

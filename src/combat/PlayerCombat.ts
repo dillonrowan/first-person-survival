@@ -115,6 +115,8 @@ export type CombatInput = {
     kickPressed?: boolean;
     /** True in the update a cast was asked for (G, or right click with a staff or wand). */
     castPressed?: boolean;
+    /** Pitch a spell leaves the eyes along (the reticule's line in third person); the view's when absent. */
+    aimPitch?: number;
     forward: number;
     strafe: number;
 };
@@ -438,7 +440,7 @@ export class PlayerCombat {
         const cast = launchArrow(
             { x: player.x, y: player.y, z: player.z + player.eyeHeight, plane: player.plane },
             player.yaw,
-            player.pitch,
+            input.aimPitch ?? player.pitch,
             { speed: tuning.spellSpeed, gravity: 0 },
         );
         cast.spell = { color: spell.color, id: spell.id };

@@ -263,6 +263,29 @@ describe("Avatar", () => {
             expect(chest.quaternion.angleTo(animated)).toBeLessThan(1e-4);
         }
     });
+
+    it("turns the head to look where the player aims and gives it back to the animation", () => {
+        for (const asset of [createPlaceholderAvatar(), hans()]) {
+            const head = asset.bones.head!;
+            // The head's forward in its own space at the bind pose: the body's, -Z of the root.
+            asset.root.updateMatrixWorld(true);
+            const toHead = head.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(asset.root.getWorldQuaternion(new THREE.Quaternion()));
+            const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(toHead);
+            const facing = () => forward.clone().applyQuaternion(head.getWorldQuaternion(new THREE.Quaternion()));
+            const avatar = new Avatar(asset);
+            avatar.update(0.05, target(), "third");
+            avatar.update(0, target(), "third");
+            const animated = head.quaternion.clone();
+            // Up and to the right of the body's facing, within the neck's reach.
+            const aim = new THREE.Vector3(0.5, 0.35, -1).normalize();
+            avatar.reachRightHand(avatar.viewFrame.localToWorld(new THREE.Vector3(0.18, -0.42, -0.1)), avatar.viewFrame);
+            expect(facing().angleTo(aim)).toBeGreaterThan(0.3);
+            avatar.lookAlong(aim);
+            expect(facing().angleTo(aim)).toBeLessThan(1e-3);
+            avatar.update(0, target(), "third");
+            expect(head.quaternion.angleTo(animated)).toBeLessThan(1e-4);
+        }
+    });
 });
 
 describe("cache NPC avatar", () => {
