@@ -97,7 +97,10 @@ reads to give trees, rocks and patches their own meshes). Formulas and every
 ### Export options
 
 ```bash
-npm run export-world -- --area all            # surface plus dungeons, minigames, instances
+npm run export-world                          # the default, --area dungeons: the surface plus the dungeons its entrances lead to
+npm run export-world -- --area surface        # the surface only
+npm run export-world -- --area links          # only squares that carry dungeon links (with --merge: update an existing export)
+npm run export-world -- --area all            # everything, including minigames and instances
 npm run export-world -- --area 44,48,54,56    # only map squares x 44..54, y 48..56
 npm run export-world -- --workers 4           # parallel workers (default: by cores and free RAM, max 6)
 npm run export-world -- --no-npcs             # skip NPC models and spawns
@@ -106,6 +109,22 @@ npm run download-cache -- 238                 # a specific OSRS revision instead
 ```
 
 Re-run `export-world` whenever you change the exporter or download a newer cache.
+
+### Dungeons
+
+The cache says where entrances (ladders, trapdoors, cave mouths) stand but not where they lead.
+`npm run find-dungeon-links` works that out and writes the committed
+`tools/world-export/data/dungeon-links.json`: it pairs each surface entrance with the exit
+6,400 tiles north of it, and matches the cache's entrances to the object transports of RuneLite's
+Shortest Path plugin (downloaded once from a pinned commit). Hand fixes go in
+`tools/world-export/data/dungeon-links-overrides.json`. How it works, what it found and what is
+still unresolved is in [docs/dungeon-links-findings.md](docs/dungeon-links-findings.md).
+
+`export-world` then exports the squares those links lead into, grown through neighbouring
+squares joined by walkable ground (about 360 squares, roughly 330 MB). In the game, aim at an
+entrance and press `E`; a trapdoor or manhole must be opened first (`E`), then climbed (`E`
+again). The screen fades through the transition, and dungeons are dark. Quest, item and level
+requirements are not checked yet; they are recorded in the links for later.
 
 ## How the cache becomes a 3D map
 
@@ -250,4 +269,7 @@ NPC spawn list come from [rs-map-viewer](https://github.com/dennisdev/rs-map-vie
 `net.runelite.api.gameval.AnimationID` ([RuneLite](https://github.com/runelite/runelite),
 BSD 2-Clause). Skill, recipe, drop, shop and slayer data come from the
 [Old School RuneScape Wiki](https://oldschool.runescape.wiki/) (CC BY-NC-SA 3.0); the farming
-patch states and growth rates come from RuneLite's time-tracking plugin (BSD 2-Clause).
+patch states and growth rates come from RuneLite's time-tracking plugin (BSD 2-Clause). Where
+dungeon entrances lead comes partly from the object transports of the RuneLite
+[Shortest Path](https://github.com/Skretzo/shortest-path) plugin (BSD 2-Clause, Copyright (c)
+Skretzo and contributors), pinned in `tools/world-export/find-dungeon-links.ts`.

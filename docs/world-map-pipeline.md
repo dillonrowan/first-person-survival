@@ -116,6 +116,17 @@ by `npm run export-skills`. Trees and rocks get their own meshes plus a stump or
 and patches one mesh per growth state, so the game can swap them;
 the others stay part of the region meshes. They keep their collision.
 
+**Dungeons.** `export-world` exports the surface plus the dungeon squares its entrances lead to
+(`--area dungeons`, the default). Where entrances lead is not in the cache, so
+`tools/world-export/data/dungeon-links.json` (written by `npm run find-dungeon-links`, see
+[dungeon-links-findings.md](dungeon-links-findings.md)) lists every link as the entrance loc, its
+tile and the arrival tile. The exporter attaches each link to the loc it starts at (kind `climb`
+for ladders, kind `passage` for cave mouths and trapdoors; a closed trapdoor also carries its closed
+and open meshes as a `hatch`) and starts the dungeon selection from the links' arrival squares. It
+grows that through neighbouring non-surface squares whose shared edge has walkable ground on both
+sides, stopping with an error past 900 squares. `--area links` re-exports only squares that carry
+links, which with `--merge` updates an existing export without redoing the surface.
+
 **Extra squares.** `--squares "x,y;x,y"` exports only the listed map squares, and `--merge`
 re-exports the selected squares into the existing world (adding new ones to `world.json`) without
 deleting anything else. The skills need the runecraft altar squares (35..44,75) and essence mine (45,75), which lie outside the surface export:
@@ -145,5 +156,6 @@ ground (or on a bridge or upper floor), and its collision stops the player at wa
 | ------------------------------------------------------------------ | ---------------------------------------- |
 | Want a newer OSRS update                                           | `download-cache`, then `export-world`    |
 | The exporter (`tools/world-export/`) or `src/world/WorldFormat.ts` | `export-world`, then `export-cache-weapons`, `export-items` and `export-map` |
+| A newer cache, or the dungeon link data                            | `find-dungeon-links`, then `export-world` (or `export-world -- --merge --area links`) |
 | Skill data or the wiki data (`npm run fetch-wiki-skills`)          | `export-skills`; then `export-world -- --merge --area surface` if skill-locs.json changed, and `export-map` |
 | Only the game (`src/`)                                             | Nothing; the dev server reloads the page |

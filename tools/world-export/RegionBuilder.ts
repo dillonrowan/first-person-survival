@@ -19,6 +19,7 @@ import {
     RS_UNITS_PER_TILE,
     RegionData,
 } from "../../src/world/WorldFormat";
+import { DungeonLinkIndex, toLocLink } from "./DungeonLinks";
 import { areGateLeaves, doorStates, gateLeafStates, isBank, isClimbable, placedDoorState } from "./Interactives";
 import { MAX_PROP_HEIGHT, propClassFor, propExtent } from "./Props";
 import { stripNameTags } from "./NpcSpawns";
@@ -45,7 +46,7 @@ const PRIORITY_WALL = 1;
 const PRIORITY_WALL_DECORATION = 2;
 const PRIORITY_LOC = 1;
 
-export type RegionStats = { tiles: number; locs: number; triangles: number; buildMs: number };
+export type RegionStats = { tiles: number; locs: number; triangles: number; buildMs: number; links: number };
 
 /** Doors and ladders found in a region's scene. */
 type FoundInteractives = {
@@ -58,6 +59,12 @@ type FoundInteractives = {
     propByLoc: Map<SceneLoc, number>;
     /** Skill locs whose look can change (trees, rocks, patches), drawn into their own meshes. */
     skillByLoc: Map<SceneLoc, InteractiveLoc>;
+    /** Closed trapdoors and manholes: the loc and the id of its open model, drawn into two own meshes. */
+    hatchByLoc: Map<SceneLoc, { interactive: InteractiveLoc; openId: number }>;
+    /** Ladders and passages, whose height is measured from their model. */
+    entranceByLoc: Map<SceneLoc, InteractiveLoc>;
+    /** Dungeon links attached to the entrances of this region. */
+    linksAttached: number;
     doorBuilders: { opaque: MeshBuilder; transparent: MeshBuilder }[];
 };
 
@@ -78,6 +85,8 @@ export class RegionBuilder {
         private readonly colors: FaceColors = new FaceColors(loaders.textureLoader),
         /** Which locs are skill targets (data/skill-locs.json); none without it. */
         private readonly skillLocs?: SkillLocIndex,
+        /** Where entrances lead (data/dungeon-links.json); entrances get no links without it. */
+        private readonly dungeonLinks?: DungeonLinkIndex,
     ) {}
 
     /** Texture ids in texture-array order (layer = index + 1). */
@@ -134,6 +143,11 @@ export class RegionBuilder {
 
         let locs = 0;
         for (const p of placed) {
+            const hatch = found.hatchByLoc.get(p.sceneLoc);
+            if (hatch && this.addHatchMeshes(scene, found, p, hatch.interactive, hatch.openId)) {
+                locs++;
+                continue;
+            }
             const skillLoc = found.skillByLoc.get(p.sceneLoc);
             if (skillLoc) {
                 this.addSkillLocMeshes(scene, found, p, skillLoc);
@@ -183,6 +197,10 @@ export class RegionBuilder {
                         p,
                         resolved.height,
                     );
+                    const entrance = found.entranceByLoc.get(p.sceneLoc);
+                    if (entrance) {
+                        entrance.height = Math.max(entrance.height, modelHeight(resolved.model));
+                    }
                 }
                 locs++;
             }
@@ -218,7 +236,7 @@ export class RegionBuilder {
                 interactives: found.interactives,
                 doorMeshes,
             },
-            stats: { tiles, locs, triangles, buildMs: Math.round(performance.now() - start) },
+            stats: { tiles, locs, triangles, buildMs: Math.round(performance.now() - start), links: found.linksAttached },
         };
     }
 
@@ -289,6 +307,9 @@ export class RegionBuilder {
             doorByWall: new Map(),
             propByLoc: new Map(),
             skillByLoc: new Map(),
+            hatchByLoc: new Map(),
+            entranceByLoc: new Map(),
+            linksAttached: 0,
             doorBuilders: [],
         };
         const shownType = (id: number) => {
@@ -354,24 +375,17 @@ export class RegionBuilder {
                         if (this.addSkillLoc(found, scene, { level, x, y, worldX, worldY, loc, id, locType, shown })) {
                             continue;
                         }
-                        const bank = isBank(shown.name, shown.actions);
-                        if (!bank && !isClimbable(shown.actions)) {
+                        this.addEntrance(found, scene, { level, x, y, worldX, worldY, sceneLoc: loc, id, locType, shown, rotation: loc.rotation });
+                    }
+                    // Trapdoors and cave mouths are often floor or wall decorations rather than normal locs.
+                    for (const decoration of [tile.floorDecoration, tile.wallDecoration]) {
+                        if (!decoration) {
                             continue;
                         }
-                        const swap = loc.rotation === 1 || loc.rotation === 3;
-                        found.interactives.push({
-                            kind: bank ? "bank" : "climb",
-                            id,
-                            name: stripNameTags(shown.name),
-                            actions: shown.actions.filter((action): action is string => !!action),
-                            plane: level,
-                            level,
-                            tileX: worldX,
-                            tileY: worldY,
-                            sizeX: swap ? locType.sizeY : locType.sizeX,
-                            sizeY: swap ? locType.sizeX : locType.sizeY,
-                            rotation: loc.rotation,
-                            height: DEFAULT_INTERACTIVE_HEIGHT,
+                        const id = getIdFromTag(decoration.tag);
+                        const { locType, shown } = shownType(id);
+                        this.addEntrance(found, scene, {
+                            level, x, y, worldX, worldY, sceneLoc: decoration, id, locType, shown, rotation: (decoration.flags >> 6) & 0x3,
                         });
                     }
                 }
@@ -379,6 +393,112 @@ export class RegionBuilder {
         }
         this.pairGateLeaves(found.interactives);
         return found;
+    }
+
+    /**
+     * Records a bank booth, a ladder or stair ("Climb" verbs), or a passage: any other loc that a
+     * dungeon link starts at (cave mouth, trapdoor, tunnel). A closed trapdoor with a known open
+     * model becomes a hatch, drawn into its own meshes by addHatchMeshes.
+     */
+    private addEntrance(
+        found: FoundInteractives,
+        scene: Scene,
+        p: {
+            level: number;
+            x: number;
+            y: number;
+            worldX: number;
+            worldY: number;
+            sceneLoc: SceneLoc;
+            id: number;
+            locType: LocType;
+            shown: LocType;
+            rotation: number;
+        },
+    ): void {
+        // Same level remapping SceneBuilder.decodeLocs applies under bridges.
+        let plane = p.level;
+        if ((scene.tileRenderFlags[1][p.x][p.y] & 0x2) === 2) {
+            plane--;
+        }
+        if (plane < 0) {
+            return;
+        }
+        const bank = isBank(p.shown.name, p.shown.actions);
+        const links = bank ? [] : (this.dungeonLinks?.linksForLoc(plane, p.worldX, p.worldY, p.id) ?? []);
+        const climbable = isClimbable(p.shown.actions);
+        if (!bank && !climbable && links.length === 0) {
+            return;
+        }
+        const kind = bank ? "bank" : climbable ? "climb" : "passage";
+        const actions = p.shown.actions.filter((action): action is string => !!action);
+        const swap = p.rotation === 1 || p.rotation === 3;
+        const interactive: InteractiveLoc = {
+            kind,
+            id: p.id,
+            name: stripNameTags(p.shown.name),
+            actions: kind === "passage" ? [...new Set(links.map((link) => link.action))] : actions,
+            plane,
+            level: p.level,
+            tileX: p.worldX,
+            tileY: p.worldY,
+            sizeX: swap ? p.locType.sizeY : p.locType.sizeX,
+            sizeY: swap ? p.locType.sizeX : p.locType.sizeY,
+            rotation: p.rotation,
+            height: DEFAULT_INTERACTIVE_HEIGHT,
+        };
+        if (links.length > 0) {
+            interactive.links = links.map(toLocLink);
+            found.linksAttached += links.length;
+        }
+        found.interactives.push(interactive);
+        const openId = this.dungeonLinks?.openIdFor(plane, p.worldX, p.worldY, p.id);
+        if (kind === "passage" && openId !== undefined && actions.some((action) => /^open$/i.test(action))) {
+            found.hatchByLoc.set(p.sceneLoc, { interactive, openId });
+        } else {
+            found.entranceByLoc.set(p.sceneLoc, interactive);
+        }
+    }
+
+    /**
+     * Draws a closed trapdoor and its open model into two own meshes, so the game can swap them.
+     * Returns false, drawing nothing, if either model is missing; the loc then stays a plain passage.
+     */
+    private addHatchMeshes(
+        scene: Scene,
+        found: FoundInteractives,
+        p: PlacedEntity,
+        interactive: InteractiveLoc,
+        openId: number,
+    ): boolean {
+        const closed = this.resolveModel(scene, p);
+        if (!closed) {
+            return false;
+        }
+        // Decorations have no start tile; they stand on the tile their position is in.
+        const sceneLoc = p.sceneLoc as unknown as Record<string, number>;
+        const standsOn = "startX" in sceneLoc ? p.sceneLoc : Object.assign(Object.create(p.sceneLoc), {
+            startX: Math.floor(sceneLoc.x / 128),
+            startY: Math.floor(sceneLoc.y / 128),
+        });
+        const openBuilders: Builders = { opaque: new MeshBuilder(256), transparent: new MeshBuilder(64) };
+        const openHeight = this.buildLocVariant(scene, { ...p, sceneLoc: standsOn }, this.loaders.locTypeLoader.load(openId), openBuilders);
+        if (openHeight === undefined) {
+            return false;
+        }
+        const closedBuilders: Builders = { opaque: new MeshBuilder(256), transparent: new MeshBuilder(64) };
+        this.addModel({ doubleSided: closedBuilders.opaque, ...closedBuilders }, closed.model, p, closed.height);
+        found.doorBuilders.push(closedBuilders, openBuilders);
+        const closedMesh = found.doorBuilders.length - 2;
+        interactive.actions = ["Open"];
+        interactive.hatch = {
+            closedMesh,
+            openMesh: closedMesh + 1,
+            openActions: this.loaders.locTypeLoader.load(openId).actions.filter((action): action is string => !!action),
+            placedOpen: false,
+        };
+        interactive.height = Math.max(modelHeight(closed.model), openHeight);
+        return true;
     }
 
     /** Links the two leaves of each gate or double door and re-hinges them at their outer ends. */

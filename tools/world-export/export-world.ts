@@ -1,7 +1,11 @@
 // One-time conversion of the OSRS cache (cache/) into the game's world map (public/world/).
 //
-//   npm run export-world                         Gielinor's surface (map squares with y < 66)
-//   npm run export-world -- --area all           also dungeons, minigames and instances
+//   npm run export-world                         the surface (map squares with y < 66) plus the dungeons its
+//                                                entrances lead to (--area dungeons, the default)
+//   npm run export-world -- --area surface       the surface only
+//   npm run export-world -- --area links         only the squares that carry dungeon links: the dungeon squares and the
+//                                                surface squares of entrances (with --merge: update an existing export)
+//   npm run export-world -- --area all           also minigames and instances
 //   npm run export-world -- --area 44,48,54,56   map squares x 44..54, y 48..56 (inclusive)
 //   npm run export-world -- --workers 4
 //   npm run export-world -- --no-npcs            skip the NPC models and spawns
@@ -43,6 +47,8 @@ import { BRIGHTNESS } from "./FaceColors";
 import { AttackIndex, buildAttackIndex, readAnimationNames } from "./NpcAttackAnims";
 import { NpcAppearanceTask, finalizeNpcManifest, readNpcSpawnFile, selectNpcs } from "./NpcSpawns";
 import { TextureLoader } from "./rs/texture/TextureLoader";
+import { DUNGEON_LINKS_FILE, readDungeonLinkFile, readDungeonOverrides, selectDungeonSquares } from "./DungeonLinks";
+import { createEdgeOpen } from "./DungeonInventory";
 import { createWorldLoaders } from "./WorldLoaders";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
@@ -117,6 +123,9 @@ const AREAS: Record<string, Area> = {
     all: { x1: 0, y1: 0, x2: 255, y2: 255 },
 };
 
+/** Guard rail on the dungeon flood fill: more than this means it leaked into minigames or instances. */
+const MAX_DUNGEON_SQUARES = 900;
+
 // A worker peaks at roughly 300 MB while building dense regions; keep headroom on top of that.
 const WORKER_MEMORY_BYTES = 600 * 1024 * 1024;
 
@@ -126,10 +135,10 @@ function defaultWorkerCount(): number {
     return Math.max(1, Math.min(6, byCores, byMemory));
 }
 
-type Args = { area: Area; squares?: [number, number][]; merge: boolean; workers: number; npcs: boolean; npcsOnly: boolean; npcDataOnly: boolean };
+type Args = { area: Area | "dungeons" | "links"; squares?: [number, number][]; merge: boolean; workers: number; npcs: boolean; npcsOnly: boolean; npcDataOnly: boolean };
 
 function parseArgs(argv: string[]): Args {
-    let area = AREAS.surface;
+    let area: Args["area"] = "dungeons";
     let squares: [number, number][] | undefined;
     let merge = false;
     let npcs = true;
@@ -141,12 +150,14 @@ function parseArgs(argv: string[]): Args {
         const value = argv[i + 1];
         if (arg === "--area" && value) {
             i++;
-            if (AREAS[value]) {
+            if (value === "dungeons" || value === "links") {
+                area = value;
+            } else if (AREAS[value]) {
                 area = AREAS[value];
             } else {
                 const [x1, y1, x2, y2] = value.split(",").map(Number);
                 if ([x1, y1, x2, y2].some((n) => !Number.isInteger(n))) {
-                    throw new Error(`--area expects surface, all or x1,y1,x2,y2, got "${value}"`);
+                    throw new Error(`--area expects dungeons, links, surface, all or x1,y1,x2,y2, got "${value}"`);
                 }
                 area = {
                     x1: Math.min(x1, x2),
@@ -365,6 +376,7 @@ async function exportRegions(
     const failed: string[] = [];
     let done = 0;
     let bytes = 0;
+    let linksAttached = 0;
     const logProgress = createProgressLogger(regions.length, "regions");
 
     const tasks: ExportTask[] = regions.map(([mapX, mapY]) => ({ kind: "region", mapX, mapY }));
@@ -373,6 +385,7 @@ async function exportRegions(
         if (result.type === "region") {
             exported.push([result.mapX, result.mapY]);
             bytes += result.bytes;
+            linksAttached += result.stats.links;
         } else if (result.type === "error") {
             failed.push(result.label);
             console.error(`${result.label} failed:`, result.message);
@@ -380,6 +393,10 @@ async function exportRegions(
         logProgress(done, bytes);
     });
     logProgress(done, bytes, true);
+    const linkFile = readDungeonLinkFile(DUNGEON_LINKS_FILE);
+    if (linkFile) {
+        console.log(`${linksAttached} of ${linkFile.links.length} dungeon links attached to exported entrances`);
+    }
     if (failed.length > 0) {
         console.warn(`${failed.length} regions failed and were skipped: ${failed.join(" ")}`);
     }
@@ -514,6 +531,36 @@ async function exportNpcs(
     };
 }
 
+/**
+ * The non-surface map squares the surface leads into: the squares dungeon links arrive in, grown
+ * through neighbours joined by walkable ground (see selectDungeonSquares). Stops if it runs away.
+ */
+function selectDungeons(loaders: ReturnType<typeof createWorldLoaders>): [number, number][] {
+    const file = readDungeonLinkFile(DUNGEON_LINKS_FILE);
+    if (!file) {
+        console.warn("No tools/world-export/data/dungeon-links.json (npm run find-dungeon-links): exporting no dungeons");
+        return [];
+    }
+    const excluded = new Set((readDungeonOverrides().excludeSquares ?? []).map(([x, y]) => (x << 8) | y));
+    const selection = selectDungeonSquares(
+        file.links,
+        (x, y) => loaders.sceneBuilder.getTerrainData(x, y) !== undefined,
+        createEdgeOpen(loaders),
+        excluded,
+    );
+    console.log(`${selection.squares.length} dungeon squares in ${selection.components.length} areas (about ${Math.round(selection.squares.length * 0.9)} MB):`);
+    for (const c of selection.components.sort((a, b) => b.squares - a.squares).slice(0, 12)) {
+        console.log(`  ${c.squares} squares, x ${c.bounds[0]}..${c.bounds[2]}, y ${c.bounds[1]}..${c.bounds[3]}, ${c.links} links`);
+    }
+    if (selection.squares.length > MAX_DUNGEON_SQUARES) {
+        throw new Error(
+            `${selection.squares.length} dungeon squares is more than ${MAX_DUNGEON_SQUARES}: the flood fill ran into minigames or instances. ` +
+                "Add the squares to excludeSquares in data/dungeon-links-overrides.json, or exclude links, and run again.",
+        );
+    }
+    return selection.squares;
+}
+
 async function main() {
     const { area, squares, merge, workers, npcs, npcsOnly, npcDataOnly } = parseArgs(process.argv.slice(2));
 
@@ -549,12 +596,32 @@ async function main() {
     if (squares) {
         regions.push(...squares.filter(([x, y]) => loaders.sceneBuilder.getTerrainData(x, y)));
     } else {
-        for (let x = area.x1; x <= area.x2; x++) {
-            for (let y = area.y1; y <= area.y2; y++) {
-                if (loaders.sceneBuilder.getTerrainData(x, y)) {
-                    regions.push([x, y]);
+        const rectangle = (r: Area) => {
+            for (let x = r.x1; x <= r.x2; x++) {
+                for (let y = r.y1; y <= r.y2; y++) {
+                    if (loaders.sceneBuilder.getTerrainData(x, y)) {
+                        regions.push([x, y]);
+                    }
                 }
             }
+        };
+        if (area === "dungeons" || area === "links") {
+            if (area === "dungeons") rectangle(AREAS.surface);
+            const dungeons = selectDungeons(loaders);
+            regions.push(...dungeons);
+            if (area === "links") {
+                // Entrances on the surface need their links baked in too.
+                const have = new Set(regions.map(([x, y]) => (x << 8) | y));
+                for (const link of readDungeonLinkFile(DUNGEON_LINKS_FILE)?.links ?? []) {
+                    const [x, y] = [link.from[0] >> 6, link.from[1] >> 6];
+                    if (!have.has((x << 8) | y) && loaders.sceneBuilder.getTerrainData(x, y)) {
+                        have.add((x << 8) | y);
+                        regions.push([x, y]);
+                    }
+                }
+            }
+        } else {
+            rectangle(area);
         }
     }
     if (regions.length === 0) {

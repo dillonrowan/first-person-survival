@@ -4,10 +4,11 @@ import type { Body, BodySource } from "../physics/Bodies";
 import { CollisionFlag } from "../world/WorldFormat";
 import { PLAYER_RADIUS, Player, PlayerInput, WALK_SPEED } from "./Player";
 
-function fakeWorld(options: { flags?: (x: number, y: number) => number; loaded?: () => boolean } = {}) {
+function fakeWorld(options: { flags?: (x: number, y: number) => number; loaded?: () => boolean; ground?: (x: number, y: number) => boolean } = {}) {
     return {
         isLoaded: () => options.loaded?.() ?? true,
         hasFloor: () => true,
+        hasGround: (_plane: number, x: number, y: number) => options.ground?.(x, y) ?? true,
         groundHeight: () => 0,
         collisionFlags: (_plane: number, x: number, y: number) => options.flags?.(x, y) ?? 0,
     };
@@ -207,5 +208,26 @@ describe("Player against bodies", () => {
     it("moves far less than a body's reach in one sub-step", () => {
         // 0.2 tiles per axis => at most 0.283 diagonally, less than 0.3 + the smallest NPC radius.
         expect(Math.hypot(0.2, 0.2)).toBeLessThan(PLAYER_RADIUS + 0.35);
+    });
+
+    // Arrival picks the closest standing tile by distance, not the first one found south-west first.
+    it("arrives on the nearest walkable tile", () => {
+        const blocked = (x: number, y: number) => (x === 200 && y === 200 ? CollisionFlag.OBJECT : 0);
+        const player = new Player(fakeWorld({ flags: blocked }), { x: 100, y: 100, plane: 0 });
+        player.teleport(200.9, 200.5, 0);
+        player.update(0.05, input([]));
+        // The target tile is blocked; (201, 200) is 0.4 tiles away, (199, 199) is much further.
+        expect(player.x).toBeCloseTo(201.5, 6);
+        expect(player.y).toBeCloseTo(200.5, 6);
+    });
+
+    // A tile with no floor model is never a landing spot, even on plane 0.
+    it("never lands on a tile without ground", () => {
+        const ground = (x: number, y: number) => !(x >= 300 && x <= 302 && y >= 300 && y <= 302);
+        const player = new Player(fakeWorld({ ground }), { x: 100, y: 100, plane: 0 });
+        player.teleport(301.5, 301.5, 0);
+        player.update(0.05, input([]));
+        expect(player.ready).toBe(true);
+        expect(ground(Math.floor(player.x), Math.floor(player.y))).toBe(true);
     });
 });

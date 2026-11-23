@@ -303,6 +303,16 @@ kbd {
     pointer-events: none;
 }
 
+/* Black screen while the player goes through an entrance (see Transition). */
+#fade {
+    position: fixed;
+    inset: 0;
+    background: #000;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 5;
+}
+
 #charge-ring {
     --charge: 0deg;
     position: fixed;

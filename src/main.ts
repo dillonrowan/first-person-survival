@@ -1,7 +1,9 @@
 import * as THREE from "three";
 
 import { ActionHandler, Interaction } from "./interaction/Interaction";
-import { climbDirection, planClimb } from "./interaction/climb";
+import { planTransition } from "./interaction/climb";
+import { Transition } from "./interaction/Transition";
+import { Ambience, isUnderground } from "./world/Ambience";
 import { createNpcActionHandler, npcTargetSource } from "./interaction/targets";
 import { CollisionDebug } from "./physics/CollisionDebug";
 import { Npcs } from "./npc/Npcs";
@@ -185,13 +187,12 @@ async function main(): Promise<void> {
 
     status.textContent = "Loading textures...";
     const textures = await loadWorldTextures(WORLD_URL, manifest, renderer);
+    // The shader works in display (sRGB) colors, so use the hex's raw channels. Every world material
+    // shares this vector; Ambience darkens it underground.
+    const skyChannels = [((SKY_COLOR >> 16) & 0xff) / 255, ((SKY_COLOR >> 8) & 0xff) / 255, (SKY_COLOR & 0xff) / 255] as const;
+    const fogColor = new THREE.Vector3(...skyChannels);
     const materials = createWorldMaterials(textures, {
-        // The shader works in display (sRGB) colors, so pass the hex's raw channels.
-        color: new THREE.Vector3(
-            ((SKY_COLOR >> 16) & 0xff) / 255,
-            ((SKY_COLOR >> 8) & 0xff) / 255,
-            (SKY_COLOR & 0xff) / 255,
-        ),
+        color: fogColor,
         near: FOG_NEAR,
         far: FOG_FAR,
     });
@@ -652,6 +653,13 @@ async function main(): Promise<void> {
         bodies: npcs,
         player: () => player.footprint(),
     });
+    // Going through an entrance: fade to black, teleport, fade back in (see Transition).
+    const fadeElement = document.getElementById("fade")!;
+    const transition = new Transition(player, ui.showMessage, (x, y) => world.isFailed(x, y));
+    const clearColor = new THREE.Color();
+    const ambience = new Ambience(skyChannels, fogColor, (r, g, b) =>
+        renderer.setClearColor(clearColor.setRGB(r, g, b, THREE.SRGBColorSpace)),
+    );
     /** A skill panel or the side panel closed: take the mouse back, else show "Click to play". */
     const panelClosed = () => {
         if (player.ready) {
@@ -705,6 +713,22 @@ async function main(): Promise<void> {
         skillSystem.swingHit(ref as SkillLocInstance);
     };
     skillSystem.onToolImpact = () => weaponView.impact(0.8);
+    /** Uses a ladder, stair or passage: where it leads comes from its links, else the climb rules. */
+    const goThrough = (loc: InteractiveLoc, action: string) => {
+        const from = { x: player.x, y: player.y };
+        const plan = planTransition(world, loc, action, from);
+        if ("message" in plan) {
+            ui.showMessage(plan.message);
+            return;
+        }
+        const entering = !isUnderground(from.y) && isUnderground(plan.y);
+        transition.start({
+            x: plan.x,
+            y: plan.y,
+            plane: plan.plane,
+            ...(entering && plan.dungeon ? { message: `You climb down into ${plan.dungeon}.` } : {}),
+        });
+    };
     const handleWorldAction: ActionHandler = (target, action) => {
         if (target.kind === "skill-loc") {
             skillSystem.locAction(target.ref as SkillLocInstance, action);
@@ -728,15 +752,17 @@ async function main(): Promise<void> {
             }
         } else if (target.kind === "prop") {
             props.pickUp(target.ref as PropInstance);
-        } else if (target.kind === "climb") {
-            const loc = target.ref as InteractiveLoc;
-            const from = { x: player.x, y: player.y };
-            const plan = planClimb(world, loc, climbDirection(action, world, loc, from), from);
-            if ("message" in plan) {
-                ui.showMessage(plan.message);
+        } else if (target.kind === "hatch") {
+            const hatch = target.ref as Parameters<WorldInteractives["setHatchOpen"]>[0];
+            if (/^open$/i.test(action)) {
+                interactives.setHatchOpen(hatch, true);
+            } else if (/^close$/i.test(action)) {
+                interactives.setHatchOpen(hatch, false);
             } else {
-                player.teleport(plan.x, plan.y, plan.plane);
+                goThrough(hatch.loc, action);
             }
+        } else if (target.kind === "climb" || target.kind === "passage") {
+            goThrough(target.ref as InteractiveLoc, action);
         }
     };
     const interaction = new Interaction(
@@ -889,7 +915,12 @@ async function main(): Promise<void> {
         // A failed pickpocket stuns, as does an NPC's parry: no moving or fighting, only looking around.
         const stunned = skillSystem.thieving.stunned || combat.stunned;
         if (stunned) player.boundFor = Math.max(player.boundFor, 0.1);
+        // No walking off while the screen fades through an entrance.
+        if (transition.active) player.boundFor = Math.max(player.boundFor, 0.1);
         player.update(dt, input);
+        transition.update(dt);
+        fadeElement.style.opacity = String(transition.opacity);
+        ambience.update(dt, player.y);
         skilling.clock.update(dt);
         skilling.reactions.update(dt);
         // A left click on a fishing spot with its tool in hand starts fishing there (the same click

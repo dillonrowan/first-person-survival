@@ -10,6 +10,7 @@ import { FaceColors } from "./FaceColors";
 import { AttackIndex, NpcAttackPicker } from "./NpcAttackAnims";
 import { NpcModelBuilder } from "./NpcModelBuilder";
 import { NpcAppearanceTask } from "./NpcSpawns";
+import { DUNGEON_LINKS_FILE, DungeonLinkIndex, readDungeonLinkFile } from "./DungeonLinks";
 import { RegionBuilder, RegionStats } from "./RegionBuilder";
 import { CacheFiles, createWorldLoaders } from "./WorldLoaders";
 
@@ -56,7 +57,11 @@ const loaders = createWorldLoaders({
     xteas: new Map(data.xteas),
 });
 const faceColors = new FaceColors(loaders.textureLoader);
-const regionBuilder = new RegionBuilder(loaders, faceColors, loadSkillLocIndex());
+const regionBuilder = new RegionBuilder(loaders, faceColors, loadSkillLocIndex(), dungeonLinkIndex());
+function dungeonLinkIndex(): DungeonLinkIndex | undefined {
+    const file = readDungeonLinkFile(DUNGEON_LINKS_FILE);
+    return file && new DungeonLinkIndex(file.links);
+}
 const npcBuilder = new NpcModelBuilder(
     loaders.npcTypeLoader,
     loaders.npcModelLoader,

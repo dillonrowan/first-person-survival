@@ -22,7 +22,8 @@
         "export-items": "node --max-old-space-size=8192 --import tsx tools/world-export/export-items.ts",
         "export-skills": "node --max-old-space-size=8192 --import tsx tools/world-export/export-skills.ts",
         "export-map": "node --max-old-space-size=8192 --import tsx tools/world-export/export-map.ts",
-        "export-world": "node --max-old-space-size=16384 --import tsx tools/world-export/export-world.ts"
+        "export-world": "node --max-old-space-size=16384 --import tsx tools/world-export/export-world.ts",
+        "find-dungeon-links": "node --max-old-space-size=8192 --import tsx tools/world-export/find-dungeon-links.ts"
     },
     "dependencies": {
         "three": "^0.187.0"

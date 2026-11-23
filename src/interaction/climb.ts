@@ -134,3 +134,26 @@ export function climbDirection(
     }
     return "message" in planClimb(world, loc, "up", from) ? "down" : "up";
 }
+
+export type TransitionPlan = (ClimbDestination & { dungeon?: string }) | { message: string };
+
+/**
+ * Where using `action` on an entrance leads. A link recorded for that action (exported from
+ * tools/world-export/data/dungeon-links.json) gives the exact tile; otherwise a ladder or stair
+ * climbs by the usual plane/+6400 rules, and anything else leads nowhere.
+ */
+export function planTransition(
+    world: ClimbWorld,
+    loc: Pick<InteractiveLoc, "kind" | "plane" | "tileX" | "tileY" | "sizeX" | "sizeY" | "links">,
+    action: string,
+    from: { x: number; y: number },
+): TransitionPlan {
+    const link = loc.links?.find((candidate) => candidate.action.toLowerCase() === action.toLowerCase());
+    if (link) {
+        return { plane: link.plane, x: link.x + 0.5, y: link.y + 0.5, ...(link.dungeon ? { dungeon: link.dungeon } : {}) };
+    }
+    if (loc.kind === "climb") {
+        return planClimb(world, loc, climbDirection(action, world, loc, from), from);
+    }
+    return { message: NOWHERE };
+}

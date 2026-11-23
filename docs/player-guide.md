@@ -302,6 +302,10 @@ when you stand next to them, so step out of the cone or behind them (or wear the
 shield). Archers and mages keep their distance and shoot arrows or cast spells at where you were
 standing, so strafing out of the way or putting a wall between you works.
 
+Ladders, stairs, cave mouths and trapdoors use the same keys. A trapdoor or manhole is closed at
+first: `E` opens it, then `E` again climbs down (`R` closes it). The screen fades to black while you
+move, and dungeons are dark. Entry requirements are not checked yet.
+
 Some NPCs provide services or dialogue rather than combat. The exact actions shown in the screen
 prompt are authoritative.
 
