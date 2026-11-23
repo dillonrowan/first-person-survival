@@ -13,8 +13,12 @@ export type TransitionPlayer = {
 export type TransitionDestination = { x: number; y: number; plane: number; message?: string };
 
 const FADE_SECONDS = 0.35;
-/** Seconds the destination gets to load before the way counts as blocked. */
-export const LOAD_TIMEOUT_SECONDS = 10;
+/**
+ * Seconds the destination gets to load before the way counts as blocked. A region that fails to
+ * load blocks at once; this only catches loads that hang, so it is generous (busy surface areas
+ * can take well over ten seconds to stream in on a slow machine).
+ */
+export const LOAD_TIMEOUT_SECONDS = 60;
 
 export const BLOCKED_MESSAGE = "The way is blocked.";
 
