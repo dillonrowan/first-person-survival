@@ -68,9 +68,11 @@ describe.skipIf(!hasWorld)("NPC attack styles in the export", () => {
     });
 
     it("bakes a clip for every non-melee style, except for NPCs with skeletal animations", () => {
-        // Callisto and Vet'ion animate with skeletons, which the exporter cannot bake (no frame
-        // base): they have no clips and attack with the plain timed attack of the runtime.
-        const skeletal = new Set([6609, 6611]);
+        // Callisto, Vet'ion and the Leviathan animate with skeletons, which the exporter cannot bake
+        // (no frame base): they have no clips and attack with the plain timed attack of the runtime.
+        // The dormant Wyrm (8610) idles as a mound on a skeleton of its own (1844) that has no
+        // attacks; its attacks are the risen Wyrm's (8611, skeleton 1845), which bakes them.
+        const skeletal = new Set([6609, 6611, 12214, 8610]);
         const unbaked: number[] = [];
         for (const a of manifest.appearances.filter((x) => x.attackStyles)) {
             const bytes = gunzipSync(fs.readFileSync(path.join(WORLD_DIR, a.file)));

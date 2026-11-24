@@ -77,6 +77,7 @@ export const OVERRIDES: Record<string, NpcAttackOverride> = {
     "Brutal green dragon": LONG_RANGE_FIRE,
     "Brutal red dragon": LONG_RANGE_FIRE,
     Vorkath: { styles: { dragonfire: { longRange: true } }, note: "TODO special: dragonfire bomb, freeze, venom." },
-    Drake: LONG_RANGE_FIRE,
+    // A drake has no breath sequence; it breathes fire with the pose of its ranged attack.
+    Drake: { styles: { dragonfire: { longRange: true, seq: 8276 } } }, // DRAKE_RANGED
     "King Black Dragon": { styles: { dragonfire: { longRange: true, hitPow: 2.5 } } },
 };

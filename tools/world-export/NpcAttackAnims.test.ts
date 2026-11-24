@@ -65,6 +65,9 @@ describe("chooseAttacks", () => {
     it("matches whole words: a specter is not a special attack, LEECHATTACK is a leech's attack", () => {
         expect(chooseAttacks(NAMES, 1506, 5, [1506, 1507, 1509], false).seqIds).toEqual([1507]);
         expect(chooseAttacks(NAMES, 1270, 6, [1270, 1273], false).seqIds).toEqual([1273]);
+        // "MELEE" names an attack as well as "ATTACK" does (the drake's only melee sequence).
+        const drake = new Map([[8274, "DRAKE_READY"], [8275, "DRAKE_MELEE"], [8276, "DRAKE_RANGED"], [8277, "DRAKE_DEATH_01"]]);
+        expect(chooseAttacks(drake, 8274, 8, [8274, 8275, 8276, 8277], false).seqIds).toEqual([8275]);
     });
 
     it("gives player-skeleton NPCs the attacks of their stance or weapon", () => {

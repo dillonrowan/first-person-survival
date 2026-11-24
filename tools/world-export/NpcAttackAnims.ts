@@ -43,7 +43,7 @@ function words(name: string): string[] {
         .filter((w) => w);
 }
 
-const MELEE = new Set(["ATTACK", "PUNCH", "KICK", "SLASH", "STAB", "SMASH", "BITE", "CLAW", "SWIPE", "STRIKE", "CHOP", "BASH", "POUND", "HACK", "LUNGE", "SPIKE"]);
+const MELEE = new Set(["ATTACK", "MELEE", "PUNCH", "KICK", "SLASH", "STAB", "SMASH", "BITE", "CLAW", "SWIPE", "STRIKE", "CHOP", "BASH", "POUND", "HACK", "LUNGE", "SPIKE"]);
 /** Not a plain melee attack, or a variant of one shown elsewhere (pets, thralls, transparency). */
 const EXCLUDED = new Set([
     "DEATH", "DIE", "BLOCK", "DEF", "DEFEND", "PARRY", "SPELL", "CAST", "RANGE", "RANGED", "MAGIC", "THROW", "SPEC", "SPECIAL",
