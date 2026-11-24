@@ -71,8 +71,10 @@ lose roughly 2,800).
 ### 6. Almost all NPC animations are frame-based
 
 Of the 3,634 NPC types on the surface, 3,559 have a frame-based idle animation (14.4 frames on
-average), 4 have a skeletal one and 55 have none. Skeletal animation needs gl-matrix and about
-1,300 more lines of decoders, so those NPCs are shown in their base pose.
+average), 4 have a skeletal one and 55 have none. Skeletal animations are decoded with code from
+rs-map-viewer (BSD-2-Clause, `tools/world-export/rs/model/skeletal/`, its gl-matrix calls replaced
+by a small shim, `glm.ts`) and baked like frame ones, sampled every few client cycles so a clip has
+at most 32 frames. Their attacks are found by name among the sequences on the same skeletal base.
 
 ## How NPCs now get into the game
 
@@ -111,7 +113,7 @@ NPCs: 12083 spawns, 3472 appearances (3111 can walk, 3160 with attacks), 135 MiB
 
 125 appearances have attack styles beyond melee (from the wiki); 10 of their extra styles reuse the
 melee animation because the cache has none of its own (the Suqah has no cast, for example), and
-Callisto and Vet'ion have skeletal animations, so they have no clips at all.
+Callisto and Vet'ion (skeletal, without clips then) now bake theirs like the rest.
 
 `public/world/npcs/` is about 140 MB on disk.
 
@@ -121,13 +123,12 @@ Callisto and Vet'ion have skeletal animations, so they have no clips at all.
 | ------------------------ | ------ | ---------------------------------------------------------------------------------------------------------------------- |
 | Outside the exported area | 11,694 | The default area is the surface (map y 65 and below). Dungeons, minigames and instances are not exported; `--area all` includes them. |
 | Name mismatch            | 237    | The list dates from 2023. If the cache NPC with that id has a different name, the id was likely renumbered; it is skipped rather than shown wrongly. |
-| No idle animation        | 127    | Neither the spawn's NPC nor the one shown has an idle sequence. rs-map-viewer skips these too. Not inspected by name yet. |
+| No idle animation        | 127    | Neither the spawn's NPC nor the one shown has an idle sequence. rs-map-viewer skips these too. Not inspected by name yet. A hand-added spawn marked `still` in `data/npc-spawn-overrides.json` (the Great Olm) is kept in its base pose. |
 | No model                 | 0      |                                                                                                                        |
 
 ## Limitations
 
-- Skeletal animations (about 4 surface NPC types) show the base pose.
-- Per-frame alpha changes are not baked; faces keep their base alpha.
+- Per-frame alpha changes are not baked; faces keep their base alpha (skeletal ones included).
 - NPCs are solid for the player (cylinder collision, see `src/physics/Bodies.ts`). Attack
   animations are baked since format 3 (melee) and, since format 4, one per extra attack style
   (breath, cast, bow shot, spit) for the NPCs the OSRS wiki gives several styles; the cache has no

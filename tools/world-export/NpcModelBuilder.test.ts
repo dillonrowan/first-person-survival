@@ -133,11 +133,25 @@ describe("NpcModelBuilder", () => {
         expect(model.walk!.frameLengths.length).toBe(3);
     });
 
-    it("leaves skeletal and missing animations out", () => {
+    it("leaves empty skeletal and missing animations out", () => {
         const model = builder({ seqs: { 5: seq([2], { skeletalId: 7 }) } }).build(task(5, 99))!;
 
         expect(model.idle).toBeUndefined();
         expect(model.walk).toBeUndefined();
+    });
+
+    it("samples a long skeletal animation every few cycles", () => {
+        const model = builder({ seqs: { 5: seq([], { skeletalId: 7, skeletalStart: 0, skeletalEnd: 70 }) } }).build(task(5))!;
+
+        // 70 cycles in at most 32 frames: every 3 cycles, the last frame the one cycle left.
+        const lengths = Array.from(model.idle!.frameLengths);
+        expect(lengths).toHaveLength(24);
+        expect(lengths.slice(0, 2)).toEqual([3, 3]);
+        expect(lengths.at(-1)).toBe(1);
+        expect(lengths.reduce((a, b) => a + b, 0)).toBe(70);
+        // Frame 1 is the model at cycle 3, which the fake shifts by (3 + 1) * 10.
+        expect(model.idle!.positions[4 * 3 + 3]).toBe(140);
+        expect(model.idle!.frameStep).toBe(-1);
     });
 
     it("computes bounds over every frame, in tiles with +y up and north as -z", () => {

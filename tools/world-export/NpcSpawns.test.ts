@@ -155,6 +155,12 @@ describe("selectNpcs", () => {
         });
     });
 
+    it("keeps a still spawn whose type has no idle animation", () => {
+        const result = selectNpcs([{ ...spawn(4), still: true }], everywhere, loader([npc(4, { idleSeqId: -1 })]), vars);
+        expect(result.spawns).toHaveLength(1);
+        expect(result.appearances[0].idleSeqId).toBe(-1);
+    });
+
     it("shares one appearance between spawns of the same NPC", () => {
         const result = selectNpcs([spawn(1), spawn(1, 3230, 3220), spawn(2)], everywhere, loader([npc(1), npc(2)]), vars);
 

@@ -21,7 +21,7 @@ if (ids.length === 0 || ids.some((id) => !Number.isInteger(id))) {
 
 const loaders = createWorldLoaders(readCacheFiles(path.join(ROOT, "cache")));
 const names = readAnimationNames(path.join(ROOT, "tools", "world-export", "data", "animation-names-runelite.json"));
-const index = buildAttackIndex(names, (seqId) => loaders.npcModelLoader.getFrameBase(seqId)?.id);
+const index = buildAttackIndex(names, (seqId) => loaders.npcModelLoader.getAnimationBase(seqId)?.id);
 const byBase = new Map(index.byBase);
 
 const frames = (seqId: number): string => {
@@ -35,7 +35,7 @@ const frames = (seqId: number): string => {
 for (const id of ids) {
     const npc = loaders.npcTypeLoader.load(id);
     const idle = npc.idleSeqId;
-    const base = idle !== -1 ? loaders.npcModelLoader.getFrameBase(idle)?.id : undefined;
+    const base = idle !== -1 ? loaders.npcModelLoader.getAnimationBase(idle)?.id : undefined;
     console.log(`\n${npc.name} (${id}): idle ${idle} ${names.get(idle) ?? "(unnamed)"}, walk ${npc.walkSeqId}, frame base ${base ?? "none"}`);
     if (base === undefined) {
         continue;

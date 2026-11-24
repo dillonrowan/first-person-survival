@@ -13,7 +13,15 @@ import { NpcTypeLoader } from "./rs/config/npctype/NpcTypeLoader";
 import { VarManager } from "./rs/config/vartype/VarManager";
 
 /** One entry of data/npc-spawns-osrs.json (from rs-map-viewer). */
-export type NpcSpawnRecord = { id: number; name?: string; x: number; y: number; level: number };
+export type NpcSpawnRecord = {
+    id: number;
+    name?: string;
+    x: number;
+    y: number;
+    level: number;
+    /** Shown in its base pose when its type has no idle animation (the Great Olm), not skipped. */
+    still?: boolean;
+};
 
 /** An appearance to bake, with the sequences the exporter needs but the game does not. */
 export type NpcAppearanceTask = NpcAppearanceInfo & {
@@ -75,7 +83,7 @@ export function applySpawnOverrides(spawns: NpcSpawnRecord[], overrides: NpcSpaw
         );
         return move ? { ...spawn, x: move.to[0], y: move.to[1], level: move.to[2] } : spawn;
     });
-    for (const { id, name, x, y, level } of overrides.add ?? []) out.push({ id, name, x, y, level });
+    for (const { id, name, x, y, level, still } of overrides.add ?? []) out.push({ id, name, x, y, level, ...(still ? { still } : {}) });
     return out;
 }
 
@@ -154,7 +162,7 @@ export function selectNpcs(
         // from the type that is currently shown.
         const base = loader.load(spawn.id);
         const idleSeqId = base.idleSeqId !== -1 ? base.idleSeqId : display.idleSeqId;
-        if (idleSeqId === -1) {
+        if (idleSeqId === -1 && !spawn.still) {
             skipped.noIdle++;
             continue;
         }

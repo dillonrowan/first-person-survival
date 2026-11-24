@@ -453,7 +453,8 @@ export class RegionBuilder {
         const interactive: InteractiveLoc = {
             kind,
             id: p.id,
-            name: stripNameTags(p.shown.name),
+            // An unnamed loc a hand link starts at (a gate in Theatre of Blood) goes by the link's name.
+            name: p.shown.name === "null" && links.length > 0 ? links[0].name : stripNameTags(p.shown.name),
             actions: kind === "passage" ? [...new Set(links.map((link) => link.action))] : actions,
             plane,
             level: p.level,
@@ -1044,8 +1045,9 @@ function collectTileLocs(
 const TILE_BLOCKED = 0x100 | 0x200000;
 
 /**
- * Heights, flags, floors, collision and water of a region. Underground (`dungeon`), an upper level
- * tile with no tile model also counts as floor when something stands on it and it can be walked:
+ * Heights, flags, floors, collision and water of a region. Underground (`dungeon`), a tile with no
+ * tile model also counts as floor when it can be walked and a floor decoration covers it (Verzik
+ * Vitur's arena is laid that way on level 0), or, on an upper level, when anything stands on it:
  * some lairs (the Wilderness boss chasms) lay their floor as loc models on level 2.
  */
 function extractTerrainData(
@@ -1076,7 +1078,10 @@ function extractTerrainData(
                 collision[i] = collisionMap.getFlag(x + BORDER_SIZE, y + BORDER_SIZE);
                 const sceneTile = scene.tiles[level][x + BORDER_SIZE][y + BORDER_SIZE];
                 const locFloor =
-                    dungeon && level > 0 && (collision[i] & TILE_BLOCKED) === 0 && !!sceneTile && (sceneTile.locs.length > 0 || !!sceneTile.floorDecoration);
+                    dungeon &&
+                    (collision[i] & TILE_BLOCKED) === 0 &&
+                    !!sceneTile &&
+                    (!!sceneTile.floorDecoration || (level > 0 && sceneTile.locs.length > 0));
                 floors[i] = (tileModel && tileModel.faces.length > 0) || locFloor ? 1 : 0;
                 const overlayId = scene.tileOverlays[level][x + BORDER_SIZE][y + BORDER_SIZE] - 1;
                 const overlay = overlayId >= 0 ? overlayTypeLoader.load(overlayId) : undefined;

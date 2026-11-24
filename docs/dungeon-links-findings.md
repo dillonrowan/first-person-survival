@@ -35,7 +35,7 @@ assumptions, two did not hold:
    because the runtime's climb rules handle it.
 3. **External transports.** The object transports of RuneLite's Shortest Path plugin
    ([Skretzo/shortest-path](https://github.com/Skretzo/shortest-path), BSD 2-Clause), downloaded from
-   a pinned commit (`a7dd4a2`) into a fresh temporary directory and only parsed, never run. Four
+   a pinned commit (`e56f8ff`, November 2026) into a fresh temporary directory and only parsed, never run. Four
    files are read: `transports.tsv`, `teleportation_levers.tsv` (the King Black Dragon lever),
    `teleportation_portals.tsv` (the Stronghold of Security portals) and `agility_shortcuts.tsv`.
    Each file orders its requirement columns differently; they are read by the header's names. Any
@@ -45,7 +45,7 @@ assumptions, two did not hold:
    a gap) keeps one link per side, and the game takes the one leading away from the player. A row
    becomes a link when its object id is one of a candidate's states and its standing tile is within
    one tile of the loc's footprint; for a big cave with one row per standing tile, the row nearest
-   the loc's own tile wins. `source: "shortest-path@a7dd4a2"`. Quest, item, skill and varbit
+   the loc's own tile wins. `source: "shortest-path@e56f8ff"`. Quest, item, skill and varbit
    requirements are copied into `requires` and not enforced.
 
 Trapdoors and manholes start closed ("Open"). Their open model is found, in order, from a multiloc
@@ -74,17 +74,27 @@ coordinates, so the tiles come from the cache: the entrance and exit locs, match
 | Skeletal Tomb (Calvar'ion) | Memorial 46996, 3180,3683 | exit 46925, 1886,11534 plane 1 | beside the entrance |
 | Web Chasm (Spindel) | Cave Entrance 47078, 3183,3744 | exit 47000, 1630,11527 plane 2 | beside the entrance |
 | Tombs of Amascut | Entry 46089 (lobby) | Nexus; four paths, each puzzle room then boss room; tablet 46228 to the Wardens | Exit locs back to the Nexus, the Nexus exit to the lobby |
-| Theatre of Blood | Theatre of Blood 32653, 3678,3216 | Maiden, then each Formidable passage (33113) to the next room; Xarpus's door to Verzik | treasure room stairs (no exit loc in Verzik's room: OSRS spawns it on the kill) |
-| Chambers of Xeric | Chambers of Xeric 29777, 1232,3573 | the Olm's chamber (rooms before it are instanced and not linked) | the rope 29996 |
+| Theatre of Blood | Theatre of Blood 32653, 3678,3216 | Maiden, then each Formidable passage (33113) to the next room; Xarpus's door to Verzik; the gate 32691 at the end of Verzik's entry corridor to the treasure room (OSRS spawns the real exit on the kill) | treasure room stairs |
+| Chambers of Xeric | Chambers of Xeric 29777, 1232,3573 | the room templates (x 3264..3359, y 5120..5407) in a fixed order, sorted by row then column: every passage, hole or steps in a room leads to the next room's centre, the last room's to the Olm's chamber | the ropes 29995, 29996, 32543 |
+
+OSRS builds a Chambers of Xeric raid from these templates at random; here they stand in one order.
+
+**Entrances paired by loc id.** Of the entrances no data source covers, 25 have an exit loc whose id
+is within a few of their own (2543 and 2542, 30177 and 30178...). Those whose place is known are
+named (Kraken Cove, the Isle of Souls Dungeon, the Mourner Tunnels, the West Ardougne sewers, the
+Ape Atoll Dungeon, the Wolf Den, the Lunar Isle mine, the Volcanic Mine); the others are pairs by id
+and layout only, not checked one by one. Each leads in beside its exit and back out beside it. The scratch
+generator is `tools/world-export/out/gen-overrides.cjs`.
 
 Player-owned house portals are excluded: the house is an instance. The NPC spawn list has the
 Wilderness bosses where they stood before the 2023 rework; `data/npc-spawn-overrides.json` moves
 Callisto, Vet'ion and Venenatis into their lairs and adds Artio, Calvar'ion, Spindel and the Great Olm.
 
 Wall locs (the Theatre of Blood passages, tomb doors, many crevices) that a link starts at are
-exported as passages, not swinging doors. Underground, an upper-level tile without a tile model
-counts as floor when a loc stands on it and it is walkable: the chasm arenas lay their floor as loc
-models on level 2.
+exported as passages, not swinging doors; a passage on an unnamed loc takes its link's name.
+Underground, a walkable tile without a tile model counts as floor when a floor decoration covers it
+(Verzik Vitur's arena and the treasure room are laid that way) or, on an upper level, when any loc
+stands on it: the chasm arenas lay their floor as loc models on level 2.
 
 Hand names of map squares, where the transport file's headings name them badly ("Burthorpe" for
 the King Black Dragon Lair), are in `data/dungeon-names.json`; they name the links into those
@@ -94,14 +104,16 @@ squares and the world map's dungeon views.
 
 | | Count |
 | --- | --- |
-| Links | 1,140 |
-| from the external transports | 914 |
-| from cache pairs (entrance and exit) | 226 |
-| Surface entrances (surface to underground) | 359 |
-| Distinct dungeon names | 115 |
-| Links with requirements recorded | 118 |
-| Surface staircases and ladders left to the runtime's same-spot rule | 860 |
-| Surface "down" candidates left unresolved | 318 |
+| Links | 1,885 |
+| from the external transports | 1,520 |
+| from cache pairs (entrance and exit) | 220 |
+| by hand (`dungeon-links-overrides.json`) | 155 (some replace a pair or row) |
+| Surface entrances (surface to underground) | 427 |
+| Distinct dungeon names | 151 |
+| Links with requirements recorded | 338 |
+| Surface staircases and ladders left to the runtime's same-spot rule | 859 |
+| Surface agility shortcuts and portals that lead to another surface spot (not dungeons) | 98 |
+| Surface "down" candidates left unresolved | 171 |
 
 **Hand checks.** All nine entrances of the plan are linked. Arrival tiles are the standing tile
 from the transports; the in-game check is still to be done (see "Verification").
@@ -146,11 +158,13 @@ caverns (3231,3936, 3241,3949, 3231,3951).
 
 ## Unresolved
 
-318 surface "down" candidates have no link: 313 with no exit near +6400 and no external transport,
-5 ambiguous (2 to 4 exits close together). The commonest: unnamed locs (44), railings (32, "Jump-down"
-into ditches), dense forest and rifts (minigame entrances, 52), ladders (20), lizardman lairs (19),
-caves and cave entrances (37), trapdoors (10), portals (7). Most are instance, minigame or quest
-entrances that Shortest Path does not list. The full list with ids and tiles is in
+171 surface "down" candidates have no link and lead nowhere in the game: 166 with no exit near +6400
+and no transport row, 5 ambiguous (2 to 4 exits close together). Candidates a hand link resolves, and
+those whose transport row leads to another surface spot (agility shortcuts, minigame portals), are
+not counted. The commonest: unnamed locs (38: mostly runecraft altar ruins, which the game's runecraft
+code handles), rifts (24, one cluster at 3306..3315,3449..3454), lizardman lairs (18, all in the Lizardman
+Settlement), ladders (14), trapdoors (7). Most of the rest are instance, minigame or quest
+entrances (Death's Domain, clan halls, Mage Training Arena). The full list with ids and tiles is in
 `tools/world-export/out/report.json` after a run.
 
 **Trapdoors without an open model:** 29 closed hatches (19 of them on the surface) have no open

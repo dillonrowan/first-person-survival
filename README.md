@@ -199,8 +199,8 @@ longer match the cache are skipped and counted in the export log).
   labelled vertex groups that animate together become rigid parts, joined where the animation's
   frame base rotates them.
 - NPCs are solid: the player is pushed out of their collision cylinder and slides around them,
-  and NPCs wait instead of walking into the player. NPCs with skeletal animations (a
-  handful) are shown in their base pose. Deaths and knockdowns are ragdolls.
+  and NPCs wait instead of walking into the player. Skeletal animations (Callisto, the Tombs
+  of Amascut bosses) are baked like frame ones. Deaths and knockdowns are ragdolls.
   Dev builds can draw the collision circles with `?debug=collision`.
 - NPC attacks are the cache's own melee animations, baked into each NPC file with the moment the
   blow lands (`tools/world-export/NpcAttackAnims.ts`). The cache does not say which animation an

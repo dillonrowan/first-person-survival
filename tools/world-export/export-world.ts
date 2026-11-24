@@ -295,8 +295,9 @@ function createWorkerData(cache: ReturnType<typeof readCacheFiles>, attackIndex?
 /** Every named sequence by its frame base, to find each NPC's attacks among its skeleton's. */
 function createAttackIndex(loaders: ReturnType<typeof createWorldLoaders>): AttackIndex {
     const names = readAnimationNames(ANIMATION_NAMES_FILE);
-    const index = buildAttackIndex(names, (id) => loaders.npcModelLoader.getFrameBase(id)?.id);
+    const index = buildAttackIndex(names, (id) => loaders.npcModelLoader.getAnimationBase(id)?.id);
     loaders.seqFrameLoader.clearCache();
+    loaders.npcModelLoader.clearCache();
     return index;
 }
 
@@ -413,19 +414,21 @@ async function exportNpcs(
     workerCount: number,
 ): Promise<NonNullable<WorldManifest["npcs"]> | undefined> {
     const exportedKeys = new Set(exportedRegions.map(([x, y]) => (x << 8) | y));
-    const scenes = new Map<string, ReturnType<typeof loaders.sceneBuilder.buildScene>>();
+    // Only each square's overlays are kept: whole scenes for every square with a spawn would take
+    // gigabytes.
+    const overlays = new Map<string, ReturnType<typeof loaders.sceneBuilder.buildScene>["tileOverlays"]>();
     const waterAt = (plane: number, x: number, y: number) => {
         const mapX = x >> 6;
         const mapY = y >> 6;
         const key = `${mapX},${mapY}`;
-        let scene = scenes.get(key);
-        if (!scene) {
-            scene = loaders.sceneBuilder.buildScene(mapX * 64, mapY * 64, 64, 64);
-            scenes.set(key, scene);
+        let tileOverlays = overlays.get(key);
+        if (!tileOverlays) {
+            tileOverlays = loaders.sceneBuilder.buildScene(mapX * 64, mapY * 64, 64, 64).tileOverlays;
+            overlays.set(key, tileOverlays);
         }
         const lx = x - mapX * 64;
         const ly = y - mapY * 64;
-        const overlayId = scene.tileOverlays[plane]?.[lx]?.[ly] - 1;
+        const overlayId = tileOverlays[plane]?.[lx]?.[ly] - 1;
         if (overlayId === undefined || overlayId < 0) {
             return false;
         }
@@ -441,6 +444,9 @@ async function exportNpcs(
         loaders.varManager,
         waterAt,
     );
+    // The scenes built for waterAt filled the loc model caches; the NPC bake needs none of it.
+    overlays.clear();
+    loaders.locModelLoader.clearCache();
     if (selection.appearances.length === 0) {
         console.log("No NPC spawns in the exported area");
         return undefined;

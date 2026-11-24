@@ -3,6 +3,7 @@ import { ModelData } from "../../model/ModelData";
 import { ModelLoader } from "../../model/ModelLoader";
 import type { SeqBase } from "../../model/seq/SeqBase";
 import { SeqFrameLoader } from "../../model/seq/SeqFrameLoader";
+import { SkeletalSeqLoader } from "../../model/skeletal/SkeletalSeqLoader";
 import { TextureLoader } from "../../texture/TextureLoader";
 import { SeqType } from "../seqtype/SeqType";
 import { SeqTypeLoader } from "../seqtype/SeqTypeLoader";
@@ -20,6 +21,7 @@ export class NpcModelLoader {
         readonly seqTypeLoader: SeqTypeLoader,
         readonly seqFrameLoader: SeqFrameLoader,
         readonly varManager: VarManager,
+        readonly skeletalSeqLoader?: SkeletalSeqLoader,
     ) {
         this.modelCache = new Map();
     }
@@ -103,9 +105,45 @@ export class NpcModelLoader {
         return this.seqFrameLoader.load(seqType.frameIds[0])?.base;
     }
 
+    /**
+     * The base of any animation, frame or skeletal: the id its sibling animations share, so an
+     * NPC's attacks can be found among the sequences of its idle's base.
+     */
+    getAnimationBase(seqId: number): { id: number } | undefined {
+        if (seqId === -1) {
+            return undefined;
+        }
+        const seqType = this.seqTypeLoader.load(seqId);
+        if (seqType?.isSkeletalSeq()) {
+            const baseId = this.skeletalSeqLoader?.baseId(seqType.skeletalId);
+            return baseId === undefined ? undefined : { id: baseId };
+        }
+        return this.getFrameBase(seqId);
+    }
+
+    private loadSkeletal(id: number) {
+        try {
+            return this.skeletalSeqLoader?.load(id);
+        } catch {
+            return undefined;
+        }
+    }
+
+    /**
+     * The model at `frame` of a sequence: for a frame animation its frame index, for a skeletal one
+     * the client cycle from the start of the animation.
+     */
     transformNpcModel(model: Model, seqType: SeqType, frame: number): Model {
-        // Skeletal animation is not supported: those NPCs keep their base pose.
-        if (seqType.isSkeletalSeq() || !seqType.frameIds || seqType.frameIds.length === 0) {
+        if (seqType.isSkeletalSeq()) {
+            const skeletalSeq = this.loadSkeletal(seqType.skeletalId);
+            if (!skeletalSeq) {
+                return Model.copyAnimated(model, true, true);
+            }
+            const posed = Model.copyAnimated(model, !skeletalSeq.hasAlphaTransform, true);
+            posed.animateSkeletal(skeletalSeq, seqType.skeletalStart + frame);
+            return posed;
+        }
+        if (!seqType.frameIds || seqType.frameIds.length === 0) {
             return Model.copyAnimated(model, true, true);
         }
 
@@ -125,5 +163,6 @@ export class NpcModelLoader {
 
     clearCache(): void {
         this.modelCache.clear();
+        this.skeletalSeqLoader?.clearCache();
     }
 }

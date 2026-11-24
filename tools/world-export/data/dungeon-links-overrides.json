@@ -914,13 +914,31 @@
     1
    ],
    "to": [
-    3167,
-    4335,
+    3168,
+    4321,
     0
    ],
    "dungeon": "Theatre of Blood",
    "source": "hand (cache locs, OSRS Wiki descriptions)",
    "note": "Verzik Vitur"
+  },
+  {
+   "locId": 32691,
+   "name": "Treasure room",
+   "action": "Enter",
+   "from": [
+    3166,
+    4328,
+    0
+   ],
+   "to": [
+    3236,
+    4316,
+    0
+   ],
+   "dungeon": "Theatre of Blood",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Treasure room"
   },
   {
    "locId": 32995,
@@ -950,12 +968,858 @@
     0
    ],
    "to": [
+    3280,
+    5136,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3275,
+    5124,
+    0
+   ],
+   "to": [
+    3280,
+    5168,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 1"
+  },
+  {
+   "locId": 29734,
+   "name": "Hole",
+   "action": "Enter",
+   "from": [
+    3277,
+    5169,
+    0
+   ],
+   "to": [
+    3312,
+    5168,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 2"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3275,
+    5156,
+    0
+   ],
+   "to": [
+    3312,
+    5168,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 2"
+  },
+  {
+   "locId": 29735,
+   "name": "Hole",
+   "action": "Enter",
+   "from": [
+    3307,
+    5174,
+    0
+   ],
+   "to": [
+    3280,
+    5200,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 3"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3314,
+    5157,
+    0
+   ],
+   "to": [
+    3280,
+    5200,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 3"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3267,
+    5199,
+    0
+   ],
+   "to": [
+    3312,
+    5200,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 4"
+  },
+  {
+   "locId": 49999,
+   "name": "Steps",
+   "action": "Climb",
+   "from": [
+    3278,
+    5184,
+    0
+   ],
+   "to": [
+    3312,
+    5200,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 4"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3307,
+    5205,
+    0
+   ],
+   "to": [
+    3344,
+    5200,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 5"
+  },
+  {
+   "locId": 49999,
+   "name": "Steps",
+   "action": "Climb",
+   "from": [
+    3298,
+    5185,
+    0
+   ],
+   "to": [
+    3344,
+    5200,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 5"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3352,
+    5196,
+    0
+   ],
+   "to": [
+    3280,
+    5264,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 6"
+  },
+  {
+   "locId": 49999,
+   "name": "Steps",
+   "action": "Climb",
+   "from": [
+    3330,
+    5185,
+    0
+   ],
+   "to": [
+    3280,
+    5264,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 6"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3265,
+    5263,
+    0
+   ],
+   "to": [
+    3312,
+    5264,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 7"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3267,
+    5264,
+    1
+   ],
+   "to": [
+    3312,
+    5264,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 7"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3272,
+    5267,
+    2
+   ],
+   "to": [
+    3312,
+    5264,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 7"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3311,
+    5276,
+    0
+   ],
+   "to": [
+    3344,
+    5264,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 8"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3309,
+    5274,
+    1
+   ],
+   "to": [
+    3344,
+    5264,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 8"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3310,
+    5274,
+    2
+   ],
+   "to": [
+    3344,
+    5264,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 8"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3354,
+    5264,
+    0
+   ],
+   "to": [
+    3280,
+    5296,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 9"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3350,
+    5268,
+    1
+   ],
+   "to": [
+    3280,
+    5296,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 9"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3347,
+    5270,
+    2
+   ],
+   "to": [
+    3280,
+    5296,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 9"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3265,
+    5295,
+    0
+   ],
+   "to": [
+    3312,
+    5296,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 10"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3267,
+    5294,
+    1
+   ],
+   "to": [
+    3312,
+    5296,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 10"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3264,
+    5295,
+    2
+   ],
+   "to": [
+    3312,
+    5296,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 10"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3311,
+    5308,
+    0
+   ],
+   "to": [
+    3344,
+    5296,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 11"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3310,
+    5306,
+    1
+   ],
+   "to": [
+    3344,
+    5296,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 11"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3311,
+    5309,
+    2
+   ],
+   "to": [
+    3344,
+    5296,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 11"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3356,
+    5295,
+    0
+   ],
+   "to": [
+    3280,
+    5328,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 12"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3354,
+    5296,
+    1
+   ],
+   "to": [
+    3280,
+    5328,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 12"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3357,
+    5295,
+    2
+   ],
+   "to": [
+    3280,
+    5328,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 12"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3265,
+    5327,
+    0
+   ],
+   "to": [
+    3312,
+    5328,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 13"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3267,
+    5328,
+    1
+   ],
+   "to": [
+    3312,
+    5328,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 13"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3311,
+    5341,
+    0
+   ],
+   "to": [
+    3344,
+    5328,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 14"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3308,
+    5337,
+    1
+   ],
+   "to": [
+    3344,
+    5328,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 14"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3352,
+    5328,
+    0
+   ],
+   "to": [
+    3280,
+    5360,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 15"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3354,
+    5327,
+    1
+   ],
+   "to": [
+    3280,
+    5360,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 15"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3268,
+    5365,
+    0
+   ],
+   "to": [
+    3312,
+    5360,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 16"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3267,
+    5360,
+    1
+   ],
+   "to": [
+    3312,
+    5360,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 16"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3269,
+    5365,
+    2
+   ],
+   "to": [
+    3312,
+    5360,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 16"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3310,
+    5370,
+    0
+   ],
+   "to": [
+    3344,
+    5360,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 17"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3309,
+    5369,
+    1
+   ],
+   "to": [
+    3344,
+    5360,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 17"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3308,
+    5368,
+    2
+   ],
+   "to": [
+    3344,
+    5360,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 17"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3351,
+    5362,
+    0
+   ],
+   "to": [
+    3280,
+    5392,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 18"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3356,
+    5359,
+    1
+   ],
+   "to": [
+    3280,
+    5392,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 18"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3351,
+    5366,
+    2
+   ],
+   "to": [
+    3280,
+    5392,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 18"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3267,
+    5390,
+    0
+   ],
+   "to": [
+    3312,
+    5392,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 19"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3318,
+    5400,
+    0
+   ],
+   "to": [
+    3344,
+    5392,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Room 20"
+  },
+  {
+   "locId": 29789,
+   "name": "Passage",
+   "action": "Enter",
+   "from": [
+    3353,
+    5397,
+    0
+   ],
+   "to": [
     3233,
     5718,
     0
    ],
    "dungeon": "Chambers of Xeric",
-   "source": "hand (cache locs, OSRS Wiki descriptions)"
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "To the Great Olm"
   },
   {
    "locId": 29996,
@@ -972,6 +1836,964 @@
     0
    ],
    "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 29995,
+   "name": "Rope",
+   "action": "Climb-up",
+   "from": [
+    3280,
+    5711,
+    0
+   ],
+   "to": [
+    1233,
+    3572,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 29995,
+   "name": "Rope",
+   "action": "Climb-up",
+   "from": [
+    3312,
+    5711,
+    0
+   ],
+   "to": [
+    1233,
+    3572,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 32543,
+   "name": "Rope",
+   "action": "Climb-up",
+   "from": [
+    3280,
+    5743,
+    0
+   ],
+   "to": [
+    1233,
+    3572,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 32543,
+   "name": "Rope",
+   "action": "Climb-up",
+   "from": [
+    3312,
+    5743,
+    0
+   ],
+   "to": [
+    1233,
+    3572,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 29995,
+   "name": "Rope",
+   "action": "Climb-up",
+   "from": [
+    3344,
+    5711,
+    0
+   ],
+   "to": [
+    1233,
+    3572,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 32543,
+   "name": "Rope",
+   "action": "Climb-up",
+   "from": [
+    3344,
+    5743,
+    0
+   ],
+   "to": [
+    1233,
+    3572,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 20852,
+   "name": "Cave",
+   "action": "Enter",
+   "from": [
+    1211,
+    3646,
+    0
+   ],
+   "to": [
+    1188,
+    10029,
+    0
+   ],
+   "dungeon": "",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 20853,
+   "name": "Cave",
+   "action": "Exit",
+   "from": [
+    1189,
+    10029,
+    0
+   ],
+   "to": [
+    1214,
+    3646,
+    0
+   ],
+   "dungeon": "",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 41922,
+   "name": "Staircase",
+   "action": "Climb-down",
+   "from": [
+    1464,
+    3568,
+    0
+   ],
+   "to": [
+    1444,
+    9960,
+    0
+   ],
+   "dungeon": "",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 41923,
+   "name": "Staircase",
+   "action": "Climb-up",
+   "from": [
+    1445,
+    9960,
+    0
+   ],
+   "to": [
+    1463,
+    3568,
+    0
+   ],
+   "dungeon": "",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 54692,
+   "name": "Wolf Den",
+   "action": "Enter",
+   "from": [
+    1496,
+    3131,
+    0
+   ],
+   "to": [
+    1486,
+    9501,
+    1
+   ],
+   "dungeon": "Wolf Den",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 54690,
+   "name": "Cave",
+   "action": "Exit",
+   "from": [
+    1487,
+    9501,
+    1
+   ],
+   "to": [
+    1496,
+    3130,
+    0
+   ],
+   "dungeon": "Wolf Den",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 41427,
+   "name": "Ladder",
+   "action": "Climb-down",
+   "from": [
+    1789,
+    3521,
+    0
+   ],
+   "to": [
+    1750,
+    9932,
+    0
+   ],
+   "dungeon": "",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 41428,
+   "name": "Ladder",
+   "action": "Climb-up",
+   "from": [
+    1750,
+    9933,
+    0
+   ],
+   "to": [
+    1789,
+    3520,
+    0
+   ],
+   "dungeon": "",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 14996,
+   "name": "Ladder",
+   "action": "Climb-down",
+   "from": [
+    2142,
+    3944,
+    0
+   ],
+   "to": [
+    2331,
+    10353,
+    2
+   ],
+   "dungeon": "Lunar Isle mine",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 14995,
+   "name": "Ladder",
+   "action": "Climb-up",
+   "from": [
+    2330,
+    10353,
+    2
+   ],
+   "to": [
+    2143,
+    3944,
+    0
+   ],
+   "dungeon": "Lunar Isle mine",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 60169,
+   "name": "Cave entrance",
+   "action": "Enter",
+   "from": [
+    2218,
+    3478,
+    0
+   ],
+   "to": [
+    2292,
+    9913,
+    0
+   ],
+   "dungeon": "",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 60170,
+   "name": "Cave exit",
+   "action": "Exit",
+   "from": [
+    2293,
+    9913,
+    0
+   ],
+   "to": [
+    2218,
+    3477,
+    0
+   ],
+   "dungeon": "",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 35846,
+   "name": "Cave",
+   "action": "Enter",
+   "from": [
+    2200,
+    3262,
+    0
+   ],
+   "to": [
+    2203,
+    9671,
+    0
+   ],
+   "dungeon": "",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 35845,
+   "name": "Cave",
+   "action": "Exit",
+   "from": [
+    2200,
+    9671,
+    0
+   ],
+   "to": [
+    2199,
+    3262,
+    0
+   ],
+   "dungeon": "",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 30177,
+   "name": "Cave Entrance",
+   "action": "Enter",
+   "from": [
+    2277,
+    3611,
+    0
+   ],
+   "to": [
+    2276,
+    9988,
+    0
+   ],
+   "dungeon": "Kraken Cove",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 30178,
+   "name": "Cave Exit",
+   "action": "Leave",
+   "from": [
+    2276,
+    9987,
+    0
+   ],
+   "to": [
+    2276,
+    3611,
+    0
+   ],
+   "dungeon": "Kraken Cove",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 40736,
+   "name": "Cave",
+   "action": "Enter",
+   "from": [
+    2308,
+    2918,
+    0
+   ],
+   "to": [
+    2168,
+    9310,
+    0
+   ],
+   "dungeon": "Isle of Souls Dungeon",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 40737,
+   "name": "Opening",
+   "action": "Exit",
+   "from": [
+    2168,
+    9307,
+    0
+   ],
+   "to": [
+    2308,
+    2917,
+    0
+   ],
+   "dungeon": "Isle of Souls Dungeon",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 62219,
+   "name": "Cave",
+   "action": "Enter",
+   "from": [
+    2529,
+    2206,
+    0
+   ],
+   "to": [
+    2564,
+    8629,
+    0
+   ],
+   "dungeon": "",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 62220,
+   "name": "Cave",
+   "action": "Exit",
+   "from": [
+    2562,
+    8629,
+    0
+   ],
+   "to": [
+    2528,
+    2206,
+    0
+   ],
+   "dungeon": "",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 19753,
+   "name": "Cave",
+   "action": "Enter",
+   "from": [
+    2511,
+    2927,
+    0
+   ],
+   "to": [
+    2527,
+    9327,
+    0
+   ],
+   "dungeon": "",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 19759,
+   "name": "Cave",
+   "action": "Exit",
+   "from": [
+    2527,
+    9324,
+    0
+   ],
+   "to": [
+    2511,
+    2928,
+    0
+   ],
+   "dungeon": "",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 2543,
+   "name": "Manhole",
+   "action": "Climb-down",
+   "from": [
+    2529,
+    3303,
+    0
+   ],
+   "to": [
+    2514,
+    9736,
+    0
+   ],
+   "dungeon": "West Ardougne sewers",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "openId": 2544,
+   "openMethod": "neighbour-id"
+  },
+  {
+   "locId": 2542,
+   "name": "Pipe",
+   "action": "Climb-up",
+   "from": [
+    2514,
+    9737,
+    0
+   ],
+   "to": [
+    2528,
+    3303,
+    0
+   ],
+   "dungeon": "West Ardougne sewers",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 8783,
+   "name": "Trapdoor",
+   "action": "Climb-down",
+   "from": [
+    2542,
+    3327,
+    0
+   ],
+   "to": [
+    2043,
+    4650,
+    0
+   ],
+   "dungeon": "Mourner Tunnels",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 8785,
+   "name": "Ladder",
+   "action": "Climb-up",
+   "from": [
+    2044,
+    4650,
+    0
+   ],
+   "to": [
+    2541,
+    3327,
+    0
+   ],
+   "dungeon": "Mourner Tunnels",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 20226,
+   "name": "Ladder",
+   "action": "Climb-down",
+   "from": [
+    2534,
+    3572,
+    0
+   ],
+   "to": [
+    2592,
+    5260,
+    0
+   ],
+   "dungeon": "",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 20227,
+   "name": "Ladder",
+   "action": "Climb-up",
+   "from": [
+    2593,
+    5260,
+    0
+   ],
+   "to": [
+    2534,
+    3571,
+    0
+   ],
+   "dungeon": "",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 46717,
+   "name": "Ladder",
+   "action": "Climb-down",
+   "from": [
+    2570,
+    3267,
+    0
+   ],
+   "to": [
+    2543,
+    9694,
+    0
+   ],
+   "dungeon": "",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 46716,
+   "name": "Ladder",
+   "action": "Climb-up",
+   "from": [
+    2544,
+    9694,
+    0
+   ],
+   "to": [
+    2569,
+    3267,
+    0
+   ],
+   "dungeon": "",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 2532,
+   "name": "Dug hole",
+   "action": "Climb-down",
+   "from": [
+    2566,
+    3332,
+    0
+   ],
+   "to": [
+    2520,
+    9759,
+    0
+   ],
+   "dungeon": "West Ardougne sewers",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 2533,
+   "name": "Mud pile",
+   "action": "Climb",
+   "from": [
+    2519,
+    9759,
+    0
+   ],
+   "to": [
+    2565,
+    3332,
+    0
+   ],
+   "dungeon": "West Ardougne sewers",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 4879,
+   "name": "Trapdoor",
+   "action": "Climb-down",
+   "from": [
+    2807,
+    2785,
+    0
+   ],
+   "to": [
+    2807,
+    9201,
+    0
+   ],
+   "dungeon": "Ape Atoll Dungeon",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "openId": 4880,
+   "openMethod": "neighbour-id"
+  },
+  {
+   "locId": 4881,
+   "name": "Climbing rope",
+   "action": "Climb",
+   "from": [
+    2808,
+    9201,
+    0
+   ],
+   "to": [
+    2808,
+    2785,
+    0
+   ],
+   "dungeon": "Ape Atoll Dungeon",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 32479,
+   "name": "Cave",
+   "action": "Enter",
+   "from": [
+    2943,
+    2894,
+    0
+   ],
+   "to": [
+    2846,
+    9292,
+    0
+   ],
+   "dungeon": "",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 32480,
+   "name": "Staircase",
+   "action": "Climb-up",
+   "from": [
+    2846,
+    9293,
+    0
+   ],
+   "to": [
+    2943,
+    2897,
+    0
+   ],
+   "dungeon": "",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 60117,
+   "name": "Cave entrance",
+   "action": "Enter",
+   "from": [
+    2912,
+    4066,
+    0
+   ],
+   "to": [
+    2887,
+    10480,
+    0
+   ],
+   "dungeon": "",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 60118,
+   "name": "Cave exit",
+   "action": "Exit",
+   "from": [
+    2886,
+    10480,
+    0
+   ],
+   "to": [
+    2912,
+    4070,
+    0
+   ],
+   "dungeon": "",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 12389,
+   "name": "Ladder",
+   "action": "Climb-down",
+   "from": [
+    2960,
+    3507,
+    0
+   ],
+   "to": [
+    2982,
+    9876,
+    0
+   ],
+   "dungeon": "",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 12391,
+   "name": "Ladder",
+   "action": "Climb-up",
+   "from": [
+    2981,
+    9876,
+    0
+   ],
+   "to": [
+    2960,
+    3508,
+    0
+   ],
+   "dungeon": "",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 44635,
+   "name": "Cave",
+   "action": "Enter",
+   "from": [
+    3359,
+    3150,
+    0
+   ],
+   "to": [
+    3368,
+    11482,
+    0
+   ],
+   "dungeon": "",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 44636,
+   "name": "Exit",
+   "action": "Exit",
+   "from": [
+    3364,
+    11482,
+    0
+   ],
+   "to": [
+    3358,
+    3150,
+    0
+   ],
+   "dungeon": "",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 42523,
+   "name": "Staircase",
+   "action": "Climb-down",
+   "from": [
+    3682,
+    3231,
+    0
+   ],
+   "to": [
+    3680,
+    9652,
+    0
+   ],
+   "dungeon": "",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 42524,
+   "name": "Door",
+   "action": "Exit",
+   "from": [
+    3680,
+    9651,
+    0
+   ],
+   "to": [
+    3684,
+    3231,
+    0
+   ],
+   "dungeon": "",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 11667,
+   "name": "Trapdoor",
+   "action": "Climb-down",
+   "from": [
+    3681,
+    3498,
+    0
+   ],
+   "to": [
+    3683,
+    9962,
+    0
+   ],
+   "dungeon": "",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "openId": 11668,
+   "openMethod": "neighbour-id"
+  },
+  {
+   "locId": 11666,
+   "name": "ladder",
+   "action": "Climb-up",
+   "from": [
+    3682,
+    9962,
+    0
+   ],
+   "to": [
+    3681,
+    3499,
+    0
+   ],
+   "dungeon": "",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 31031,
+   "name": "Volcano Entrance",
+   "action": "Climb-down",
+   "from": [
+    3813,
+    3807,
+    0
+   ],
+   "to": [
+    3806,
+    10194,
+    3
+   ],
+   "dungeon": "Volcanic Mine",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 31032,
+   "name": "Exit",
+   "action": "Climb-up",
+   "from": [
+    3807,
+    10194,
+    3
+   ],
+   "to": [
+    3813,
+    3806,
+    0
+   ],
+   "dungeon": "Volcanic Mine",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 19798,
+   "name": "Cave",
+   "action": "Enter",
+   "from": [
+    3405,
+    3160,
+    0
+   ],
+   "to": [
+    3431,
+    9561,
+    0
+   ],
+   "dungeon": "",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 19792,
+   "name": "Cave",
+   "action": "Exit",
+   "from": [
+    3427,
+    9561,
+    0
+   ],
+   "to": [
+    3406,
+    3160,
+    0
+   ],
+   "dungeon": "",
    "source": "hand (cache locs, OSRS Wiki descriptions)"
   }
  ],

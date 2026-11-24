@@ -30,7 +30,7 @@ const OUT_DIR = path.join(ROOT, "tools", "world-export", "out");
 const LINKS_FILE = DUNGEON_LINKS_FILE;
 
 /** Pinned commit of Skretzo/shortest-path (BSD-2-Clause) whose transport files were used. */
-const SHORTEST_PATH_SHA = "a7dd4a27f7909b30ea710a6d4a2d5b6706a13865";
+const SHORTEST_PATH_SHA = "e56f8ff958f0f836630e97831ecacfc27f7e4fca";
 const TRANSPORTS_BASE = `https://raw.githubusercontent.com/Skretzo/shortest-path/${SHORTEST_PATH_SHA}/src/main/resources/transports`;
 /** The files with object transports: walking ones, levers (the King Black Dragon lever) and portals (Stronghold of Security). */
 const TRANSPORT_FILES = ["transports.tsv", "teleportation_levers.tsv", "teleportation_portals.tsv", "agility_shortcuts.tsv"];
@@ -135,6 +135,7 @@ async function main() {
     let agreed = 0;
     const unresolved: { candidate: Candidate; reason: string }[] = [];
     let sameSpot = 0;
+    let surfaceOnly = 0;
     let cachePairLinks = 0;
     for (const c of surface) {
         if (!candidateDirections(c).has("down")) continue;
@@ -186,6 +187,11 @@ async function main() {
             sameSpot++;
             continue;
         }
+        // An agility shortcut or a portal that leads to another surface spot is no dungeon entrance.
+        if (rowsForCandidate(c, rows, []).some((r) => isTransportOption(r.option))) {
+            surfaceOnly++;
+            continue;
+        }
         unresolved.push({ candidate: c, reason: pair.kind === "ambiguous" ? `ambiguous: ${pair.partners.length} exits near +6400` : "no exit near +6400 and no external transport" });
     }
 
@@ -218,6 +224,9 @@ async function main() {
         const names = readDungeonNames();
         for (const l of links.values()) l.dungeon = names.get(((l.to[0] >> 6) << 8) | (l.to[1] >> 6)) ?? l.dungeon;
     }
+    // Entrances a hand link now resolves are no longer unresolved.
+    const linkedFrom = new Set([...links.values()].map((l) => `${l.locId}@${l.from.join(",")}`));
+    const stillUnresolved = unresolved.filter((u) => !linkedFrom.has(`${u.candidate.id}@${[u.candidate.x, u.candidate.y, u.candidate.plane].join(",")}`));
 
     const sorted = [...links.values()].sort(
         (a, b) => a.from[1] - b.from[1] || a.from[0] - b.from[0] || a.from[2] - b.from[2] || a.locId - b.locId || a.action.localeCompare(b.action),
@@ -256,9 +265,10 @@ async function main() {
         dungeons: dungeons.size,
         noWayBack,
         sameSpotSurfaceStairs: sameSpot,
+        surfaceOnlyTransports: surfaceOnly,
         crossCheck: { agreed, disagreements },
         hatchesWithoutOpenModel: candidates.filter((c) => isClosedHatch(c) && !openOf.has(c)).map((c) => ({ id: c.id, x: c.x, y: c.y })),
-        unresolved: unresolved.map((u) => ({ id: u.candidate.id, name: u.candidate.states[0].name, x: u.candidate.x, y: u.candidate.y, plane: u.candidate.plane, reason: u.reason })),
+        unresolved: stillUnresolved.map((u) => ({ id: u.candidate.id, name: u.candidate.states[0].name, x: u.candidate.x, y: u.candidate.y, plane: u.candidate.plane, reason: u.reason })),
     };
     fs.writeFileSync(path.join(OUT_DIR, "report.json"), JSON.stringify(report, null, 1));
     console.log(JSON.stringify({ ...report, unresolved: report.unresolved.length, crossCheck: { agreed, disagreements: disagreements.length }, hatchesWithoutOpenModel: report.hatchesWithoutOpenModel.length }, null, 1));

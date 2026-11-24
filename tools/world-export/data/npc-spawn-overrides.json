@@ -8,6 +8,6 @@
   { "id": 11992, "name": "Artio", "x": 1759, "y": 11545, "level": 0, "note": "Hunter's End" },
   { "id": 11993, "name": "Calvar'ion", "x": 1887, "y": 11549, "level": 1, "note": "Skeletal Tomb" },
   { "id": 11998, "name": "Spindel", "x": 1631, "y": 11549, "level": 2, "note": "Web Chasm" },
-  { "id": 7554, "name": "Great Olm", "x": 3229, "y": 5747, "level": 0, "note": "Chambers of Xeric, the Olm's chamber" }
+  { "id": 7554, "name": "Great Olm", "x": 3229, "y": 5747, "level": 0, "still": true, "note": "Chambers of Xeric, the Olm's chamber; it has no idle animation, so it stands in its base pose" }
  ]
 }

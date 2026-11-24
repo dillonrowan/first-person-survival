@@ -22,6 +22,7 @@ import { MapFileLoader, ModernMapFileLoader } from "./rs/map/MapFileLoader";
 import { IndexModelLoader, ModelLoader } from "./rs/model/ModelLoader";
 import { IndexSeqBaseLoader } from "./rs/model/seq/SeqBaseLoader";
 import { Dat2SeqFrameLoader, SeqFrameLoader } from "./rs/model/seq/SeqFrameLoader";
+import { IndexSkeletalSeqLoader } from "./rs/model/skeletal/SkeletalSeqLoader";
 import { SceneBuilder } from "./rs/scene/SceneBuilder";
 import { SpriteTextureLoader } from "./rs/texture/SpriteTextureLoader";
 import { TextureLoader } from "./rs/texture/TextureLoader";
@@ -66,13 +67,14 @@ const REQUIRED_INDICES = [
     IndexType.DAT2.models,
     IndexType.DAT2.sprites,
     IndexType.DAT2.textures,
+    IndexType.OSRS.animKeyFrames,
 ];
 
 export const REQUIRED_INDEX_FILES = [...REQUIRED_INDICES, 255];
 
 /**
- * Wires up the decoders for an OSRS (dat2) cache: map geometry plus NPCs and their frame
- * animations, plus objs (items). Skeletal animations are not decoded.
+ * Wires up the decoders for an OSRS (dat2) cache: map geometry plus NPCs and their frame and
+ * skeletal animations, plus objs (items).
  */
 export function createWorldLoaders(files: CacheFiles): WorldLoaders {
     const { info } = files;
@@ -122,11 +124,9 @@ export function createWorldLoaders(files: CacheFiles): WorldLoaders {
         info,
         configIndex.getArchive(ConfigType.DAT2.seqs),
     );
-    const seqFrameLoader = new Dat2SeqFrameLoader(
-        info,
-        cacheSystem.getIndex(IndexType.DAT2.animations),
-        new IndexSeqBaseLoader(info, cacheSystem.getIndex(IndexType.DAT2.skeletons)),
-    );
+    const seqBaseLoader = new IndexSeqBaseLoader(info, cacheSystem.getIndex(IndexType.DAT2.skeletons));
+    const seqFrameLoader = new Dat2SeqFrameLoader(info, cacheSystem.getIndex(IndexType.DAT2.animations), seqBaseLoader);
+    const skeletalSeqLoader = new IndexSkeletalSeqLoader(cacheSystem.getIndex(IndexType.OSRS.animKeyFrames), seqBaseLoader);
 
     const modelLoader = new IndexModelLoader(cacheSystem.getIndex(IndexType.DAT2.models));
     const spriteIndex = cacheSystem.getIndex(IndexType.DAT2.sprites);
@@ -154,6 +154,7 @@ export function createWorldLoaders(files: CacheFiles): WorldLoaders {
         seqTypeLoader,
         seqFrameLoader,
         varManager,
+        skeletalSeqLoader,
     );
 
     const sceneBuilder = new SceneBuilder(

@@ -3,8 +3,16 @@ import { Entity } from "../scene/entity/Entity";
 import { SeqBase } from "./seq/SeqBase";
 import { SeqFrame } from "./seq/SeqFrame";
 import { SeqTransformType } from "./seq/SeqTransformType";
+import { mat4, vec3 } from "./skeletal/glm";
+import { SkeletalBase } from "./skeletal/SkeletalBase";
+import { SkeletalSeq } from "./skeletal/SkeletalSeq";
 
-// Frame animation is used to bake NPC clips; skeletal animation is not supported.
+// Frame and skeletal animation are used to bake NPC clips (skeletal: from rs-map-viewer, BSD-2-Clause).
+const skeletalTransform = mat4.create();
+const skeletalScaling = mat4.create();
+const skeletalBoneMatrix = mat4.create();
+const skeletalScale = vec3.create();
+
 export class Model extends Entity {
     static animateOriginX: number = 0;
     static animateOriginY: number = 0;
@@ -943,6 +951,65 @@ export class Model extends Entity {
 
     postAnimate() {
         this.invalidateBounds();
+    }
+
+    /** Poses the model at a cycle of a skeletal animation: each vertex follows its weighted bones. */
+    animateSkeletal(skeletalSeq: SkeletalSeq, frame: number): void {
+        const skeletalBase = skeletalSeq.skeletalBase;
+        skeletalBase.updateAnimMatrices(skeletalSeq, frame);
+        this.transformSkeletal(skeletalBase, skeletalSeq.poseId);
+        if (skeletalSeq.hasAlphaTransform) {
+            this.transformSkeletalAlpha(skeletalSeq, frame);
+        }
+        this.invalidateBounds();
+    }
+
+    private transformSkeletal(skeletalBase: SkeletalBase, poseId: number): void {
+        if (!this.animMayaGroups) {
+            return;
+        }
+        for (let v = 0; v < this.verticesCount; v++) {
+            const group = this.animMayaGroups[v];
+            if (!group || group.length === 0) {
+                continue;
+            }
+            const scalings = this.animMayaScales[v];
+            skeletalTransform.fill(0);
+            for (let i = 0; i < group.length; i++) {
+                const bone = skeletalBase.getBone(group[i]);
+                if (bone) {
+                    const scale = scalings[i] / 255;
+                    mat4.fromScaling(skeletalScaling, vec3.set(skeletalScale, scale, scale, scale));
+                    mat4.mul(skeletalBoneMatrix, skeletalScaling, bone.getFinalMatrix(poseId));
+                    mat4.add(skeletalTransform, skeletalTransform, skeletalBoneMatrix);
+                }
+            }
+            const m = skeletalTransform;
+            const vx = this.verticesX[v];
+            const vy = -this.verticesY[v];
+            const vz = -this.verticesZ[v];
+            this.verticesX[v] = Math.round(m[0] * vx + m[4] * vy + m[8] * vz + m[12]);
+            this.verticesY[v] = -Math.round(m[1] * vx + m[5] * vy + m[9] * vz + m[13]);
+            this.verticesZ[v] = -Math.round(m[2] * vx + m[6] * vy + m[10] * vz + m[14]);
+        }
+    }
+
+    private transformSkeletalAlpha(skeletalSeq: SkeletalSeq, frame: number): void {
+        const base = skeletalSeq.base;
+        for (let i = 0; i < base.count; i++) {
+            const curve = skeletalSeq.curves[i]?.[0];
+            if (base.types[i] !== SeqTransformType.ALPHA || !curve || !this.faceLabels || !this.faceAlphas) {
+                continue;
+            }
+            for (const l of base.labels[i]) {
+                if (l >= this.faceLabels.length) {
+                    continue;
+                }
+                for (const f of this.faceLabels[l]) {
+                    this.faceAlphas[f] = Math.max(0, Math.min(255, (this.faceAlphas[f] & 0xff) + curve.getValue(frame) * 255));
+                }
+            }
+        }
     }
 }
 

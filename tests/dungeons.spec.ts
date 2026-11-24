@@ -135,13 +135,17 @@ async function travel(page: Page, start: [number, number, number], loc: [number,
 
 // Teleport-style ways between dungeon areas and into boss lairs and raids, from the Shortest Path
 // lever and portal files and the hand-made links.
-const WAYS: { name: string; start: [number, number, number]; loc: [number, number]; action: string; to: [number, number] }[] = [
+const WAYS: { name: string; start: [number, number, number]; loc: [number, number]; action: string; to: [number, number]; within?: number }[] = [
     { name: "the King Black Dragon lever", start: [3067, 10255, 0], loc: [3067, 10253], action: "Pull", to: [2271, 4680] },
     { name: "a Stronghold of Security portal", start: [1863, 5237, 0], loc: [1863, 5238], action: "Use", to: [1914, 5222] },
     { name: "Callisto's Den", start: [3291, 3847, 0], loc: [3291, 3849], action: "Enter", to: [3358, 10317] },
     { name: "the Silk Chasm", start: [3321, 3792, 0], loc: [3321, 3794], action: "Enter", to: [3422, 10190] },
     { name: "the Theatre of Blood", start: [3678, 3214, 0], loc: [3678, 3216], action: "Enter", to: [3190, 4446] },
     { name: "the Tombs of Amascut", start: [3357, 9110, 0], loc: [3357, 9112], action: "Enter", to: [3548, 5163] },
+    // The first Chambers of Xeric room: the link leads to its centre, the game to the nearest floor.
+    { name: "the Chambers of Xeric", start: [1233, 3571, 0], loc: [1232, 3573], action: "Enter", to: [3280, 5136], within: 18 },
+    { name: "Verzik Vitur's gate", start: [3168, 4321, 0], loc: [3166, 4328], action: "Enter", to: [3236, 4316] },
+    { name: "Kraken Cove", start: [2278, 3609, 0], loc: [2277, 3611], action: "Enter", to: [2276, 9988] },
 ];
 for (const way of WAYS) {
     test(`${way.name} leads where it should`, async ({ page }) => {
@@ -149,12 +153,13 @@ for (const way of WAYS) {
         page.on("pageerror", (e) => errors.push(String(e)));
         const consoleErrors: string[] = [];
         page.on("console", (m) => m.type() === "error" && consoleErrors.push(m.text()));
-        const at = await travel(page, way.start, way.loc, way.action, way.to).catch(async (e) => {
+        const within = way.within ?? 12;
+        const at = await travel(page, way.start, way.loc, way.action, way.to, within).catch(async (e) => {
             const where = await page.evaluate(() => ({ x: window.game?.player.x, y: window.game?.player.y, plane: window.game?.player.plane, log: document.querySelector("#message-log")?.textContent?.slice(-200) }));
             throw new Error([String(e), JSON.stringify(where), ...consoleErrors].join(" | "));
         });
         await shot(page, way.name.replace(/\W+/g, "-"));
-        expect(Math.hypot(at.x - way.to[0], at.y - way.to[1])).toBeLessThan(12);
+        expect(Math.hypot(at.x - way.to[0], at.y - way.to[1])).toBeLessThan(within);
         expect(errors).toEqual([]);
     });
 }
