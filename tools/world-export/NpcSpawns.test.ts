@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
     NpcSpawnRecord,
+    applySpawnOverrides,
     finalizeNpcManifest,
     resolveDisplayType,
     selectNpcs,
@@ -238,5 +239,21 @@ describe("finalizeNpcManifest", () => {
         expect(manifest.source).toBe("osrs-242");
         // The exporter-only sequence ids are not part of the game's manifest.
         expect(manifest.appearances[0]).not.toHaveProperty("idleSeqId");
+    });
+});
+
+describe("applySpawnOverrides", () => {
+    // The spawn list has the Wilderness bosses where they stood before their lairs; overrides move and add.
+    it("moves spawns near a tile and adds new ones", () => {
+        const spawns = [{ id: 6609, name: "Callisto", x: 3290, y: 3847, level: 0 }, { id: 1, x: 3290, y: 3847, level: 0 }];
+        const out = applySpawnOverrides(spawns, {
+            move: [{ id: 6609, from: [3291, 3848, 0], to: [3360, 10330, 0] }],
+            add: [{ id: 11992, name: "Artio", x: 1760, y: 11545, level: 0 }],
+        });
+        expect(out).toEqual([
+            { id: 6609, name: "Callisto", x: 3360, y: 10330, level: 0 },
+            { id: 1, x: 3290, y: 3847, level: 0 },
+            { id: 11992, name: "Artio", x: 1760, y: 11545, level: 0 },
+        ]);
     });
 });

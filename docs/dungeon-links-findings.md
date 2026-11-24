@@ -35,7 +35,14 @@ assumptions, two did not hold:
    because the runtime's climb rules handle it.
 3. **External transports.** The object transports of RuneLite's Shortest Path plugin
    ([Skretzo/shortest-path](https://github.com/Skretzo/shortest-path), BSD 2-Clause), downloaded from
-   a pinned commit (`a7dd4a2`) into a fresh temporary directory and only parsed, never run. A row
+   a pinned commit (`a7dd4a2`) into a fresh temporary directory and only parsed, never run. Four
+   files are read: `transports.tsv`, `teleportation_levers.tsv` (the King Black Dragon lever),
+   `teleportation_portals.tsv` (the Stronghold of Security portals) and `agility_shortcuts.tsv`.
+   Each file orders its requirement columns differently; they are read by the header's names. Any
+   row option counts except the ones that do not move the player (Open, Close, Talk-to, Check-Fee,
+   Peek...): doors swing open in the game instead. A loc whose objects appear in these rows is a
+   candidate even without a transition verb (levers "Pull", portals "Use"). A two-way loc (a pipe,
+   a gap) keeps one link per side, and the game takes the one leading away from the player. A row
    becomes a link when its object id is one of a candidate's states and its standing tile is within
    one tile of the loc's footprint; for a big cave with one row per standing tile, the row nearest
    the loc's own tile wins. `source: "shortest-path@a7dd4a2"`. Quest, item, skill and varbit
@@ -50,6 +57,38 @@ Dungeon names are the section headings of the transport file (cleaned of notes a
 taken from the nearest row that starts underground within 80 tiles of the arrival. They are
 approximate: the Lumbridge cellar is "Lumbridge". The OSRS Wiki was **not** used in this pass (see
 limitations).
+
+## Hand-made links
+
+`data/dungeon-links-overrides.json` holds links no data source gives, with `source: "hand (cache
+locs, OSRS Wiki descriptions)"`. The OSRS Wiki pages describe these places but list no
+coordinates, so the tiles come from the cache: the entrance and exit locs, matched by layout.
+
+| Place | Entrance | Inside | Way out |
+| --- | --- | --- | --- |
+| Escape Caves | four caves 47175 (3260,3832; 3320,3830; 3282,3774; 3284,3807) | exits 47148, 47148, 47147, 47149 | back beside each cave |
+| Callisto's Den | Cave Entrance 47140, 3291,3849 | exit 47122, 3358,10315 | Escape Caves (OSRS: one of three at random) |
+| Vet'ion's Rest | Crevice 46995, 3221,3787 | exit 46925, 3294,10190 plane 1 | Escape Caves |
+| Silk Chasm (Venenatis) | Cave Entrance 47077, 3321,3794 | exit 47000, 3422,10183 plane 2 | Escape Caves |
+| Hunter's End (Artio) | Cave Entrance 47141, 3115,3676 | exit 47122, 1758,11531 | beside the entrance |
+| Skeletal Tomb (Calvar'ion) | Memorial 46996, 3180,3683 | exit 46925, 1886,11534 plane 1 | beside the entrance |
+| Web Chasm (Spindel) | Cave Entrance 47078, 3183,3744 | exit 47000, 1630,11527 plane 2 | beside the entrance |
+| Tombs of Amascut | Entry 46089 (lobby) | Nexus; four paths, each puzzle room then boss room; tablet 46228 to the Wardens | Exit locs back to the Nexus, the Nexus exit to the lobby |
+| Theatre of Blood | Theatre of Blood 32653, 3678,3216 | Maiden, then each Formidable passage (33113) to the next room; Xarpus's door to Verzik | treasure room stairs (no exit loc in Verzik's room: OSRS spawns it on the kill) |
+| Chambers of Xeric | Chambers of Xeric 29777, 1232,3573 | the Olm's chamber (rooms before it are instanced and not linked) | the rope 29996 |
+
+Player-owned house portals are excluded: the house is an instance. The NPC spawn list has the
+Wilderness bosses where they stood before the 2023 rework; `data/npc-spawn-overrides.json` moves
+Callisto, Vet'ion and Venenatis into their lairs and adds Artio, Calvar'ion, Spindel and the Great Olm.
+
+Wall locs (the Theatre of Blood passages, tomb doors, many crevices) that a link starts at are
+exported as passages, not swinging doors. Underground, an upper-level tile without a tile model
+counts as floor when a loc stands on it and it is walkable: the chasm arenas lay their floor as loc
+models on level 2.
+
+Hand names of map squares, where the transport file's headings name them badly ("Burthorpe" for
+the King Black Dragon Lair), are in `data/dungeon-names.json`; they name the links into those
+squares and the world map's dungeon views.
 
 ## Results
 

@@ -1,0 +1,13 @@
+[
+ { "name": "Lumbridge Castle cellar", "squares": [[50, 150]] },
+ { "name": "Edgeville Dungeon", "squares": [[48, 154], [48, 155], [48, 156], [49, 154], [49, 155], [49, 156]] },
+ { "name": "Varrock Sewers", "squares": [[50, 154], [51, 154]] },
+ { "name": "King Black Dragon Lair", "squares": [[35, 73]] },
+ { "name": "Lava Maze Dungeon", "squares": [[47, 160]] },
+ { "name": "Callisto's Den", "squares": [[52, 161]] },
+ { "name": "Vet'ion's Rest", "squares": [[51, 159]] },
+ { "name": "Silk Chasm", "squares": [[53, 159]] },
+ { "name": "Escape Caves", "squares": [[52, 160]] },
+ { "name": "Theatre of Blood", "squares": [[49, 67], [49, 68], [49, 69], [50, 67], [51, 67], [51, 66], [51, 69]] },
+ { "name": "Chambers of Xeric", "squares": [[50, 89]] }
+]

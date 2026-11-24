@@ -140,6 +140,12 @@ Besides the regions, the export writes `textures.png` (every texture in one imag
 `world.json` (the list of regions, the spawn point and texture settings). The 1,636 regions
 of the surface world take about 5 minutes with 3 workers in parallel.
 
+**Dungeon ceilings.** OSRS draws no ceiling underground. The game puts one over every floor tile
+of a linked dungeon area, at the height of the walls around it, from a set of low-poly pieces that
+fits the dungeon's name (rock, ice, lava rock, sewer brick, crypt stone, sandstone, masonry; none
+for places with open sky). The pieces are modelled in Blender (`tools/ceilings/ceilings.blend`) and
+exported to `public/ceilings/ceilings.glb`, outside `public/world/`.
+
 ## 3. Play
 
 The game starts from `world.json` and `textures.png`, then streams regions as you move:

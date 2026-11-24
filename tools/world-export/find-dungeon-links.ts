@@ -14,14 +14,14 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { readCacheFiles } from "./cache-files";
-import { Candidate, TRANSITION_VERBS, isSurfaceTile, transitionVerbs, verbDirection } from "./DungeonCandidates";
+import { Candidate, isSurfaceTile, transitionVerbs, verbDirection } from "./DungeonCandidates";
 import { createEdgeOpen, listMapSquares, scanSquare } from "./DungeonInventory";
 import {
     DungeonLink, ExternalRow, OpenMatch, Tile, arrivalBeside, candidateDirections, dungeonNameFor, findOpenInCache,
-    findOpenInRows, isClosedHatch, nearestRow, pairAcrossSurface, parseTransportRows, rowsForCandidate,
+    findOpenInRows, isClosedHatch, isTransportOption, nearestRow, pairAcrossSurface, parseTransportRows, rowsForCandidate,
     tileDistance, touchesUnderground,
 } from "./DungeonLinkResolver";
-import { DUNGEON_LINKS_FILE, readDungeonOverrides, selectDungeonSquares } from "./DungeonLinks";
+import { DUNGEON_LINKS_FILE, readDungeonNames, readDungeonOverrides, selectDungeonSquares } from "./DungeonLinks";
 import { createWorldLoaders } from "./WorldLoaders";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
@@ -29,24 +29,28 @@ const CACHE_DIR = path.join(ROOT, "cache");
 const OUT_DIR = path.join(ROOT, "tools", "world-export", "out");
 const LINKS_FILE = DUNGEON_LINKS_FILE;
 
-/** Pinned commit of Skretzo/shortest-path (BSD-2-Clause) whose transports.tsv was used. */
+/** Pinned commit of Skretzo/shortest-path (BSD-2-Clause) whose transport files were used. */
 const SHORTEST_PATH_SHA = "a7dd4a27f7909b30ea710a6d4a2d5b6706a13865";
-const TRANSPORTS_URL = `https://raw.githubusercontent.com/Skretzo/shortest-path/${SHORTEST_PATH_SHA}/src/main/resources/transports/transports.tsv`;
+const TRANSPORTS_BASE = `https://raw.githubusercontent.com/Skretzo/shortest-path/${SHORTEST_PATH_SHA}/src/main/resources/transports`;
+/** The files with object transports: walking ones, levers (the King Black Dragon lever) and portals (Stronghold of Security). */
+const TRANSPORT_FILES = ["transports.tsv", "teleportation_levers.tsv", "teleportation_portals.tsv", "agility_shortcuts.tsv"];
 const USER_AGENT = "first-person-survival-dungeon-research (non-commercial hobby project)";
 
 const SOURCE_EXTERNAL = `shortest-path@${SHORTEST_PATH_SHA.slice(0, 7)}`;
 const DISAGREEMENT_TILES = 5;
 
-const VERB_SET = new Set(TRANSITION_VERBS.map((v) => v.toLowerCase()));
-
-/** Downloads the transport file into a fresh directory (untrusted data: parsed, never executed). */
-async function downloadTransports(): Promise<string> {
+/** Downloads the transport files into a fresh directory (untrusted data: parsed, never executed). */
+async function downloadTransports(): Promise<ExternalRow[]> {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "shortest-path-"));
-    const response = await fetch(TRANSPORTS_URL, { headers: { "User-Agent": USER_AGENT } });
-    if (!response.ok) throw new Error(`transports.tsv: HTTP ${response.status}`);
-    const file = path.join(dir, "transports.tsv");
-    fs.writeFileSync(file, await response.text());
-    return file;
+    const rows: ExternalRow[] = [];
+    for (const name of TRANSPORT_FILES) {
+        const response = await fetch(`${TRANSPORTS_BASE}/${name}`, { headers: { "User-Agent": USER_AGENT } });
+        if (!response.ok) throw new Error(`${name}: HTTP ${response.status}`);
+        const file = path.join(dir, name);
+        fs.writeFileSync(file, await response.text());
+        rows.push(...parseTransportRows(fs.readFileSync(file, "utf8")));
+    }
+    return rows;
 }
 
 const linkKey = (l: Pick<DungeonLink, "locId" | "from" | "action">) => `${l.locId}:${l.from.join(",")}:${l.action.toLowerCase()}`;
@@ -58,9 +62,17 @@ async function main() {
     const loaders = createWorldLoaders(cache);
     const squares = listMapSquares(loaders);
 
+    let rows: ExternalRow[] = [];
+    if (!offline) {
+        console.log("Downloading Shortest Path transports...");
+        rows = await downloadTransports();
+        console.log(`${rows.length} object transports`);
+    }
+    const externalIds = new Set(rows.filter((r) => isTransportOption(r.option)).map((r) => r.objectId));
+
     const stateCache = new Map<number, any>();
     const candidates: Candidate[] = [];
-    for (const [mapX, mapY] of squares) candidates.push(...scanSquare(loaders, mapX, mapY, stateCache));
+    for (const [mapX, mapY] of squares) candidates.push(...scanSquare(loaders, mapX, mapY, stateCache, externalIds));
     const surface = candidates.filter((c) => c.surface);
     const underground = candidates.filter((c) => !c.surface);
     console.log(`${squares.length} map squares, ${candidates.length} candidates (${surface.length} surface, ${underground.length} underground)`);
@@ -77,13 +89,6 @@ async function main() {
         }
     };
 
-    let rows: ExternalRow[] = [];
-    if (!offline) {
-        console.log("Downloading Shortest Path transports...");
-        rows = parseTransportRows(fs.readFileSync(await downloadTransports(), "utf8"));
-        console.log(`${rows.length} object transports`);
-    }
-
     // 1. External links, matched to cache locs.
     const links = new Map<string, DungeonLink>();
     const openOf = new Map<Candidate, OpenMatch>();
@@ -94,26 +99,32 @@ async function main() {
             open = findOpenInCache(c, lookup) ?? findOpenInRows(c, rows);
             if (open) openOf.set(c, open);
         }
-        const matched = rowsForCandidate(c, rows, open ? [open.openId] : []).filter((r) => VERB_SET.has(r.option.toLowerCase()));
+        const matched = rowsForCandidate(c, rows, open ? [open.openId] : []).filter((r) => isTransportOption(r.option));
         const byAction = new Map<string, ExternalRow[]>();
         for (const r of matched) byAction.set(r.option.toLowerCase(), [...(byAction.get(r.option.toLowerCase()) ?? []), r]);
         for (const group of byAction.values()) {
-            const row = nearestRow(c, group);
             const from: Tile = [c.x, c.y, c.plane];
-            if (!touchesUnderground(from, row.dest)) continue;
-            const link: DungeonLink = {
-                locId: c.id,
-                name: c.states[0].name === "null" ? row.target : c.states[0].name,
-                action: row.option,
-                from,
-                to: row.dest,
-                dungeon: dungeonNameFor(row, rows),
-                source: SOURCE_EXTERNAL,
-                ...(open ? { openId: open.openId, openMethod: open.method } : {}),
-                ...(row.requires.length ? { requires: row.requires } : {}),
-            };
-            links.set(linkKey(link), link);
-            externalDest.set(linkKey(link), row.dest);
+            // A two-way loc (a pipe, a gap) lists one row per side under one action: keep both, and the
+            // game takes the one that leads away from where the player stands.
+            const first = nearestRow(c, group);
+            const back = group.find((r) => r !== first && tileDistance(r.dest, first.origin) <= 3 && tileDistance(r.origin, first.dest) <= 3);
+            for (const row of back ? [first, back] : [first]) {
+                if (!touchesUnderground(from, row.dest)) continue;
+                const link: DungeonLink = {
+                    locId: c.id,
+                    name: c.states[0].name === "null" ? row.target : c.states[0].name,
+                    action: row.option,
+                    from,
+                    to: row.dest,
+                    dungeon: dungeonNameFor(row, rows),
+                    source: SOURCE_EXTERNAL,
+                    ...(open ? { openId: open.openId, openMethod: open.method } : {}),
+                    ...(row.requires.length ? { requires: row.requires } : {}),
+                };
+                const key = row === first ? linkKey(link) : `${linkKey(link)}:${row.dest.join(",")}`;
+                links.set(key, link);
+                externalDest.set(key, row.dest);
+            }
         }
     }
     const externalCount = links.size;
@@ -203,6 +214,9 @@ async function main() {
             }
         }
         for (const l of overrides.links ?? []) links.set(linkKey(l), { ...l, source: l.source ?? "override" });
+        // Hand names of map squares (data/dungeon-names.json, also used by export-map) name the links into them.
+        const names = readDungeonNames();
+        for (const l of links.values()) l.dungeon = names.get(((l.to[0] >> 6) << 8) | (l.to[1] >> 6)) ?? l.dungeon;
     }
 
     const sorted = [...links.values()].sort(

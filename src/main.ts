@@ -4,6 +4,7 @@ import { ActionHandler, Interaction } from "./interaction/Interaction";
 import { planTransition } from "./interaction/climb";
 import { Transition } from "./interaction/Transition";
 import { Ambience, isUnderground } from "./world/Ambience";
+import { DungeonCeilings } from "./world/DungeonCeilings";
 import { createNpcActionHandler, npcTargetSource } from "./interaction/targets";
 import { CollisionDebug } from "./physics/CollisionDebug";
 import { Npcs } from "./npc/Npcs";
@@ -198,6 +199,14 @@ async function main(): Promise<void> {
     });
 
     const world = new World(WORLD_URL, manifest, materials, scene);
+    // Themed ceilings over the dungeons (OSRS has none; first person would look up into black).
+    new DungeonCeilings(
+        world,
+        scene,
+        { color: fogColor, near: FOG_NEAR, far: FOG_FAR },
+        `${import.meta.env.BASE_URL}ceilings/ceilings.glb`,
+        `${WORLD_URL}map.json`,
+    );
     // OSRS spell graphics (cast, projectile, impact, splash), small enough to fetch up front.
     const spellGfx = await SpellGfxLibrary.load(import.meta.env.BASE_URL, materials);
     spellGfx.preload([SPLASH_GRAPHIC, ...Object.values(SPELL_GRAPHICS).flatMap((g) => [g.cast, g.projectile, g.impact])]);
@@ -868,7 +877,7 @@ async function main(): Promise<void> {
         // Handy from the devtools console, e.g. `game.player.x = 3165`.
         Object.assign(window, {
             game: {
-                renderer, scene, camera, world, player, npcs, props, cameraRig, avatar, interaction, interactives, combat, tuning,
+                renderer, scene, camera, world, player, npcs, props, cameraRig, avatar, interaction, interactives, combat, tuning, worldMap,
                 skills, spellbook, items, db: itemDb, itemIcons, groundItems, sidePanel, hitsplats, spellEffects,
                 clock: skilling.clock, skillLocs: skilling.skillLocs, fishingSpots: skilling.fishingSpots, skillSystem, skillsData: skilling.data,
                 /** game.give("Bronze axe") */

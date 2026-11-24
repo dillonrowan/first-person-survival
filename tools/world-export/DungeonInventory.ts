@@ -60,8 +60,17 @@ export function decodePlacedLocs(data: Int8Array): PlacedLoc[] {
     return out;
 }
 
-/** Scans one square: every loc that is a candidate in any of its states. */
-export function scanSquare(loaders: Loaders, mapX: number, mapY: number, candidateCache: Map<number, StateInfo[] | null>): Candidate[] {
+/**
+ * Scans one square: every loc that is a candidate in any of its states, or whose id (in any state)
+ * is in `extraIds` (the objects an external transport starts at, such as levers and portals).
+ */
+export function scanSquare(
+    loaders: Loaders,
+    mapX: number,
+    mapY: number,
+    candidateCache: Map<number, StateInfo[] | null>,
+    extraIds: ReadonlySet<number> = new Set(),
+): Candidate[] {
     const locData = loaders.sceneBuilder.getLocData(mapX, mapY);
     if (!locData) return [];
     const terrain = loaders.sceneBuilder.getTerrainData(mapX, mapY);
@@ -76,7 +85,7 @@ export function scanSquare(loaders: Loaders, mapX: number, mapY: number, candida
         let states = candidateCache.get(loc.id);
         if (states === undefined) {
             const all = statesOf(loaders, loc.id);
-            states = all.some((s) => isCandidateState(s.name, s.actions)) ? all : null;
+            states = all.some((s) => isCandidateState(s.name, s.actions) || extraIds.has(s.id)) ? all : null;
             candidateCache.set(loc.id, states);
         }
         if (!states) continue;

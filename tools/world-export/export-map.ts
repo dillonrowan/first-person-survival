@@ -6,15 +6,18 @@
 // Ground level seen from above: terrain and loc models (trees, walls, fences) of plane 0, lit as
 // the game draws them, with walls traced in white from the collision flags like the OSRS map.
 // map.json also lists the mineable rocks (from skills.json) for the game's map markers.
+// Each group of exported underground squares joined by shared edges gets its own image,
+// map-dungeon-N.png, and map.json lists the dungeon links in and out of each.
 
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { gunzipSync, unzlibSync } from "fflate";
 
-import { MAP_FORMAT_VERSION, type MapManifest } from "../../src/world/MapFormat";
+import { type DungeonMap, MAP_FORMAT_VERSION, type MapImage, type MapLink, type MapManifest, dungeonAt } from "../../src/world/MapFormat";
 import type { SkillsManifest } from "../../src/world/SkillFormat";
-import { CollisionFlag, type MeshData, REGION_SIZE, RS_UNITS_PER_TILE, type WorldManifest, decodeRegion, regionFileName } from "../../src/world/WorldFormat";
+import { CollisionFlag, type LocLink, type MeshData, REGION_SIZE, type RegionData, RS_UNITS_PER_TILE, type WorldManifest, decodeRegion, regionFileName } from "../../src/world/WorldFormat";
+import { readDungeonNames } from "./DungeonLinks";
 import { encodePng } from "./png";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -103,10 +106,11 @@ function layerColors(manifest: WorldManifest): Float32Array {
     return out;
 }
 
-function main(): void {
-    const manifest = JSON.parse(fs.readFileSync(path.join(WORLD, "world.json"), "utf8")) as WorldManifest;
-    const squares = manifest.regions.filter(([, y]) => y >= MAINLAND.minY && y <= MAINLAND.maxY);
-    if (squares.length === 0) throw new Error("No exported mainland regions: run npm run export-world first");
+/**
+ * Draws the given map squares, seen from above, into `imageName` (in public/world/) and returns the
+ * stretch it covers. `onRegion` sees each decoded region, for markers.
+ */
+function renderArea(squares: [number, number][], imageName: string, colors: Float32Array, onRegion: (region: RegionData) => void): MapImage {
     const minX = Math.min(...squares.map(([x]) => x));
     const maxX = Math.max(...squares.map(([x]) => x));
     const minY = Math.min(...squares.map(([, y]) => y));
@@ -117,9 +121,6 @@ function main(): void {
     const tilesY = (maxY - minY + 1) * REGION_SIZE;
     const width = tilesX * SCALE;
     const height = tilesY * SCALE;
-    const colors = layerColors(manifest);
-    const skills = JSON.parse(fs.readFileSync(path.join(WORLD, "skills.json"), "utf8")) as SkillsManifest;
-    const rocks: MapManifest["rocks"] = [];
 
     const rgba = new Uint8Array(width * height * 4);
     for (let i = 0; i < width * height; i++) rgba.set([...BACKGROUND, 255], i * 4);
@@ -203,17 +204,119 @@ function main(): void {
                 if (flags & (CollisionFlag.WALL_NORTH_EAST | CollisionFlag.WALL_SOUTH_WEST)) for (let i = 0; i < SCALE; i++) wall(left + SCALE - 1 - i, top + i);
             }
         }
+        onRegion(region);
+        if (++done % 100 === 0) console.log(`${imageName}: ${done}/${squares.length} map squares`);
+    }
+
+    fs.writeFileSync(path.join(WORLD, imageName), encodePng(width, height, rgba));
+    return { image: imageName, originX, originY, tilesX, tilesY };
+}
+
+/** Groups map squares into areas joined by shared edges. */
+function connectedAreas(squares: [number, number][]): [number, number][][] {
+    const key = (x: number, y: number) => (x << 8) | y;
+    const left = new Map(squares.map((s) => [key(s[0], s[1]), s]));
+    const areas: [number, number][][] = [];
+    for (const start of squares) {
+        if (!left.delete(key(start[0], start[1]))) continue;
+        const area = [start];
+        for (let i = 0; i < area.length; i++) {
+            const [x, y] = area[i];
+            for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+                const next = left.get(key(x + dx, y + dy));
+                if (next) {
+                    left.delete(key(x + dx, y + dy));
+                    area.push(next);
+                }
+            }
+        }
+        areas.push(area.sort((a, b) => a[0] - b[0] || a[1] - b[1]));
+    }
+    return areas;
+}
+
+/** A link as the map sees it: the loc it starts at and where it leads. */
+type FoundLink = { label: string; x: number; y: number; link: LocLink };
+
+const UNNAMED = "Unnamed underground area";
+/** Whether a link's dungeon name reads as a place (the transport file's notes do not). */
+const isPlaceName = (name: string | undefined): name is string =>
+    !!name && name.length <= 40 && !/[;=?]|^(not |there |todo)|teleport platform|automatic/i.test(name);
+
+/**
+ * The dungeon of each square of an area: the name the links into it give most often (from outside
+ * the square), spread to unnamed squares from their nearest named neighbour; hand names win.
+ */
+function nameSquares(squares: [number, number][], links: FoundLink[], overrides: Map<number, string>): string[] {
+    const key = (x: number, y: number) => (x << 8) | y;
+    const index = new Map(squares.map(([x, y], i) => [key(x, y), i]));
+    const names: (string | undefined)[] = squares.map(([x, y]) => overrides.get(key(x, y)));
+    const counts = squares.map(() => new Map<string, number>());
+    for (const l of links) {
+        const i = index.get(key(Math.floor(l.link.x / 64), Math.floor(l.link.y / 64)));
+        if (i === undefined || index.get(key(Math.floor(l.x / 64), Math.floor(l.y / 64))) === i || !isPlaceName(l.link.dungeon)) continue;
+        counts[i].set(l.link.dungeon, (counts[i].get(l.link.dungeon) ?? 0) + 1);
+    }
+    counts.forEach((c, i) => (names[i] ??= [...c].sort((a, b) => b[1] - a[1])[0]?.[0]));
+    // Breadth first from the named squares.
+    const queue = names.flatMap((n, i) => (n ? [i] : []));
+    for (let q = 0; q < queue.length; q++) {
+        const [x, y] = squares[queue[q]];
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            const j = index.get(key(x + dx, y + dy));
+            if (j !== undefined && !names[j]) {
+                names[j] = names[queue[q]];
+                queue.push(j);
+            }
+        }
+    }
+    return names.map((n) => n ?? UNNAMED);
+}
+
+function main(): void {
+    const manifest = JSON.parse(fs.readFileSync(path.join(WORLD, "world.json"), "utf8")) as WorldManifest;
+    const surface = manifest.regions.filter(([, y]) => y >= MAINLAND.minY && y <= MAINLAND.maxY);
+    if (surface.length === 0) throw new Error("No exported mainland regions: run npm run export-world first");
+    const colors = layerColors(manifest);
+    const skills = JSON.parse(fs.readFileSync(path.join(WORLD, "skills.json"), "utf8")) as SkillsManifest;
+
+    const rocks: MapManifest["rocks"] = [];
+    const links: FoundLink[] = [];
+    const collectLinks = (region: RegionData) => {
+        for (const loc of region.interactives) {
+            for (const link of loc.links ?? []) links.push({ label: `${loc.name} (${link.action})`, x: loc.tileX, y: loc.tileY, link });
+        }
+    };
+    for (const name of fs.readdirSync(WORLD).filter((f) => /^map-dungeon-\d+\.png$/.test(f))) fs.rmSync(path.join(WORLD, name));
+
+    const world = renderArea(surface, "map.png", colors, (region) => {
+        collectLinks(region);
         for (const loc of region.interactives) {
             const role = loc.kind === "skill" && loc.plane === 0 ? skills.locs[loc.id] : undefined;
             if (role?.role === "rock") rocks.push({ name: skills.rocks[role.index].name, x: loc.tileX, y: loc.tileY });
         }
-        if (++done % 100 === 0) console.log(`${done}/${squares.length} map squares`);
-    }
+    });
 
-    fs.writeFileSync(path.join(WORLD, "map.png"), encodePng(width, height, rgba));
-    const out: MapManifest = { format: MAP_FORMAT_VERSION, image: "map.png", originX, originY, tilesX, tilesY, scale: SCALE, rocks };
+    // Every exported square north of the surface band, in areas joined by shared edges.
+    const areas = connectedAreas(manifest.regions.filter(([, y]) => y > MAINLAND.maxY));
+    const images = areas.map((squares, i) => renderArea(squares, `map-dungeon-${i}.png`, colors, collectLinks));
+    const areaAt = (x: number, y: number) => dungeonAt(areas.map((squares) => ({ squares })), x, y);
+    const toLink = (l: FoundLink): MapLink => ({ label: l.label, x: l.x, y: l.y, toX: l.link.x, toY: l.link.y, to: areaAt(l.link.x, l.link.y) });
+
+    const overrides = readDungeonNames();
+    const dungeons: DungeonMap[] = areas.map((squares, i) => {
+        const names = nameSquares(squares, links, overrides);
+        const counts = new Map<string, number>();
+        for (const name of names) counts.set(name, (counts.get(name) ?? 0) + 1);
+        const name = [...counts].sort((a, b) => b[1] - a[1])[0][0];
+        const exits = links.filter((l) => areaAt(l.x, l.y) === i && areaAt(l.link.x, l.link.y) !== i).map(toLink);
+        return { ...images[i], name, squares, names, exits };
+    });
+    const entrances = links.filter((l) => areaAt(l.x, l.y) === -1 && areaAt(l.link.x, l.link.y) !== -1).map(toLink);
+
+    const out: MapManifest = { format: MAP_FORMAT_VERSION, ...world, scale: SCALE, rocks, entrances, dungeons };
     fs.writeFileSync(path.join(WORLD, "map.json"), JSON.stringify(out) + "\n");
-    console.log(`Wrote map.png (${width}x${height}) and map.json (${rocks.length} rocks)`);
+    console.log(`Wrote map.png, ${dungeons.length} dungeon maps and map.json (${rocks.length} rocks, ${entrances.length} entrances)`);
 }
 
 main();

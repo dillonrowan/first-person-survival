@@ -1,4 +1,4 @@
-import type { MapManifest } from "../world/MapFormat";
+import { type MapImage, type MapLink, type MapManifest, dungeonAt, dungeonNameAt } from "../world/MapFormat";
 import type { SkillsManifest } from "../world/SkillFormat";
 
 /** Marker colour per rune altar; others use the default. */
@@ -28,6 +28,11 @@ const SITE_RADIUS = 6;
 /** Zoom (screen pixels per tile) from which site names are drawn. */
 const SITE_LABEL_ZOOM = 2;
 const MINING_COLOR = "#b9a58c";
+const ENTRANCE_COLOR = "#e0703f";
+/** Screen pixels within which a click picks a dungeon entrance or exit. */
+const PICK_RADIUS = 9;
+/** A press that moves less than this many pixels is a click, not a drag. */
+const CLICK_SLOP = 4;
 const FISHING_COLOR = "#3fc1e0";
 
 type Marker = { label: string; detail: string; x: number; y: number; color: string };
@@ -64,6 +69,8 @@ export function clusterSites(points: { x: number; y: number; tag: string }[], ra
 /**
  * The world map (M): the image export-map renders, dragged to pan and wheeled to zoom, with the
  * player, the essence altars (their mysterious ruins), mining sites and fishing spots marked.
+ * Underground it shows the dungeon area the player is in. Dungeon entrances are marked on the
+ * surface and exits in each dungeon; clicking one shows the place it leads to.
  */
 export class WorldMap {
     closed?: () => void;
@@ -74,13 +81,17 @@ export class WorldMap {
     private readonly sites: Record<SiteKind, Site[]> = { mining: [], fishing: [] };
     private readonly shown: Record<SiteKind, boolean> = { mining: true, fishing: true };
     private manifest?: MapManifest;
-    private image?: HTMLImageElement;
+    private readonly images = new Map<string, HTMLImageElement>();
+    private readonly title: HTMLElement;
+    private readonly surfaceButton: HTMLButtonElement;
+    /** The area shown: -1 for the surface, else an index into manifest.dungeons. */
+    private area = -1;
     private loading?: Promise<void>;
     /** View centre in world tiles, and screen pixels per tile. */
     private cx = 0;
     private cy = 0;
     private zoom = OPEN_ZOOM;
-    private drag?: { id: number; x: number; y: number };
+    private drag?: { id: number; x: number; y: number; moved: number };
     private timer = 0;
 
     constructor(
@@ -101,7 +112,7 @@ export class WorldMap {
 
         const heading = document.createElement("div");
         heading.className = "choice-heading";
-        const title = document.createElement("strong");
+        const title = (this.title = document.createElement("strong"));
         title.textContent = "World map";
         const close = document.createElement("button");
         close.type = "button";
@@ -115,7 +126,10 @@ export class WorldMap {
         this.canvas.setAttribute("aria-label", "Map of the world; drag to pan, scroll to zoom");
         const legend = document.createElement("div");
         legend.className = "world-map-legend";
-        legend.append(this.legendButton("You", "#ffe14d", "Centre on yourself", () => this.centreOn(this.player())));
+        legend.append(this.legendButton("You", "#ffe14d", "Show where you are", () => this.showPlayer()));
+        this.surfaceButton = this.legendButton("Surface", ENTRANCE_COLOR, "Show the surface above this dungeon", () => this.showSurface());
+        this.surfaceButton.hidden = true;
+        legend.append(this.surfaceButton);
         const altarsHeading = document.createElement("h3");
         altarsHeading.textContent = "Essence altars";
         legend.append(altarsHeading);
@@ -130,11 +144,12 @@ export class WorldMap {
         element.append(heading, body);
 
         this.canvas.addEventListener("pointerdown", (e) => {
-            this.drag = { id: e.pointerId, x: e.clientX, y: e.clientY };
+            this.drag = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: 0 };
             this.canvas.setPointerCapture(e.pointerId);
         });
         this.canvas.addEventListener("pointermove", (e) => {
             if (this.drag?.id !== e.pointerId) return;
+            this.drag.moved += Math.abs(e.clientX - this.drag.x) + Math.abs(e.clientY - this.drag.y);
             this.cx -= (e.clientX - this.drag.x) / this.zoom;
             this.cy += (e.clientY - this.drag.y) / this.zoom;
             this.drag.x = e.clientX;
@@ -144,7 +159,13 @@ export class WorldMap {
         const endDrag = (e: PointerEvent) => {
             if (this.drag?.id === e.pointerId) this.drag = undefined;
         };
-        this.canvas.addEventListener("pointerup", endDrag);
+        this.canvas.addEventListener("pointerup", (e) => {
+            if (this.drag?.id === e.pointerId && this.drag.moved < CLICK_SLOP) {
+                const rect = this.canvas.getBoundingClientRect();
+                this.pick(e.clientX - rect.left, e.clientY - rect.top);
+            }
+            endDrag(e);
+        });
         this.canvas.addEventListener("pointercancel", endDrag);
         this.canvas.addEventListener(
             "wheel",
@@ -182,7 +203,7 @@ export class WorldMap {
         document.exitPointerLock();
         this.zoom = OPEN_ZOOM;
         this.centreOn(this.player());
-        void this.load().then(() => this.render());
+        void this.load().then(() => this.showPlayer());
         // The player marker follows the player while the map is open.
         this.timer = window.setInterval(() => this.render(), 500);
     }
@@ -235,11 +256,9 @@ export class WorldMap {
             const response = await fetch(`${this.worldUrl}map.json`);
             if (!response.ok) throw new Error(`map.json: HTTP ${response.status}`);
             const manifest = (await response.json()) as MapManifest;
-            const image = new Image();
-            image.src = `${this.worldUrl}${manifest.image}`;
-            await image.decode();
+            if (!manifest.dungeons) throw new Error("map.json is from an older export-map");
             this.manifest = manifest;
-            this.image = image;
+            await this.imageFor(manifest);
             this.sites.mining = clusterSites((manifest.rocks ?? []).map((r) => ({ x: r.x, y: r.y, tag: r.name.replace(/ rocks?$/i, "") })));
         })().catch((e) => {
             console.warn("The world map could not be loaded", e);
@@ -248,9 +267,74 @@ export class WorldMap {
         return this.loading;
     }
 
-    private onMap(p: { x: number; y: number }): boolean {
+    /** The image of an area: the element once loaded, else a promise of it (loading starts the first time). */
+    private imageFor(area: MapImage): Promise<HTMLImageElement> | HTMLImageElement {
+        const known = this.images.get(area.image);
+        if (known) return known;
+        const image = new Image();
+        image.src = `${this.worldUrl}${area.image}`;
+        return image.decode().then(() => {
+            this.images.set(area.image, image);
+            this.render();
+            return image;
+        });
+    }
+
+    /** The area shown now: the surface map or a dungeon's. */
+    private shownArea(): MapImage | undefined {
         const m = this.manifest;
-        return !!m && p.x >= m.originX && p.y >= m.originY && p.x < m.originX + m.tilesX && p.y < m.originY + m.tilesY;
+        return m && (this.area >= 0 ? m.dungeons[this.area] : m);
+    }
+
+    /** Index of the area a world tile is in: -1 for the surface. */
+    private areaOf(p: { x: number; y: number }): number {
+        return this.manifest ? dungeonAt(this.manifest.dungeons, p.x, p.y) : -1;
+    }
+
+    /** Shows `area` centred on `at`. */
+    private show(area: number, at: { x: number; y: number }): void {
+        this.area = area;
+        const m = this.manifest;
+        this.surfaceButton.hidden = area < 0;
+        this.centreOn(at);
+    }
+
+    private showPlayer(): void {
+        const p = this.player();
+        this.show(this.areaOf(p), p);
+    }
+
+    /** The surface, at the entrance into the dungeon shown nearest the player (else at the player). */
+    private showSurface(): void {
+        const into = this.manifest?.entrances.filter((e) => e.to === this.area) ?? [];
+        const p = this.player();
+        const far = (e: MapLink) => Math.hypot(e.toX - p.x, e.toY - p.y);
+        const best = into.reduce<MapLink | undefined>((b, e) => (!b || far(e) < far(b) ? e : b), undefined);
+        this.show(-1, best ?? p);
+    }
+
+    /** Markers that lead elsewhere: entrances on the surface, exits in a dungeon. */
+    private links(): MapLink[] {
+        const m = this.manifest;
+        if (!m) return [];
+        return this.area >= 0 ? m.dungeons[this.area].exits : m.entrances;
+    }
+
+    /** Follows the entrance or exit under a click (canvas pixels), if any. */
+    private pick(px: number, py: number): void {
+        const width = this.canvas.clientWidth;
+        const height = this.canvas.clientHeight;
+        let best: { link: MapLink; d: number } | undefined;
+        for (const link of this.links()) {
+            const d = Math.hypot(width / 2 + (link.x + 0.5 - this.cx) * this.zoom - px, height / 2 - (link.y + 0.5 - this.cy) * this.zoom - py);
+            if (d <= PICK_RADIUS && (!best || d < best.d)) best = { link, d };
+        }
+        if (best) this.show(best.link.to, { x: best.link.toX + 0.5, y: best.link.toY + 0.5 });
+    }
+
+    private onMap(p: { x: number; y: number }): boolean {
+        const m = this.shownArea();
+        return !!m && this.areaOf(p) === this.area && p.x >= m.originX && p.y >= m.originY && p.x < m.originX + m.tilesX && p.y < m.originY + m.tilesY;
     }
 
     private render(): void {
@@ -271,13 +355,17 @@ export class WorldMap {
         const sx = (x: number) => width / 2 + (x - this.cx) * this.zoom;
         const sy = (y: number) => height / 2 - (y - this.cy) * this.zoom;
 
-        const m = this.manifest;
-        if (m && this.image) {
-            g.imageSmoothingEnabled = this.zoom < m.scale;
+        const m = this.shownArea();
+        const image = m && this.imageFor(m);
+        if (m && image instanceof HTMLImageElement) {
+            g.imageSmoothingEnabled = this.zoom < this.manifest!.scale;
             const left = sx(m.originX);
             const top = sy(m.originY + m.tilesY);
-            g.drawImage(this.image, left, top, m.tilesX * this.zoom, m.tilesY * this.zoom);
+            g.drawImage(image, left, top, m.tilesX * this.zoom, m.tilesY * this.zoom);
         }
+        const surface = this.area < 0;
+        // One area can hold several dungeons: the title names the one at the view's centre.
+        this.title.textContent = surface || !this.manifest ? "World map" : dungeonNameAt(this.manifest.dungeons[this.area], this.cx, this.cy);
 
         g.font = "600 12px system-ui, sans-serif";
         g.textAlign = "center";
@@ -290,7 +378,7 @@ export class WorldMap {
         };
         // Mining sites as diamonds, fishing spots as rings; named once zoomed in.
         for (const kind of ["mining", "fishing"] as const) {
-            if (!this.shown[kind]) continue;
+            if (!this.shown[kind] || !surface) continue;
             for (const site of this.sites[kind]) {
                 const x = sx(site.x);
                 const y = sy(site.y);
@@ -319,7 +407,23 @@ export class WorldMap {
                 if (this.zoom >= SITE_LABEL_ZOOM) label(site.label, x, y - 9);
             }
         }
-        for (const marker of this.markers) {
+        // Dungeon entrances (surface) and exits (dungeon): an orange square named by where it leads.
+        const seen = new Set<string>();
+        for (const link of this.links()) {
+            const key = `${link.x},${link.y}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            const x = sx(link.x + 0.5);
+            const y = sy(link.y + 0.5);
+            if (x < -100 || y < -20 || x > width + 100 || y > height + 20) continue;
+            g.fillStyle = ENTRANCE_COLOR;
+            g.strokeStyle = "#111";
+            g.lineWidth = 2;
+            g.fillRect(x - 5, y - 5, 10, 10);
+            g.strokeRect(x - 5, y - 5, 10, 10);
+            if (this.zoom >= SITE_LABEL_ZOOM) label(link.to >= 0 ? dungeonNameAt(this.manifest!.dungeons[link.to], link.toX, link.toY) : "Surface", x, y - 9);
+        }
+        for (const marker of surface ? this.markers : []) {
             const x = sx(marker.x);
             const y = sy(marker.y);
             g.beginPath();

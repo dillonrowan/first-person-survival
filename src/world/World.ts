@@ -201,11 +201,20 @@ export class World {
 
     /** Ground height in tiles (up is positive) at a point on a walkable plane. */
     groundHeight(plane: number, x: number, y: number): number {
+        return this.levelHeight(this.renderLevel(plane, x, y), x, y);
+    }
+
+    /** The floors of a loaded region: 1 where a level has a floor tile, (level * 64 + x) * 64 + y. */
+    regionFloors(mapX: number, mapY: number): Uint8Array | undefined {
+        return this.regions.get(regionKey(mapX, mapY))?.floors;
+    }
+
+    /** Ground height in tiles (up is positive) at a point on a drawn level (no bridge remapping). */
+    levelHeight(level: number, x: number, y: number): number {
         const region = this.getRegion(x, y);
         if (!region) {
             return 0;
         }
-        const level = this.renderLevel(plane, x, y);
         const fx = x - Math.floor(x);
         const fy = y - Math.floor(y);
         const [lx, ly] = localTile(x, y);

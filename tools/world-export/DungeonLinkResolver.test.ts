@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { Candidate, isCandidateState, verbDirection } from "./DungeonCandidates";
 import {
     arrivalBeside, cleanSectionName, dungeonNameFor, findOpenInCache, findOpenInRows, isClosedHatch, nearestRow,
-    pairAcrossSurface, parseTransportRows, rowsForCandidate,
+    isTransportOption, pairAcrossSurface, parseTransportRows, rowsForCandidate,
 } from "./DungeonLinkResolver";
 
 function candidate(over: Partial<Candidate> & { name?: string; actions?: string[] }): Candidate {
@@ -31,6 +31,20 @@ describe("transport file parsing", () => {
         expect(rows[0]).toMatchObject({ origin: [3210, 3216, 0], dest: [3210, 9616, 0], option: "Climb-down", target: "Trapdoor", objectId: 14880, section: "Lumbridge" });
         expect(rows[1].section).toBe("Dwarven Mine");
         expect(rows[1].requires).toEqual(["skills: 60 Mining", "quests: Cook's Assistant"]);
+    });
+
+    // Each file orders its requirement columns differently (the lever file has none), by its header.
+    it("reads requirement columns by the header's names", () => {
+        const levers = parseTransportRows(["# Origin\tDestination\tmenuOption menuTarget objectID\tDuration", "3067 10253 0\t2271 4680 0\tPull Lever 1816\t5"].join("\n"));
+        expect(levers[0]).toMatchObject({ option: "Pull", target: "Lever", objectId: 1816, requires: [] });
+        const portals = parseTransportRows(["# Origin\tDestination\tmenuOption menuTarget objectID\tItems\tQuests\tVarbits", "1 6400 0\t2 6400 0\tUse Portal 20786\t\tA quest\t"].join("\n"));
+        expect(portals[0].requires).toEqual(["quests: A quest"]);
+    });
+
+    // Levers and portals move the player; doors (which swing in the game) and dialogue options do not.
+    it("tells transport options from others", () => {
+        expect(["Pull", "Use", "Enter", "Pass-Through", "Climb-down"].every(isTransportOption)).toBe(true);
+        expect(["Open", "Talk-to", "Check-Fee"].some(isTransportOption)).toBe(false);
     });
 
     // Sub-headings and notes are not dungeon names.

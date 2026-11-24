@@ -148,7 +148,13 @@ export function planTransition(
     action: string,
     from: { x: number; y: number },
 ): TransitionPlan {
-    const link = loc.links?.find((candidate) => candidate.action.toLowerCase() === action.toLowerCase());
+    // A two-way loc has one link per side under the same action: take the one that leads furthest away.
+    const link = loc.links
+        ?.filter((candidate) => candidate.action.toLowerCase() === action.toLowerCase())
+        .reduce<NonNullable<typeof loc.links>[number] | undefined>((best, candidate) => {
+            const away = (l: { x: number; y: number }) => Math.hypot(l.x + 0.5 - from.x, l.y + 0.5 - from.y);
+            return !best || away(candidate) > away(best) ? candidate : best;
+        }, undefined);
     if (link) {
         return { plane: link.plane, x: link.x + 0.5, y: link.y + 0.5, ...(link.dungeon ? { dungeon: link.dungeon } : {}) };
     }

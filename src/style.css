@@ -1028,6 +1028,10 @@ kbd {
     cursor: pointer;
 }
 
+.world-map-legend button[hidden] {
+    display: none;
+}
+
 .world-map-legend button:hover,
 .world-map-legend button:focus-visible {
     background: #272c31;

@@ -23,6 +23,18 @@ export type DungeonLinkOverrides = {
     excludeSquares?: [number, number][];
 };
 
+export const DUNGEON_NAMES_FILE = path.join(ROOT, "tools", "world-export", "data", "dungeon-names.json");
+
+/** Hand names of map squares (data/dungeon-names.json), by (mapX << 8) | mapY. */
+export function readDungeonNames(): Map<number, string> {
+    const out = new Map<number, string>();
+    if (!fs.existsSync(DUNGEON_NAMES_FILE)) return out;
+    for (const entry of JSON.parse(fs.readFileSync(DUNGEON_NAMES_FILE, "utf8")) as { name: string; squares: [number, number][] }[]) {
+        for (const [x, y] of entry.squares) out.set((x << 8) | y, entry.name);
+    }
+    return out;
+}
+
 export function readDungeonOverrides(): DungeonLinkOverrides {
     return fs.existsSync(DUNGEON_LINKS_OVERRIDES_FILE) ? (JSON.parse(fs.readFileSync(DUNGEON_LINKS_OVERRIDES_FILE, "utf8")) as DungeonLinkOverrides) : {};
 }
@@ -52,7 +64,7 @@ export function validateDungeonLinkFile(raw: unknown): DungeonLinkFile {
         if (typeof link.source !== "string" || link.source === "") {
             throw new Error(`${where}: every link records its source`);
         }
-        const key = `${link.locId}:${link.from.join(",")}:${link.action.toLowerCase()}`;
+        const key = `${link.locId}:${link.from.join(",")}:${link.action.toLowerCase()}:${link.to.join(",")}`;
         if (seen.has(key)) throw new Error(`${where}: duplicate link ${key}`);
         seen.add(key);
     });

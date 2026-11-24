@@ -45,7 +45,7 @@ import { ExportResult, ExportTask, ExportWorkerData } from "./export-worker";
 import { encodePng } from "./png";
 import { BRIGHTNESS } from "./FaceColors";
 import { AttackIndex, buildAttackIndex, readAnimationNames } from "./NpcAttackAnims";
-import { NpcAppearanceTask, finalizeNpcManifest, readNpcSpawnFile, selectNpcs } from "./NpcSpawns";
+import { NpcAppearanceTask, NpcSpawnOverrides, applySpawnOverrides, finalizeNpcManifest, readNpcSpawnFile, selectNpcs } from "./NpcSpawns";
 import { TextureLoader } from "./rs/texture/TextureLoader";
 import { DUNGEON_LINKS_FILE, readDungeonLinkFile, readDungeonOverrides, selectDungeonSquares } from "./DungeonLinks";
 import { createEdgeOpen } from "./DungeonInventory";
@@ -57,6 +57,7 @@ const OUT_DIR = path.join(ROOT, "public", "world");
 const REGION_DIR = path.join(OUT_DIR, "regions");
 const NPC_DIR = path.join(OUT_DIR, "npcs");
 const NPC_SPAWN_FILE = path.join(ROOT, "tools", "world-export", "data", "npc-spawns-osrs.json");
+const NPC_SPAWN_OVERRIDES_FILE = path.join(ROOT, "tools", "world-export", "data", "npc-spawn-overrides.json");
 /** Attack styles of every NPC from the OSRS wiki (npm run fetch-wiki-attacks). */
 const NPC_ATTACKS_WIKI_FILE = path.join(ROOT, "tools", "world-export", "data", "npc-attacks-wiki.json");
 const WIKI_DROPS_FILE = path.join(ROOT, "tools", "world-export", "data", "wiki-drops.json");
@@ -430,8 +431,11 @@ async function exportNpcs(
         }
         return loaders.overlayTypeLoader.load(overlayId).name?.toLowerCase().includes("water") === true;
     };
+    const spawnOverrides = fs.existsSync(NPC_SPAWN_OVERRIDES_FILE)
+        ? (JSON.parse(fs.readFileSync(NPC_SPAWN_OVERRIDES_FILE, "utf8")) as NpcSpawnOverrides)
+        : {};
     const selection = selectNpcs(
-        readNpcSpawnFile(NPC_SPAWN_FILE),
+        applySpawnOverrides(readNpcSpawnFile(NPC_SPAWN_FILE), spawnOverrides),
         (mapX, mapY) => exportedKeys.has((mapX << 8) | mapY),
         loaders.npcTypeLoader,
         loaders.varManager,

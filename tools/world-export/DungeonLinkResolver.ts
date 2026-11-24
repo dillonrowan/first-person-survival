@@ -35,11 +35,20 @@ export type DungeonLink = {
 export function parseTransportRows(text: string): ExternalRow[] {
     const rows: ExternalRow[] = [];
     let section = "";
+    // Requirement columns by name; each Shortest Path file orders (and omits) them differently.
+    let requirementColumns: [label: string, index: number][] = [["skills", 3], ["items", 4], ["quests", 5], ["varbits", 6], ["varplayers", 7]];
     for (const line of text.split(/\r?\n/)) {
         if (line.startsWith("#")) {
             const heading = line.replace(/^#+\s*/, "").replace(/\t+$/, "").trim();
-            // Column header and notes are not areas; real headings come straight after a blank-ish tab line.
-            if (line.includes("\t") && heading && !heading.startsWith("Origin")) section = cleanSectionName(heading);
+            if (heading.startsWith("Origin")) {
+                const names = line.replace(/^#+\s*/, "").split("\t").map((n) => n.trim().toLowerCase());
+                requirementColumns = (["skills", "items", "quests", "varbits", "varplayers"] as const)
+                    .map((label): [string, number] => [label, names.indexOf(label)])
+                    .filter(([, index]) => index >= 0);
+                continue;
+            }
+            // Notes are not areas; real headings come straight after a blank-ish tab line.
+            if (line.includes("\t") && heading) section = cleanSectionName(heading);
             continue;
         }
         const cols = line.split("\t");
@@ -49,7 +58,7 @@ export function parseTransportRows(text: string): ExternalRow[] {
         const objectId = Number(menu[menu.length - 1]);
         if (!origin || !dest || menu.length < 3 || !Number.isInteger(objectId)) continue;
         const requires: string[] = [];
-        for (const [label, index] of [["skills", 3], ["items", 4], ["quests", 5], ["varbits", 6], ["varplayers", 7]] as const) {
+        for (const [label, index] of requirementColumns) {
             const value = cols[index]?.trim();
             if (value) requires.push(`${label}: ${value}`);
         }
@@ -69,6 +78,17 @@ export function cleanSectionName(heading: string): string {
 function parseTile(text: string | undefined): Tile | undefined {
     const parts = text?.trim().split(/\s+/).map(Number);
     return parts && parts.length === 3 && parts.every(Number.isInteger) ? [parts[0], parts[1], parts[2]] : undefined;
+}
+
+/**
+ * Options of external rows that do not move the player through the loc itself: doors swing open in
+ * the game, and the rest only open a dialogue or a window.
+ */
+const NOT_TRANSPORT = new Set(["open", "close", "pick-lock", "unlock", "talk-to", "search", "check-fee", "peek", "look-at", "examine"]);
+
+/** Whether an external row's option takes the player somewhere (a verb, a lever pull, a portal). */
+export function isTransportOption(option: string): boolean {
+    return !NOT_TRANSPORT.has(option.toLowerCase());
 }
 
 /** How a closed hatch (trapdoor, manhole) finds its open model. */

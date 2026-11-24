@@ -119,6 +119,16 @@ describe("planTransition", () => {
         expect(planTransition(w, { ...ladder, kind: "climb", links: [link] }, "Climb-up", from)).toEqual({ plane: 1, x: 10.5, y: 21.5 });
     });
 
+    // A two-way pipe has one link per side under the same action: it leads to the far side.
+    it("takes the link that leads away from the player on a two-way loc", () => {
+        const pipe = { ...ladder, kind: "passage" as const, links: [
+            { action: "Squeeze-through", x: 100, y: 9000, plane: 0 },
+            { action: "Squeeze-through", x: 110, y: 9000, plane: 0 },
+        ] };
+        expect(planTransition(world({}), pipe, "Squeeze-through", { x: 100.5, y: 9000.5 })).toMatchObject({ x: 110.5 });
+        expect(planTransition(world({}), pipe, "Squeeze-through", { x: 110.5, y: 9000.5 })).toMatchObject({ x: 100.5 });
+    });
+
     // Anything else (a cave mouth with no matching link) leads nowhere, with a message.
     it("returns a message for a passage without a matching link", () => {
         expect(planTransition(world({}), trapdoor, "Enter", from)).toEqual({ message: "It leads nowhere you can go yet." });

@@ -1,0 +1,13 @@
+{
+ "move": [
+  { "id": 6609, "from": [3290, 3847, 0], "to": [3359, 10328, 0], "note": "Callisto: into Callisto's Den (2023 Wilderness boss rework)" },
+  { "id": 6611, "from": [3219, 3788, 0], "to": [3295, 10205, 1], "note": "Vet'ion: into Vet'ion's Rest" },
+  { "id": 6610, "from": [3332, 3734, 0], "to": [3423, 10205, 2], "note": "Venenatis: into the Silk Chasm" }
+ ],
+ "add": [
+  { "id": 11992, "name": "Artio", "x": 1759, "y": 11545, "level": 0, "note": "Hunter's End" },
+  { "id": 11993, "name": "Calvar'ion", "x": 1887, "y": 11549, "level": 1, "note": "Skeletal Tomb" },
+  { "id": 11998, "name": "Spindel", "x": 1631, "y": 11549, "level": 2, "note": "Web Chasm" },
+  { "id": 7554, "name": "Great Olm", "x": 3229, "y": 5747, "level": 0, "note": "Chambers of Xeric, the Olm's chamber" }
+ ]
+}

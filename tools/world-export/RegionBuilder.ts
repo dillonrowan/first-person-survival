@@ -19,6 +19,7 @@ import {
     RS_UNITS_PER_TILE,
     RegionData,
 } from "../../src/world/WorldFormat";
+import { SURFACE_MAX_MAP_Y } from "./DungeonCandidates";
 import { DungeonLinkIndex, toLocLink } from "./DungeonLinks";
 import { areGateLeaves, doorStates, gateLeafStates, isBank, isClimbable, placedDoorState } from "./Interactives";
 import { MAX_PROP_HEIGHT, propClassFor, propExtent } from "./Props";
@@ -232,7 +233,7 @@ export class RegionBuilder {
                 mapX,
                 mapY,
                 ...meshes,
-                ...extractTerrainData(scene, this.loaders.overlayTypeLoader),
+                ...extractTerrainData(scene, this.loaders.overlayTypeLoader, mapY > SURFACE_MAX_MAP_Y),
                 interactives: found.interactives,
                 doorMeshes,
             },
@@ -334,7 +335,23 @@ export class RegionBuilder {
                     const worldY = mapY * REGION_SIZE + y - BORDER_SIZE;
 
                     const wall = tile.wall;
-                    if (wall) {
+                    // A wall loc a dungeon link starts at (a Theatre of Blood passage, a tomb door, a
+                    // crevice) is a passage, not a swinging door.
+                    const wallLinked =
+                        !!wall &&
+                        (this.dungeonLinks?.linksForLoc(
+                            (scene.tileRenderFlags[1][x][y] & 0x2) === 2 ? level - 1 : level,
+                            worldX,
+                            worldY,
+                            getIdFromTag(wall.tag),
+                        ).length ?? 0) > 0;
+                    if (wall && wallLinked && inside) {
+                        const id = getIdFromTag(wall.tag);
+                        const { locType, shown } = shownType(id);
+                        this.addEntrance(found, scene, {
+                            level, x, y, worldX, worldY, sceneLoc: wall, id, locType, shown, rotation: (wall.flags >> 6) & 0x3,
+                        });
+                    } else if (wall && !wallLinked) {
                         const { locType, shown } = shownType(getIdFromTag(wall.tag));
                         const state = placedDoorState(shown.actions);
                         const flags = scene.getLocFlags(level, x, y, wall.tag);
@@ -1023,9 +1040,18 @@ function collectTileLocs(
     }
 }
 
+/** Collision flags that make a tile unwalkable as a whole (a loc on it, or blocked ground). */
+const TILE_BLOCKED = 0x100 | 0x200000;
+
+/**
+ * Heights, flags, floors, collision and water of a region. Underground (`dungeon`), an upper level
+ * tile with no tile model also counts as floor when something stands on it and it can be walked:
+ * some lairs (the Wilderness boss chasms) lay their floor as loc models on level 2.
+ */
 function extractTerrainData(
     scene: Scene,
     overlayTypeLoader: OverlayFloorTypeLoader,
+    dungeon: boolean,
 ): Pick<RegionData, "heights" | "renderFlags" | "floors" | "collision" | "water"> {
     const corners = REGION_SIZE + 1;
     const heights = new Int32Array(LEVELS * corners * corners);
@@ -1047,8 +1073,11 @@ function extractTerrainData(
                 const i = (level * REGION_SIZE + x) * REGION_SIZE + y;
                 renderFlags[i] = scene.tileRenderFlags[level][x + BORDER_SIZE][y + BORDER_SIZE];
                 const tileModel = scene.tiles[level][x + BORDER_SIZE][y + BORDER_SIZE]?.tileModel;
-                floors[i] = tileModel && tileModel.faces.length > 0 ? 1 : 0;
                 collision[i] = collisionMap.getFlag(x + BORDER_SIZE, y + BORDER_SIZE);
+                const sceneTile = scene.tiles[level][x + BORDER_SIZE][y + BORDER_SIZE];
+                const locFloor =
+                    dungeon && level > 0 && (collision[i] & TILE_BLOCKED) === 0 && !!sceneTile && (sceneTile.locs.length > 0 || !!sceneTile.floorDecoration);
+                floors[i] = (tileModel && tileModel.faces.length > 0) || locFloor ? 1 : 0;
                 const overlayId = scene.tileOverlays[level][x + BORDER_SIZE][y + BORDER_SIZE] - 1;
                 const overlay = overlayId >= 0 ? overlayTypeLoader.load(overlayId) : undefined;
                 water[i] = overlay?.name?.toLowerCase().includes("water") ? 1 : 0;

@@ -1,5 +1,979 @@
 {
- "exclude": [],
- "links": [],
+ "exclude": [
+  {
+   "locId": 55353,
+   "from": [
+    1420,
+    2962,
+    0
+   ],
+   "action": "Home",
+   "note": "player-owned house portal: the house is an instance"
+  },
+  {
+   "locId": 15479,
+   "from": [
+    3338,
+    3001,
+    0
+   ],
+   "action": "Home",
+   "note": "player-owned house portal: the house is an instance"
+  },
+  {
+   "locId": 15482,
+   "from": [
+    2542,
+    3097,
+    0
+   ],
+   "action": "Home",
+   "note": "player-owned house portal: the house is an instance"
+  },
+  {
+   "locId": 15481,
+   "from": [
+    2755,
+    3176,
+    0
+   ],
+   "action": "Home",
+   "note": "player-owned house portal: the house is an instance"
+  },
+  {
+   "locId": 15478,
+   "from": [
+    2951,
+    3222,
+    0
+   ],
+   "action": "Home",
+   "note": "player-owned house portal: the house is an instance"
+  },
+  {
+   "locId": 15477,
+   "from": [
+    2891,
+    3463,
+    0
+   ],
+   "action": "Home",
+   "note": "player-owned house portal: the house is an instance"
+  },
+  {
+   "locId": 15480,
+   "from": [
+    2668,
+    3629,
+    0
+   ],
+   "action": "Home",
+   "note": "player-owned house portal: the house is an instance"
+  },
+  {
+   "locId": 34947,
+   "from": [
+    3237,
+    6077,
+    0
+   ],
+   "action": "Home",
+   "note": "player-owned house portal: the house is an instance"
+  }
+ ],
+ "links": [
+  {
+   "locId": 47175,
+   "name": "Cave",
+   "action": "Enter",
+   "from": [
+    3260,
+    3832,
+    0
+   ],
+   "to": [
+    3338,
+    10287,
+    0
+   ],
+   "dungeon": "Escape Caves",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 47148,
+   "name": "Cave",
+   "action": "Exit",
+   "from": [
+    3336,
+    10287,
+    0
+   ],
+   "to": [
+    3261,
+    3831,
+    0
+   ],
+   "dungeon": "Escape Caves",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 47175,
+   "name": "Cave",
+   "action": "Enter",
+   "from": [
+    3320,
+    3830,
+    0
+   ],
+   "to": [
+    3382,
+    10286,
+    0
+   ],
+   "dungeon": "Escape Caves",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 47148,
+   "name": "Cave",
+   "action": "Exit",
+   "from": [
+    3382,
+    10287,
+    0
+   ],
+   "to": [
+    3321,
+    3829,
+    0
+   ],
+   "dungeon": "Escape Caves",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 47175,
+   "name": "Cave",
+   "action": "Enter",
+   "from": [
+    3282,
+    3774,
+    0
+   ],
+   "to": [
+    3358,
+    10246,
+    0
+   ],
+   "dungeon": "Escape Caves",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 47147,
+   "name": "Cave",
+   "action": "Exit",
+   "from": [
+    3358,
+    10244,
+    0
+   ],
+   "to": [
+    3283,
+    3773,
+    0
+   ],
+   "dungeon": "Escape Caves",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 47175,
+   "name": "Cave",
+   "action": "Enter",
+   "from": [
+    3284,
+    3807,
+    0
+   ],
+   "to": [
+    3361,
+    10272,
+    0
+   ],
+   "dungeon": "Escape Caves",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 47149,
+   "name": "Exit",
+   "action": "Climb-up",
+   "from": [
+    3361,
+    10273,
+    0
+   ],
+   "to": [
+    3285,
+    3806,
+    0
+   ],
+   "dungeon": "Escape Caves",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 47140,
+   "name": "Cave Entrance",
+   "action": "Enter",
+   "from": [
+    3291,
+    3849,
+    0
+   ],
+   "to": [
+    3358,
+    10317,
+    0
+   ],
+   "dungeon": "Callisto's Den",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 47122,
+   "name": "Cave",
+   "action": "Exit",
+   "from": [
+    3358,
+    10315,
+    0
+   ],
+   "to": [
+    3338,
+    10287,
+    0
+   ],
+   "dungeon": "Callisto's Den",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 46995,
+   "name": "Crevice",
+   "action": "Jump-Down",
+   "from": [
+    3221,
+    3787,
+    0
+   ],
+   "to": [
+    3294,
+    10192,
+    1
+   ],
+   "dungeon": "Vet'ion's Rest",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 46925,
+   "name": "Cave",
+   "action": "Exit",
+   "from": [
+    3294,
+    10190,
+    1
+   ],
+   "to": [
+    3358,
+    10246,
+    0
+   ],
+   "dungeon": "Vet'ion's Rest",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 47077,
+   "name": "Cave Entrance",
+   "action": "Enter",
+   "from": [
+    3321,
+    3794,
+    0
+   ],
+   "to": [
+    3422,
+    10184,
+    2
+   ],
+   "dungeon": "Silk Chasm",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 47000,
+   "name": "Cave",
+   "action": "Exit",
+   "from": [
+    3422,
+    10183,
+    2
+   ],
+   "to": [
+    3382,
+    10286,
+    0
+   ],
+   "dungeon": "Silk Chasm",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 47141,
+   "name": "Cave Entrance",
+   "action": "Enter",
+   "from": [
+    3115,
+    3676,
+    0
+   ],
+   "to": [
+    1758,
+    11533,
+    0
+   ],
+   "dungeon": "Hunter's End",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 47122,
+   "name": "Cave",
+   "action": "Exit",
+   "from": [
+    1758,
+    11531,
+    0
+   ],
+   "to": [
+    3116,
+    3675,
+    0
+   ],
+   "dungeon": "Hunter's End",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 46996,
+   "name": "Memorial",
+   "action": "Enter",
+   "from": [
+    3180,
+    3683,
+    0
+   ],
+   "to": [
+    1886,
+    11536,
+    1
+   ],
+   "dungeon": "Skeletal Tomb",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 46925,
+   "name": "Cave",
+   "action": "Exit",
+   "from": [
+    1886,
+    11534,
+    1
+   ],
+   "to": [
+    3180,
+    3682,
+    0
+   ],
+   "dungeon": "Skeletal Tomb",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 47078,
+   "name": "Cave Entrance",
+   "action": "Enter",
+   "from": [
+    3183,
+    3744,
+    0
+   ],
+   "to": [
+    1630,
+    11528,
+    2
+   ],
+   "dungeon": "Web Chasm",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 47000,
+   "name": "Cave",
+   "action": "Exit",
+   "from": [
+    1630,
+    11527,
+    2
+   ],
+   "to": [
+    3184,
+    3743,
+    0
+   ],
+   "dungeon": "Web Chasm",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 1817,
+   "name": "Lever",
+   "action": "Pull",
+   "from": [
+    2271,
+    4680,
+    0
+   ],
+   "to": [
+    3067,
+    10254,
+    0
+   ],
+   "dungeon": "Lava Maze Dungeon",
+   "source": "shortest-path@a7dd4a2"
+  },
+  {
+   "locId": 1816,
+   "name": "Lever",
+   "action": "Pull",
+   "from": [
+    3067,
+    10253,
+    0
+   ],
+   "to": [
+    2271,
+    4680,
+    0
+   ],
+   "dungeon": "King Black Dragon Lair",
+   "source": "shortest-path@a7dd4a2"
+  },
+  {
+   "locId": 46089,
+   "name": "Entry",
+   "action": "Enter",
+   "from": [
+    3357,
+    9112,
+    0
+   ],
+   "to": [
+    3548,
+    5163,
+    0
+   ],
+   "dungeon": "Tombs of Amascut",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 45128,
+   "name": "Exit",
+   "action": "Leave",
+   "from": [
+    3549,
+    5163,
+    0
+   ],
+   "to": [
+    3361,
+    9129,
+    0
+   ],
+   "dungeon": "Tombs of Amascut",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 46155,
+   "name": "Path of Scabaras",
+   "action": "Enter",
+   "from": [
+    3559,
+    5155,
+    0
+   ],
+   "to": [
+    3521,
+    5277,
+    0
+   ],
+   "dungeon": "Tombs of Amascut",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Path of Scabaras"
+  },
+  {
+   "locId": 45128,
+   "name": "Exit",
+   "action": "Leave",
+   "from": [
+    3521,
+    5278,
+    0
+   ],
+   "to": [
+    3548,
+    5163,
+    0
+   ],
+   "dungeon": "Tombs of Amascut",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Path of Scabaras"
+  },
+  {
+   "locId": 45337,
+   "name": "Entry",
+   "action": "Enter",
+   "from": [
+    3582,
+    5279,
+    0
+   ],
+   "to": [
+    3534,
+    5407,
+    0
+   ],
+   "dungeon": "Tombs of Amascut",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Path of Scabaras"
+  },
+  {
+   "locId": 45144,
+   "name": "Exit",
+   "action": "Leave",
+   "from": [
+    3533,
+    5407,
+    0
+   ],
+   "to": [
+    3548,
+    5163,
+    0
+   ],
+   "dungeon": "Tombs of Amascut",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Path of Scabaras"
+  },
+  {
+   "locId": 46164,
+   "name": "Path of Het",
+   "action": "Enter",
+   "from": [
+    3539,
+    5146,
+    0
+   ],
+   "to": [
+    3699,
+    5283,
+    0
+   ],
+   "dungeon": "Tombs of Amascut",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Path of Het"
+  },
+  {
+   "locId": 45128,
+   "name": "Exit",
+   "action": "Leave",
+   "from": [
+    3699,
+    5278,
+    0
+   ],
+   "to": [
+    3548,
+    5163,
+    0
+   ],
+   "dungeon": "Tombs of Amascut",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Path of Het"
+  },
+  {
+   "locId": 45131,
+   "name": "Entry",
+   "action": "Enter",
+   "from": [
+    3659,
+    5278,
+    0
+   ],
+   "to": [
+    3698,
+    5406,
+    1
+   ],
+   "dungeon": "Tombs of Amascut",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Path of Het"
+  },
+  {
+   "locId": 46055,
+   "name": "Exit",
+   "action": "Leave",
+   "from": [
+    3699,
+    5406,
+    1
+   ],
+   "to": [
+    3548,
+    5163,
+    0
+   ],
+   "dungeon": "Tombs of Amascut",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Path of Het"
+  },
+  {
+   "locId": 46158,
+   "name": "Path of Apmeken",
+   "action": "Enter",
+   "from": [
+    3562,
+    5146,
+    0
+   ],
+   "to": [
+    3791,
+    5277,
+    0
+   ],
+   "dungeon": "Tombs of Amascut",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Path of Apmeken"
+  },
+  {
+   "locId": 45128,
+   "name": "Exit",
+   "action": "Leave",
+   "from": [
+    3791,
+    5278,
+    0
+   ],
+   "to": [
+    3548,
+    5163,
+    0
+   ],
+   "dungeon": "Tombs of Amascut",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Path of Apmeken"
+  },
+  {
+   "locId": 45500,
+   "name": "Entry",
+   "action": "Enter",
+   "from": [
+    3825,
+    5279,
+    0
+   ],
+   "to": [
+    3790,
+    5407,
+    0
+   ],
+   "dungeon": "Tombs of Amascut",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Path of Apmeken"
+  },
+  {
+   "locId": 45844,
+   "name": "Exit",
+   "action": "Leave",
+   "from": [
+    3788,
+    5407,
+    0
+   ],
+   "to": [
+    3548,
+    5163,
+    0
+   ],
+   "dungeon": "Tombs of Amascut",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Path of Apmeken"
+  },
+  {
+   "locId": 46161,
+   "name": "Path of Crondis",
+   "action": "Enter",
+   "from": [
+    3541,
+    5155,
+    0
+   ],
+   "to": [
+    3955,
+    5283,
+    0
+   ],
+   "dungeon": "Tombs of Amascut",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Path of Crondis"
+  },
+  {
+   "locId": 45453,
+   "name": "Exit",
+   "action": "Leave",
+   "from": [
+    3955,
+    5278,
+    0
+   ],
+   "to": [
+    3548,
+    5163,
+    0
+   ],
+   "dungeon": "Tombs of Amascut",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Path of Crondis"
+  },
+  {
+   "locId": 45397,
+   "name": "Entry",
+   "action": "Enter",
+   "from": [
+    3916,
+    5279,
+    0
+   ],
+   "to": [
+    3960,
+    5407,
+    0
+   ],
+   "dungeon": "Tombs of Amascut",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Path of Crondis"
+  },
+  {
+   "locId": 45543,
+   "name": "Exit",
+   "action": "Leave",
+   "from": [
+    3961,
+    5407,
+    0
+   ],
+   "to": [
+    3548,
+    5163,
+    0
+   ],
+   "dungeon": "Tombs of Amascut",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Path of Crondis"
+  },
+  {
+   "locId": 46228,
+   "name": "Strange tablet",
+   "action": "Enter",
+   "from": [
+    3658,
+    5153,
+    0
+   ],
+   "to": [
+    3805,
+    5178,
+    1
+   ],
+   "dungeon": "Tombs of Amascut",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "The Wardens"
+  },
+  {
+   "locId": 45129,
+   "name": "Exit",
+   "action": "Leave",
+   "from": [
+    3806,
+    5178,
+    1
+   ],
+   "to": [
+    3361,
+    9129,
+    0
+   ],
+   "dungeon": "Tombs of Amascut",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "The Wardens"
+  },
+  {
+   "locId": 32653,
+   "name": "Theatre of Blood",
+   "action": "Enter",
+   "from": [
+    3678,
+    3216,
+    0
+   ],
+   "to": [
+    3190,
+    4446,
+    0
+   ],
+   "dungeon": "Theatre of Blood",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "The Maiden of Sugadinti"
+  },
+  {
+   "locId": 33113,
+   "name": "Formidable passage",
+   "action": "Enter",
+   "from": [
+    3176,
+    4422,
+    0
+   ],
+   "to": [
+    3284,
+    4447,
+    0
+   ],
+   "dungeon": "Theatre of Blood",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Pestilent Bloat"
+  },
+  {
+   "locId": 33113,
+   "name": "Formidable passage",
+   "action": "Enter",
+   "from": [
+    3269,
+    4447,
+    0
+   ],
+   "to": [
+    3295,
+    4258,
+    0
+   ],
+   "dungeon": "Theatre of Blood",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Nylocas"
+  },
+  {
+   "locId": 33113,
+   "name": "Formidable passage",
+   "action": "Enter",
+   "from": [
+    3303,
+    4275,
+    0
+   ],
+   "to": [
+    3279,
+    4304,
+    0
+   ],
+   "dungeon": "Theatre of Blood",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Sotetseg"
+  },
+  {
+   "locId": 33113,
+   "name": "Formidable passage",
+   "action": "Enter",
+   "from": [
+    3279,
+    4293,
+    0
+   ],
+   "to": [
+    3170,
+    4376,
+    1
+   ],
+   "dungeon": "Theatre of Blood",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Xarpus"
+  },
+  {
+   "locId": 32751,
+   "name": "Door",
+   "action": "Enter",
+   "from": [
+    3169,
+    4400,
+    1
+   ],
+   "to": [
+    3167,
+    4335,
+    0
+   ],
+   "dungeon": "Theatre of Blood",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Verzik Vitur"
+  },
+  {
+   "locId": 32995,
+   "name": "Stairs",
+   "action": "Climb",
+   "from": [
+    3237,
+    4305,
+    0
+   ],
+   "to": [
+    3678,
+    3223,
+    0
+   ],
+   "dungeon": "Theatre of Blood",
+   "source": "hand (cache locs, OSRS Wiki descriptions)",
+   "note": "Treasure room stairs out"
+  },
+  {
+   "locId": 29777,
+   "name": "Chambers of Xeric",
+   "action": "Enter",
+   "from": [
+    1232,
+    3573,
+    0
+   ],
+   "to": [
+    3233,
+    5718,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 29996,
+   "name": "Rope",
+   "action": "Climb-up",
+   "from": [
+    3232,
+    5718,
+    0
+   ],
+   "to": [
+    1233,
+    3572,
+    0
+   ],
+   "dungeon": "Chambers of Xeric",
+   "source": "hand (cache locs, OSRS Wiki descriptions)"
+  }
+ ],
  "excludeSquares": []
 }

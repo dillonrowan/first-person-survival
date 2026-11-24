@@ -83,6 +83,7 @@ const clearColour = (page: Page) =>
 test("the Lumbridge cellar trapdoor leads down and its ladder back up", async ({ page }) => {
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(String(e)));
+    page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
     await page.goto("/?x=3210&y=3217");
     await page.waitForFunction(() => !!window.game?.player?.ready, undefined, { timeout: 180_000, polling: 1000 });
     const surfaceSky = await clearColour(page);
@@ -92,7 +93,9 @@ test("the Lumbridge cellar trapdoor leads down and its ladder back up", async ({
     expect(used?.links?.[0]).toMatchObject({ x: 3210, y: 9616 });
     await page.waitForTimeout(150);
     await shot(page, "lumbridge-2-fading");
-    await arrive(page, true, 9000);
+    await arrive(page, true, 9000).catch((e) => {
+        throw new Error([String(e), ...errors].join(" | "));
+    });
     await page.waitForTimeout(2000);
     await shot(page, "lumbridge-3-cellar");
     const below = await page.evaluate(() => ({ x: window.game!.player.x, y: window.game!.player.y, log: document.querySelector("#message-log")!.textContent }));
@@ -110,6 +113,61 @@ test("the Lumbridge cellar trapdoor leads down and its ladder back up", async ({
     expect(Math.hypot(back.x - 3210, back.y - 3216)).toBeLessThan(5);
     expect(await clearColour(page)).toBeGreaterThan(surfaceSky * 0.8);
     expect(errors).toEqual([]);
+});
+
+/** Starts at a tile, uses the loc at (x, y) and waits until the player stands, loaded, near `to`. */
+async function travel(page: Page, start: [number, number, number], loc: [number, number], action: string, to: [number, number], within = 12) {
+    await page.goto(`/?x=${start[0]}&y=${start[1]}&plane=${start[2]}`);
+    await page.waitForFunction(() => !!window.game?.player?.ready, undefined, { timeout: 180_000, polling: 1000 });
+    const used = await act(page, loc[0], loc[1], action);
+    expect(used, `a loc with ${action} at ${loc.join(",")}`).toBeDefined();
+    await page.waitForFunction(
+        ([x, y, within]) => {
+            const p = window.game!.player;
+            const fade = Number(getComputedStyle(document.getElementById("fade")!).opacity);
+            return p.ready && Math.hypot(p.x - x, p.y - y) < within && fade < 0.05;
+        },
+        [to[0], to[1], within] as const,
+        { timeout: 120_000, polling: 250 },
+    );
+    return page.evaluate(() => ({ x: window.game!.player.x, y: window.game!.player.y, plane: window.game!.player.plane }));
+}
+
+// Teleport-style ways between dungeon areas and into boss lairs and raids, from the Shortest Path
+// lever and portal files and the hand-made links.
+const WAYS: { name: string; start: [number, number, number]; loc: [number, number]; action: string; to: [number, number] }[] = [
+    { name: "the King Black Dragon lever", start: [3067, 10255, 0], loc: [3067, 10253], action: "Pull", to: [2271, 4680] },
+    { name: "a Stronghold of Security portal", start: [1863, 5237, 0], loc: [1863, 5238], action: "Use", to: [1914, 5222] },
+    { name: "Callisto's Den", start: [3291, 3847, 0], loc: [3291, 3849], action: "Enter", to: [3358, 10317] },
+    { name: "the Silk Chasm", start: [3321, 3792, 0], loc: [3321, 3794], action: "Enter", to: [3422, 10190] },
+    { name: "the Theatre of Blood", start: [3678, 3214, 0], loc: [3678, 3216], action: "Enter", to: [3190, 4446] },
+    { name: "the Tombs of Amascut", start: [3357, 9110, 0], loc: [3357, 9112], action: "Enter", to: [3548, 5163] },
+];
+for (const way of WAYS) {
+    test(`${way.name} leads where it should`, async ({ page }) => {
+        const errors: string[] = [];
+        page.on("pageerror", (e) => errors.push(String(e)));
+        const consoleErrors: string[] = [];
+        page.on("console", (m) => m.type() === "error" && consoleErrors.push(m.text()));
+        const at = await travel(page, way.start, way.loc, way.action, way.to).catch(async (e) => {
+            const where = await page.evaluate(() => ({ x: window.game?.player.x, y: window.game?.player.y, plane: window.game?.player.plane, log: document.querySelector("#message-log")?.textContent?.slice(-200) }));
+            throw new Error([String(e), JSON.stringify(where), ...consoleErrors].join(" | "));
+        });
+        await shot(page, way.name.replace(/\W+/g, "-"));
+        expect(Math.hypot(at.x - way.to[0], at.y - way.to[1])).toBeLessThan(12);
+        expect(errors).toEqual([]);
+    });
+}
+
+test("the world map shows the dungeon the player is in, and the surface from it", async ({ page }) => {
+    await page.goto("/?x=3210&y=9617");
+    await page.waitForFunction(() => !!window.game?.player?.ready, undefined, { timeout: 180_000, polling: 1000 });
+    await page.evaluate(() => window.game!.worldMap.open());
+    await expect(page.locator("#world-map strong")).toHaveText("Lumbridge Castle cellar", { timeout: 30_000 });
+    await shot(page, "map-dungeon");
+    await page.getByRole("button", { name: "Surface" }).click();
+    await expect(page.locator("#world-map strong")).toHaveText("World map");
+    await shot(page, "map-surface");
 });
 
 test("the Edgeville trapdoor opens, then leads down", async ({ page }) => {
