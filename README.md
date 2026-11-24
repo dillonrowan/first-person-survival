@@ -208,8 +208,10 @@ longer match the cache are skipped and counted in the export log).
   names (`data/animation-names-runelite.json`): a creature's attack is the one on its own skeleton
   whose name matches its idle (`ZOMBIE_UPDATE_READY_DRAGGING` → `ZOMBIE_UPDATE_ATTACK_DRAGGING`),
   and NPCs on the player's skeleton fight like players, with their stance's weapon attacks (or
-  punches and kicks when they hold nothing). NPCs the cache has no attack for lunge with a generic
-  attack made in Blender (`tools/blender/lunge_clip.py`).
+  punches and kicks when they hold nothing). The blow lands at the frame of the clip's fastest
+  forward-and-down stroke. `tools/world-export/audit-npc-attacks.ts` flags doubtful choices and
+  `tools/blender/attack_poses.ts` renders each NPC at the moment of its hits in Blender. NPCs the
+  cache has no attack for lunge with a generic attack made in Blender (`tools/blender/lunge_clip.py`).
 - NPCs that use more than melee (dragons breathe fire, archers shoot, mages cast) get one baked
   clip per attack style. The styles come from the OSRS wiki, not the cache:
   `npm run fetch-wiki-attacks` saves them to `tools/world-export/data/npc-attacks-wiki.json`, and

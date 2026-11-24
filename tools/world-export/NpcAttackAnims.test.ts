@@ -80,6 +80,36 @@ describe("chooseAttacks", () => {
         expect(pick(2065, true)).toEqual([2066]);
     });
 
+    it("reads numbered words as words: a ranged attack is not melee, an idle is no attack", () => {
+        const callisto = new Map([[10011, "NPC_CALLISTO_IDLE01"], [10012, "NPC_CALLISTO_ATTACK_MELEE01"], [10013, "NPC_CALLISTO_ATTACK_RANGED01"]]);
+        expect(chooseAttacks(callisto, 10011, 9, [10011, 10012, 10013], false).seqIds).toEqual([10012]);
+        const nylo = new Map([[8002, "TOP_SPIDER_MELEE_IDLE"], [8004, "TOP_SPIDER_MELEE_ATTACK"]]);
+        expect(chooseAttacks(nylo, 8002, 9, [8002, 8004], false).seqIds).toEqual([8004]);
+        const mahjarrat = new Map([[1, "MAHJARRAT_READY01"], [2, "MAHJARRAT_ATTACK_MELEE01"], [3, "MAHJARRAT_ATTACK_SUMMON01"], [4, "MAHJARRAT_ATTACK_MAGIC01"]]);
+        expect(chooseAttacks(mahjarrat, 1, 9, [1, 2, 3, 4], false).seqIds).toEqual([2]);
+    });
+
+    it("gives a goblin with no club its unarmed attack, not the club swing", () => {
+        const goblin = new Map([[6040, "DORGESH_GOBLIN_READY"], [6001, "DORGESH_GOBLIN_UNARMED_ATTACK"], [6007, "DORGESH_GOBLIN_CLUB_ATTACK"]]);
+        expect(chooseAttacks(goblin, 6040, 9, [6040, 6001, 6007], false).seqIds).toEqual([6001]);
+    });
+
+    it("falls back to the skeleton's own attack when none shares the idle's family", () => {
+        const gull = new Map([[6815, "DUCK_REWORK_LAND_READY_AND_EXTRA"], [3467, "SEAGULL_ATTACK"], [6817, "DUCK_REWORK_SWIM"]]);
+        expect(chooseAttacks(gull, 6815, 9, [6815, 3467, 6817], false).seqIds).toEqual([3467]);
+        // Effect sequences on an effects skeleton are never a body's attack.
+        const watt = new Map([[10723, "KILLERWATT_BALL_READY_UPDATE"], [10322, "VFX_LEVIATHAN_01_PROJECTILE_MELEE_01"]]);
+        expect(chooseAttacks(watt, 10723, 9, [10723, 10322], false).seqIds).toEqual([]);
+    });
+
+    it("lets a family word excluded elsewhere name a creature's own attack", () => {
+        const fire = new Map([[1027, "ELEMENTAL_FIRE_READY"], [1029, "ELEMENTAL_FIRE_ATTACK"]]);
+        expect(chooseAttacks(fire, 1027, 9, [1027, 1029], false).seqIds).toEqual([1029]);
+        // Not on the player's skeleton, where the idle names a stance: a crossbow guard keeps a sword.
+        const guard = new Map([...NAMES, [4591, "XBOWS_HUMAN_READY"], [9999, "HUMAN_XBOWS_LEAGUE03_ATTACK"]]);
+        expect(chooseAttacks(guard, 4591, PLAYER_FRAME_BASE, [...guard.keys()], true).seqIds).toEqual([...HUMAN_ATTACKS.sword]);
+    });
+
     it("reports when a skeleton has no named attack", () => {
         expect(chooseAttacks(NAMES, 5576, 7, [5567, 5569], false)).toEqual({ seqIds: [], reason: expect.stringContaining("no named attack") });
     });

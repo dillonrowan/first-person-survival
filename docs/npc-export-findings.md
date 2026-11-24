@@ -126,6 +126,49 @@ Callisto and Vet'ion (skeletal, without clips then) now bake theirs like the res
 | No idle animation        | 127    | Neither the spawn's NPC nor the one shown has an idle sequence. rs-map-viewer skips these too. Not inspected by name yet. A hand-added spawn marked `still` in `data/npc-spawn-overrides.json` (the Great Olm) is kept in its base pose. |
 | No model                 | 0      |                                                                                                                        |
 
+## Attack animation audit (November 2026)
+
+`npx tsx tools/world-export/audit-npc-attacks.ts` checks the attack clips of every exported NPC
+against their sequence names and writes `out/attack-audit.json`. The first run, over 1,571
+attackable appearances, found:
+
+- **Numbered names were misread.** `NPC_CALLISTO_ATTACK_RANGED01` kept `RANGED01` as one word, so
+  Callisto and Artio swung their ranged animation as a melee attack, and `MAHJARRAT_ATTACK_MAGIC01`
+  was a melee swing for General Khazard and Azzanadra. Numbers are now split off and ignored when
+  names are compared.
+- **Idles, roars and summons counted as attacks** (`TOP_SPIDER_MELEE_IDLE` for Nylocas Vasilias,
+  Zebak's roar, the Mahjarrat summon). They are excluded now.
+- **A creature's own family word excluded its attack**: `ELEMENTAL_FIRE_ATTACK` was dropped as
+  "fire" breath, so the fire elemental had no attack, and fire giants used the plain giant's. A word
+  the idle's name shares names the family and no longer excludes (not on the player's skeleton,
+  where the idle names a stance: crossbow guards keep their sword).
+- **Clips that do not move** (the 4-cycle `DEMON_UPDATE_ATTACK` of every demon) are no longer baked.
+- **Bosses whose other styles reused their melee animation**, set in `data/npc-attack-overrides.ts`
+  from the OSRS Wiki's account of each fight: Corporeal Beast (sprite shot), Vorkath (fireball spit),
+  Cerberus, Sotetseg, Zebak, the Leviathan (orb volleys), the Kalphite Queen (lightning), the
+  Skeletal Wyvern (iceball), the fossil wyverns, TzHaar-Xil (ring throw), Experiment No.2 (throw)
+  and Nylocas Vasilias.
+- **The blow landed at the wrong moment** for long weapons (Akkha's spear at cycle 5 of 60, the
+  Warden at 86 of 90, a fire giant's slash at 38 of 40), because the impact was the frame of
+  furthest forward reach, which a spear or a sideways slash reaches at rest. It is now the end of the
+  fastest forward-and-down stroke, not counting the first step: 155 melee clips (the staff pound of
+  82 human NPCs, ogres, wolves) open with a snap from their first frame into the swing, which won
+  over the blow itself. Renders of over 40 NPCs (rest pose and each attack at its hit, and whole
+  swings frame by frame, through `tools/blender/attack_poses.ts` and `render_attack_poses.py`)
+  checked it; the one doubtful case is Nylocas Vasilias, whose quick leg snap at 51 of 60 beats its
+  strike at 35.
+- **Cave goblins swung a club they do not hold**: "CLUB" was not a weapon word, so
+  `DORGESH_GOBLIN_CLUB_ATTACK` tied with their unarmed attack. It is one now.
+- **Seagulls and ducks had no attack**, though the wiki gives both a melee attack: they idle with
+  the duck's sequence, and the only attack on that skeleton is `SEAGULL_ATTACK`. When no attack
+  shares the idle's family, the skeleton's best one is taken now (it fits the rig).
+- **Effect sequences were picked as attacks** (`VFX_DJINN_01_MAGIC_01` for the Killerwatt, whose
+  skeleton is an effects one). `VFX` sequences are excluded; the Killerwatt has no body animation of
+  its own and attacks without one.
+
+Styles still sharing the melee animation are those the cache gives no other for (dark beasts, the
+revenants, the Suqah, metal dragons' ranged attack); the wiki describes no separate pose for them.
+
 ## Limitations
 
 - Per-frame alpha changes are not baked; faces keep their base alpha (skeletal ones included).
