@@ -4,7 +4,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import { isCacheAvailable, readCacheFiles } from "./cache-files";
 import { isSurfaceTile } from "./DungeonCandidates";
@@ -61,8 +61,11 @@ describe("selecting dungeon squares", () => {
 });
 
 describe.skipIf(!isCacheAvailable(CACHE) || !file)("links in the region export", () => {
-    const loaders = createWorldLoaders(readCacheFiles(CACHE));
-    const builder = new RegionBuilder(loaders, undefined, undefined, new DungeonLinkIndex(file!.links));
+    // Built in beforeAll: vitest runs a skipped suite's body too, and without a cache this throws.
+    let builder: RegionBuilder;
+    beforeAll(() => {
+        builder = new RegionBuilder(createWorldLoaders(readCacheFiles(CACHE)), undefined, undefined, new DungeonLinkIndex(file!.links));
+    });
 
     // The Lumbridge castle trapdoor is a floor decoration with a Climb-down; it must carry its link.
     it("exports the Lumbridge cellar trapdoor with its link", () => {

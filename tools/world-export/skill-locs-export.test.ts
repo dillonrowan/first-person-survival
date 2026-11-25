@@ -3,7 +3,7 @@
 
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import { isCacheAvailable, readCacheFiles } from "./cache-files";
 import { RegionBuilder } from "./RegionBuilder";
@@ -14,9 +14,14 @@ const CACHE = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../
 const index = loadSkillLocIndex();
 
 describe.skipIf(!isCacheAvailable(CACHE) || !index)("skill locs in the region export", () => {
-    const builder = new RegionBuilder(createWorldLoaders(readCacheFiles(CACHE)), undefined, index);
-    const region = builder.build(50, 50)!.region;
-    const skill = region.interactives.filter((i) => i.kind === "skill");
+    // Built in beforeAll: vitest runs a skipped suite's body too, and without a cache this throws.
+    let region: NonNullable<ReturnType<RegionBuilder["build"]>>["region"];
+    let skill: typeof region.interactives;
+    beforeAll(() => {
+        const builder = new RegionBuilder(createWorldLoaders(readCacheFiles(CACHE)), undefined, index);
+        region = builder.build(50, 50)!.region;
+        skill = region.interactives.filter((i) => i.kind === "skill");
+    }, 120_000);
 
     it("gives trees their own mesh and a stump", () => {
         const trees = skill.filter((i) => i.name === "Tree");

@@ -167,11 +167,22 @@ async function main(): Promise<void> {
     const itemDb = await ItemDb.load(`${WORLD_URL}items.json`);
     const groundItemManifest = await loadGroundItems(manifest);
 
-    const renderer = new THREE.WebGLRenderer({
-        canvas,
-        antialias: true,
-        powerPreference: "high-performance",
-    });
+    let renderer: THREE.WebGLRenderer;
+    try {
+        renderer = new THREE.WebGLRenderer({
+            canvas,
+            antialias: true,
+            powerPreference: "high-performance",
+        });
+    } catch (e) {
+        // The browser has no WebGL 2: usually a stopped or missing GPU driver, or hardware
+        // acceleration turned off (Chrome no longer falls back to software WebGL on its own).
+        throw new Error(
+            "This browser could not start WebGL 2. Check that the graphics driver works and that " +
+                "hardware acceleration is on (chrome://gpu shows both).",
+            { cause: e },
+        );
+    }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(window.innerWidth, window.innerHeight, false);
     renderer.setClearColor(SKY_COLOR);

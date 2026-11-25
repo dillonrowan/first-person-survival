@@ -9,6 +9,9 @@ export default defineConfig({
         timeout: 10_000,
     },
     fullyParallel: false,
+    // One browser at a time: the game renders in SwiftShader on the CPU, and parallel workers
+    // starve each other into timeouts.
+    workers: 1,
     reporter: [
         [process.env.CI ? "dot" : "list"],
         ["html", { open: "never", outputFolder: "playwright-report" }],

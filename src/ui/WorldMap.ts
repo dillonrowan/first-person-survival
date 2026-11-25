@@ -258,7 +258,12 @@ export class WorldMap {
             const manifest = (await response.json()) as MapManifest;
             if (!manifest.dungeons) throw new Error("map.json is from an older export-map");
             this.manifest = manifest;
-            await this.imageFor(manifest);
+            // Not awaited: the surface image is large and slow to decode, and the map can already
+            // show a dungeon's area. It redraws once the image is in.
+            void Promise.resolve(this.imageFor(manifest)).catch((e) => {
+                console.warn("The surface map image could not be loaded", e);
+                this.status.textContent = "No map image: run npm run export-map.";
+            });
             this.sites.mining = clusterSites((manifest.rocks ?? []).map((r) => ({ x: r.x, y: r.y, tag: r.name.replace(/ rocks?$/i, "") })));
         })().catch((e) => {
             console.warn("The world map could not be loaded", e);
