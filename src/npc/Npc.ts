@@ -106,6 +106,8 @@ export interface NpcBehaviour {
     readonly runSeq?: number;
     /** Extra clip played on death instead of falling as a ragdoll; held on its last frame. */
     readonly deathSeq?: number;
+    /** The player's blows do no damage now (Bryophyta while her growthlings live). */
+    readonly invulnerable?: boolean;
     /**
      * A boss move (NpcAttack.special) began, with the player where they stand then, or reached its
      * impact. Such moves never reach CombatContext.strike.

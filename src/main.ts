@@ -17,6 +17,7 @@ import { NPC_EFFECTS, npcGraphicIds, pickNpcSpell } from "./npc/NpcSpells";
 import { FallingBricks } from "./npc/FallingBricks";
 import { FallingBricksView } from "./npc/FallingBricksView";
 import { GIANT_RAT_ID, SCURRIUS_IDS, ScurriusFight } from "./npc/Scurrius";
+import { BRYOPHYTA_ID, BryophytaFight, GROWTHLING_ID } from "./npc/Bryophyta";
 import { applyDrain, curseMessage, runHitEffects } from "./npc/NpcHitEffects";
 import { NpcProjectile, ProjectileTarget, launchNpcProjectile, stepNpcProjectiles } from "./npc/NpcProjectiles";
 import { presenceFor } from "./npc/NpcSenses";
@@ -241,19 +242,30 @@ async function main(): Promise<void> {
               return decodeNpcModel(await gunzip(await response.arrayBuffer()));
           })
         : undefined;
-    // Scurrius's fight (npc/Scurrius.ts): the rubble his stomps bring down, the rats he calls up.
+    // Boss fights: Scurrius (npc/Scurrius.ts), with the rubble his stomps bring down and the rats he
+    // calls up, and Bryophyta (npc/Bryophyta.ts) with her growthlings.
     const fallingBricks = new FallingBricks();
     const fallingBricksView = new FallingBricksView(scene, spellEffects, (plane, x, y) => world.groundHeight(plane, x, y));
     if (npcs) {
-        npcs.behaviourFor = (npc) =>
-            SCURRIUS_IDS.has(npc.appearance.id)
-                ? new ScurriusFight(npc, {
-                      bricks: fallingBricks,
-                      summonRat: (x, y, plane) => npcs.summon(GIANT_RAT_ID, x, y, plane),
-                      random: Math.random,
-                      say: (text) => ui.showMessage(text),
-                  })
-                : undefined;
+        npcs.behaviourFor = (npc) => {
+            const say = (text: string) => ui.showMessage(text);
+            if (SCURRIUS_IDS.has(npc.appearance.id)) {
+                return new ScurriusFight(npc, {
+                    bricks: fallingBricks,
+                    summonRat: (x, y, plane) => npcs.summon(GIANT_RAT_ID, x, y, plane),
+                    random: Math.random,
+                    say,
+                });
+            }
+            if (npc.appearance.id === BRYOPHYTA_ID) {
+                return new BryophytaFight(npc, {
+                    summonGrowthling: (x, y, plane) => npcs.summon(GROWTHLING_ID, x, y, plane),
+                    random: Math.random,
+                    say,
+                });
+            }
+            return undefined;
+        };
     }
     const input = new Input(canvas);
     // Physics props (spec 19): crates, barrels and sacks exported as loose objects.
@@ -733,6 +745,8 @@ async function main(): Promise<void> {
     const skillSystem = skilling.system;
     let slayerWarned = -Infinity;
     combat.canDamage = (target) => {
+        // A boss shielded by her minions takes no damage (Bryophyta's growthlings).
+        if ((target as unknown as Partial<Npc>).behaviour?.invulnerable) return false;
         const id = (target as unknown as Partial<Npc>).appearance?.id;
         if (id === undefined || skillSystem.slayer.canDamage(id)) return true;
         if (performance.now() - slayerWarned > 3000) {

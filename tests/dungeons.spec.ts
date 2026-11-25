@@ -202,6 +202,42 @@ test("Scurrius' lair: in through the broken bars, he fights, out across the sewa
     expect(errors).toEqual([]);
 });
 
+test("Bryophyta's lair: in through her gate, she fights, out over the rock pile", async ({ page }) => {
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(String(e)));
+    // The Varrock Sewers south of her gate, then her chamber beyond it.
+    const inside = await travel(page, [3174, 9898, 0], [3174, 9901], "Open", [3215, 9937], 4);
+    expect(inside.plane).toBe(0);
+
+    // She is aggressive: walking into the chamber starts the fight.
+    await page.waitForFunction(
+        () => window.game!.npcs.all().some((n: any) => n.appearance.name === "Bryophyta" && n.alerted && n.behaviour?.mode === "fighting"),
+        undefined,
+        { timeout: 60_000, polling: 250 },
+    );
+    await page.evaluate(() => {
+        const g = window.game!;
+        const b = g.npcs.all().find((n: any) => n.appearance.name === "Bryophyta");
+        g.player.yaw = Math.atan2(-(b.body.x - g.player.x), b.body.y - g.player.y);
+    });
+    await page.waitForTimeout(1500);
+    await shot(page, "bryophyta-fight");
+
+    expect(await act(page, 3212, 9937, "Clamber")).toBeDefined();
+    // South, back through the gate into the sewer.
+    await page.waitForFunction(
+        () => {
+            const p = window.game!.player;
+            return p.ready && p.y < 9901 && Number(getComputedStyle(document.getElementById("fade")!).opacity) < 0.05;
+        },
+        undefined,
+        { timeout: 120_000, polling: 250 },
+    );
+    const out = await page.evaluate(() => ({ x: window.game!.player.x, y: window.game!.player.y }));
+    expect(Math.hypot(out.x - 3174.5, out.y - 9899.5)).toBeLessThan(4);
+    expect(errors).toEqual([]);
+});
+
 test("the world map shows the dungeon the player is in, and the surface from it", async ({ page }) => {
     await page.goto("/?x=3210&y=9617");
     await page.waitForFunction(() => !!window.game?.player?.ready, undefined, { timeout: 180_000, polling: 1000 });

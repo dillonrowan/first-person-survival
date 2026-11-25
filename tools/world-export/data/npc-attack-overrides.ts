@@ -109,6 +109,18 @@ export const OVERRIDES: Record<string, NpcAttackOverride> = {
     "Taloned Wyvern": { styles: { ranged: { seq: 7657 } } },
     "Spitting Wyvern": { styles: { ranged: { seq: 7657 } } },
     "Ancient Wyvern": { styles: { ranged: { seq: 7657 } } },
+    // Bryophyta clubs with the moss giant's attack and casts with the giants' spell; she stamps to call
+    // up her growthlings and dies as moss giants do (src/npc/Bryophyta.ts plays these by id).
+    Bryophyta: {
+        styles: {
+            melee: { seq: 4658 }, // GIANT_UPDATE_MOSS_ATTACK
+            magic: { seq: 7173, color: 0x5fae3a }, // GIANT_BASIC_SPELL
+        },
+        extraSeqs: [
+            7183, // GIANT_BASIC_STAMP
+            4659, // GIANT_UPDATE_MOSS_DEATH
+        ],
+    },
     // Scurrius: his two tail swipes, the fur he flings and the lightning he calls. The extra clips are
     // the rest of his fight (src/npc/Scurrius.ts plays them by id): the stomp that brings the bricks
     // down, the screech that calls the rats, eating at a food pile, the run there, the enrage at 30%,
