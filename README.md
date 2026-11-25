@@ -200,7 +200,8 @@ longer match the cache are skipped and counted in the export log).
   frame base rotates them.
 - NPCs are solid: the player is pushed out of their collision cylinder and slides around them,
   and NPCs wait instead of walking into the player. Skeletal animations (Callisto, the Tombs
-  of Amascut bosses) are baked like frame ones. Deaths and knockdowns are ragdolls.
+  of Amascut bosses) are baked like frame ones. Deaths and knockdowns are ragdolls, except for
+  Scurrius, who plays his OSRS death animation and is never knocked down (`src/npc/Scurrius.ts`).
   Dev builds can draw the collision circles with `?debug=collision`.
 - NPC attacks are the cache's own melee animations, baked into each NPC file with the moment the
   blow lands (`tools/world-export/NpcAttackAnims.ts`). The cache does not say which animation an
@@ -219,7 +220,8 @@ longer match the cache are skipped and counted in the export log).
   `docs/combat-movement-spec.md`). `tools/blender/check_attack.py` loads an attack into Blender
   to check its release frame and launch point.
 - `npm run export-world -- --no-npcs` skips them; `--npcs-only` re-bakes the NPCs of the exported
-  map without exporting it again.
+  map without exporting it again, and `--npcs-only --npc-ids 7222,7223` only those NPC ids, merged
+  into the exported `npcs.json`.
 
 Runtime (`src/`): three.js, one raw shader (`WorldMaterials.ts`), region streaming around the
 player (`World.ts`), and a first-person controller with tile collision (`Player.ts`). In dev

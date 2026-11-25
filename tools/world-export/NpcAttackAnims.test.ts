@@ -154,6 +154,14 @@ describe("chooseStyledAttacks", () => {
         expect(choice).toEqual([{ seqId: 84, style: "dragonfire", shove: false, fallback: false }]);
     });
 
+    it("bakes one clip for each of a list of explicit sequences (Scurrius's two tail swipes)", () => {
+        const choice = chooseStyledAttacks(NAMES, 90, 4, dragon, false, ["melee"], { melee: [10692, 10693] });
+        expect(choice).toEqual([
+            { seqId: 10692, style: "melee", shove: false, fallback: false },
+            { seqId: 10693, style: "melee", shove: false, fallback: false },
+        ]);
+    });
+
     it("reuses the melee animation for a style with no sequence of its own", () => {
         const choice = chooseStyledAttacks(NAMES, 5576, 7, zombie, false, ["melee", "ranged"], {});
         expect(choice).toEqual([

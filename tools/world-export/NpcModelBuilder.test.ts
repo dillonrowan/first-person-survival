@@ -126,6 +126,16 @@ describe("NpcModelBuilder", () => {
         expect(Array.from(positions.slice(12 + 3, 12 + 6))).toEqual([120, 0, 0]);
     });
 
+    it("bakes a boss's extra clips by sequence id, without an attack picker", () => {
+        const model = builder({ seqs: { 5: seq([2]), 7: seq([2, 2, 2]), 8: seq([4]) } }).build({ ...task(5), extraSeqs: [7, 99, 8] })!;
+
+        // Sequence 99 has no frames: it is left out.
+        expect(model.extras!.map((c) => c.seqId)).toEqual([7, 8]);
+        expect(model.extras![0].frameLengths.length).toBe(3);
+        expect(model.extras![0].hitCycle).toBeGreaterThan(0);
+        expect(model.attacks).toBeUndefined();
+    });
+
     it("bakes a walk animation next to the idle one", () => {
         const model = builder({ seqs: { 5: seq([2]), 6: seq([1, 1, 1]) } }).build(task(5, 6))!;
 

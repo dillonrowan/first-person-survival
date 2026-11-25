@@ -75,6 +75,7 @@ coordinates, so the tiles come from the cache: the entrance and exit locs, match
 | Web Chasm (Spindel) | Cave Entrance 47078, 3183,3744 | exit 47000, 1630,11527 plane 2 | beside the entrance |
 | Tombs of Amascut | Entry 46089 (lobby) | Nexus; four paths, each puzzle room then boss room; tablet 46228 to the Wardens | Exit locs back to the Nexus, the Nexus exit to the lobby |
 | Theatre of Blood | Theatre of Blood 32653, 3678,3216 | Maiden, then each Formidable passage (33113) to the next room; Xarpus's door to Verzik; the gate 32691 at the end of Verzik's entry corridor to the treasure room (OSRS spawns the real exit on the kill) | treasure room stairs |
+| Scurrius' Lair | Broken bars 14203, 3282,9867 (Varrock Sewers) | the arena, 3291,9867 | Sewage water 14204, 3288,9867, back to 3281,9867 |
 | Chambers of Xeric | Chambers of Xeric 29777, 1232,3573 | the room templates (x 3264..3359, y 5120..5407) in a fixed order, sorted by row then column: every passage, hole or steps in a room leads to the next room's centre, the last room's to the Olm's chamber | the ropes 29995, 29996, 32543 |
 
 OSRS builds a Chambers of Xeric raid from these templates at random; here they stand in one order.
@@ -88,7 +89,8 @@ generator is `tools/world-export/out/gen-overrides.cjs`.
 
 Player-owned house portals are excluded: the house is an instance. The NPC spawn list has the
 Wilderness bosses where they stood before the 2023 rework; `data/npc-spawn-overrides.json` moves
-Callisto, Vet'ion and Venenatis into their lairs and adds Artio, Calvar'ion, Spindel and the Great Olm.
+Callisto, Vet'ion and Venenatis into their lairs and adds Artio, Calvar'ion, Spindel, the Great Olm and
+Scurrius (newer than the list), with his giant rats baked for him to summon but not placed.
 
 Wall locs (the Theatre of Blood passages, tomb doors, many crevices) that a link starts at are
 exported as passages, not swinging doors; a passage on an unnamed loc takes its link's name.
@@ -104,10 +106,10 @@ squares and the world map's dungeon views.
 
 | | Count |
 | --- | --- |
-| Links | 1,885 |
+| Links | 1,887 |
 | from the external transports | 1,520 |
 | from cache pairs (entrance and exit) | 220 |
-| by hand (`dungeon-links-overrides.json`) | 155 (some replace a pair or row) |
+| by hand (`dungeon-links-overrides.json`) | 157 (some replace a pair or row) |
 | Surface entrances (surface to underground) | 427 |
 | Distinct dungeon names | 151 |
 | Links with requirements recorded | 338 |

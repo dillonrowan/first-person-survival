@@ -21,6 +21,8 @@ export class Combatant {
     standUpTime = tuning.standUpFront;
     /** Hits still cause reactions but take no health. */
     unlimitedHealth = false;
+    /** Never knocked down (a boss): a knockdown is taken as a push instead. */
+    steadfast = false;
     /** OSRS poison: hits on its own timer while active. */
     readonly poison = new Poison();
     /** Poison damage dealt since the game last read it (for hitsplats); the reader clears it. */
@@ -54,7 +56,9 @@ export class Combatant {
             this.health = Math.max(0, this.health - amount);
         }
         this.sinceHurt = 0;
-        if (reaction === "knockdown") {
+        if (reaction === "knockdown" && this.steadfast) {
+            reaction = "push";
+        } else if (reaction === "knockdown") {
             this.knockDown(knockdownTime);
             return;
         }
@@ -86,6 +90,9 @@ export class Combatant {
     }
 
     knockDown(duration = tuning.knockdownDuration): void {
+        if (this.steadfast) {
+            return;
+        }
         this.reaction = "knockdown";
         this.reactionTime = Math.max(this.knockedDown ? this.reactionTime : 0, duration);
     }

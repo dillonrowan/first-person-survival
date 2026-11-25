@@ -350,7 +350,7 @@ frequencies]` (dark wizards: Water Strike and Confuse at level 7, Earth Strike a
 elemental wizards their Strike and Weaken; Skeleton Mage Fire Strike and Vulnerability; Suqah Ice
 Barrage and Water Wave; Battle mages their god spell, which has no projectile, only the impact). Ranged
 NPCs fire their arrows, bolts, rocks or spit; bosses (Callisto, Venenatis, Vet'ion, Vorkath, the Chaos
-Elemental) their own projectiles. The cast graphic plays on the NPC 92 RS units up `[design]`; the
+Elemental, Scurrius) their own projectiles. The cast graphic plays on the NPC 92 RS units up `[design]`; the
 projectile flies with its OSRS model; on reaching the player the impact (a missed spell: the splash)
 plays at the player's hands. NPCs not in the table keep their exported placeholder.
 

@@ -14,6 +14,9 @@ import { BreathView } from "./npc/BreathView";
 import { inBreathCone } from "./npc/Breath";
 import { NpcProjectileView } from "./npc/NpcProjectileView";
 import { NPC_EFFECTS, npcGraphicIds, pickNpcSpell } from "./npc/NpcSpells";
+import { FallingBricks } from "./npc/FallingBricks";
+import { FallingBricksView } from "./npc/FallingBricksView";
+import { GIANT_RAT_ID, SCURRIUS_IDS, ScurriusFight } from "./npc/Scurrius";
 import { applyDrain, curseMessage, runHitEffects } from "./npc/NpcHitEffects";
 import { NpcProjectile, ProjectileTarget, launchNpcProjectile, stepNpcProjectiles } from "./npc/NpcProjectiles";
 import { presenceFor } from "./npc/NpcSenses";
@@ -238,6 +241,20 @@ async function main(): Promise<void> {
               return decodeNpcModel(await gunzip(await response.arrayBuffer()));
           })
         : undefined;
+    // Scurrius's fight (npc/Scurrius.ts): the rubble his stomps bring down, the rats he calls up.
+    const fallingBricks = new FallingBricks();
+    const fallingBricksView = new FallingBricksView(scene, spellEffects, (plane, x, y) => world.groundHeight(plane, x, y));
+    if (npcs) {
+        npcs.behaviourFor = (npc) =>
+            SCURRIUS_IDS.has(npc.appearance.id)
+                ? new ScurriusFight(npc, {
+                      bricks: fallingBricks,
+                      summonRat: (x, y, plane) => npcs.summon(GIANT_RAT_ID, x, y, plane),
+                      random: Math.random,
+                      say: (text) => ui.showMessage(text),
+                  })
+                : undefined;
+    }
     const input = new Input(canvas);
     // Physics props (spec 19): crates, barrels and sacks exported as loose objects.
     const props = new WorldProps(
@@ -1022,6 +1039,7 @@ async function main(): Promise<void> {
             if (deadFor >= tuning.deathFade) {
                 deadFor = 0;
                 npcProjectiles.length = 0;
+                fallingBricks.clear();
                 combat.combatant.reset();
                 player.stamina.value = player.stamina.max;
                 player.teleport(spawn.x + 0.5, spawn.y + 0.5, spawn.plane);
@@ -1103,6 +1121,14 @@ async function main(): Promise<void> {
         }
         projectileView.update(npcProjectiles);
         breathView.update(npcDt);
+        // Scurrius's rubble lands on whoever still stands on its shadow.
+        for (const damage of fallingBricks.update(npcDt, alive ? playerTarget() : undefined)) {
+            combat.combatant.hurt(damage, "flinch");
+            combatHud.showDamage(damage);
+            hitsplats.addPlayer("damage", damage);
+            hitFeel.impact(0.6);
+        }
+        fallingBricksView.update(fallingBricks.falling);
         const playerBody = alive ? player.footprint() : undefined;
         props.update(dt, {
             player: playerBody && {

@@ -15,13 +15,21 @@ export type StyleRule = {
     hitPow?: number;
     projectile?: ProjectileKind;
     color?: number;
-    /** Cache sequence id of the body animation, when the name heuristic picks the wrong one. */
-    seq?: number;
+    /**
+     * Cache sequence id of the body animation, when the name heuristic picks the wrong one; a list
+     * bakes one clip each (Scurrius's two tail swipes).
+     */
+    seq?: number | readonly number[];
     /** Dragonfire as a fireball projectile from range instead of a breath cone at melee distance. */
     longRange?: boolean;
 };
 
-export type NpcAttackOverride = { styles?: Partial<Record<AttackStyle, StyleRule>>; note?: string };
+export type NpcAttackOverride = {
+    styles?: Partial<Record<AttackStyle, StyleRule>>;
+    /** Sequences baked as extra clips (NpcModelData.extras) for a boss fight to play by id. */
+    extraSeqs?: readonly number[];
+    note?: string;
+};
 
 const A = ADJACENT;
 const ROCK_GREY = 0x777777;
@@ -101,4 +109,29 @@ export const OVERRIDES: Record<string, NpcAttackOverride> = {
     "Taloned Wyvern": { styles: { ranged: { seq: 7657 } } },
     "Spitting Wyvern": { styles: { ranged: { seq: 7657 } } },
     "Ancient Wyvern": { styles: { ranged: { seq: 7657 } } },
+    // Scurrius: his two tail swipes, the fur he flings and the lightning he calls. The extra clips are
+    // the rest of his fight (src/npc/Scurrius.ts plays them by id): the stomp that brings the bricks
+    // down, the screech that calls the rats, eating at a food pile, the run there, the enrage at 30%,
+    // the feeding versions of his attacks, his spawn and his death.
+    Scurrius: {
+        styles: {
+            melee: { seq: [10692, 10693] }, // NPC_RAT_BOSS_ATTACK_MELEE_01, _02
+            ranged: { seq: 10694, projectile: "rock", color: 0x8a7a66 }, // NPC_RAT_BOSS_ATTACK_RANGED_01
+            magic: { seq: 10696, color: 0x6fb8ff }, // NPC_RAT_BOSS_ATTACK_MAGIC_01
+        },
+        extraSeqs: [
+            10686, // SPAWN_01
+            10688, // FEEDING_IDLE_01
+            10689, // FEEDING_IDLE_02
+            10691, // RUN_01
+            10695, // FEEDING_ATTACK_RANGED_01
+            10697, // FEEDING_ATTACK_MAGIC_01
+            10698, // ATTACK_STOMP_01
+            10699, // FEEDING_ATTACK_STOMP_01
+            10700, // ATTACK_SUMMON_01
+            10702, // FEEDING_ATTACK_SUMMON_01
+            10704, // ENRAGE_01
+            10705, // DEATH_01
+        ],
+    },
 };

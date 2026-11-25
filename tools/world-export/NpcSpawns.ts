@@ -21,6 +21,11 @@ export type NpcSpawnRecord = {
     level: number;
     /** Shown in its base pose when its type has no idle animation (the Great Olm), not skipped. */
     still?: boolean;
+    /**
+     * Baked but not placed: a boss summons it during the fight (Scurrius's giant rats). The position
+     * only has to lie in an exported map square.
+     */
+    summonOnly?: boolean;
 };
 
 /** An appearance to bake, with the sequences the exporter needs but the game does not. */
@@ -28,7 +33,9 @@ export type NpcAppearanceTask = NpcAppearanceInfo & {
     idleSeqId: number;
     walkSeqId: number;
     /** Explicit attack animations by style (npc-attack-overrides), for the exporter only. */
-    styleSeqs?: Partial<Record<AttackStyle, number>>;
+    styleSeqs?: Partial<Record<AttackStyle, number | readonly number[]>>;
+    /** Extra clips a boss fight plays by id (npc-attack-overrides extraSeqs), for the exporter only. */
+    extraSeqs?: number[];
 };
 
 /** The NPC's right-click options (Talk-to, Attack...), left out of the manifest when it has none. */
@@ -83,7 +90,9 @@ export function applySpawnOverrides(spawns: NpcSpawnRecord[], overrides: NpcSpaw
         );
         return move ? { ...spawn, x: move.to[0], y: move.to[1], level: move.to[2] } : spawn;
     });
-    for (const { id, name, x, y, level, still } of overrides.add ?? []) out.push({ id, name, x, y, level, ...(still ? { still } : {}) });
+    for (const { id, name, x, y, level, still, summonOnly } of overrides.add ?? []) {
+        out.push({ id, name, x, y, level, ...(still ? { still } : {}), ...(summonOnly ? { summonOnly } : {}) });
+    }
     return out;
 }
 
@@ -189,6 +198,9 @@ export function selectNpcs(
                 walkSeqId,
             });
         }
+        if (spawn.summonOnly) {
+            continue;
+        }
         out.push({
             appearance: index,
             x: spawn.x,
@@ -202,6 +214,28 @@ export function selectNpcs(
     return { appearances, spawns: out, skipped };
 }
 
+/**
+ * An exported manifest with the appearances of the NPC ids in `ids` (and their spawns) replaced by
+ * those of `fresh`, which holds only those ids. Everything else is kept as it was.
+ */
+export function mergeNpcManifest(existing: NpcManifest, fresh: NpcManifest, ids: ReadonlySet<number>): NpcManifest {
+    const newIndex = new Map<number, number>();
+    const appearances: NpcAppearanceInfo[] = [];
+    existing.appearances.forEach((appearance, i) => {
+        if (!ids.has(appearance.id)) {
+            newIndex.set(i, appearances.length);
+            appearances.push(appearance);
+        }
+    });
+    const spawns = existing.spawns
+        .filter((spawn) => newIndex.has(spawn.appearance))
+        .map((spawn) => ({ ...spawn, appearance: newIndex.get(spawn.appearance)! }));
+    const offset = appearances.length;
+    appearances.push(...fresh.appearances);
+    spawns.push(...fresh.spawns.map((spawn) => ({ ...spawn, appearance: spawn.appearance + offset })));
+    return { ...existing, format: fresh.format, appearances, spawns };
+}
+
 /** Drops appearances whose model file was not written (and their spawns) and renumbers. */
 export function finalizeNpcManifest(
     selection: Pick<NpcSelection, "appearances" | "spawns">,
@@ -213,7 +247,7 @@ export function finalizeNpcManifest(
     selection.appearances.forEach((task, i) => {
         if (built.has(i)) {
             newIndex.set(i, appearances.length);
-            const { idleSeqId: _idle, walkSeqId: _walk, styleSeqs: _styleSeqs, ...info } = task;
+            const { idleSeqId: _idle, walkSeqId: _walk, styleSeqs: _styleSeqs, extraSeqs: _extraSeqs, ...info } = task;
             appearances.push(info);
         }
     });

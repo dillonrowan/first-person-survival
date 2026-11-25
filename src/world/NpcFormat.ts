@@ -11,12 +11,12 @@
 import type { AttackStyle, NpcStyledAttackInfo } from "../npc/AttackStyle";
 import { STYLE_CODES, STYLE_FROM_CODE } from "../npc/AttackStyle";
 
-export const NPC_FORMAT_VERSION = 4;
+export const NPC_FORMAT_VERSION = 5;
 /**
  * Files of these versions can be read. Version 1 has no skeleton, versions 1-2 no attacks, versions
- * 1-3 no attack style, sequence id or launch point.
+ * 1-3 no attack style, sequence id or launch point, versions 1-4 no extra clips.
  */
-const READABLE_NPC_VERSIONS = [1, 2, 3, 4];
+const READABLE_NPC_VERSIONS = [1, 2, 3, 4, 5];
 
 export type MeleeType = "stab" | "slash" | "crush";
 export type DefenceType = MeleeType | "magic" | "light" | "standard" | "heavy";
@@ -159,6 +159,12 @@ export type NpcModelData = {
     skeleton?: NpcSkeleton;
     /** Attacks, best first (melee first, then one clip per other style). Absent before version 3 and for NPCs the cache has none for. */
     attacks?: NpcAttackClip[];
+    /**
+     * Clips a boss fight plays by sequence id, outside the random attack pool: a stomp, a summon, an
+     * eating loop, an enrage (npc-attack-overrides extraSeqs). Absent before version 5 and for NPCs
+     * without any.
+     */
+    extras?: NpcAttackClip[];
 };
 
 export function npcModelFileName(id: number, displayId: number): string {
@@ -180,6 +186,7 @@ export function npcModelFileName(id: number, displayId: number): string {
 //   u32 attackCount, then per attack: u16 hitCycle, u16 flags (1 = shove), and a clip as above
 // Version 4 widens the per-attack header to 16 bytes: u16 hitCycle, u16 flags (1 = shove), i32 seqId,
 //   u8 style (STYLE_CODES), u8 0, i16 launchForward, i16 launchUp (RS units, 128 per tile), u16 0
+// Version 5 appends the extra clips: u32 extraCount, then each like a version 4 attack
 const ATTACK_HEADER_BYTES = 16;
 const LAUNCH_UNITS_PER_TILE = 128;
 const MAGIC = 0x4e535046; // "FPSN"
@@ -209,7 +216,9 @@ export function encodeNpcModel(model: NpcModelData): Uint8Array {
             ? pad4(skeleton.parents.length) + pad4(skeleton.pivots.length * 2) + pad4(skeleton.partOf.length)
             : 0) +
         4 +
-        (model.attacks ?? []).reduce((sum, clip) => sum + ATTACK_HEADER_BYTES + clipByteLength(clip), 0);
+        (model.attacks ?? []).reduce((sum, clip) => sum + ATTACK_HEADER_BYTES + clipByteLength(clip), 0) +
+        4 +
+        (model.extras ?? []).reduce((sum, clip) => sum + ATTACK_HEADER_BYTES + clipByteLength(clip), 0);
 
     const bytes = new Uint8Array(byteLength);
     const view = new DataView(bytes.buffer);
@@ -258,19 +267,22 @@ export function encodeNpcModel(model: NpcModelData): Uint8Array {
         writeArray(skeleton.partOf);
     }
 
-    const attacks = model.attacks ?? [];
-    view.setUint32(offset, attacks.length, true);
-    offset += 4;
-    for (const attack of attacks) {
-        view.setUint16(offset, attack.hitCycle, true);
-        view.setUint16(offset + 2, attack.shove ? 1 : 0, true);
-        view.setInt32(offset + 4, attack.seqId, true);
-        view.setUint8(offset + 8, STYLE_CODES[attack.style]);
-        view.setInt16(offset + 10, Math.round(attack.launch[0] * LAUNCH_UNITS_PER_TILE), true);
-        view.setInt16(offset + 12, Math.round(attack.launch[1] * LAUNCH_UNITS_PER_TILE), true);
-        offset += ATTACK_HEADER_BYTES;
-        writeClip(attack);
-    }
+    const writeAttacks = (attacks: readonly NpcAttackClip[]) => {
+        view.setUint32(offset, attacks.length, true);
+        offset += 4;
+        for (const attack of attacks) {
+            view.setUint16(offset, attack.hitCycle, true);
+            view.setUint16(offset + 2, attack.shove ? 1 : 0, true);
+            view.setInt32(offset + 4, attack.seqId, true);
+            view.setUint8(offset + 8, STYLE_CODES[attack.style]);
+            view.setInt16(offset + 10, Math.round(attack.launch[0] * LAUNCH_UNITS_PER_TILE), true);
+            view.setInt16(offset + 12, Math.round(attack.launch[1] * LAUNCH_UNITS_PER_TILE), true);
+            offset += ATTACK_HEADER_BYTES;
+            writeClip(attack);
+        }
+    };
+    writeAttacks(model.attacks ?? []);
+    writeAttacks(model.extras ?? []);
 
     return bytes;
 }
@@ -337,8 +349,8 @@ export function decodeNpcModel(buffer: ArrayBuffer): NpcModelData {
             skeleton = { partOf, parents, pivots };
         }
     }
-    let attacks: NpcAttackClip[] | undefined;
-    if (version >= 3) {
+    const readAttacks = (): NpcAttackClip[] | undefined => {
+        let attacks: NpcAttackClip[] | undefined;
         const count = view.getUint32(offset, true);
         offset += 4;
         for (let i = 0; i < count; i++) {
@@ -360,6 +372,9 @@ export function decodeNpcModel(buffer: ArrayBuffer): NpcModelData {
             }
             (attacks ??= []).push({ ...readClip(), hitCycle, shove, seqId, style, launch });
         }
-    }
-    return { vertexCount, bounds, opaque, transparent, idle, walk, skeleton, attacks };
+        return attacks;
+    };
+    const attacks = version >= 3 ? readAttacks() : undefined;
+    const extras = version >= 5 ? readAttacks() : undefined;
+    return { vertexCount, bounds, opaque, transparent, idle, walk, skeleton, attacks, ...(extras ? { extras } : {}) };
 }

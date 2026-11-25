@@ -164,6 +164,44 @@ for (const way of WAYS) {
     });
 }
 
+test("Scurrius' lair: in through the broken bars, he fights, out across the sewage water", async ({ page }) => {
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(String(e)));
+    // The Varrock Sewers corridor west of the bars, then the arena beyond them.
+    const inside = await travel(page, [3280, 9867, 0], [3282, 9867], "Climb-through", [3291, 9867], 4);
+    expect(inside.plane).toBe(0);
+    await shot(page, "scurrius-1-arena");
+
+    // He is aggressive: walking into the arena starts the fight.
+    await page.waitForFunction(
+        () => window.game!.npcs.all().some((n: any) => n.appearance.name === "Scurrius" && n.alerted && n.behaviour?.mode === "fighting"),
+        undefined,
+        { timeout: 60_000, polling: 250 },
+    );
+    await page.evaluate(() => {
+        // Face him for the screenshot: the player looks along (-sin yaw, cos yaw).
+        const g = window.game!;
+        const s = g.npcs.all().find((n: any) => n.appearance.name === "Scurrius");
+        g.player.yaw = Math.atan2(-(s.body.x - g.player.x), s.body.y - g.player.y);
+    });
+    await page.waitForTimeout(1500);
+    await shot(page, "scurrius-2-fight");
+
+    expect(await act(page, 3288, 9867, "Cross")).toBeDefined();
+    // West, back past the bars into the sewer.
+    await page.waitForFunction(
+        () => {
+            const p = window.game!.player;
+            return p.ready && p.x < 3282 && Number(getComputedStyle(document.getElementById("fade")!).opacity) < 0.05;
+        },
+        undefined,
+        { timeout: 120_000, polling: 250 },
+    );
+    const out = await page.evaluate(() => ({ x: window.game!.player.x, y: window.game!.player.y }));
+    expect(Math.hypot(out.x - 3281, out.y - 9867)).toBeLessThan(4);
+    expect(errors).toEqual([]);
+});
+
 test("the world map shows the dungeon the player is in, and the surface from it", async ({ page }) => {
     await page.goto("/?x=3210&y=9617");
     await page.waitForFunction(() => !!window.game?.player?.ready, undefined, { timeout: 180_000, polling: 1000 });

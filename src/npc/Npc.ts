@@ -1,6 +1,6 @@
 import * as THREE from "three";
 
-import type { NpcAppearanceInfo, NpcClip, NpcCombatStats, NpcSpawnInfo } from "../world/NpcFormat";
+import type { NpcAppearanceInfo, NpcAttackClip, NpcClip, NpcCombatStats, NpcSpawnInfo } from "../world/NpcFormat";
 import { CollisionFlag, RS_UNITS_PER_TILE } from "../world/WorldFormat";
 import {
     CLIENT_CYCLE_SECONDS,
@@ -58,6 +58,12 @@ const LEAN = { flinch: 0.15, stagger: 0.3, push: 0.45, stun: 0.2 };
 const POSE_RATE = 10;
 /** Below this speed (tiles/s) a moving NPC plays its idle clip. */
 const MOVING_SPEED = 0.15;
+/** Distance (tiles) at which an NPC has reached a behaviour's goal. */
+const GOAL_REACHED = 0.3;
+/** Seconds a body that played a death animation stays on its last frame before it goes. [design] */
+const DEATH_CLIP_HOLD = 1.5;
+
+const clipSeconds = (clip: NpcClip) => clip.frameLengths.reduce((sum, length) => sum + length, 0) * CLIENT_CYCLE_SECONDS;
 /** Sideways dodge distance (Dodge_left / Dodge_right move about 40 u). [data] */
 const units40 = 40 * (1.25 / 61.065);
 
@@ -84,6 +90,28 @@ export type CombatContext = {
 
 /** Which side of the NPC a hit came from. */
 export type HitSide = "front" | "side" | "back";
+
+/**
+ * A boss fight's hold on its NPC (see Scurrius.ts): where it goes instead of chasing the player,
+ * which of its own clips it plays, and which attacks it may start (NpcAttacker.allow).
+ */
+export interface NpcBehaviour {
+    /** Every frame until the NPC is gone, before it moves or attacks. */
+    update(npc: Npc, dt: number, ctx: CombatContext): void;
+    /** Somewhere to go instead of fighting (a food pile); the NPC faces `faceX`, `faceY` once there. */
+    readonly goal?: { x: number; y: number; run: boolean; faceX?: number; faceY?: number };
+    /** Extra clip (by sequence id) played instead of the idle clip: eating. */
+    readonly idleSeq?: number;
+    /** Extra clip played while running to the goal. */
+    readonly runSeq?: number;
+    /** Extra clip played on death instead of falling as a ragdoll; held on its last frame. */
+    readonly deathSeq?: number;
+    /**
+     * A boss move (NpcAttack.special) began, with the player where they stand then, or reached its
+     * impact. Such moves never reach CombatContext.strike.
+     */
+    special?(npc: Npc, attack: NpcAttack, when: "start" | "impact", player: { x: number; y: number; plane: number }): void;
+}
 
 /** Outcome of a kick on an NPC. */
 export type KickOutcome = "dodged" | "hit";
@@ -220,6 +248,10 @@ export class Npc {
     private kickDodgeChance = -1;
     private sinceKick = Infinity;
     private readonly brain: NpcCombatBrain;
+    /** A boss fight controlling this NPC (Scurrius.ts); absent for ordinary NPCs. */
+    behaviour: NpcBehaviour | undefined;
+    /** The death clip being played (NpcBehaviour.deathSeq). */
+    private dyingClip: NpcClip | undefined;
     /** Melee attacks on the player (spec 16.6). */
     readonly attacker: NpcAttacker;
     /** Levels, bonuses and max hits (the export, or the combat level for every level). */
@@ -327,6 +359,28 @@ export class Npc {
             // Start at a random point so NPCs of one kind are not in sync.
             this.playback.frame = Math.floor(random() * this.clip.frameLengths.length);
             this.playback.cycle = Math.floor(random() * this.clip.frameLengths[this.playback.frame]);
+        }
+    }
+
+    /** The extra clip (NpcModelData.extras) of a sequence, and its index. */
+    extraClip(seqId: number | undefined): NpcAttackClip | undefined {
+        return seqId === undefined ? undefined : this.model.data.extras?.find((clip) => clip.seqId === seqId);
+    }
+
+    extraIndex(seqId: number): number {
+        return this.model.data.extras?.findIndex((clip) => clip.seqId === seqId) ?? -1;
+    }
+
+    /** Model height in tiles. */
+    get height(): number {
+        return this.model.height;
+    }
+
+    /** Restores health, up to the maximum. */
+    heal(amount: number): void {
+        const c = this.combatant;
+        if (!c.dead) {
+            c.health = Math.min(c.maxHealth, c.health + amount);
         }
     }
 
@@ -491,7 +545,7 @@ export class Npc {
         if (this.combatant.dead) {
             this.kickedDown = false;
         }
-        if (this.combatant.incapacitated || push > 0) {
+        if (this.combatant.incapacitated || (push > 0 && !this.combatant.steadfast)) {
             this.attacker.interrupt();
         }
         if (!this.combatant.dead) {
@@ -526,6 +580,9 @@ export class Npc {
         const damage = kicked ? 0 : Math.min(environmentDamage(hit.damage, c.maxHealth), Math.max(0, c.health - 1));
         c.hurt(damage, "knockdown", false, tuning.knockdownPhysics);
         this.takeHit(hit.dirX, hit.dirY, 0, fromX, fromY);
+        if (c.steadfast) {
+            return; // a boss shrugs the body off
+        }
         this.kickedDown = kicked;
         const k = this.knockback ?? { x: this.body.x, y: this.body.y, vx: 0, vy: 0, plane: this.plane };
         k.vx = hit.dirX * hit.speed;
@@ -555,6 +612,14 @@ export class Npc {
         const ty = fromY - this.body.y;
         const d = Math.hypot(tx, ty) || 1;
         const facing = (f.x * tx + f.y * ty) / d;
+        if (c.steadfast) {
+            // A boss is not kicked over: it takes the kick as a shove, sized by its weight.
+            c.hurt(0, "push");
+            this.hitHeight = 0.55;
+            this.lean(dirX, dirY);
+            this.slide(dirX, dirY, tuning.mediumHitDistance[this.hitSide(dirX, dirY)] * kickThrowScale(this.mass));
+            return "hit";
+        }
         if (!c.incapacitated && facing > tuning.kickDodgeFacing && this.random() < chance) {
             // Dodge_left / Dodge_right: about 40 u sideways, s = 1 towards the NPC's left.
             const s = this.random() < 0.5 ? 1 : -1;
@@ -633,9 +698,14 @@ export class Npc {
         }
         this.lastX = x;
         this.lastY = y;
+        if (!this.gone) {
+            this.behaviour?.update(this, dt, ctx);
+        }
         if (c.dead && !this.gone) {
             this.deadFor += dt;
-            if (this.deadFor >= tuning.corpseTime) {
+            // A death animation's body fades soon after it ends, as in OSRS; a ragdoll lies longer.
+            const lies = this.dyingClip ? clipSeconds(this.dyingClip) + DEATH_CLIP_HOLD : tuning.corpseTime;
+            if (this.deadFor >= lies) {
                 this.removeCorpse(occupancy);
             }
         }
@@ -643,6 +713,15 @@ export class Npc {
             this.releaseOccupancy(occupancy);
         }
 
+        // A boss with a death animation plays it instead of falling (held on its last frame).
+        const deathClip = c.dead && !this.ragdoll ? this.extraClip(this.behaviour?.deathSeq) : undefined;
+        if (deathClip && !this.gone) {
+            this.dyingClip = deathClip;
+            this.attacker.interrupt();
+            this.knockback = undefined;
+            this.updatePose(dt);
+            return;
+        }
         // Knocked down or dead: the body is a ragdoll (spec 20).
         if ((c.dead || c.knockedDown) && !this.ragdoll && !this.gone) {
             this.startRagdoll();
@@ -750,27 +829,39 @@ export class Npc {
         }
         // While searching, head for the last known position; otherwise for the player.
         const target = this.searching >= 0 && this.lastSeen ? this.lastSeen : player;
-        const move = this.brain.update(dt, {
-            x,
-            y,
-            playerX: target.x,
-            playerY: target.y,
-            playerYaw: player.yaw,
-        });
+        const goal = this.behaviour?.goal;
+        const move = goal
+            ? this.moveToGoal(goal, x, y)
+            : this.brain.update(dt, {
+                  x,
+                  y,
+                  playerX: target.x,
+                  playerY: target.y,
+                  playerYaw: player.yaw,
+              });
         if (this.searching >= 0 && Math.hypot(target.x - x, target.y - y) < 0.5) {
             move.vx = move.vy = 0;
         }
 
         // Strikes (spec 16.6): only while fighting in sight; the lunge replaces the combat step.
         const gap = d - this.body.radius - player.radius;
-        // Ranged and magic attacks may start while still closing in; melee only while fighting.
-        const canStart = sees && this.sinceHit >= 1 && (move.mode === "fight" || this.attacker.hasDistanceAttack);
+        // Ranged and magic attacks may start while still closing in; melee only while fighting. A boss
+        // does not wait out the player's blows before striking back (the latency is for small fry).
+        const latency = this.behaviour ? 0 : 1;
+        const canStart = sees && this.sinceHit >= latency && (move.mode === "fight" || this.attacker.hasDistanceAttack);
         const strikes = this.attacker.update(dt, gap, player.sincePlayerAttack ?? 0, canStart);
-        if (this.attacker.started) {
-            ctx.attackStarted?.(this, this.attacker.started);
+        const started = this.attacker.started;
+        if (started?.special) {
+            this.behaviour?.special?.(this, started, "start", player);
+        } else if (started) {
+            ctx.attackStarted?.(this, started);
         }
         for (const event of strikes) {
-            ctx.strike?.(this, event);
+            if (event.attack.special) {
+                this.behaviour?.special?.(this, event.attack, "impact", player);
+            } else {
+                ctx.strike?.(this, event);
+            }
         }
         if (this.attacker.busy) {
             const tx = d > 1e-6 ? (player.x - x) / d : f.x;
@@ -817,6 +908,33 @@ export class Npc {
         this.moveSpeed = dt > 0 ? Math.hypot(nx - x, ny - y) / dt : 0;
         this.fineX = nx * RS_UNITS_PER_TILE;
         this.fineY = ny * RS_UNITS_PER_TILE;
+    }
+
+    /**
+     * Straight to a behaviour's goal (the arena is open floor; walls still stop it): running or
+     * walking, then standing there facing where the goal says.
+     */
+    private moveToGoal(
+        goal: NonNullable<NpcBehaviour["goal"]>,
+        x: number,
+        y: number,
+    ): { vx: number; vy: number; faceX: number; faceY: number; mode: "chase" | "fight" } {
+        const dx = goal.x - x;
+        const dy = goal.y - y;
+        const d = Math.hypot(dx, dy);
+        if (d < GOAL_REACHED) {
+            const fx = goal.faceX ?? this.forward.x;
+            const fy = goal.faceY ?? this.forward.y;
+            return { vx: 0, vy: 0, faceX: fx, faceY: fy, mode: "fight" };
+        }
+        const speed = Math.min(d / 0.1, goal.run ? tuning.npcRunSpeed : tuning.npcWalkSpeed * tuning.npcCombatPace);
+        return { vx: (dx / d) * speed, vy: (dy / d) * speed, faceX: dx / d, faceY: dy / d, mode: "chase" };
+    }
+
+    /** True while standing at a behaviour's goal. */
+    get atGoal(): boolean {
+        const goal = this.behaviour?.goal;
+        return !!goal && Math.hypot(goal.x - this.fineX / RS_UNITS_PER_TILE, goal.y - this.fineY / RS_UNITS_PER_TILE) < GOAL_REACHED;
     }
 
     /** Eases the body towards the pose of the current reaction. */
@@ -1135,11 +1253,28 @@ export class Npc {
 
     /** Client cycle while moving freely: turn, and play the walk clip at a speed-matched rate. */
     private freeCycle(): void {
+        if (this.dyingClip) {
+            // Played once and held on its last frame.
+            if (this.clip !== this.dyingClip) {
+                this.clip = this.dyingClip;
+                this.playback.frame = 0;
+                this.playback.cycle = 0;
+                this.dirty = true;
+            } else if (this.playback.frame < this.clip.frameLengths.length - 1 && advanceClip(this.playback, this.clip, 1)) {
+                this.dirty = true;
+            }
+            return;
+        }
         this.rotation = rotateTowards(this.rotation, this.orientation, this.rotationSpeed);
         // A strike shows its own animation, frame for frame with the attack's clock, so the blow
         // lands on the clip's impact frame.
         const attack = this.attacker.current;
-        const attackClip = attack?.clip !== undefined ? this.model.data.attacks?.[attack.clip] : undefined;
+        const attackClip =
+            attack?.extra !== undefined
+                ? this.model.data.extras?.[attack.extra]
+                : attack?.clip !== undefined
+                  ? this.model.data.attacks?.[attack.clip]
+                  : undefined;
         if (attackClip) {
             const frame = frameAtCycle(attackClip, this.attacker.elapsed / CLIENT_CYCLE_SECONDS);
             if (attackClip !== this.clip || frame !== this.playback.frame) {
@@ -1151,9 +1286,11 @@ export class Npc {
             }
             return;
         }
-        const walk = this.model.data.walk;
+        const run = this.behaviour?.goal?.run ? this.extraClip(this.behaviour.runSeq) : undefined;
+        const walk = run ?? this.model.data.walk;
         const moving = !this.knockback && this.moveSpeed > MOVING_SPEED && walk !== undefined;
-        const clip = moving ? walk : this.model.data.idle;
+        const idle = this.extraClip(this.behaviour?.idleSeq) ?? this.model.data.idle;
+        const clip = moving ? walk : idle;
         if (clip !== this.clip) {
             this.clip = clip;
             this.playback.frame = 0;
@@ -1161,7 +1298,8 @@ export class Npc {
             this.animCarry = 0;
             this.dirty = true;
         }
-        const rate = moving ? Math.min(2.5, Math.max(0.4, this.moveSpeed / tuning.clipWalkSpeed)) : 1;
+        // The run clip is played at its own pace; the walk is matched to the speed.
+        const rate = moving && !run ? Math.min(2.5, Math.max(0.4, this.moveSpeed / tuning.clipWalkSpeed)) : 1;
         this.animCarry += rate;
         const cycles = Math.floor(this.animCarry);
         this.animCarry -= cycles;
@@ -1174,7 +1312,7 @@ export class Npc {
     clientCycle(blocker?: MoveBlocker): void {
         const half = this.size * (RS_UNITS_PER_TILE / 2);
         const wasWalking = this.walking;
-        if (this.alerted || this.knockback) {
+        if (this.alerted || this.knockback || this.dyingClip) {
             this.freeCycle();
             return;
         }

@@ -2795,6 +2795,40 @@
    ],
    "dungeon": "",
    "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 14203,
+   "name": "Broken bars",
+   "action": "Climb-through",
+   "from": [
+    3282,
+    9867,
+    0
+   ],
+   "to": [
+    3291,
+    9867,
+    0
+   ],
+   "dungeon": "Varrock Sewers",
+   "source": "hand (cache locs, OSRS Wiki: Scurrius)"
+  },
+  {
+   "locId": 14204,
+   "name": "Sewage water",
+   "action": "Cross",
+   "from": [
+    3288,
+    9867,
+    0
+   ],
+   "to": [
+    3281,
+    9867,
+    0
+   ],
+   "dungeon": "Varrock Sewers",
+   "source": "hand (cache locs, OSRS Wiki: Scurrius)"
   }
  ],
  "excludeSquares": []

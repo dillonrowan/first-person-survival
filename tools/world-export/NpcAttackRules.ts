@@ -15,7 +15,9 @@ import type { WikiAttackRow } from "./fetch-wiki-attacks";
 export type StyleRules = {
     infos: NpcStyledAttackInfo[];
     /** Explicit body animations from the overrides, by style. */
-    seqs: Partial<Record<AttackStyle, number>>;
+    seqs: Partial<Record<AttackStyle, number | readonly number[]>>;
+    /** Extra clips to bake for a boss fight (NpcModelData.extras). */
+    extraSeqs?: number[];
 };
 
 const SPEED: Record<ProjectileKind, number> = { arrow: 14, orb: 9, rock: 8, spit: 10, fireball: 9 };
@@ -63,6 +65,7 @@ export function attackRulesFor(
     if (!row || row.styles.length === 0 || (row.styles.length === 1 && row.styles[0].style === "melee")) {
         return undefined;
     }
+    const extraSeqs = overrides[row.page]?.extraSeqs;
     const override = overrides[row.page]?.styles ?? {};
     // Melee first: "best first" in the model file.
     const styles = [...row.styles].sort((a, b) => Number(b.style === "melee") - Number(a.style === "melee"));
@@ -71,7 +74,7 @@ export function attackRulesFor(
     const cooldownScale = clamp((row.speedTicks ?? 4) / 4, 0.5, 2);
 
     const infos: NpcStyledAttackInfo[] = [];
-    const seqs: Partial<Record<AttackStyle, number>> = {};
+    const seqs: Partial<Record<AttackStyle, number | readonly number[]>> = {};
     for (const s of styles) {
         const rule: StyleRule = override[s.style] ?? {};
         const isBreath = s.style === "dragonfire" || s.style === "icebreath";
@@ -112,5 +115,5 @@ export function attackRulesFor(
         infos.push(info);
         if (rule.seq !== undefined) seqs[s.style] = rule.seq;
     }
-    return { infos, seqs };
+    return { infos, seqs, ...(extraSeqs?.length ? { extraSeqs: [...extraSeqs] } : {}) };
 }

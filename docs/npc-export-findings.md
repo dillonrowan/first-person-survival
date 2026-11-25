@@ -123,7 +123,7 @@ Callisto and Vet'ion (skeletal, without clips then) now bake theirs like the res
 | ------------------------ | ------ | ---------------------------------------------------------------------------------------------------------------------- |
 | Outside the exported area | 11,694 | The default area is the surface (map y 65 and below). Dungeons, minigames and instances are not exported; `--area all` includes them. |
 | Name mismatch            | 237    | The list dates from 2023. If the cache NPC with that id has a different name, the id was likely renumbered; it is skipped rather than shown wrongly. |
-| No idle animation        | 127    | Neither the spawn's NPC nor the one shown has an idle sequence. rs-map-viewer skips these too. Not inspected by name yet. A hand-added spawn marked `still` in `data/npc-spawn-overrides.json` (the Great Olm) is kept in its base pose. |
+| No idle animation        | 127    | Neither the spawn's NPC nor the one shown has an idle sequence. rs-map-viewer skips these too. Not inspected by name yet. A hand-added spawn marked `still` in `data/npc-spawn-overrides.json` (the Great Olm) is kept in its base pose; one marked `summonOnly` (Scurrius's giant rats) is baked but not placed. |
 | No model                 | 0      |                                                                                                                        |
 
 ## Attack animation audit (November 2026)
@@ -174,8 +174,10 @@ revenants, the Suqah, metal dragons' ranged attack); the wiki describes no separ
 - Per-frame alpha changes are not baked; faces keep their base alpha (skeletal ones included).
 - NPCs are solid for the player (cylinder collision, see `src/physics/Bodies.ts`). Attack
   animations are baked since format 3 (melee) and, since format 4, one per extra attack style
-  (breath, cast, bow shot, spit) for the NPCs the OSRS wiki gives several styles; the cache has no
-  death animation, so deaths are ragdolls. Which styles an NPC uses is not in the cache (server
+  (breath, cast, bow shot, spit) for the NPCs the OSRS wiki gives several styles. Format 5 adds
+  extra clips a boss fight plays by sequence id (`extraSeqs` in `data/npc-attack-overrides.ts`):
+  Scurrius's stomp, summon, eating, run, enrage and death. Deaths are otherwise ragdolls, though the
+  cache has death sequences. Which styles an NPC uses is not in the cache (server
   data): `npm run fetch-wiki-attacks` refreshes `data/npc-attacks-wiki.json` from the wiki, and
   `tools/world-export/list-npc-seqs.ts <npcId>` lists the named sequences of an NPC's skeleton
   when an attack needs an explicit sequence in `data/npc-attack-overrides.ts`.

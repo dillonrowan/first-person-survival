@@ -8,7 +8,7 @@ import { NpcModels, SharedNpcModel } from "./NpcModels";
 import { Body, BodySource, canStepOver, segmentHitsBoxes2D } from "../physics/Bodies";
 import { Box, collectTileBoxes } from "../physics/TileColliders";
 import { tuning } from "../combat/tuning";
-import { CombatContext, Npc, NpcWorld, Occupancy } from "./Npc";
+import { CombatContext, Npc, NpcBehaviour, NpcWorld, Occupancy } from "./Npc";
 import { strikeBody } from "./BodyHits";
 import { Ragdoll } from "./Ragdoll";
 
@@ -23,6 +23,8 @@ type RegionNpcs = {
     npcs: Npc[];
     /** Loaded models by appearance index, to respawn NPCs with. */
     models: Map<number, SharedNpcModel>;
+    /** Models of summoned NPCs still loading, shared by the summons that wait for them. */
+    loading: Map<number, Promise<SharedNpcModel | undefined>>;
 };
 
 /** Seconds after a corpse has gone before the NPC stands at its spawn again (50 ticks). */
@@ -43,6 +45,10 @@ export class Npcs implements BodySource<Npc> {
     private readonly bodyHits = new WeakMap<Npc, Map<Npc, number>>();
     private readonly spawnOf = new WeakMap<Npc, NpcSpawnInfo>();
     private readonly goneSince = new WeakMap<Npc, number>();
+    /** NPCs a boss called up: they never respawn, and go for good once their bodies have gone. */
+    private readonly summoned = new WeakSet<Npc>();
+    /** Gives an NPC its boss fight (Scurrius.ts) when it is created; most get none. */
+    behaviourFor: ((npc: Npc) => NpcBehaviour | undefined) | undefined;
 
     constructor(
         private readonly manifest: NpcManifest,
@@ -268,6 +274,12 @@ export class Npcs implements BodySource<Npc> {
         for (const region of this.regions.values()) {
             for (const npc of [...region.npcs]) {
                 if (!npc.gone) continue;
+                if (this.summoned.has(npc)) {
+                    region.npcs.splice(region.npcs.indexOf(npc), 1);
+                    npc.releaseOccupancy(this.occupancy);
+                    npc.dispose();
+                    continue;
+                }
                 const since = this.goneSince.get(npc);
                 if (since === undefined) {
                     this.goneSince.set(npc, this.time);
@@ -351,7 +363,7 @@ export class Npcs implements BodySource<Npc> {
             return;
         }
         const appearances = [...new Set(spawns.map((spawn) => spawn.appearance))];
-        const region: RegionNpcs = { appearances, npcs: [], models: new Map() };
+        const region: RegionNpcs = { appearances, npcs: [], models: new Map(), loading: new Map() };
         this.regions.set(key, region);
 
         // acquire() counts the use right away, so an unload while loading releases it again.
@@ -379,7 +391,51 @@ export class Npcs implements BodySource<Npc> {
         });
     }
 
-    private createNpc(region: RegionNpcs, spawn: NpcSpawnInfo, model: SharedNpcModel): void {
+    /** True if no NPC (or the player) stands on any tile of a size × size square at (x, y). */
+    isFree(plane: number, x: number, y: number, size: number): boolean {
+        return this.occupancy.isFree(plane, x, y, size);
+    }
+
+    /**
+     * Calls up an NPC that has no spawn of its own (a boss's minions, exported as summonOnly) with its
+     * south-west corner at (x, y). It never respawns. Undefined when the NPC was not exported, its
+     * map square is not loaded, the tiles are taken or its model fails to load.
+     */
+    async summon(id: number, x: number, y: number, plane: number, orientation = 0): Promise<Npc | undefined> {
+        const index = this.manifest.appearances.findIndex((a) => a.id === id);
+        const key = regionKey(x >> 6, y >> 6);
+        const region = this.regions.get(key);
+        if (index < 0 || !region) {
+            return undefined;
+        }
+        let model = region.models.get(index);
+        if (!model) {
+            let loading = region.loading.get(index);
+            if (!loading) {
+                if (region.appearances.includes(index)) {
+                    return undefined; // one of the region's own models, still loading or failed
+                }
+                // Counted as one of the region's models: released with them when it unloads.
+                region.appearances.push(index);
+                loading = this.models.acquire(this.manifest.appearances[index].file).catch(() => undefined);
+                region.loading.set(index, loading);
+            }
+            model = await loading;
+            if (!model || this.regions.get(key) !== region) {
+                return undefined;
+            }
+            region.models.set(index, model);
+        }
+        const size = Math.max(1, this.manifest.appearances[index].size);
+        if (!this.occupancy.isFree(plane, x, y, size)) {
+            return undefined;
+        }
+        const npc = this.createNpc(region, { appearance: index, x, y, plane, orientation }, model);
+        this.summoned.add(npc);
+        return npc;
+    }
+
+    private createNpc(region: RegionNpcs, spawn: NpcSpawnInfo, model: SharedNpcModel): Npc {
         const npc = new Npc(
             this.manifest.appearances[spawn.appearance],
             spawn,
@@ -389,10 +445,12 @@ export class Npcs implements BodySource<Npc> {
             this.random,
         );
         this.occupancy.add(spawn.plane, spawn.x, spawn.y, Math.max(1, npc.appearance.size));
+        npc.behaviour = this.behaviourFor?.(npc);
         npc.sync();
         this.scene.add(npc.group);
         region.npcs.push(npc);
         this.spawnOf.set(npc, spawn);
+        return npc;
     }
 
     private regionUnloaded(mapX: number, mapY: number): void {

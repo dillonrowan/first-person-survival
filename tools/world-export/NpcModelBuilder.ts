@@ -175,7 +175,7 @@ export type NpcAttackSource = {
         frameBase: number,
         armed: boolean,
         styles: readonly AttackStyle[],
-        seqs: Partial<Record<AttackStyle, number>>,
+        seqs: Partial<Record<AttackStyle, number | readonly number[]>>,
     ): StyledChoice[];
 };
 
@@ -222,16 +222,36 @@ export class NpcModelBuilder {
         );
 
         const attacks = this.bakeAttacks(display, base, task, skeleton);
+        const extras = this.bakeExtras(display, base, task.extraSeqs ?? []);
 
         return {
             vertexCount: base.verticesCount,
-            bounds: computeBounds(base, [idle, walk, ...(attacks ?? [])]),
+            bounds: computeBounds(base, [idle, walk, ...(attacks ?? []), ...(extras ?? [])]),
             ...meshes,
             idle,
             walk,
             skeleton,
             attacks,
+            ...(extras ? { extras } : {}),
         };
+    }
+
+    /**
+     * The extra clips a boss fight plays by sequence id (a stomp, a summon, an eating loop). Each
+     * keeps the end of its fastest forward-and-down stroke as its hit cycle (impactCycle): when a
+     * stomp lands, when a bite closes.
+     */
+    private bakeExtras(display: NpcType, base: Model, seqIds: readonly number[]): NpcAttackClip[] | undefined {
+        const extras: NpcAttackClip[] = [];
+        for (const seqId of seqIds) {
+            const clip = this.bakeClip(display, base, seqId);
+            if (!clip) {
+                continue;
+            }
+            const hitCycle = impactCycle(clip, base.verticesCount);
+            extras.push({ ...clip, hitCycle, shove: false, seqId, style: "melee", launch: launchPoint(clip, base, hitCycle) });
+        }
+        return extras.length > 0 ? extras : undefined;
     }
 
     /**

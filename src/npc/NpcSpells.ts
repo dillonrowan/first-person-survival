@@ -48,6 +48,8 @@ export type NpcEffects = {
     magic?: NpcSpell[];
     ranged?: AttackGfx;
     onHit?: HitEffect[];
+    /** Other spot animations its fight plays (Scurrius's falling debris), exported with the rest. */
+    other?: number[];
 };
 
 const spell = (id: string): AttackGfx => SPELL_GRAPHICS[id] as SpellGraphics;
@@ -93,6 +95,16 @@ const battleMage = (impact: number): NpcEffects => ({
     // God spells hit with no projectile: the impact plays on the target. [wiki: Battle mage casts god spells]
     magic: [{ name: "God spell", gfx: { impact }, damaging: true }],
 });
+
+// Scurrius, by the graphics on his model's ids (50142-50155) and their VFX_RAT_BOSS_* sequences:
+// the fur ball (on the projectile spin PROJANIM_DUKE_SPIT) and its impact (PROJ_RANGED_IMPACT_02),
+// the bolt of electricity (PROJ_MAGIC), its cast glow (ATTACK_MAGIC) and impact (PROJ_MAGIC_IMPACT),
+// and the falling debris of his stomp (FALLING_DEBRIS).
+const scurrius: NpcEffects = {
+    ranged: { projectile: 2642, impact: 2643 },
+    magic: [{ name: "Bolts of Electricity", gfx: { cast: 2638, projectile: 2640, impact: 3845 }, damaging: true }],
+    other: [2644],
+};
 
 /** Effects by NPC id. */
 export const NPC_EFFECTS: Record<number, NpcEffects> = {
@@ -140,6 +152,7 @@ export const NPC_EFFECTS: Record<number, NpcEffects> = {
     6610: { ranged: { projectile: 2356, impact: 2357 }, magic: [{ name: "Magic", gfx: { projectile: 2358, impact: 2359 }, damaging: true }] }, // Venenatis
     6611: { magic: [{ name: "Lightning", gfx: { cast: 2344, impact: 2346 }, damaging: true }] }, // Vet'ion
     8058: { ranged: { projectile: 1477, impact: 1478 }, magic: [{ name: "Magic", gfx: { projectile: 1479, impact: 1480 }, damaging: true }] }, // Vorkath
+    7221: scurrius, 7222: scurrius,
     // Chaos Elemental: Discord, its damaging attack. [design: both styles]
     2054: {
         magic: [{ name: "Discord", gfx: { cast: 556, projectile: 557, impact: 558 }, damaging: true }],
@@ -204,6 +217,7 @@ export function npcGraphicIds(): number[] {
     for (const e of Object.values(NPC_EFFECTS)) {
         add(e.ranged);
         e.magic?.forEach((s) => add(s.gfx));
+        e.other?.forEach((id) => ids.add(id));
     }
     return [...ids].sort((a, b) => a - b);
 }

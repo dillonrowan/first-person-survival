@@ -40,6 +40,13 @@ export type NpcAttack = {
     cooldownScale: number;
     /** [forward, up] tiles from the model origin where a projectile or breath leaves the body. */
     launch?: [number, number];
+    /** Index of the extra clip this plays instead (NpcModelData.extras): a boss's own moves. */
+    extra?: number;
+    /**
+     * A boss move that is no blow: its impact brings bricks down or calls minions (the fight
+     * handles it, see Scurrius.ts). It deals no damage itself.
+     */
+    special?: "bricks" | "summon";
 };
 
 const attack = (
@@ -212,10 +219,16 @@ export class NpcAttacker {
     private nextHit = 0;
     private sinceStart = Infinity;
     private rate = 1;
+    /** Which attacks may start now (a boss's phase); all of them when absent. */
+    allow: ((attack: NpcAttack) => boolean) | undefined;
+    /** Multiplies the wait between attacks (a boss attacks faster in its last phase). */
+    pace = 1;
+    /** An attack force() began since the last update: reported as `started` by the next one. */
+    private forced: NpcAttack | undefined;
 
     constructor(
         private readonly random: () => number = Math.random,
-        private readonly attacks: readonly NpcAttack[] = GUARD_ATTACKS,
+        private attacks: readonly NpcAttack[] = GUARD_ATTACKS,
         /** The NPC OSRS attack speed in ticks; attacks started sooner than this hit for less. */
         private readonly speedTicks = 4,
     ) {
@@ -227,9 +240,32 @@ export class NpcAttacker {
         return this.current !== undefined;
     }
 
+    /** Every attack this NPC knows. */
+    get all(): readonly NpcAttack[] {
+        return this.attacks;
+    }
+
+    /** Adds attacks (a boss's own moves) to the ones it already has. */
+    extend(attacks: readonly NpcAttack[]): void {
+        this.attacks = [...this.attacks, ...attacks];
+    }
+
+    /**
+     * Starts `attack` now, whatever the cooldown and reach (a boss move its fight calls for). Ignored
+     * while another attack is in progress.
+     */
+    force(attack: NpcAttack): boolean {
+        if (this.current) {
+            return false;
+        }
+        this.begin(attack);
+        this.forced = attack;
+        return true;
+    }
+
     /** True if some attack starts from further than next to the player (arrows, spells, fireballs). */
     get hasDistanceAttack(): boolean {
-        return this.attacks.some((a) => a.style !== "melee" && a.maxGap > ADJACENT);
+        return this.attacks.some((a) => a.style !== "melee" && a.maxGap > ADJACENT && (this.allow?.(a) ?? true));
     }
 
     /** Forward speed of the lunge right now, tiles/s. */
@@ -264,7 +300,8 @@ export class NpcAttacker {
      */
     update(dt: number, gap: number, sincePlayerAttack: number, canStart: boolean): StrikeEvent[] {
         const events: StrikeEvent[] = [];
-        this.started = undefined;
+        this.started = this.forced;
+        this.forced = undefined;
         this.sinceStart += dt;
         this.rhythm -= dt;
         if (this.rhythm <= 0) {
@@ -290,17 +327,22 @@ export class NpcAttacker {
         }
         this.cooldown -= dt;
         if (this.cooldown <= 0 && canStart) {
-            const options = attacksInReach(gap, this.attacks);
+            const allow = this.allow;
+            const options = attacksInReach(gap, allow ? this.attacks.filter(allow) : this.attacks);
             if (options.length > 0) {
-                this.current = this.pick(options);
-                this.started = this.current;
-                this.rate = attackRate(this.sinceStart, this.speedTicks * TICK_SECONDS);
-                this.sinceStart = 0;
-                this.elapsed = 0;
-                this.nextHit = 0;
+                this.begin(this.pick(options));
             }
         }
         return events;
+    }
+
+    private begin(attack: NpcAttack): void {
+        this.current = attack;
+        this.started = attack;
+        this.rate = attackRate(this.sinceStart, this.speedTicks * TICK_SECONDS);
+        this.sinceStart = 0;
+        this.elapsed = 0;
+        this.nextHit = 0;
     }
 
     /** A weighted random pick: with equal weights, the same as a uniform one. */
@@ -319,7 +361,9 @@ export class NpcAttacker {
         return (
             (this.berserk
                 ? this.between(tuning.attackBerserkMin, tuning.attackBerserkMax)
-                : this.between(tuning.attackCoolMin, tuning.attackCoolMax)) * scale
+                : this.between(tuning.attackCoolMin, tuning.attackCoolMax)) *
+            scale *
+            this.pace
         );
     }
 
