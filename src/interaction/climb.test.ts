@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { CollisionFlag } from "../world/WorldFormat";
-import { ClimbWorld, climbActions, climbDirection, findArrivalTile, planClimb } from "./climb";
+import { ClimbWorld, climbActions, climbDirection, findArrivalTile, planClimb, planTransition } from "./climb";
 
 type Spec = { floors?: string[]; blocked?: string[]; regions?: string[] };
 
@@ -97,5 +97,40 @@ describe("climbDirection", () => {
         expect(climbDirection("Climb-up", world({}), ladder, from)).toBe("up");
         expect(climbDirection("Climb", withUp, ladder, from)).toBe("up");
         expect(climbDirection("Climb", world({}), ladder, from)).toBe("down");
+    });
+});
+
+describe("planTransition", () => {
+    const link = { action: "Climb-down", x: 3210, y: 9616, plane: 0, dungeon: "Lumbridge Castle cellar" };
+    const trapdoor = { ...ladder, kind: "passage" as const, links: [link] };
+
+    // A recorded link wins, and its action matches case-insensitively.
+    it("uses the link for the action, case-insensitively", () => {
+        expect(planTransition(world({}), trapdoor, "climb-DOWN", from)).toEqual({
+            plane: 0, x: 3210.5, y: 9616.5, dungeon: "Lumbridge Castle cellar",
+        });
+    });
+
+    // A ladder without a link falls back to the plane and +6400 rules of planClimb.
+    it("falls back to the climb heuristic for a ladder without a link", () => {
+        const w = world({ floors: ["1,10,21"] });
+        expect(planTransition(w, { ...ladder, kind: "climb" }, "Climb-up", from)).toEqual({ plane: 1, x: 10.5, y: 21.5 });
+        // An action the link does not cover still climbs the ladder normally.
+        expect(planTransition(w, { ...ladder, kind: "climb", links: [link] }, "Climb-up", from)).toEqual({ plane: 1, x: 10.5, y: 21.5 });
+    });
+
+    // A two-way pipe has one link per side under the same action: it leads to the far side.
+    it("takes the link that leads away from the player on a two-way loc", () => {
+        const pipe = { ...ladder, kind: "passage" as const, links: [
+            { action: "Squeeze-through", x: 100, y: 9000, plane: 0 },
+            { action: "Squeeze-through", x: 110, y: 9000, plane: 0 },
+        ] };
+        expect(planTransition(world({}), pipe, "Squeeze-through", { x: 100.5, y: 9000.5 })).toMatchObject({ x: 110.5 });
+        expect(planTransition(world({}), pipe, "Squeeze-through", { x: 110.5, y: 9000.5 })).toMatchObject({ x: 100.5 });
+    });
+
+    // Anything else (a cave mouth with no matching link) leads nowhere, with a message.
+    it("returns a message for a passage without a matching link", () => {
+        expect(planTransition(world({}), trapdoor, "Enter", from)).toEqual({ message: "It leads nowhere you can go yet." });
     });
 });

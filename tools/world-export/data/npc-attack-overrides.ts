@@ -38,7 +38,8 @@ export const OVERRIDES: Record<string, NpcAttackOverride> = {
         note: "TODO special: knockback and stun of the magic attack, bear traps.",
     },
     Venenatis: { styles: { ranged: { minGap: A }, magic: { minGap: A } }, note: "TODO special: webs, spiderlings." },
-    "Kalphite Queen": { styles: { ranged: { minGap: A }, magic: { minGap: A } } },
+    // Her magic is lightning (KALPHITE_LIGHTNING); the wiki: ranged spines shot from her abdomen.
+    "Kalphite Queen": { styles: { ranged: { minGap: A }, magic: { minGap: A, seq: 1172 } } },
     "Demonic gorilla": { styles: { ranged: { minGap: A }, magic: { minGap: A } } },
     "Tortured gorilla": { styles: { ranged: { minGap: A }, magic: { minGap: A } } },
     "Lizardman shaman": {
@@ -76,7 +77,28 @@ export const OVERRIDES: Record<string, NpcAttackOverride> = {
     "Brutal blue dragon": LONG_RANGE_FIRE,
     "Brutal green dragon": LONG_RANGE_FIRE,
     "Brutal red dragon": LONG_RANGE_FIRE,
-    Vorkath: { styles: { dragonfire: { longRange: true } }, note: "TODO special: dragonfire bomb, freeze, venom." },
-    Drake: LONG_RANGE_FIRE,
+    // The wiki: Vorkath spits fireballs; its magic and dragonfire use the pose of its ranged spit.
+    Vorkath: {
+        styles: { dragonfire: { longRange: true, seq: 7952 }, magic: { seq: 7952 } }, // DS2_VORKATH_RANGED
+        note: "TODO special: dragonfire bomb, freeze, venom.",
+    },
+    // A drake has no breath sequence; it breathes fire with the pose of its ranged attack.
+    Drake: { styles: { dragonfire: { longRange: true, seq: 8276 } } }, // DRAKE_RANGED
     "King Black Dragon": { styles: { dragonfire: { longRange: true, hitPow: 2.5 } } },
+    // Attacks the names do not give, checked against the OSRS Wiki's account of each fight
+    // (tools/world-export/audit-npc-attacks.ts lists what the export picked).
+    Cerberus: { styles: { magic: { seq: 4490 } } }, // CERBERUS_ATTACK_RANGE: both are balls from her mouths
+    "Skeletal Wyvern": { styles: { ranged: { seq: 2989 } } }, // WYVERN_SKELETON_ICEBALL: "Iceball"
+    "Corporeal Beast": { styles: { magic: { seq: 1679 } } }, // CORPBEAST_SPRITE_SHOOT_1
+    Sotetseg: { styles: { magic: { seq: 8139 } } }, // TOB_SOTETSEG_ATTACK_RANGED: red and grey balls alike
+    // Volleys of orbs (blue magic, green ranged), not its spit.
+    "The Leviathan": { styles: { ranged: { seq: 10281 }, magic: { seq: 10281 } } }, // NPC_LEVIATHAN_01_PROJECTILE_SINGLE_01
+    Zebak: { styles: { magic: { seq: 9624 } } }, // NPC_ZEBAK01_ATTACK_RANGED: spits the pot as it spits the rock
+    "TzHaar-Xil": { styles: { ranged: { seq: 2611 } } }, // THZAAR_RING_ATTACK: the throwing ring
+    "Experiment No.2": { styles: { ranged: { seq: 6514 } } }, // GRIM_EXPERIMENT_NO2_PROJ_ATTACK: throws the ogleroot
+    "Nylocas Vasilias": { styles: { magic: { seq: 4410 } } }, // HOSDUN_SPIDER_BOSS_ATTACK_RANGED: only the carapace colour differs
+    "Long-tailed Wyvern": { styles: { ranged: { seq: 7657 } } }, // FOSSIL_NPC_WYVERN_FLIGHT_FIRE, not its claw
+    "Taloned Wyvern": { styles: { ranged: { seq: 7657 } } },
+    "Spitting Wyvern": { styles: { ranged: { seq: 7657 } } },
+    "Ancient Wyvern": { styles: { ranged: { seq: 7657 } } },
 };

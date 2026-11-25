@@ -105,8 +105,21 @@ function fakeWorld(locs: InteractiveLoc[]) {
 
 const materials = { opaque: new THREE.MeshBasicMaterial(), transparent: new THREE.MeshBasicMaterial() };
 
-function setup(blockers: ConstructorParameters<typeof WorldInteractives>[3] = {}) {
-    const world = fakeWorld([DOOR, LADDER]);
+// A cave mouth that only a link knows the destination of, and a closed trapdoor with its open model.
+const CAVE: InteractiveLoc = {
+    kind: "passage", id: 4000, name: "Cave entrance", actions: ["Enter"], plane: 0, level: 0,
+    tileX: 30, tileY: 20, sizeX: 2, sizeY: 2, rotation: 0, height: 2,
+    links: [{ action: "Enter", x: 30, y: 6420, plane: 0, dungeon: "Test Cave" }],
+};
+const TRAPDOOR: InteractiveLoc = {
+    kind: "passage", id: 1579, name: "Trapdoor", actions: ["Open"], plane: 0, level: 0,
+    tileX: 40, tileY: 20, sizeX: 1, sizeY: 1, rotation: 0, height: 0.2,
+    links: [{ action: "Climb-down", x: 40, y: 6420, plane: 0 }],
+    hatch: { closedMesh: 0, openMesh: 1, openActions: ["Climb-down", "Close"], placedOpen: false },
+};
+
+function setup(blockers: ConstructorParameters<typeof WorldInteractives>[3] = {}, extra: InteractiveLoc[] = []) {
+    const world = fakeWorld([DOOR, LADDER, ...extra]);
     const scene = new THREE.Scene();
     const interactives = new WorldInteractives(world, scene, materials, blockers);
     world.load();
@@ -153,6 +166,7 @@ describe("WorldInteractives", () => {
                 {
                     isLoaded: () => true,
                     hasFloor: () => true,
+                    hasGround: () => true,
                     groundHeight: () => 0,
                     collisionFlags: (plane, x, y) => world.flags(plane, x, y),
                 },
@@ -353,5 +367,52 @@ describe("PersistentEdits", () => {
         expect(edits.forRegion(1, 0).map((e) => e.tileX)).toEqual([64]);
         edits.set("a", undefined);
         expect(edits.size).toBe(0);
+    });
+
+    describe("passages and hatches", () => {
+        const aim = (source: ReturnType<WorldInteractives["targetSource"]>, ox: number, oy: number, dx: number, dy: number, oz = 1.25) =>
+            source({ ox, oy, oz, dx, dy, dz: 0, plane: 0, range: 2.5 });
+
+        // A passage is aimed at by its footprint and offers its link actions.
+        it("targets a passage by its footprint", () => {
+            const { interactives } = setup({}, [CAVE]);
+            const target = aim(interactives.targetSource(), 28.5, 20.5, 1, 0)!;
+            expect(target.kind).toBe("passage");
+            expect(target.actions).toEqual(["Enter"]);
+            expect((target.ref as InteractiveLoc).links![0].dungeon).toBe("Test Cave");
+        });
+
+        // A closed hatch offers Open; once open it offers the open model's actions, swapping its two meshes.
+        it("opens a hatch and offers its open actions", () => {
+            const { interactives, scene } = setup({}, [TRAPDOOR]);
+            const [hatch] = interactives.allHatches();
+            const source = interactives.targetSource();
+            expect(aim(source, 38.5, 20.5, 1, 0, 0.5)!.actions).toEqual(["Open"]);
+            expect(hatch.closed.visible).toBe(true);
+            expect(hatch.opened.visible).toBe(false);
+
+            interactives.setHatchOpen(hatch, true);
+            expect(aim(source, 38.5, 20.5, 1, 0, 0.5)!.actions).toEqual(["Climb-down", "Close"]);
+            expect(hatch.closed.visible).toBe(false);
+            expect(hatch.opened.visible).toBe(true);
+
+            interactives.setHatchOpen(hatch, false);
+            expect(aim(source, 38.5, 20.5, 1, 0, 0.5)!.actions).toEqual(["Open"]);
+            expect(scene.children.length).toBeGreaterThan(2);
+        });
+
+        // An open hatch stays open when its square unloads and loads again, like a door.
+        it("keeps a hatch open across an unload", () => {
+            const { world, scene, interactives } = setup({}, [TRAPDOOR]);
+            interactives.setHatchOpen(interactives.allHatches()[0], true);
+            const before = scene.children.length;
+
+            world.unload();
+            expect(interactives.allHatches()).toHaveLength(0);
+            expect(scene.children.length).toBeLessThan(before);
+
+            world.load();
+            expect(interactives.allHatches()[0].open).toBe(true);
+        });
     });
 });

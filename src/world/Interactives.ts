@@ -36,7 +36,23 @@ export type DoorInstance = {
     partner?: DoorInstance;
 };
 
-type RegionInteractives = { doors: DoorInstance[]; climbs: InteractiveLoc[]; banks: InteractiveLoc[] };
+/** A trapdoor or manhole: "Open" swaps its closed model for the open one, which can be climbed through. */
+export type HatchInstance = {
+    readonly loc: InteractiveLoc;
+    readonly key: string;
+    open: boolean;
+    readonly closed: THREE.Group;
+    readonly opened: THREE.Group;
+};
+
+type RegionInteractives = {
+    doors: DoorInstance[];
+    climbs: InteractiveLoc[];
+    banks: InteractiveLoc[];
+    /** Entrances with links that are not ladders: cave mouths, tunnels, trapdoors without an open model. */
+    passages: InteractiveLoc[];
+    hatches: HatchInstance[];
+};
 
 const regionKey = (mapX: number, mapY: number) => (mapX << 8) | mapY;
 const doorKey = (loc: InteractiveLoc) => `${loc.plane}:${loc.tileX}:${loc.tileY}:${loc.id}`;
@@ -74,6 +90,8 @@ export class WorldInteractives {
     /** Doors in their other state; kept when squares unload so doors stay where the player left them. */
     private readonly toggledDoors = new Set<string>();
     private readonly animating = new Set<DoorInstance>();
+    /** Hatches that are open; kept when squares unload so they stay as the player left them. */
+    private readonly openHatches = new Set<string>();
 
     constructor(
         private readonly world: InteractivesWorld,
@@ -117,6 +135,22 @@ export class WorldInteractives {
             this.toggleLeaf(leaf);
         }
         return true;
+    }
+
+    /** Opens or closes a trapdoor or manhole by swapping its two models. */
+    setHatchOpen(hatch: HatchInstance, open: boolean): void {
+        hatch.open = open;
+        hatch.closed.visible = !open;
+        hatch.opened.visible = open;
+        if (open) {
+            this.openHatches.add(hatch.key);
+        } else {
+            this.openHatches.delete(hatch.key);
+        }
+    }
+
+    allHatches(): HatchInstance[] {
+        return [...this.regions.values()].flatMap((region) => region.hatches);
     }
 
     private toggleLeaf(door: DoorInstance): void {
@@ -201,32 +235,44 @@ export class WorldInteractives {
                     }
                 }
                 for (const loc of region.climbs) {
-                    if (loc.plane !== ray.plane || !near(loc, ray.ox, ray.oy, reach)) {
-                        continue;
-                    }
-                    const ground = this.world.groundHeight(loc.plane, loc.tileX + 0.5, loc.tileY + 0.5);
-                    Object.assign(box, {
-                        minX: loc.tileX,
-                        minY: loc.tileY,
-                        maxX: loc.tileX + loc.sizeX,
-                        maxY: loc.tileY + loc.sizeY,
-                        minZ: ground,
-                        maxZ: ground + Math.max(loc.height, MIN_CLIMB_TARGET_HEIGHT),
-                    });
-                    const t = rayBox(ray.ox, ray.oy, ray.oz, ray.dx, ray.dy, ray.dz, box, ray.range);
+                    const t = this.aimAtFootprint(loc, ray, box, reach);
                     if (t !== undefined) {
-                        consider({
-                            kind: "climb",
-                            label: loc.name,
-                            actions: climbActions(loc.actions).slice(0, 2),
-                            distance: t,
-                            ref: loc,
-                        });
+                        consider({ kind: "climb", label: loc.name, actions: climbActions(loc.actions).slice(0, 2), distance: t, ref: loc });
+                    }
+                }
+                for (const loc of region.passages) {
+                    const t = this.aimAtFootprint(loc, ray, box, reach);
+                    if (t !== undefined) {
+                        consider({ kind: "passage", label: loc.name, actions: climbActions(loc.actions).slice(0, 3), distance: t, ref: loc });
+                    }
+                }
+                for (const hatch of region.hatches) {
+                    const t = this.aimAtFootprint(hatch.loc, ray, box, reach);
+                    if (t !== undefined) {
+                        const actions = hatch.open ? hatch.loc.hatch!.openActions : ["Open"];
+                        consider({ kind: "hatch", label: hatch.loc.name, actions: actions.slice(0, 3), distance: t, ref: hatch });
                     }
                 }
             }
             return best;
         };
+    }
+
+    /** Distance along the ray to the loc's footprint box (at least as tall as a person can reach), if hit. */
+    private aimAtFootprint(loc: InteractiveLoc, ray: Parameters<TargetSource>[0], box: Box3, reach: number): number | undefined {
+        if (loc.plane !== ray.plane || !near(loc, ray.ox, ray.oy, reach)) {
+            return undefined;
+        }
+        const ground = this.world.groundHeight(loc.plane, loc.tileX + 0.5, loc.tileY + 0.5);
+        Object.assign(box, {
+            minX: loc.tileX,
+            minY: loc.tileY,
+            maxX: loc.tileX + loc.sizeX,
+            maxY: loc.tileY + loc.sizeY,
+            minZ: ground,
+            maxZ: ground + Math.max(loc.height, MIN_CLIMB_TARGET_HEIGHT),
+        });
+        return rayBox(ray.ox, ray.oy, ray.oz, ray.dx, ray.dy, ray.dz, box, ray.range);
     }
 
     private isOccupied(plane: number, box: { minX: number; minY: number; maxX: number; maxY: number }): boolean {
@@ -249,13 +295,19 @@ export class WorldInteractives {
         if (!data || this.regions.has(key)) {
             return;
         }
-        const region: RegionInteractives = { doors: [], climbs: [], banks: [] };
+        const region: RegionInteractives = { doors: [], climbs: [], banks: [], passages: [], hatches: [] };
         const byIndex = new Map<number, DoorInstance>();
         data.locs.forEach((loc, index) => {
             if (loc.kind === "climb") {
                 region.climbs.push(loc);
             } else if (loc.kind === "bank") {
                 region.banks.push(loc);
+            } else if (loc.kind === "passage") {
+                if (loc.hatch) {
+                    region.hatches.push(this.createHatch(loc, mapX, mapY, data.doorGeometries));
+                } else {
+                    region.passages.push(loc);
+                }
             } else if (loc.door) {
                 const door = this.createDoor(loc, mapX, mapY, data.doorGeometries[loc.door.mesh]);
                 region.doors.push(door);
@@ -303,6 +355,39 @@ export class WorldInteractives {
         return { loc, key, toggled, pivot, angle };
     }
 
+    private createHatch(loc: InteractiveLoc, mapX: number, mapY: number, geometries: DoorGeometry[]): HatchInstance {
+        const data = loc.hatch!;
+        const key = doorKey(loc);
+        const open = this.openHatches.has(key) !== data.placedOpen;
+        const build = (geometry: DoorGeometry | undefined) => {
+            const group = new THREE.Group();
+            group.position.set(mapX * REGION_SIZE, 0, -mapY * REGION_SIZE);
+            const parts: [THREE.BufferGeometry | undefined, THREE.Material, number][] = [
+                [geometry?.opaque, this.materials.opaque, 1],
+                [geometry?.transparent, this.materials.transparent, 2],
+            ];
+            for (const [part, material, renderOrder] of parts) {
+                if (part) {
+                    const mesh = new THREE.Mesh(part, material);
+                    mesh.renderOrder = renderOrder;
+                    group.add(mesh);
+                }
+            }
+            this.scene.add(group);
+            return group;
+        };
+        const hatch: HatchInstance = {
+            loc,
+            key,
+            open,
+            closed: build(geometries[data.closedMesh]),
+            opened: build(geometries[data.openMesh]),
+        };
+        hatch.closed.visible = !open;
+        hatch.opened.visible = open;
+        return hatch;
+    }
+
     private regionUnloaded(mapX: number, mapY: number): void {
         const key = regionKey(mapX, mapY);
         const region = this.regions.get(key);
@@ -313,6 +398,9 @@ export class WorldInteractives {
             this.animating.delete(door);
             // The geometry belongs to the World, which frees it.
             this.scene.remove(door.pivot);
+        }
+        for (const hatch of region.hatches) {
+            this.scene.remove(hatch.closed, hatch.opened);
         }
         this.regions.delete(key);
     }

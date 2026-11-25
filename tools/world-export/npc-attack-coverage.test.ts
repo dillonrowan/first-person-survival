@@ -67,10 +67,14 @@ describe.skipIf(!hasWorld)("NPC attack styles in the export", () => {
         }
     });
 
-    it("bakes a clip for every non-melee style, except for NPCs with skeletal animations", () => {
-        // Callisto and Vet'ion animate with skeletons, which the exporter cannot bake (no frame
-        // base): they have no clips and attack with the plain timed attack of the runtime.
-        const skeletal = new Set([6609, 6611]);
+    it("bakes a clip for every non-melee style, except for NPCs with no attack animation", () => {
+        // Skeletal animations (Callisto, Vet'ion, the Leviathan, the Tombs of Amascut bosses) bake
+        // like frame ones. The dormant Wyrm (8610) idles as a mound on a skeleton of its own (1844)
+        // that has no attacks; its attacks are the risen Wyrm's (8611, skeleton 1845), which bakes
+        // them. The Pestilent Bloat has no attack sequence (its flies hit), nor have the Kraken
+        // Cove whirlpools (493, 496, 5534: the Kraken and its tentacles before they surface), nor
+        // the Killerwatt (470), whose skeleton carries only effect sequences.
+        const skeletal = new Set([8610, 8359, 493, 496, 5534, 470]);
         const unbaked: number[] = [];
         for (const a of manifest.appearances.filter((x) => x.attackStyles)) {
             const bytes = gunzipSync(fs.readFileSync(path.join(WORLD_DIR, a.file)));

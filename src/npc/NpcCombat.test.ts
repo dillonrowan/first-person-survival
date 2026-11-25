@@ -24,34 +24,46 @@ describe("NpcCombatBrain", () => {
         playerX: 0,
         playerY: 0,
         playerYaw,
-        healthFraction: 1,
     });
 
-    it("runs from far away, combat-walks near, and zig-zags when looked at", () => {
+    it("runs all the way in at combat pace, and zig-zags when looked at", () => {
         const brain = new NpcCombatBrain(() => 0.5);
         const far = brain.update(0.02, sense(10, Math.PI / 2)); // the player looks west, not at it
-        expect(Math.hypot(far.vx, far.vy)).toBeCloseTo(tuning.npcRunSpeed, 6);
+        expect(Math.hypot(far.vx, far.vy)).toBeCloseTo(tuning.npcRunSpeed * tuning.npcCombatPace, 6);
         expect(far.vx).toBeCloseTo(0, 6);
         const near = brain.update(0.02, sense(4, Math.PI / 2));
-        expect(Math.hypot(near.vx, near.vy)).toBeCloseTo(tuning.npcCombatWalkSpeed, 6);
+        expect(Math.hypot(near.vx, near.vy)).toBeCloseTo(tuning.npcRunSpeed * tuning.npcCombatPace, 6);
         // The player at the origin looks south (yaw π), straight at the NPC at (0, -10).
         const zig = brain.update(0.02, sense(10, Math.PI));
         expect(Math.abs(zig.vx)).toBeGreaterThan(0.5);
     });
 
-    it("fights within the Yellow zone facing the player, and flees when badly hurt", () => {
+    it("fights within the Yellow zone facing the player, and never flees", () => {
         const brain = new NpcCombatBrain(() => 0.3);
         const m = brain.update(0.02, sense(tuning.zoneYellow - 0.1));
         expect(m.mode).toBe("fight");
         expect(m.faceY).toBeCloseTo(1, 6);
-        const flee = brain.update(0.02, { ...sense(1.5), healthFraction: 0.1 });
-        expect(flee.mode).toBe("flee");
-        expect(flee.vy).toBeLessThan(0);
+        // However long the fight goes on, it closes in on the player rather than running away.
+        for (let i = 0; i < 2000; i++) {
+            expect(brain.update(0.02, sense(tuning.zoneYellow + 1)).vy).toBeGreaterThan(0);
+        }
+    });
+});
+
+describe("pressing a player who backs off", () => {
+    const sense = (d: number) => ({ x: 0, y: -d, playerX: 0, playerY: 0, playerYaw: 0 });
+
+    it("runs after the player within the fight band instead of stepping", () => {
+        const brain = new NpcCombatBrain(() => 0.3);
+        expect(brain.update(0.02, sense(tuning.zoneGreen)).mode).toBe("fight");
+        const press = brain.update(0.02, sense((tuning.zoneGreen + tuning.zoneYellow) / 2 + 0.1));
+        expect(press.mode).toBe("fight");
+        expect(press.vy).toBeCloseTo(tuning.npcRunSpeed * tuning.npcCombatPace, 6);
     });
 });
 
 describe("an NPC that keeps its distance", () => {
-    const sense = (d: number) => ({ x: 0, y: -d, playerX: 0, playerY: 0, playerYaw: 0, healthFraction: 1 });
+    const sense = (d: number) => ({ x: 0, y: -d, playerX: 0, playerY: 0, playerYaw: 0 });
     const distances = { engage: 6, ideal: 5 };
 
     it("settles into a fight from 6 tiles and chases from further", () => {

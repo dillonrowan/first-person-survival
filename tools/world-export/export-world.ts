@@ -1,11 +1,19 @@
 // One-time conversion of the OSRS cache (cache/) into the game's world map (public/world/).
 //
-//   npm run export-world                         Gielinor's surface (map squares with y < 66)
-//   npm run export-world -- --area all           also dungeons, minigames and instances
+//   npm run export-world                         the surface (map squares with y < 66) plus the dungeons its
+//                                                entrances lead to (--area dungeons, the default)
+//   npm run export-world -- --area surface       the surface only
+//   npm run export-world -- --area links         only the squares that carry dungeon links: the dungeon squares and the
+//                                                surface squares of entrances (with --merge: update an existing export)
+//   npm run export-world -- --area all           also minigames and instances
 //   npm run export-world -- --area 44,48,54,56   map squares x 44..54, y 48..56 (inclusive)
 //   npm run export-world -- --workers 4
 //   npm run export-world -- --no-npcs            skip the NPC models and spawns
 //   npm run export-world -- --npcs-only          re-bake only the NPCs of the exported map
+//   npm run export-world -- --squares "29,110;39,75"   these map squares only (instead of --area)
+//   npm run export-world -- --merge ...          re-export the selected squares into the existing
+//                                                world, keeping every other file (items, weapons,
+//                                                NPCs); the squares join world.json's region list
 //   npm run export-world -- --npc-data-only      only refresh NPC stats and drops in npcs.json (seconds)
 //
 // The cache decoders live in rs/; RegionBuilder turns each decoded map square into the meshes
@@ -37,8 +45,10 @@ import { ExportResult, ExportTask, ExportWorkerData } from "./export-worker";
 import { encodePng } from "./png";
 import { BRIGHTNESS } from "./FaceColors";
 import { AttackIndex, buildAttackIndex, readAnimationNames } from "./NpcAttackAnims";
-import { NpcAppearanceTask, finalizeNpcManifest, readNpcSpawnFile, selectNpcs } from "./NpcSpawns";
+import { NpcAppearanceTask, NpcSpawnOverrides, applySpawnOverrides, finalizeNpcManifest, readNpcSpawnFile, selectNpcs } from "./NpcSpawns";
 import { TextureLoader } from "./rs/texture/TextureLoader";
+import { DUNGEON_LINKS_FILE, readDungeonLinkFile, readDungeonOverrides, selectDungeonSquares } from "./DungeonLinks";
+import { createEdgeOpen } from "./DungeonInventory";
 import { createWorldLoaders } from "./WorldLoaders";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
@@ -47,6 +57,7 @@ const OUT_DIR = path.join(ROOT, "public", "world");
 const REGION_DIR = path.join(OUT_DIR, "regions");
 const NPC_DIR = path.join(OUT_DIR, "npcs");
 const NPC_SPAWN_FILE = path.join(ROOT, "tools", "world-export", "data", "npc-spawns-osrs.json");
+const NPC_SPAWN_OVERRIDES_FILE = path.join(ROOT, "tools", "world-export", "data", "npc-spawn-overrides.json");
 /** Attack styles of every NPC from the OSRS wiki (npm run fetch-wiki-attacks). */
 const NPC_ATTACKS_WIKI_FILE = path.join(ROOT, "tools", "world-export", "data", "npc-attacks-wiki.json");
 const WIKI_DROPS_FILE = path.join(ROOT, "tools", "world-export", "data", "wiki-drops.json");
@@ -113,6 +124,9 @@ const AREAS: Record<string, Area> = {
     all: { x1: 0, y1: 0, x2: 255, y2: 255 },
 };
 
+/** Guard rail on the dungeon flood fill: more than this means it leaked into minigames or instances. */
+const MAX_DUNGEON_SQUARES = 900;
+
 // A worker peaks at roughly 300 MB while building dense regions; keep headroom on top of that.
 const WORKER_MEMORY_BYTES = 600 * 1024 * 1024;
 
@@ -122,8 +136,12 @@ function defaultWorkerCount(): number {
     return Math.max(1, Math.min(6, byCores, byMemory));
 }
 
-function parseArgs(argv: string[]): { area: Area; workers: number; npcs: boolean; npcsOnly: boolean; npcDataOnly: boolean } {
-    let area = AREAS.surface;
+type Args = { area: Area | "dungeons" | "links"; squares?: [number, number][]; merge: boolean; workers: number; npcs: boolean; npcsOnly: boolean; npcDataOnly: boolean };
+
+function parseArgs(argv: string[]): Args {
+    let area: Args["area"] = "dungeons";
+    let squares: [number, number][] | undefined;
+    let merge = false;
     let npcs = true;
     let npcsOnly = false;
     let npcDataOnly = false;
@@ -133,12 +151,14 @@ function parseArgs(argv: string[]): { area: Area; workers: number; npcs: boolean
         const value = argv[i + 1];
         if (arg === "--area" && value) {
             i++;
-            if (AREAS[value]) {
+            if (value === "dungeons" || value === "links") {
+                area = value;
+            } else if (AREAS[value]) {
                 area = AREAS[value];
             } else {
                 const [x1, y1, x2, y2] = value.split(",").map(Number);
                 if ([x1, y1, x2, y2].some((n) => !Number.isInteger(n))) {
-                    throw new Error(`--area expects surface, all or x1,y1,x2,y2, got "${value}"`);
+                    throw new Error(`--area expects dungeons, links, surface, all or x1,y1,x2,y2, got "${value}"`);
                 }
                 area = {
                     x1: Math.min(x1, x2),
@@ -147,6 +167,17 @@ function parseArgs(argv: string[]): { area: Area; workers: number; npcs: boolean
                     y2: Math.max(y1, y2),
                 };
             }
+        } else if (arg === "--squares" && value) {
+            i++;
+            squares = value.split(";").map((pair) => {
+                const [x, y] = pair.split(",").map(Number);
+                if (!Number.isInteger(x) || !Number.isInteger(y)) {
+                    throw new Error(`--squares expects "x,y;x,y", got "${value}"`);
+                }
+                return [x, y];
+            });
+        } else if (arg === "--merge") {
+            merge = true;
         } else if (arg === "--no-npcs") {
             npcs = false;
         } else if (arg === "--npcs-only") {
@@ -160,7 +191,7 @@ function parseArgs(argv: string[]): { area: Area; workers: number; npcs: boolean
             throw new Error(`Unknown argument "${arg}"`);
         }
     }
-    return { area, workers, npcs, npcsOnly, npcDataOnly };
+    return { area, ...(squares ? { squares } : {}), merge, workers, npcs, npcsOnly, npcDataOnly };
 }
 
 /**
@@ -264,8 +295,9 @@ function createWorkerData(cache: ReturnType<typeof readCacheFiles>, attackIndex?
 /** Every named sequence by its frame base, to find each NPC's attacks among its skeleton's. */
 function createAttackIndex(loaders: ReturnType<typeof createWorldLoaders>): AttackIndex {
     const names = readAnimationNames(ANIMATION_NAMES_FILE);
-    const index = buildAttackIndex(names, (id) => loaders.npcModelLoader.getFrameBase(id)?.id);
+    const index = buildAttackIndex(names, (id) => loaders.npcModelLoader.getAnimationBase(id)?.id);
     loaders.seqFrameLoader.clearCache();
+    loaders.npcModelLoader.clearCache();
     return index;
 }
 
@@ -346,6 +378,7 @@ async function exportRegions(
     const failed: string[] = [];
     let done = 0;
     let bytes = 0;
+    let linksAttached = 0;
     const logProgress = createProgressLogger(regions.length, "regions");
 
     const tasks: ExportTask[] = regions.map(([mapX, mapY]) => ({ kind: "region", mapX, mapY }));
@@ -354,6 +387,7 @@ async function exportRegions(
         if (result.type === "region") {
             exported.push([result.mapX, result.mapY]);
             bytes += result.bytes;
+            linksAttached += result.stats.links;
         } else if (result.type === "error") {
             failed.push(result.label);
             console.error(`${result.label} failed:`, result.message);
@@ -361,6 +395,10 @@ async function exportRegions(
         logProgress(done, bytes);
     });
     logProgress(done, bytes, true);
+    const linkFile = readDungeonLinkFile(DUNGEON_LINKS_FILE);
+    if (linkFile) {
+        console.log(`${linksAttached} of ${linkFile.links.length} dungeon links attached to exported entrances`);
+    }
     if (failed.length > 0) {
         console.warn(`${failed.length} regions failed and were skipped: ${failed.join(" ")}`);
     }
@@ -376,31 +414,39 @@ async function exportNpcs(
     workerCount: number,
 ): Promise<NonNullable<WorldManifest["npcs"]> | undefined> {
     const exportedKeys = new Set(exportedRegions.map(([x, y]) => (x << 8) | y));
-    const scenes = new Map<string, ReturnType<typeof loaders.sceneBuilder.buildScene>>();
+    // Only each square's overlays are kept: whole scenes for every square with a spawn would take
+    // gigabytes.
+    const overlays = new Map<string, ReturnType<typeof loaders.sceneBuilder.buildScene>["tileOverlays"]>();
     const waterAt = (plane: number, x: number, y: number) => {
         const mapX = x >> 6;
         const mapY = y >> 6;
         const key = `${mapX},${mapY}`;
-        let scene = scenes.get(key);
-        if (!scene) {
-            scene = loaders.sceneBuilder.buildScene(mapX * 64, mapY * 64, 64, 64);
-            scenes.set(key, scene);
+        let tileOverlays = overlays.get(key);
+        if (!tileOverlays) {
+            tileOverlays = loaders.sceneBuilder.buildScene(mapX * 64, mapY * 64, 64, 64).tileOverlays;
+            overlays.set(key, tileOverlays);
         }
         const lx = x - mapX * 64;
         const ly = y - mapY * 64;
-        const overlayId = scene.tileOverlays[plane]?.[lx]?.[ly] - 1;
+        const overlayId = tileOverlays[plane]?.[lx]?.[ly] - 1;
         if (overlayId === undefined || overlayId < 0) {
             return false;
         }
         return loaders.overlayTypeLoader.load(overlayId).name?.toLowerCase().includes("water") === true;
     };
+    const spawnOverrides = fs.existsSync(NPC_SPAWN_OVERRIDES_FILE)
+        ? (JSON.parse(fs.readFileSync(NPC_SPAWN_OVERRIDES_FILE, "utf8")) as NpcSpawnOverrides)
+        : {};
     const selection = selectNpcs(
-        readNpcSpawnFile(NPC_SPAWN_FILE),
+        applySpawnOverrides(readNpcSpawnFile(NPC_SPAWN_FILE), spawnOverrides),
         (mapX, mapY) => exportedKeys.has((mapX << 8) | mapY),
         loaders.npcTypeLoader,
         loaders.varManager,
         waterAt,
     );
+    // The scenes built for waterAt filled the loc model caches; the NPC bake needs none of it.
+    overlays.clear();
+    loaders.locModelLoader.clearCache();
     if (selection.appearances.length === 0) {
         console.log("No NPC spawns in the exported area");
         return undefined;
@@ -495,8 +541,38 @@ async function exportNpcs(
     };
 }
 
+/**
+ * The non-surface map squares the surface leads into: the squares dungeon links arrive in, grown
+ * through neighbours joined by walkable ground (see selectDungeonSquares). Stops if it runs away.
+ */
+function selectDungeons(loaders: ReturnType<typeof createWorldLoaders>): [number, number][] {
+    const file = readDungeonLinkFile(DUNGEON_LINKS_FILE);
+    if (!file) {
+        console.warn("No tools/world-export/data/dungeon-links.json (npm run find-dungeon-links): exporting no dungeons");
+        return [];
+    }
+    const excluded = new Set((readDungeonOverrides().excludeSquares ?? []).map(([x, y]) => (x << 8) | y));
+    const selection = selectDungeonSquares(
+        file.links,
+        (x, y) => loaders.sceneBuilder.getTerrainData(x, y) !== undefined,
+        createEdgeOpen(loaders),
+        excluded,
+    );
+    console.log(`${selection.squares.length} dungeon squares in ${selection.components.length} areas (about ${Math.round(selection.squares.length * 0.9)} MB):`);
+    for (const c of selection.components.sort((a, b) => b.squares - a.squares).slice(0, 12)) {
+        console.log(`  ${c.squares} squares, x ${c.bounds[0]}..${c.bounds[2]}, y ${c.bounds[1]}..${c.bounds[3]}, ${c.links} links`);
+    }
+    if (selection.squares.length > MAX_DUNGEON_SQUARES) {
+        throw new Error(
+            `${selection.squares.length} dungeon squares is more than ${MAX_DUNGEON_SQUARES}: the flood fill ran into minigames or instances. ` +
+                "Add the squares to excludeSquares in data/dungeon-links-overrides.json, or exclude links, and run again.",
+        );
+    }
+    return selection.squares;
+}
+
 async function main() {
-    const { area, workers, npcs, npcsOnly, npcDataOnly } = parseArgs(process.argv.slice(2));
+    const { area, squares, merge, workers, npcs, npcsOnly, npcDataOnly } = parseArgs(process.argv.slice(2));
 
     console.log("Reading cache...");
     const cache = readCacheFiles(CACHE_DIR);
@@ -527,15 +603,44 @@ async function main() {
     }
 
     const regions: [number, number][] = [];
-    for (let x = area.x1; x <= area.x2; x++) {
-        for (let y = area.y1; y <= area.y2; y++) {
-            if (loaders.sceneBuilder.getTerrainData(x, y)) {
-                regions.push([x, y]);
+    if (squares) {
+        regions.push(...squares.filter(([x, y]) => loaders.sceneBuilder.getTerrainData(x, y)));
+    } else {
+        const rectangle = (r: Area) => {
+            for (let x = r.x1; x <= r.x2; x++) {
+                for (let y = r.y1; y <= r.y2; y++) {
+                    if (loaders.sceneBuilder.getTerrainData(x, y)) {
+                        regions.push([x, y]);
+                    }
+                }
             }
+        };
+        if (area === "dungeons" || area === "links") {
+            if (area === "dungeons") rectangle(AREAS.surface);
+            const dungeons = selectDungeons(loaders);
+            regions.push(...dungeons);
+            if (area === "links") {
+                // Entrances on the surface need their links baked in too.
+                const have = new Set(regions.map(([x, y]) => (x << 8) | y));
+                for (const link of readDungeonLinkFile(DUNGEON_LINKS_FILE)?.links ?? []) {
+                    const [x, y] = [link.from[0] >> 6, link.from[1] >> 6];
+                    if (!have.has((x << 8) | y) && loaders.sceneBuilder.getTerrainData(x, y)) {
+                        have.add((x << 8) | y);
+                        regions.push([x, y]);
+                    }
+                }
+            }
+        } else {
+            rectangle(area);
         }
     }
     if (regions.length === 0) {
         throw new Error("No map squares in the selected area");
+    }
+
+    if (merge) {
+        await mergeRegions(cache, loaders, regions, workers);
+        return;
     }
 
     fs.rmSync(OUT_DIR, { recursive: true, force: true });
@@ -583,6 +688,38 @@ async function main() {
     fs.writeFileSync(path.join(OUT_DIR, "world.json"), JSON.stringify(manifest));
 
     console.log(`Done: ${exported.length} regions in ${path.relative(ROOT, OUT_DIR)}`);
+}
+
+/**
+ * Re-exports regions into the existing world and adds them to world.json, keeping everything else
+ * (textures, spawn, NPCs, ground items, items, weapons). The texture atlas must not have changed.
+ */
+async function mergeRegions(
+    cache: ReturnType<typeof readCacheFiles>,
+    loaders: ReturnType<typeof createWorldLoaders>,
+    regions: [number, number][],
+    workers: number,
+): Promise<void> {
+    const worldFile = path.join(OUT_DIR, "world.json");
+    if (!fs.existsSync(worldFile)) {
+        throw new Error(`No exported map in ${OUT_DIR}; run a full export first`);
+    }
+    const world: WorldManifest = JSON.parse(fs.readFileSync(worldFile, "utf8"));
+    const ids = loaders.textureLoader.getTextureIds();
+    const layers = world.textures.layers.map((l) => l.id).slice(1);
+    if (layers.length !== ids.length || layers.some((id, i) => id !== ids[i])) {
+        throw new Error("texture layers changed; run a full export");
+    }
+    fs.mkdirSync(REGION_DIR, { recursive: true });
+    console.log(`Merging ${regions.length} regions with ${workers} workers...`);
+    const exported = await exportRegions(cache, regions, workers);
+    const keys = new Set(world.regions.map(([x, y]) => `${x},${y}`));
+    for (const [x, y] of exported) {
+        if (!keys.has(`${x},${y}`)) world.regions.push([x, y]);
+    }
+    world.regions.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    fs.writeFileSync(worldFile, JSON.stringify(world));
+    console.log(`Done: ${exported.length} regions merged; run --npcs-only for NPCs in new squares`);
 }
 
 main().catch((e) => {

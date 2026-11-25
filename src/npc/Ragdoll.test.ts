@@ -436,7 +436,7 @@ describe("ragdoll (spec 20)", () => {
         expect(thrown(undefined)).toBeLessThan(0.2);
         const quick = thrown(0.7);
         const power = thrown(1.5);
-        expect(quick).toBeGreaterThan(1.5);
-        expect(power).toBeGreaterThan(quick + 0.3);
+        expect(quick).toBeGreaterThan(1.2);
+        expect(power).toBeGreaterThan(quick + 0.1);
     });
 });

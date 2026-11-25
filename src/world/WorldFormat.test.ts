@@ -125,6 +125,23 @@ describe("region format", () => {
         expect(decoded.doorMeshes[0].opaque.bounds[3]).toBe(4);
     });
 
+    // Version 4 adds passages with links and hatches to the interactive JSON; no binary change.
+    it("round-trips passage links and hatch data", () => {
+        const passage: InteractiveLoc = {
+            ...door,
+            kind: "passage",
+            name: "Trapdoor",
+            actions: ["Open"],
+            door: undefined,
+            links: [{ action: "Climb-down", x: 3210, y: 9616, plane: 0, dungeon: "Lumbridge" }],
+            hatch: { openMesh: 1, closedMesh: 0, openActions: ["Climb-down", "Close"], placedOpen: false },
+        };
+        const decoded = roundTrip(region({ interactives: [passage], doorMeshes: [{ opaque: mesh(3), transparent: mesh(0) }, { opaque: mesh(3), transparent: mesh(0) }] }));
+        expect(decoded.interactives[0].kind).toBe("passage");
+        expect(decoded.interactives[0].links).toEqual(passage.links);
+        expect(decoded.interactives[0].hatch).toEqual(passage.hatch);
+    });
+
     it("pads the interactive JSON so the door meshes stay aligned", () => {
         for (const name of ["", "a", "ab", "abc", "abcd"]) {
             const decoded = roundTrip(

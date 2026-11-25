@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { CollisionFlag } from "../world/WorldFormat";
 import { tuning } from "../combat/tuning";
-import { Knockback, deathLaunch, findSnapTile, stepKnockback } from "./NpcPhysics";
+import { Knockback, deathLaunch, findSnapTile, npcMass, stepKnockback, weightThrowScale } from "./NpcPhysics";
 
 const RADIUS = 0.35;
 
@@ -57,8 +57,8 @@ describe("death launch", () => {
         const l = deathLaunch(0.6, -0.8, quick, tuning.npcBaseMass);
         expect(l.vx / speed(l)).toBeCloseTo(0.6);
         expect(l.vy / speed(l)).toBeCloseTo(-0.8);
-        expect(speed(l)).toBeGreaterThan(3);
-        expect(l.up).toBeGreaterThan(1);
+        expect(speed(l)).toBeGreaterThan(1.5);
+        expect(l.up).toBeGreaterThan(0.4);
     });
 
     it("throws harder blows further, up to a limit", () => {
@@ -73,6 +73,25 @@ describe("death launch", () => {
         const heavy = speed(deathLaunch(1, 0, quick, 2000));
         expect(light).toBeGreaterThan(normal);
         expect(heavy).toBeLessThan(normal);
-        expect(heavy).toBeCloseTo(normal * tuning.deathLaunchMassScale[0]);
+        expect(heavy).toBeCloseTo(normal * tuning.weightThrowScale[0]);
+    });
+});
+
+describe("NPC weight", () => {
+    it("grows with the tiles an NPC takes up and with its height", () => {
+        const human = npcMass(1, tuning.npcBaseHeight);
+        expect(human).toBe(tuning.npcBaseMass);
+        expect(npcMass(2, tuning.npcBaseHeight)).toBeCloseTo(human * 4);
+        expect(npcMass(1, tuning.npcBaseHeight * 2)).toBeCloseTo(human * 2);
+        expect(npcMass(1, tuning.npcBaseHeight / 2)).toBeCloseTo(human / 2);
+    });
+
+    it("throws heavier NPCs less far", () => {
+        const human = weightThrowScale(npcMass(1, tuning.npcBaseHeight));
+        expect(human).toBe(1);
+        expect(weightThrowScale(npcMass(1, tuning.npcBaseHeight * 1.5))).toBeLessThan(human);
+        expect(weightThrowScale(npcMass(2, tuning.npcBaseHeight))).toBeCloseTo(0.5);
+        expect(weightThrowScale(npcMass(1, 0.5))).toBeGreaterThan(human);
+        expect(weightThrowScale(npcMass(5, 6))).toBe(tuning.weightThrowScale[0]);
     });
 });

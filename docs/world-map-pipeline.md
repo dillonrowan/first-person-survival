@@ -32,8 +32,11 @@ flowchart LR
 The export also needs the OSRS wiki data once (`npm run fetch-wiki-attacks` for NPC levels, bonuses,
 max hits and attack styles; `npm run fetch-wiki-items` for drop tables, item spawns and food). After
 `export-world`, which clears `public/world/`, run `npm run export-cache-weapons` and
-`npm run export-items` (the item models and `items.json`). The order is: `fetch-wiki-attacks`,
-`fetch-wiki-items`, `export-world`, `export-cache-weapons`, `export-items`.
+`npm run export-items` (the item models and `items.json`), and `npm run export-map` (the world map
+image `map.png` and `map.json`, rendered from the exported regions in a few minutes; `map.json` also
+lists the mineable rocks, named from `skills.json`). The order is:
+`fetch-wiki-attacks`, `fetch-wiki-items`, `export-world`, `export-cache-weapons`, `export-items`,
+`export-map`.
 `npm run export-world -- --npc-data-only` refreshes only the NPC stats, poison and drop tables in
 `npcs.json` after new wiki data, in seconds, without re-baking the NPC models.
 `npm run export-hitsplats` writes the OSRS hitsplat sprites and their digits from the cache to
@@ -105,9 +108,43 @@ are matched to their NPC definition, each distinct appearance is lit and its idl
 attack animations are baked frame by frame into `npcs/{id}_{displayId}.bin`, and the spawns are
 written to `npcs.json` (with the attack styles of NPCs that use more than melee, from the OSRS wiki). The game plays the baked frames back and wanders the NPCs itself.
 
+**Skill locs.** Trees, rocks, farming patches, facilities (furnaces, ranges,
+anvils…), stalls and runecraft altars become interactive locs of kind `skill` in the
+region file. Mysterious ruins do not: the placed ruins are multilocs whose ids the wiki does not
+list, so the game places their targets itself at each altar's ruins tile from `skills.json`. Which locs those are comes from `tools/world-export/data/skill-locs.json`, written
+by `npm run export-skills`. Trees and rocks get their own meshes plus a stump or empty-rock mesh,
+and patches one mesh per growth state, so the game can swap them;
+the others stay part of the region meshes. They keep their collision.
+
+**Dungeons.** `export-world` exports the surface plus the dungeon squares its entrances lead to
+(`--area dungeons`, the default). Where entrances lead is not in the cache, so
+`tools/world-export/data/dungeon-links.json` (written by `npm run find-dungeon-links`, see
+[dungeon-links-findings.md](dungeon-links-findings.md)) lists every link as the entrance loc, its
+tile and the arrival tile. The exporter attaches each link to the loc it starts at (kind `climb`
+for ladders, kind `passage` for cave mouths and trapdoors; a closed trapdoor also carries its closed
+and open meshes as a `hatch`) and starts the dungeon selection from the links' arrival squares. It
+grows that through neighbouring non-surface squares whose shared edge has walkable ground on both
+sides, stopping with an error past 900 squares. `--area links` re-exports only squares that carry
+links, which with `--merge` updates an existing export without redoing the surface.
+
+**Extra squares.** `--squares "x,y;x,y"` exports only the listed map squares, and `--merge`
+re-exports the selected squares into the existing world (adding new ones to `world.json`) without
+deleting anything else. The skills need the runecraft altar squares (35..44,75) and essence mine (45,75), which lie outside the surface export:
+
+```bash
+npm run export-world -- --merge --squares "35,75;36,75;37,75;38,75;39,75;40,75;41,75;42,75;43,75;44,75;45,75"
+npm run export-world -- --npcs-only
+```
+
 Besides the regions, the export writes `textures.png` (every texture in one image) and
 `world.json` (the list of regions, the spawn point and texture settings). The 1,636 regions
 of the surface world take about 5 minutes with 3 workers in parallel.
+
+**Dungeon ceilings.** OSRS draws no ceiling underground. The game puts one over every floor tile
+of a linked dungeon area, at the height of the walls around it, from a set of low-poly pieces that
+fits the dungeon's name (rock, ice, lava rock, sewer brick, crypt stone, sandstone, masonry; none
+for places with open sky). The pieces are modelled in Blender (`tools/ceilings/ceilings.blend`) and
+exported to `public/ceilings/ceilings.glb`, outside `public/world/`.
 
 ## 3. Play
 
@@ -124,5 +161,7 @@ ground (or on a bridge or upper floor), and its collision stops the player at wa
 | You changed...                                                     | Re-run                                   |
 | ------------------------------------------------------------------ | ---------------------------------------- |
 | Want a newer OSRS update                                           | `download-cache`, then `export-world`    |
-| The exporter (`tools/world-export/`) or `src/world/WorldFormat.ts` | `export-world`, then `export-cache-weapons` and `export-items` |
+| The exporter (`tools/world-export/`) or `src/world/WorldFormat.ts` | `export-world`, then `export-cache-weapons`, `export-items` and `export-map` |
+| A newer cache, or the dungeon link data                            | `find-dungeon-links`, then `export-world` (or `export-world -- --merge --area links`) |
+| Skill data or the wiki data (`npm run fetch-wiki-skills`)          | `export-skills`; then `export-world -- --merge --area surface` if skill-locs.json changed, and `export-map` |
 | Only the game (`src/`)                                             | Nothing; the dev server reloads the page |

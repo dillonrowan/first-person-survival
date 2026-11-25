@@ -1,5 +1,6 @@
 import { CacheInfo } from "../../cache/CacheInfo";
 import { ByteBuffer } from "../../io/ByteBuffer";
+import { SkeletalBase } from "../skeletal/SkeletalBase";
 import { SeqTransformType } from "./SeqTransformType";
 
 export class SeqBase {
@@ -10,6 +11,8 @@ export class SeqBase {
         readonly transformActor: boolean[],
         readonly masks: Uint16Array,
         readonly labels: number[][],
+        /** The bones of skeletal animations on this base (OSRS appends them after the labels). */
+        readonly skeletalBase?: SkeletalBase,
     ) {}
 }
 
@@ -55,7 +58,13 @@ export class Dat2SeqBase {
             }
         }
 
-        // OSRS may append skeletal bone data here; skeletal animation is not supported, so it is ignored.
-        return new SeqBase(id, count, types, transformActor, masks, labels);
+        let skeletalBase: SkeletalBase | undefined;
+        if (buf.remaining > 0) {
+            const boneCount = buf.readUnsignedShort();
+            if (boneCount > 0) {
+                skeletalBase = new SkeletalBase(buf, boneCount);
+            }
+        }
+        return new SeqBase(id, count, types, transformActor, masks, labels, skeletalBase);
     }
 }

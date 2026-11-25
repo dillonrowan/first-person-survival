@@ -21,7 +21,7 @@ export type Ray = {
 export type Target = {
     kind: string;
     label: string;
-    /** Menu options; E runs the first, R the second. */
+    /** Menu options; E runs the first, R the second, T the third. */
     actions: string[];
     /** Distance along the ray to where it was hit. */
     distance: number;
@@ -42,12 +42,17 @@ export type InteractionPlayer = {
     flying: boolean;
 };
 
-const ACTION_KEYS = ["KeyE", "KeyR"];
-const KEY_LABELS = ["E", "R"];
+// G casts and B opens the spellbook, so targets get three keys.
+const ACTION_KEYS = ["KeyE", "KeyR", "KeyT"];
+const KEY_LABELS = ["E", "R", "T"];
 
 /** Aims from the player's eyes, picks the nearest visible target and runs its actions. */
 export class Interaction {
     target: Target | undefined;
+    /** An inventory item being used on something: E uses it on the target. */
+    useItem: { slot: number; name: string } | undefined;
+    /** Called when E uses `useItem` on a target. */
+    onUse?: (target: Target, slot: number) => void;
 
     private readonly boxes: Box[] = [];
     private promptText = "";
@@ -64,6 +69,15 @@ export class Interaction {
         this.target = player.flying ? undefined : this.aim(player);
 
         const target = this.target;
+        const using = this.useItem;
+        if (using) {
+            this.setPrompt(target ? `[E] Use ${using.name} -> ${target.label}` : `Use ${using.name} -> …`);
+            if (target && input.wasPressed(ACTION_KEYS[0])) {
+                this.useItem = undefined;
+                this.onUse?.(target, using.slot);
+            }
+            return;
+        }
         this.setPrompt(
             target
                 ? target.actions

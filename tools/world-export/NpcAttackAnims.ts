@@ -32,32 +32,39 @@ export const HUMAN_ATTACKS = {
     twoHanded: [406, 407], // HUMAN_DHSWORD_CHOP, HUMAN_DHSWORD_SLASH
 } as const;
 
-/** Words of a sequence name; run-together ones ("LEECHATTACK") are split off their verb. */
-function words(name: string): string[] {
+/**
+ * Words of a sequence name; run-together ones ("LEECHATTACK") are split off their verb, and a
+ * number off its word ("NPC_CALLISTO_ATTACK_RANGED01" → ..., RANGED, 01).
+ */
+export function words(name: string): string[] {
     return name
         .split("_")
         .flatMap((w) => {
-            const m = /^([A-Z]{3,})(ATTACK|READY|WALK|DEATH|BLOCK)$/.exec(w);
-            return m ? [m[1], m[2]] : [w];
+            const numbered = /^([A-Z]{2,})(\d+)$/.exec(w);
+            const word = numbered ? numbered[1] : w;
+            const m = /^([A-Z]{3,})(ATTACK|READY|WALK|DEATH|BLOCK)$/.exec(word);
+            return [...(m ? [m[1], m[2]] : [word]), ...(numbered ? [numbered[2]] : [])];
         })
         .filter((w) => w);
 }
 
-const MELEE = new Set(["ATTACK", "PUNCH", "KICK", "SLASH", "STAB", "SMASH", "BITE", "CLAW", "SWIPE", "STRIKE", "CHOP", "BASH", "POUND", "HACK", "LUNGE", "SPIKE"]);
+const MELEE = new Set(["ATTACK", "MELEE", "PUNCH", "KICK", "SLASH", "STAB", "SMASH", "BITE", "CLAW", "SWIPE", "STRIKE", "CHOP", "BASH", "POUND", "HACK", "LUNGE", "SPIKE"]);
 /** Not a plain melee attack, or a variant of one shown elsewhere (pets, thralls, transparency). */
 const EXCLUDED = new Set([
     "DEATH", "DIE", "BLOCK", "DEF", "DEFEND", "PARRY", "SPELL", "CAST", "RANGE", "RANGED", "MAGIC", "THROW", "SPEC", "SPECIAL",
     "WALK", "READY", "TRANSPARENT", "THRALL", "MERGE", "FIRE", "FIREBREATH", "BREATH", "CROSSBOW", "BOW", "XBOW", "XBOWS",
     "SURPRISE", "TRANS", "STATUE", "CHAT", "EMOTE", "INTO", "OUTOF", "SPAWN", "TELEPORT", "DIG", "RISE", "SPIT", "SHOOT", "MAGE",
+    "IDLE", "STAND", "ROAR", "HOWL", "SUMMON", "VFX",
 ]);
 /** Name words every family shares, which say nothing about which family a sequence belongs to. */
-const GENERIC = new Set(["READY", "ATTACK", "UPDATE", "IDLE", "STAND", "WALK", "ANIM", "NPC", "REWORK", "NEW", "OLD", "JUST", "01", "1", "2", "A", "B"]);
+const GENERIC = new Set(["READY", "ATTACK", "UPDATE", "IDLE", "STAND", "WALK", "ANIM", "NPC", "REWORK", "NEW", "OLD", "JUST", "01", "02", "03", "1", "2", "A", "B"]);
 /** Words naming a weapon or a body size: an attack with one the idle lacks is another variant's. */
-const VARIANT = new Set(["SPEAR", "SWORD", "AXE", "MACE", "STAFF", "SHIELD", "SCIMITAR", "DAGGER", "SMALL", "BIG", "LARGE", "GIANT", "CUB", "BABY", "GREATER", "LESSER", "TAIL"]);
+const VARIANT = new Set(["SPEAR", "SWORD", "AXE", "MACE", "CLUB", "STAFF", "SHIELD", "SCIMITAR", "DAGGER", "SMALL", "BIG", "LARGE", "GIANT", "CUB", "BABY", "GREATER", "LESSER", "TAIL"]);
 /** Kicks and bashes shove the player (Dark Messiah's alwayspush); names run them together ("UNARMEDKICK"). */
 const SHOVES = /KICK|BASH|SMASH|POUND|SHIELD/;
 
-const parts = (name: string) => new Set(words(name).filter((p) => !GENERIC.has(p)));
+/** The words that tell families apart: no generic ones, no numbers. */
+const parts = (name: string) => new Set(words(name).filter((p) => !GENERIC.has(p) && !/^\d+$/.test(p)));
 
 /**
  * How well an attack's name matches the idle's: shared words, less a little for each extra one and
@@ -76,9 +83,13 @@ export function isShove(names: AnimationNames, seqId: number): boolean {
     return SHOVES.test(names.get(seqId) ?? "");
 }
 
-const isMelee = (name: string) => {
+/**
+ * A melee attack's name: an attack word and none of another kind, except words the idle's name has
+ * too, which name the family ("ELEMENTAL_FIRE_ATTACK" of "ELEMENTAL_FIRE_READY").
+ */
+const isMelee = (name: string, idle: Set<string> = new Set()) => {
     const w = words(name);
-    return w.some((x) => MELEE.has(x)) && !w.some((x) => EXCLUDED.has(x));
+    return w.some((x) => MELEE.has(x)) && !w.some((x) => EXCLUDED.has(x) && !idle.has(x));
 };
 
 /** How far past its wrist a hand that holds a weapon reaches, tiles. [design] */
@@ -192,7 +203,8 @@ export function chooseAttacks(
     const idle = parts(idleName);
     const scored = sameBase
         .map((id) => ({ id, name: names.get(id) ?? "" }))
-        .filter((s) => isMelee(s.name))
+        // On the player's skeleton the idle names a stance (a crossbow, a lute), not a family.
+        .filter((s) => isMelee(s.name, frameBase === PLAYER_FRAME_BASE ? undefined : idle))
         .map((s) => ({ ...s, score: nameScore(idle, s.name) }))
         .sort((a, b) => b.score - a.score || a.id - b.id);
 
@@ -216,6 +228,11 @@ export function chooseAttacks(
     }
     const matching = scored.filter((s) => s.score > 0);
     if (matching.length === 0) {
+        // No attack shares the idle's family, but the skeleton has one: a seagull idles with the
+        // duck's sequence on the duck's skeleton and attacks with SEAGULL_ATTACK. It fits the rig.
+        if (scored.length > 0) {
+            return { seqIds: [scored[0].id], reason: `the only family of attacks on the skeleton of ${idleName || idleSeqId}` };
+        }
         return { seqIds: [], reason: `no named attack on the skeleton of ${idleName || idleSeqId}` };
     }
     const top = matching[0].score;
@@ -234,6 +251,7 @@ const STYLE_KEYWORDS: Partial<Record<AttackStyle, string[]>> = {
 /** Sequences of an effect, a reaction or a pose, never the attack itself. */
 const NOT_AN_ATTACK = new Set([
     "DEATH", "DIE", "BLOCK", "DEF", "DEFEND", "WALK", "READY", "SPOTANIM", "SPOT", "TRAVEL", "IMPACT", "PROJANIM", "CHATHEAD", "TALK",
+    "VFX",
 ]);
 
 /** Player-skeleton sequences of a cast and a bow shot. */

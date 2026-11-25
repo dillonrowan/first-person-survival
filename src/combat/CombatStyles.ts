@@ -1,3 +1,4 @@
+import type { SkillId } from "./SkillId";
 import type { WeaponFamily } from "./weapons";
 
 export type XpKind = "melee" | "defence" | "ranged" | "longrange" | "magic";
@@ -42,7 +43,7 @@ export function stylesFor(family: WeaponFamily): readonly CombatStyleDef[] {
     return family === "bow" || family === "crossbow" ? RANGED_STYLES : MELEE_STYLES;
 }
 
-export type XpGains = Partial<Record<"melee" | "defence" | "ranged" | "magic" | "hitpoints", number>>;
+export type XpGains = Partial<Record<SkillId, number>>;
 
 /**
  * XP for `damage` dealt: 4 per damage to the style's skill and 4/3 to Hitpoints; longrange splits

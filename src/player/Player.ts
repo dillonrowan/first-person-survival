@@ -33,7 +33,10 @@ const BODY_QUERY_MARGIN = 0.5;
 const RADIUS = PLAYER_RADIUS;
 
 /** The parts of World the player needs. */
-export type PlayerWorld = Pick<World, "isLoaded" | "hasFloor" | "groundHeight" | "collisionFlags">;
+/** Tiles around a teleport target searched for somewhere to stand. */
+const ARRIVAL_SEARCH_RADIUS = 16;
+
+export type PlayerWorld = Pick<World, "isLoaded" | "hasFloor" | "hasGround" | "groundHeight" | "collisionFlags">;
 /** The parts of Input the player reads. */
 export type PlayerInput = Pick<Input, "consumeLook" | "wasPressed" | "axis" | "isDown">;
 
@@ -400,11 +403,18 @@ export class Player {
         return sweepAxis(this.flagsAt, this.plane, this.x, this.y, RADIUS, alongX, delta, this.boxes);
     }
 
-    /** Moves the spawn point to the nearest tile that is not blocked and has a floor. */
+    /**
+     * Moves the player to the nearest tile that is not blocked and has a floor model on this plane
+     * (also on plane 0, so nobody lands in the void of a dungeon). The target tile itself wins if
+     * it qualifies; otherwise the closest one within 16 tiles, by distance from the target point.
+     */
     private placeOnWalkableTile(): void {
         const startX = Math.floor(this.x);
         const startY = Math.floor(this.y);
-        for (let radius = 0; radius < 16; radius++) {
+        let best: { tx: number; ty: number } | undefined;
+        let bestDistance = Infinity;
+        // A ring's tiles are at least `radius - 1` away from the target point, so stop once that exceeds the best.
+        for (let radius = 0; radius < ARRIVAL_SEARCH_RADIUS && radius - 1 <= bestDistance; radius++) {
             for (let dx = -radius; dx <= radius; dx++) {
                 for (let dy = -radius; dy <= radius; dy++) {
                     if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) {
@@ -412,16 +422,20 @@ export class Player {
                     }
                     const tx = startX + dx;
                     const ty = startY + dy;
-                    const flags = this.world.collisionFlags(this.plane, tx, ty);
-                    if ((flags & BLOCKS_TILE) === 0 && this.world.hasFloor(this.plane, tx, ty)) {
-                        this.x = tx + 0.5;
-                        this.y = ty + 0.5;
-                        this.z = this.world.groundHeight(this.plane, this.x, this.y);
-                        this.placed = true;
-                        return;
+                    if ((this.world.collisionFlags(this.plane, tx, ty) & BLOCKS_TILE) !== 0 || !this.world.hasGround(this.plane, tx, ty)) {
+                        continue;
+                    }
+                    const distance = Math.hypot(tx + 0.5 - this.x, ty + 0.5 - this.y);
+                    if (distance < bestDistance) {
+                        bestDistance = distance;
+                        best = { tx, ty };
                     }
                 }
             }
+        }
+        if (best) {
+            this.x = best.tx + 0.5;
+            this.y = best.ty + 0.5;
         }
         this.z = this.world.groundHeight(this.plane, this.x, this.y);
         this.placed = true;

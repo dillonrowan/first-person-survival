@@ -76,6 +76,15 @@ export class Combatant {
         }
     }
 
+    /** Stuns for `duration` seconds without damage (a parry's shove); lying down or getting up, nothing. */
+    stun(duration: number): void {
+        if (this.dead || this.knockedDown || this.reaction === "standup") {
+            return;
+        }
+        this.reactionTime = this.reaction === "stun" ? Math.max(this.reactionTime, duration) : duration;
+        this.reaction = "stun";
+    }
+
     knockDown(duration = tuning.knockdownDuration): void {
         this.reaction = "knockdown";
         this.reactionTime = Math.max(this.knockedDown ? this.reactionTime : 0, duration);

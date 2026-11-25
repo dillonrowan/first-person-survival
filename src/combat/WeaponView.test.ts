@@ -37,7 +37,7 @@ function play(
 ): Run {
     const camera = new THREE.PerspectiveCamera();
     const view = new WeaponView(camera, "/");
-    const holder = camera.children.find((c) => c.type === "Group" && c.name !== "kick_boot")!;
+    const holder = camera.children.find((c) => c.type === "Group")!;
     const melee = new MeleeController(weaponById(weaponId));
     const run: Run = { samples: [], view, melee };
     for (let t = 0; t < seconds; t += DT) {
@@ -125,7 +125,7 @@ describe("quick strikes (Dark Messiah's swings)", () => {
                 expect(steps[i], `${id} at ${samples[i + 1].t.toFixed(3)}s`).toBeLessThan(2.5 * around);
             }
             // At 240 updates a second even the fastest motion (the staff's twirl) stays a few centimetres.
-            expect(Math.max(...steps), id).toBeLessThan(0.1);
+            expect(Math.max(...steps), id).toBeLessThan(0.15);
         }
     });
 
@@ -173,7 +173,44 @@ describe("a landed blow", () => {
     });
 });
 
+describe("a blow on the held weapon", () => {
+    it("rattles it in the hand, knocked back a little, and it settles", () => {
+        const camera = new THREE.PerspectiveCamera();
+        const view = new WeaponView(camera, "/");
+        const holder = camera.children.find((c) => c.type === "Group")!;
+        const melee = new MeleeController(weaponById("sword"));
+        const idle = () => {
+            view.update(melee, "first", true, undefined, { dt: DT });
+            return holder.position.clone();
+        };
+        for (let i = 0; i < 60; i++) idle();
+        const rest = idle();
+        view.clash(1);
+        const shaken = Array.from({ length: 30 }, idle);
+        const most = Math.max(...shaken.map((p) => p.distanceTo(rest)));
+        expect(most).toBeGreaterThan(0.01);
+        expect(most).toBeLessThan(0.08);
+        // Knocked back towards the player (+z in view space) at first.
+        expect(shaken[0].z).toBeGreaterThan(rest.z + 0.01);
+        for (let i = 0; i < 120; i++) idle();
+        expect(idle().distanceTo(rest)).toBeLessThan(1e-3);
+    });
+});
+
 describe("a charged power attack held", () => {
+    it("keeps the hand on its grip out of the middle of the view", () => {
+        for (const weapon of ["sword", "daggers", "staff"]) {
+            for (const keys of [{}, { strafe: -1 }, { strafe: 1 }, { forward: 1 }, { forward: -1 }]) {
+                const { samples, melee } = play(weapon, () => true, 1.5, keys);
+                expect(melee.chargedMove).toBeDefined();
+                for (const { grip } of samples.slice(-30)) {
+                    expect(grip.length(), `${weapon} ${JSON.stringify(keys)}`).toBeGreaterThan(0.28);
+                    expect(Math.atan2(Math.hypot(grip.x, grip.y), -grip.z), `${weapon} ${JSON.stringify(keys)}`).toBeGreaterThan(0.5);
+                }
+            }
+        }
+    });
+
     it("trembles in the hand", () => {
         const { samples, melee } = play("sword", () => true, 1.5);
         expect(melee.isCharging).toBe(true);

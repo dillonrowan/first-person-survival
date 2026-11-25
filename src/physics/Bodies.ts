@@ -23,6 +23,18 @@ export interface BodySource<T = unknown> {
     ): void;
 }
 
+/**
+ * Bodies no taller than this (tiles) are small enough to step over: the player walks over rats,
+ * mice, small spiders and frogs (models 0.25–0.31 tall) instead of being stopped by them. A giant
+ * rat (0.61) or an imp still blocks. [design]
+ */
+export const STEP_OVER_HEIGHT = 0.35;
+
+/** True if the player walks over `body` rather than being blocked by it. */
+export function canStepOver(body: Pick<Body, "height">): boolean {
+    return body.height <= STEP_OVER_HEIGHT;
+}
+
 export type Box3 = {
     minX: number;
     minY: number;

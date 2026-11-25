@@ -48,15 +48,39 @@ export function massForce(mass: number): number {
 }
 
 /**
+ * How far a kick sends a body of `mass` kg compared with one of npcBaseMass: the kick's force for
+ * that mass (massForce) over the mass, held within 0.2–2.
+ */
+export function kickThrowScale(mass: number): number {
+    const reference = massForce(tuning.npcBaseMass) / tuning.npcBaseMass;
+    return Math.min(2, Math.max(0.2, massForce(mass) / mass / reference));
+}
+
+/**
+ * Weight of an NPC taking up `size` × `size` tiles and standing `height` tiles tall, kg.
+ */
+export function npcMass(size: number, height: number): number {
+    return tuning.npcBaseMass * size * size * (height / tuning.npcBaseHeight);
+}
+
+/**
+ * How far a blow throws a body of `mass` kg compared with one of npcBaseMass: heavier bodies go
+ * less far, lighter ones further (tuning.weightThrowScale).
+ */
+export function weightThrowScale(mass: number): number {
+    const [least, most] = tuning.weightThrowScale;
+    return Math.min(most, Math.max(least, Math.sqrt(tuning.npcBaseMass / Math.max(1, mass))));
+}
+
+/**
  * Velocity (world tiles/s; `up` positive) a killing blow along (dirX, dirY) with `hitPow` gives a
  * body of `mass` kg as it becomes a ragdoll: harder blows throw it further, heavier bodies less
  * far, and a little lift gets it off the ground instead of dragging on it.
  */
 export function deathLaunch(dirX: number, dirY: number, hitPow: number, mass: number): { vx: number; vy: number; up: number } {
-    const { deathLaunchSpeed, deathLaunchPerPow, deathLaunchMaxPow, deathLaunchLift, deathLaunchMassScale } = tuning;
-    const [least, most] = deathLaunchMassScale;
-    const massScale = Math.min(most, Math.max(least, Math.sqrt(tuning.npcBaseMass / Math.max(1, mass))));
-    const speed = (deathLaunchSpeed + deathLaunchPerPow * Math.min(Math.max(0, hitPow), deathLaunchMaxPow)) * massScale;
+    const { deathLaunchSpeed, deathLaunchPerPow, deathLaunchMaxPow, deathLaunchLift } = tuning;
+    const speed =
+        (deathLaunchSpeed + deathLaunchPerPow * Math.min(Math.max(0, hitPow), deathLaunchMaxPow)) * weightThrowScale(mass);
     const length = Math.hypot(dirX, dirY) || 1;
     return { vx: (dirX / length) * speed, vy: (dirY / length) * speed, up: speed * deathLaunchLift };
 }

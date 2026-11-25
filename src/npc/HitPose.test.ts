@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { BodyRig, HitReactions, fitHumanoid, movePoint } from "./HitPose";
-import { HIT_BONES, HIT_CLIPS, HIT_RIG_JOINTS } from "./HitClips";
+import { BodyRig, HitReactions, fitHumanoid, heldItem, movePoint } from "./HitPose";
+import { HIT_BONES, HIT_CLIPS, HIT_CLIP_IMPACT, HIT_RIG_JOINTS } from "./HitClips";
 
 type Part = { parent: number; pivot: [number, number, number]; centre: [number, number, number] };
 
@@ -191,6 +191,57 @@ describe("HitReactions", () => {
         expect(reactions.active).toBe(false);
     });
 
+    it("shoves forward with a parry, then recovers", () => {
+        const rig = model(GUARD);
+        const reactions = new HitReactions(rig);
+        reactions.hit("flinch", -1, 0);
+        reactions.defend("parry");
+        play(reactions, HIT_CLIP_IMPACT.parry!);
+        expect(moved(rig, reactions, 4)[2]).toBeGreaterThan(rig.centroids[4 * 3 + 2] + 0.05);
+        play(reactions, 1);
+        expect(reactions.active).toBe(false);
+    });
+
+    it("both parries strike back on the same frame (the player's stun is timed by it)", () => {
+        expect(HIT_CLIP_IMPACT.parry_shield).toBe(HIT_CLIP_IMPACT.parry);
+    });
+
+    it("a body without a human build braces: it shies back and hunkers down, then recovers", () => {
+        const rig = model([
+            { parent: -1, pivot: [0, 0.6, 0], centre: [0, 0.6, 0] },
+            { parent: 0, pivot: [0, 0.7, 0.45], centre: [0, 0.75, 0.6] },
+            { parent: 0, pivot: [-0.15, 0.55, 0.35], centre: [-0.15, 0.3, 0.35] },
+            { parent: 0, pivot: [0.15, 0.55, 0.35], centre: [0.15, 0.3, 0.35] },
+            { parent: 0, pivot: [-0.15, 0.55, -0.35], centre: [-0.15, 0.3, -0.35] },
+            { parent: 0, pivot: [0.15, 0.55, -0.35], centre: [0.15, 0.3, -0.35] },
+        ]);
+        expect(rig.humanoid).toBeUndefined();
+        const reactions = new HitReactions(rig);
+        reactions.defend("guard");
+        play(reactions, 0.15);
+        reactions.pose();
+        expect(reactions.offset[2]).toBeLessThan(-0.02);
+        expect(reactions.offset[1]).toBeLessThan(-0.01);
+        play(reactions, 1.5);
+        expect(reactions.active).toBe(false);
+    });
+
+    it("dodges by ducking aside the way it steps, mirrored for the other side, then recovers", () => {
+        const rig = model(GUARD);
+        const right = new HitReactions(rig);
+        right.dodge(false);
+        const left = new HitReactions(rig);
+        left.dodge(true);
+        play(right, 7 / 30);
+        play(left, 7 / 30);
+        const head = moved(rig, right, 4);
+        expect(head[0]).toBeLessThan(rig.centroids[4 * 3] - 0.1);
+        expect(head[1]).toBeLessThan(rig.centroids[4 * 3 + 1] - 0.05);
+        expect(moved(rig, left, 4)[0]).toBeGreaterThan(rig.centroids[4 * 3] + 0.1);
+        play(right, 1);
+        expect(right.active).toBe(false);
+    });
+
     it("mirrors side hits", () => {
         const rig = model(GUARD);
         const right = new HitReactions(rig);
@@ -293,5 +344,23 @@ describe("HitReactions", () => {
         expect(Math.hypot(...moved(rig, reactions, 2).map((v, k) => v - rig.centroids[2 * 3 + k]))).toBeGreaterThan(0.02);
         play(reactions, 4);
         expect(reactions.active).toBe(false);
+    });
+});
+
+describe("heldItem", () => {
+    const h = 1.53;
+    const hand: [number, number, number] = [0.06, 0.09, 0.07];
+    it("finds a shield: a broad flat plate on the left hand", () => {
+        expect(heldItem([0.16, 0.54, 0.6], [0.21, 0.24, 0.54], h)).toBe("shield");
+        expect(heldItem([0.16, 0.54, 0.6], hand, h)).toBe("shield");
+    });
+    it("finds a weapon: a long thin shape on the right hand", () => {
+        expect(heldItem(hand, [0.06, 0.13, 0.83], h)).toBe("weapon");
+    });
+    it("finds empty hands, and big hands of the body's own", () => {
+        expect(heldItem(hand, hand, h)).toBe("none");
+        // A demon's claws: big, but both alike.
+        expect(heldItem([0.19, 0.3, 0.3], [0.19, 0.3, 0.3], 2.38)).toBe("none");
+        expect(heldItem([0.1, 0.5, 0.6], [0.1, 0.5, 0.6], h)).toBe("none");
     });
 });

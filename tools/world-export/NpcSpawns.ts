@@ -13,7 +13,15 @@ import { NpcTypeLoader } from "./rs/config/npctype/NpcTypeLoader";
 import { VarManager } from "./rs/config/vartype/VarManager";
 
 /** One entry of data/npc-spawns-osrs.json (from rs-map-viewer). */
-export type NpcSpawnRecord = { id: number; name?: string; x: number; y: number; level: number };
+export type NpcSpawnRecord = {
+    id: number;
+    name?: string;
+    x: number;
+    y: number;
+    level: number;
+    /** Shown in its base pose when its type has no idle animation (the Great Olm), not skipped. */
+    still?: boolean;
+};
 
 /** An appearance to bake, with the sequences the exporter needs but the game does not. */
 export type NpcAppearanceTask = NpcAppearanceInfo & {
@@ -54,6 +62,29 @@ export function readNpcSpawnFile(file: string): NpcSpawnRecord[] {
         }
         return { id, name, x, y, level };
     });
+}
+
+/**
+ * Hand fixes to the spawn list (data/npc-spawn-overrides.json): NPCs the list has in an old place
+ * (the Wilderness bosses before their lairs) and NPCs it lacks.
+ */
+export type NpcSpawnOverrides = {
+    /** Spawns to move: every spawn of `id` within 2 tiles of `from` goes to `to` ([x, y, level]). */
+    move?: { id: number; from: [number, number, number]; to: [number, number, number]; note?: string }[];
+    /** Spawns to add. */
+    add?: (NpcSpawnRecord & { note?: string })[];
+};
+
+/** The spawn list with the overrides applied. */
+export function applySpawnOverrides(spawns: NpcSpawnRecord[], overrides: NpcSpawnOverrides): NpcSpawnRecord[] {
+    const out = spawns.map((spawn) => {
+        const move = overrides.move?.find(
+            (m) => m.id === spawn.id && m.from[2] === spawn.level && Math.abs(m.from[0] - spawn.x) <= 2 && Math.abs(m.from[1] - spawn.y) <= 2,
+        );
+        return move ? { ...spawn, x: move.to[0], y: move.to[1], level: move.to[2] } : spawn;
+    });
+    for (const { id, name, x, y, level, still } of overrides.add ?? []) out.push({ id, name, x, y, level, ...(still ? { still } : {}) });
+    return out;
 }
 
 /** Removes markup like <col=00ffff> from cache names. */
@@ -131,7 +162,7 @@ export function selectNpcs(
         // from the type that is currently shown.
         const base = loader.load(spawn.id);
         const idleSeqId = base.idleSeqId !== -1 ? base.idleSeqId : display.idleSeqId;
-        if (idleSeqId === -1) {
+        if (idleSeqId === -1 && !spawn.still) {
             skipped.noIdle++;
             continue;
         }

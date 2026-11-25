@@ -21,6 +21,8 @@ const LOAD_DISTANCE = 100;
 /** ...and dropped again once they are this far away. */
 const UNLOAD_DISTANCE = 140;
 const MAX_CONCURRENT_LOADS = 4;
+/** A region that fails to load is retried once before it counts as failed. */
+const MAX_LOAD_ATTEMPTS = 2;
 
 const CORNERS = REGION_SIZE + 1;
 
@@ -60,6 +62,8 @@ export class World {
     private readonly regions = new Map<number, LoadedRegion>();
     private readonly loading = new Set<number>();
     private readonly failed = new Set<number>();
+    /** Failed loads per region; one retry before it counts as failed. */
+    private readonly attempts = new Map<number, number>();
     private readonly listeners: RegionListener[] = [];
     private readonly edits = new PersistentEdits();
 
@@ -130,6 +134,11 @@ export class World {
         }
     }
 
+    /** Whether this tile's map square failed to load, even after a retry. */
+    isFailed(x: number, y: number): boolean {
+        return this.failed.has(regionKey(Math.floor(x / REGION_SIZE), Math.floor(y / REGION_SIZE)));
+    }
+
     /** Whether the exported world has a map square covering this tile (loaded or not). */
     hasRegion(x: number, y: number): boolean {
         return this.available.has(regionKey(Math.floor(x / REGION_SIZE), Math.floor(y / REGION_SIZE)));
@@ -192,11 +201,20 @@ export class World {
 
     /** Ground height in tiles (up is positive) at a point on a walkable plane. */
     groundHeight(plane: number, x: number, y: number): number {
+        return this.levelHeight(this.renderLevel(plane, x, y), x, y);
+    }
+
+    /** The floors of a loaded region: 1 where a level has a floor tile, (level * 64 + x) * 64 + y. */
+    regionFloors(mapX: number, mapY: number): Uint8Array | undefined {
+        return this.regions.get(regionKey(mapX, mapY))?.floors;
+    }
+
+    /** Ground height in tiles (up is positive) at a point on a drawn level (no bridge remapping). */
+    levelHeight(level: number, x: number, y: number): number {
         const region = this.getRegion(x, y);
         if (!region) {
             return 0;
         }
-        const level = this.renderLevel(plane, x, y);
         const fx = x - Math.floor(x);
         const fy = y - Math.floor(y);
         const [lx, ly] = localTile(x, y);
@@ -216,6 +234,20 @@ export class World {
         if (plane === 0) {
             return true;
         }
+        const region = this.getRegion(x, y);
+        if (!region) {
+            return false;
+        }
+        const level = this.renderLevel(plane, x, y);
+        const [lx, ly] = localTile(x, y);
+        return region.floors[(level * REGION_SIZE + lx) * REGION_SIZE + ly] !== 0;
+    }
+
+    /**
+     * Whether the tile has a floor model on this plane. Unlike hasFloor, plane 0 counts only where
+     * the map has ground, so a player placed in a dungeon never lands in the void between rooms.
+     */
+    hasGround(plane: number, x: number, y: number): boolean {
         const region = this.getRegion(x, y);
         if (!region) {
             return false;
@@ -338,8 +370,13 @@ export class World {
                 listener.loaded(mapX, mapY);
             }
         } catch (e) {
-            console.error(`Failed to load region ${mapX},${mapY}`, e);
-            this.failed.add(key);
+            const failures = (this.attempts.get(key) ?? 0) + 1;
+            this.attempts.set(key, failures);
+            console.error(`Failed to load region ${mapX},${mapY} (attempt ${failures})`, e);
+            // update() tries again next frame; the second failure is final.
+            if (failures >= MAX_LOAD_ATTEMPTS) {
+                this.failed.add(key);
+            }
         } finally {
             this.loading.delete(key);
         }

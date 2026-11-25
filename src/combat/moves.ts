@@ -40,7 +40,7 @@ export type MoveDef = {
     /** Forward lunge on the attacker when the swing starts, tiles per second (pushplayercoeff). */
     lunge: number;
     time?: MoveTime;
-    /** The weapon's speed_attack scales this move (change_speed 1: quick strikes, power releases). */
+    /** The weapon's speed_attack scales this move (change_speed 1: quick strikes only). */
     changeSpeed?: boolean;
 };
 
@@ -267,11 +267,12 @@ function withTimes(
         huge: MoveTime;
     },
 ): MoveSet {
-    // Quick strikes and power releases scale with speed_attack; the combos do not (spec 18.3).
+    // Quick strikes scale with speed_attack. Power releases and combos play at their animation's
+    // own speed, so a charged blow lands fast whatever the weapon weighs. [design]
     return {
         quick: set.quick.map((m, i) => ({ ...timed(m, times.quick[i % times.quick.length]), changeSpeed: true })),
         power: Object.fromEntries(
-            Object.entries(set.power).map(([dir, m]) => [dir, { ...timed(m, times.power[dir as PowerDirection]), changeSpeed: true }]),
+            Object.entries(set.power).map(([dir, m]) => [dir, timed(m, times.power[dir as PowerDirection])]),
         ) as Record<PowerDirection, MoveDef>,
         rush: timed(set.rush, times.rush),
         fall: timed(set.fall, times.fall),

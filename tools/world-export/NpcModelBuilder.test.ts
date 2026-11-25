@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { FaceColors } from "./FaceColors";
-import { NpcModelBuilder, launchPoint, releaseCycle } from "./NpcModelBuilder";
+import { NpcModelBuilder, clipMotion, impactCycle, launchPoint, releaseCycle } from "./NpcModelBuilder";
 import { NpcAppearanceTask } from "./NpcSpawns";
 import { CacheInfo } from "./rs/cache/CacheInfo";
 import { NpcType } from "./rs/config/npctype/NpcType";
@@ -133,11 +133,25 @@ describe("NpcModelBuilder", () => {
         expect(model.walk!.frameLengths.length).toBe(3);
     });
 
-    it("leaves skeletal and missing animations out", () => {
+    it("leaves empty skeletal and missing animations out", () => {
         const model = builder({ seqs: { 5: seq([2], { skeletalId: 7 }) } }).build(task(5, 99))!;
 
         expect(model.idle).toBeUndefined();
         expect(model.walk).toBeUndefined();
+    });
+
+    it("samples a long skeletal animation every few cycles", () => {
+        const model = builder({ seqs: { 5: seq([], { skeletalId: 7, skeletalStart: 0, skeletalEnd: 70 }) } }).build(task(5))!;
+
+        // 70 cycles in at most 32 frames: every 3 cycles, the last frame the one cycle left.
+        const lengths = Array.from(model.idle!.frameLengths);
+        expect(lengths).toHaveLength(24);
+        expect(lengths.slice(0, 2)).toEqual([3, 3]);
+        expect(lengths.at(-1)).toBe(1);
+        expect(lengths.reduce((a, b) => a + b, 0)).toBe(70);
+        // Frame 1 is the model at cycle 3, which the fake shifts by (3 + 1) * 10.
+        expect(model.idle!.positions[4 * 3 + 3]).toBe(140);
+        expect(model.idle!.frameStep).toBe(-1);
     });
 
     it("computes bounds over every frame, in tiles with +y up and north as -z", () => {
@@ -199,5 +213,30 @@ describe("releaseCycle and launchPoint", () => {
         expect(forward0).toBeCloseTo(0);
         expect(up0).toBe(2);
         expect(launchPoint(clip, base, 5)).toEqual([2, 1.5]);
+    });
+});
+
+describe("impactCycle", () => {
+    // One vertex (the weapon tip): x, y (+ down), z (- forward) per frame.
+    const clip = (frames: [number, number, number][], lengths: number[]) => ({
+        frameLengths: Uint16Array.from(lengths),
+        frameStep: -1,
+        positions: Int16Array.from(frames.flat()),
+    });
+
+    it("lands on the blow forward and down, not the faster wind-up or recovery", () => {
+        // Raise overhead fast (up), hold, chop forward and down, then pull back fast (up and back).
+        const chop = clip([[0, 0, 0], [0, -300, 0], [0, -300, 0], [0, 0, -150], [0, -100, 200]], [2, 4, 4, 2, 2]);
+        expect(impactCycle(chop, 1)).toBe(10);
+    });
+
+    it("skips the snap from the first frame into the swing", () => {
+        const club = clip([[0, 0, 0], [0, 80, -80], [0, 70, -60], [0, 140, -120], [0, 0, 0]], [1, 3, 1, 3, 3]);
+        // The first step moves 160 in 1 cycle, more than the blow (frame 3: 130 in 1 cycle).
+        expect(impactCycle(club, 1)).toBe(5);
+    });
+
+    it("measures how far a clip moves the model", () => {
+        expect(clipMotion(clip([[0, 0, 0], [5, 0, 0], [-3, 0, 0]], [1, 1, 1]), 1)).toBe(5);
     });
 });

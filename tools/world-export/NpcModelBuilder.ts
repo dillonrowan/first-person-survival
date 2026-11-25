@@ -17,11 +17,34 @@ import { TextureLoader } from "./rs/texture/TextureLoader";
 const PRIORITY_NPC = 1;
 
 export type NpcModelSource = {
-    /** A lit model of the NPC, animated to `frame` of `seqId` (-1 for the base pose). */
+    /**
+     * A lit model of the NPC, animated to `frame` of `seqId` (-1 for the base pose): the frame
+     * index of a frame animation, the client cycle of a skeletal one.
+     */
     getModel(type: NpcType, seqId: number, frame: number): Model | undefined;
     /** The frame base (labelled transform groups) of an animation, for the ragdoll skeleton. */
     getFrameBase?(seqId: number): (FrameBase & { id?: number }) | undefined;
+    /** The base of a frame or skeletal animation, shared by the animations of one creature. */
+    getAnimationBase?(seqId: number): { id: number } | undefined;
 };
+
+/** Least movement (RS units, a tile is 128) of any vertex that makes a clip an attack. [design] */
+const MIN_ATTACK_MOTION = 8;
+
+/** Furthest any vertex moves from its place in the clip's first frame, RS units. */
+export function clipMotion(clip: NpcClip, vertexCount: number): number {
+    let motion = 0;
+    const size = vertexCount * 3;
+    for (let f = 1; f < clip.frameLengths.length; f++) {
+        for (let i = 0; i < size; i++) {
+            motion = Math.max(motion, Math.abs(clip.positions[f * size + i] - clip.positions[i]));
+        }
+    }
+    return motion;
+}
+
+/** Most frames baked from a skeletal animation; longer ones are sampled every few cycles. */
+const MAX_SKELETAL_FRAMES = 32;
 
 class NpcMeshBuilder {
     private readonly positions: number[] = [];
@@ -222,7 +245,10 @@ export class NpcModelBuilder {
         skeleton: NpcModelData["skeleton"],
     ): NpcAttackClip[] | undefined {
         const idleSeqId = task.idleSeqId;
-        const frameBase = this.attackSource && this.models.getFrameBase?.(idleSeqId)?.id;
+        const animationBase = this.models.getAnimationBase
+            ? this.models.getAnimationBase(idleSeqId)
+            : this.models.getFrameBase?.(idleSeqId);
+        const frameBase = this.attackSource && animationBase?.id;
         if (frameBase === undefined) {
             return undefined;
         }
@@ -241,9 +267,10 @@ export class NpcModelBuilder {
             : this.attackSource!.choose(idleSeqId, frameBase, armed).map((c) => ({ ...c, style: "melee" as const }));
         for (const { seqId, shove, style } of choices) {
             const clip = this.bakeClip(display, base, seqId);
-            if (clip) {
+            // A sequence that barely moves the model (a 4-cycle "DEMON_UPDATE_ATTACK") is no attack to show.
+            if (clip && clipMotion(clip, base.verticesCount) >= MIN_ATTACK_MOTION) {
                 const melee = style === "melee";
-                const hitCycle = melee ? impactCycle(clip, base) : releaseCycle(clip);
+                const hitCycle = melee ? impactCycle(clip, base.verticesCount) : releaseCycle(clip);
                 const launch: [number, number] = melee ? [0, 0] : launchPoint(clip, base, hitCycle);
                 attacks.push({ ...clip, hitCycle, shove, seqId, style, launch });
             }
@@ -256,7 +283,10 @@ export class NpcModelBuilder {
             return undefined;
         }
         const seq = this.seqTypeLoader.load(seqId);
-        if (seq.isSkeletalSeq() || !seq.frameIds || seq.frameIds.length === 0) {
+        if (seq.isSkeletalSeq()) {
+            return this.bakeSkeletalClip(display, base, seqId, seq.getSkeletalDuration());
+        }
+        if (!seq.frameIds || seq.frameIds.length === 0) {
             return undefined;
         }
         const frameCount = seq.frameIds.length;
@@ -279,6 +309,38 @@ export class NpcModelBuilder {
         return { frameLengths, frameStep: seq.frameStep, positions };
     }
 
+    /**
+     * A skeletal animation runs per client cycle; it is baked as frames every `step` cycles, the
+     * last one as long as what is left. Undefined when no cycle poses the model.
+     */
+    private bakeSkeletalClip(display: NpcType, base: Model, seqId: number, duration: number): NpcClip | undefined {
+        if (duration <= 0) {
+            return undefined;
+        }
+        const step = Math.ceil(duration / MAX_SKELETAL_FRAMES);
+        const frameCount = Math.ceil(duration / step);
+        const count = base.verticesCount;
+        const positions = new Int16Array(frameCount * count * 3);
+        const frameLengths = new Uint16Array(frameCount);
+        let posed = false;
+        for (let f = 0; f < frameCount; f++) {
+            let model = this.models.getModel(display, seqId, f * step);
+            if (!model || model.verticesCount !== count) {
+                model = base;
+            } else {
+                posed = true;
+            }
+            for (let v = 0; v < count; v++) {
+                const i = (f * count + v) * 3;
+                positions[i] = this.clamp(model.verticesX[v]);
+                positions[i + 1] = this.clamp(model.verticesY[v]);
+                positions[i + 2] = this.clamp(model.verticesZ[v]);
+            }
+            frameLengths[f] = Math.min(step, duration - f * step);
+        }
+        return posed ? { frameLengths, frameStep: -1, positions } : undefined;
+    }
+
     private clamp(value: number): number {
         if (value > 32767 || value < -32767) {
             if (!this.warnedClamp) {
@@ -292,31 +354,36 @@ export class NpcModelBuilder {
 }
 
 /**
- * Client cycle of an attack's impact: the middle of the frame where the upper body reaches
- * furthest forward (RS models face -z, +y is down).
+ * Client cycle of an attack's impact: the frame at the end of the clip's hardest blow, the step in
+ * which some vertex moves furthest forward and down per cycle (RS models face -z, +y is down). A
+ * wind-up and a recovery move up or back, so neither wins, however fast (a spear drawn back, an arm
+ * raised overhead); a slash counts by its downward sweep, a chop or a bite that ends near the rest
+ * pose by its stroke. Checked in Blender on 37 NPCs (tools/world-export/audit-npc-attacks.ts).
  */
-export function impactCycle(clip: NpcClip, base: Pick<Model, "verticesCount" | "verticesY">): number {
-    const count = base.verticesCount;
-    let top = 0;
-    for (let v = 0; v < count; v++) {
-        top = Math.max(top, -base.verticesY[v]);
-    }
+export function impactCycle(clip: NpcClip, vertexCount: number): number {
+    const size = vertexCount * 3;
+    const at = (f: number, i: number) => clip.positions[f * size + i];
     let best = -Infinity;
     let bestFrame = 0;
-    for (let f = 0; f < clip.frameLengths.length; f++) {
-        for (let v = 0; v < count; v++) {
-            const i = (f * count + v) * 3;
-            if (-clip.positions[i + 1] > top * 0.3 && -clip.positions[i + 2] > best) {
-                best = -clip.positions[i + 2];
-                bestFrame = f;
-            }
+    // Not the first step: a clip often opens with a snap from its first frame to its swing (a cave
+    // goblin's club), and no blow lands as an attack starts.
+    const frames = clip.frameLengths.length;
+    for (let f = frames > 2 ? 2 : 1; f < frames; f++) {
+        let blow = -Infinity;
+        for (let i = 0; i < size; i += 3) {
+            blow = Math.max(blow, at(f - 1, i + 2) - at(f, i + 2) + (at(f, i + 1) - at(f - 1, i + 1)));
+        }
+        const score = blow / clip.frameLengths[f - 1];
+        if (score > best) {
+            best = score;
+            bestFrame = f;
         }
     }
     let cycle = 0;
     for (let f = 0; f < bestFrame; f++) {
         cycle += clip.frameLengths[f];
     }
-    return cycle + Math.ceil(clip.frameLengths[bestFrame] / 2);
+    return cycle;
 }
 
 /** Bounding sphere of a model (and its baked clips) in tiles, three.js axes: x, y, z, radius. */

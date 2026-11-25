@@ -1,0 +1,4474 @@
+{
+ "source": "RuneLite (BSD-2-Clause), bb0fa42b3d9329ffe31115f1f20042c455def2e3",
+ "patches": [
+  {
+   "impl": "MUSHROOM",
+   "ranges": [
+    {
+     "from": 0,
+     "to": 3,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3 - value"
+    },
+    {
+     "from": 4,
+     "to": 9,
+     "produce": "MUSHROOM",
+     "state": "GROWING",
+     "stageExpr": "value - 4"
+    },
+    {
+     "from": 10,
+     "to": 15,
+     "produce": "MUSHROOM",
+     "state": "HARVESTABLE",
+     "stageExpr": "value - 10"
+    },
+    {
+     "from": 16,
+     "to": 20,
+     "produce": "MUSHROOM",
+     "state": "DISEASED",
+     "stageExpr": "value - 15"
+    },
+    {
+     "from": 21,
+     "to": 25,
+     "produce": "MUSHROOM",
+     "state": "DEAD",
+     "stageExpr": "value - 20"
+    },
+    {
+     "from": 26,
+     "to": 255,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    }
+   ]
+  },
+  {
+   "impl": "HESPORI",
+   "ranges": [
+    {
+     "from": 0,
+     "to": 3,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3 - value"
+    },
+    {
+     "from": 4,
+     "to": 6,
+     "produce": "HESPORI",
+     "state": "GROWING",
+     "stageExpr": "value - 4"
+    },
+    {
+     "from": 7,
+     "to": 8,
+     "produce": "HESPORI",
+     "state": "HARVESTABLE",
+     "stageExpr": "value - 7"
+    },
+    {
+     "from": 9,
+     "to": 9,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    }
+   ]
+  },
+  {
+   "impl": "ALLOTMENT",
+   "ranges": [
+    {
+     "from": 0,
+     "to": 3,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3 - value"
+    },
+    {
+     "from": 4,
+     "to": 5,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 6,
+     "to": 9,
+     "produce": "POTATO",
+     "state": "GROWING",
+     "stageExpr": "value - 6"
+    },
+    {
+     "from": 10,
+     "to": 12,
+     "produce": "POTATO",
+     "state": "HARVESTABLE",
+     "stageExpr": "value - 10"
+    },
+    {
+     "from": 13,
+     "to": 16,
+     "produce": "ONION",
+     "state": "GROWING",
+     "stageExpr": "value - 13"
+    },
+    {
+     "from": 17,
+     "to": 19,
+     "produce": "ONION",
+     "state": "HARVESTABLE",
+     "stageExpr": "value - 17"
+    },
+    {
+     "from": 20,
+     "to": 23,
+     "produce": "CABBAGE",
+     "state": "GROWING",
+     "stageExpr": "value - 20"
+    },
+    {
+     "from": 24,
+     "to": 26,
+     "produce": "CABBAGE",
+     "state": "HARVESTABLE",
+     "stageExpr": "value - 24"
+    },
+    {
+     "from": 27,
+     "to": 30,
+     "produce": "TOMATO",
+     "state": "GROWING",
+     "stageExpr": "value - 27"
+    },
+    {
+     "from": 31,
+     "to": 33,
+     "produce": "TOMATO",
+     "state": "HARVESTABLE",
+     "stageExpr": "value - 31"
+    },
+    {
+     "from": 34,
+     "to": 39,
+     "produce": "SWEETCORN",
+     "state": "GROWING",
+     "stageExpr": "value - 34"
+    },
+    {
+     "from": 40,
+     "to": 42,
+     "produce": "SWEETCORN",
+     "state": "HARVESTABLE",
+     "stageExpr": "value - 40"
+    },
+    {
+     "from": 43,
+     "to": 48,
+     "produce": "STRAWBERRY",
+     "state": "GROWING",
+     "stageExpr": "value - 43"
+    },
+    {
+     "from": 49,
+     "to": 51,
+     "produce": "STRAWBERRY",
+     "state": "HARVESTABLE",
+     "stageExpr": "value - 49"
+    },
+    {
+     "from": 52,
+     "to": 59,
+     "produce": "WATERMELON",
+     "state": "GROWING",
+     "stageExpr": "value - 52"
+    },
+    {
+     "from": 60,
+     "to": 62,
+     "produce": "WATERMELON",
+     "state": "HARVESTABLE",
+     "stageExpr": "value - 60"
+    },
+    {
+     "from": 63,
+     "to": 69,
+     "produce": "SNAPE_GRASS",
+     "state": "GROWING",
+     "stageExpr": "value - 63"
+    },
+    {
+     "from": 70,
+     "to": 73,
+     "produce": "POTATO",
+     "state": "GROWING",
+     "stageExpr": "value - 70"
+    },
+    {
+     "from": 74,
+     "to": 76,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 77,
+     "to": 80,
+     "produce": "ONION",
+     "state": "GROWING",
+     "stageExpr": "value - 77"
+    },
+    {
+     "from": 81,
+     "to": 83,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 84,
+     "to": 87,
+     "produce": "CABBAGE",
+     "state": "GROWING",
+     "stageExpr": "value - 84"
+    },
+    {
+     "from": 88,
+     "to": 90,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 91,
+     "to": 94,
+     "produce": "TOMATO",
+     "state": "GROWING",
+     "stageExpr": "value - 91"
+    },
+    {
+     "from": 95,
+     "to": 97,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 98,
+     "to": 103,
+     "produce": "SWEETCORN",
+     "state": "GROWING",
+     "stageExpr": "value - 98"
+    },
+    {
+     "from": 104,
+     "to": 106,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 107,
+     "to": 112,
+     "produce": "STRAWBERRY",
+     "state": "GROWING",
+     "stageExpr": "value - 107"
+    },
+    {
+     "from": 113,
+     "to": 115,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 116,
+     "to": 123,
+     "produce": "WATERMELON",
+     "state": "GROWING",
+     "stageExpr": "value - 116"
+    },
+    {
+     "from": 124,
+     "to": 127,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 128,
+     "to": 134,
+     "produce": "SNAPE_GRASS",
+     "state": "GROWING",
+     "stageExpr": "value - 128"
+    },
+    {
+     "from": 135,
+     "to": 137,
+     "produce": "POTATO",
+     "state": "DISEASED",
+     "stageExpr": "value - 134"
+    },
+    {
+     "from": 138,
+     "to": 140,
+     "produce": "SNAPE_GRASS",
+     "state": "HARVESTABLE",
+     "stageExpr": "value - 138"
+    },
+    {
+     "from": 141,
+     "to": 141,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 142,
+     "to": 144,
+     "produce": "ONION",
+     "state": "DISEASED",
+     "stageExpr": "value - 141"
+    },
+    {
+     "from": 145,
+     "to": 148,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 149,
+     "to": 151,
+     "produce": "CABBAGE",
+     "state": "DISEASED",
+     "stageExpr": "value - 148"
+    },
+    {
+     "from": 152,
+     "to": 155,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 156,
+     "to": 158,
+     "produce": "TOMATO",
+     "state": "DISEASED",
+     "stageExpr": "value - 155"
+    },
+    {
+     "from": 159,
+     "to": 162,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 163,
+     "to": 167,
+     "produce": "SWEETCORN",
+     "state": "DISEASED",
+     "stageExpr": "value - 162"
+    },
+    {
+     "from": 168,
+     "to": 171,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 172,
+     "to": 176,
+     "produce": "STRAWBERRY",
+     "state": "DISEASED",
+     "stageExpr": "value - 171"
+    },
+    {
+     "from": 177,
+     "to": 180,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 181,
+     "to": 187,
+     "produce": "WATERMELON",
+     "state": "DISEASED",
+     "stageExpr": "value - 180"
+    },
+    {
+     "from": 188,
+     "to": 192,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 193,
+     "to": 195,
+     "produce": "SNAPE_GRASS",
+     "state": "DEAD",
+     "stageExpr": "value - 192"
+    },
+    {
+     "from": 196,
+     "to": 198,
+     "produce": "SNAPE_GRASS",
+     "state": "DISEASED",
+     "stageExpr": "value - 195"
+    },
+    {
+     "from": 199,
+     "to": 201,
+     "produce": "POTATO",
+     "state": "DEAD",
+     "stageExpr": "value - 198"
+    },
+    {
+     "from": 202,
+     "to": 204,
+     "produce": "SNAPE_GRASS",
+     "state": "DISEASED",
+     "stageExpr": "3 + value - 201"
+    },
+    {
+     "from": 205,
+     "to": 205,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 206,
+     "to": 208,
+     "produce": "ONION",
+     "state": "DEAD",
+     "stageExpr": "value - 205"
+    },
+    {
+     "from": 209,
+     "to": 211,
+     "produce": "SNAPE_GRASS",
+     "state": "DEAD",
+     "stageExpr": "3 + value - 208"
+    },
+    {
+     "from": 212,
+     "to": 212,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 213,
+     "to": 215,
+     "produce": "CABBAGE",
+     "state": "DEAD",
+     "stageExpr": "value - 212"
+    },
+    {
+     "from": 216,
+     "to": 219,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 220,
+     "to": 222,
+     "produce": "TOMATO",
+     "state": "DEAD",
+     "stageExpr": "value - 219"
+    },
+    {
+     "from": 223,
+     "to": 226,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 227,
+     "to": 231,
+     "produce": "SWEETCORN",
+     "state": "DEAD",
+     "stageExpr": "value - 226"
+    },
+    {
+     "from": 232,
+     "to": 235,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 236,
+     "to": 240,
+     "produce": "STRAWBERRY",
+     "state": "DEAD",
+     "stageExpr": "value - 235"
+    },
+    {
+     "from": 241,
+     "to": 244,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 245,
+     "to": 251,
+     "produce": "WATERMELON",
+     "state": "DEAD",
+     "stageExpr": "value - 244"
+    },
+    {
+     "from": 252,
+     "to": 255,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    }
+   ]
+  },
+  {
+   "impl": "HERB",
+   "ranges": [
+    {
+     "from": 0,
+     "to": 3,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3 - value"
+    },
+    {
+     "from": 4,
+     "to": 7,
+     "produce": "GUAM",
+     "state": "GROWING",
+     "stageExpr": "value - 4"
+    },
+    {
+     "from": 8,
+     "to": 10,
+     "produce": "GUAM",
+     "state": "HARVESTABLE",
+     "stageExpr": "10 - value"
+    },
+    {
+     "from": 11,
+     "to": 14,
+     "produce": "MARRENTILL",
+     "state": "GROWING",
+     "stageExpr": "value - 11"
+    },
+    {
+     "from": 15,
+     "to": 17,
+     "produce": "MARRENTILL",
+     "state": "HARVESTABLE",
+     "stageExpr": "17 - value"
+    },
+    {
+     "from": 18,
+     "to": 21,
+     "produce": "TARROMIN",
+     "state": "GROWING",
+     "stageExpr": "value - 18"
+    },
+    {
+     "from": 22,
+     "to": 24,
+     "produce": "TARROMIN",
+     "state": "HARVESTABLE",
+     "stageExpr": "24 - value"
+    },
+    {
+     "from": 25,
+     "to": 28,
+     "produce": "HARRALANDER",
+     "state": "GROWING",
+     "stageExpr": "value - 25"
+    },
+    {
+     "from": 29,
+     "to": 31,
+     "produce": "HARRALANDER",
+     "state": "HARVESTABLE",
+     "stageExpr": "31 - value"
+    },
+    {
+     "from": 32,
+     "to": 35,
+     "produce": "RANARR",
+     "state": "GROWING",
+     "stageExpr": "value - 32"
+    },
+    {
+     "from": 36,
+     "to": 38,
+     "produce": "RANARR",
+     "state": "HARVESTABLE",
+     "stageExpr": "38 - value"
+    },
+    {
+     "from": 39,
+     "to": 42,
+     "produce": "TOADFLAX",
+     "state": "GROWING",
+     "stageExpr": "value - 39"
+    },
+    {
+     "from": 43,
+     "to": 45,
+     "produce": "TOADFLAX",
+     "state": "HARVESTABLE",
+     "stageExpr": "45 - value"
+    },
+    {
+     "from": 46,
+     "to": 49,
+     "produce": "IRIT",
+     "state": "GROWING",
+     "stageExpr": "value - 46"
+    },
+    {
+     "from": 50,
+     "to": 52,
+     "produce": "IRIT",
+     "state": "HARVESTABLE",
+     "stageExpr": "52 - value"
+    },
+    {
+     "from": 53,
+     "to": 56,
+     "produce": "AVANTOE",
+     "state": "GROWING",
+     "stageExpr": "value - 53"
+    },
+    {
+     "from": 57,
+     "to": 59,
+     "produce": "AVANTOE",
+     "state": "HARVESTABLE",
+     "stageExpr": "59 - value"
+    },
+    {
+     "from": 60,
+     "to": 63,
+     "produce": "HUASCA",
+     "state": "GROWING",
+     "stageExpr": "value - 60"
+    },
+    {
+     "from": 64,
+     "to": 66,
+     "produce": "HUASCA",
+     "state": "HARVESTABLE",
+     "stageExpr": "66 - value"
+    },
+    {
+     "from": 67,
+     "to": 67,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 68,
+     "to": 71,
+     "produce": "KWUARM",
+     "state": "GROWING",
+     "stageExpr": "value - 68"
+    },
+    {
+     "from": 72,
+     "to": 74,
+     "produce": "KWUARM",
+     "state": "HARVESTABLE",
+     "stageExpr": "74 - value"
+    },
+    {
+     "from": 75,
+     "to": 78,
+     "produce": "SNAPDRAGON",
+     "state": "GROWING",
+     "stageExpr": "value - 75"
+    },
+    {
+     "from": 79,
+     "to": 81,
+     "produce": "SNAPDRAGON",
+     "state": "HARVESTABLE",
+     "stageExpr": "81 - value"
+    },
+    {
+     "from": 82,
+     "to": 85,
+     "produce": "CADANTINE",
+     "state": "GROWING",
+     "stageExpr": "value - 82"
+    },
+    {
+     "from": 86,
+     "to": 88,
+     "produce": "CADANTINE",
+     "state": "HARVESTABLE",
+     "stageExpr": "88 - value"
+    },
+    {
+     "from": 89,
+     "to": 92,
+     "produce": "LANTADYME",
+     "state": "GROWING",
+     "stageExpr": "value - 89"
+    },
+    {
+     "from": 93,
+     "to": 95,
+     "produce": "LANTADYME",
+     "state": "HARVESTABLE",
+     "stageExpr": "95 - value"
+    },
+    {
+     "from": 96,
+     "to": 99,
+     "produce": "DWARF_WEED",
+     "state": "GROWING",
+     "stageExpr": "value - 96"
+    },
+    {
+     "from": 100,
+     "to": 102,
+     "produce": "DWARF_WEED",
+     "state": "HARVESTABLE",
+     "stageExpr": "102 - value"
+    },
+    {
+     "from": 103,
+     "to": 106,
+     "produce": "TORSTOL",
+     "state": "GROWING",
+     "stageExpr": "value - 103"
+    },
+    {
+     "from": 107,
+     "to": 109,
+     "produce": "TORSTOL",
+     "state": "HARVESTABLE",
+     "stageExpr": "109 - value"
+    },
+    {
+     "from": 128,
+     "to": 130,
+     "produce": "GUAM",
+     "state": "DISEASED",
+     "stageExpr": "value - 127"
+    },
+    {
+     "from": 131,
+     "to": 133,
+     "produce": "MARRENTILL",
+     "state": "DISEASED",
+     "stageExpr": "value - 130"
+    },
+    {
+     "from": 134,
+     "to": 136,
+     "produce": "TARROMIN",
+     "state": "DISEASED",
+     "stageExpr": "value - 133"
+    },
+    {
+     "from": 137,
+     "to": 139,
+     "produce": "HARRALANDER",
+     "state": "DISEASED",
+     "stageExpr": "value - 136"
+    },
+    {
+     "from": 140,
+     "to": 142,
+     "produce": "RANARR",
+     "state": "DISEASED",
+     "stageExpr": "value - 139"
+    },
+    {
+     "from": 143,
+     "to": 145,
+     "produce": "TOADFLAX",
+     "state": "DISEASED",
+     "stageExpr": "value - 142"
+    },
+    {
+     "from": 146,
+     "to": 148,
+     "produce": "IRIT",
+     "state": "DISEASED",
+     "stageExpr": "value - 145"
+    },
+    {
+     "from": 149,
+     "to": 151,
+     "produce": "AVANTOE",
+     "state": "DISEASED",
+     "stageExpr": "value - 148"
+    },
+    {
+     "from": 152,
+     "to": 154,
+     "produce": "KWUARM",
+     "state": "DISEASED",
+     "stageExpr": "value - 151"
+    },
+    {
+     "from": 155,
+     "to": 157,
+     "produce": "SNAPDRAGON",
+     "state": "DISEASED",
+     "stageExpr": "value - 154"
+    },
+    {
+     "from": 158,
+     "to": 160,
+     "produce": "CADANTINE",
+     "state": "DISEASED",
+     "stageExpr": "value - 157"
+    },
+    {
+     "from": 161,
+     "to": 163,
+     "produce": "LANTADYME",
+     "state": "DISEASED",
+     "stageExpr": "value - 160"
+    },
+    {
+     "from": 164,
+     "to": 166,
+     "produce": "DWARF_WEED",
+     "state": "DISEASED",
+     "stageExpr": "value - 163"
+    },
+    {
+     "from": 167,
+     "to": 169,
+     "produce": "TORSTOL",
+     "state": "DISEASED",
+     "stageExpr": "value - 166"
+    },
+    {
+     "from": 170,
+     "to": 172,
+     "produce": "ANYHERB",
+     "state": "DEAD",
+     "stageExpr": "value - 169"
+    },
+    {
+     "from": 173,
+     "to": 175,
+     "produce": "HUASCA",
+     "state": "DISEASED",
+     "stageExpr": "value - 172"
+    },
+    {
+     "from": 176,
+     "to": 191,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 192,
+     "to": 195,
+     "produce": "GOUTWEED",
+     "state": "GROWING",
+     "stageExpr": "value - 192"
+    },
+    {
+     "from": 196,
+     "to": 197,
+     "produce": "GOUTWEED",
+     "state": "HARVESTABLE",
+     "stageExpr": "197 - value"
+    },
+    {
+     "from": 198,
+     "to": 200,
+     "produce": "GOUTWEED",
+     "state": "DISEASED",
+     "stageExpr": "value - 197"
+    },
+    {
+     "from": 201,
+     "to": 203,
+     "produce": "GOUTWEED",
+     "state": "DEAD",
+     "stageExpr": "value - 200"
+    },
+    {
+     "from": 204,
+     "to": 219,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 221,
+     "to": 255,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    }
+   ]
+  },
+  {
+   "impl": "FLOWER",
+   "ranges": [
+    {
+     "from": 0,
+     "to": 3,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3 - value"
+    },
+    {
+     "from": 4,
+     "to": 7,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 8,
+     "to": 11,
+     "produce": "MARIGOLD",
+     "state": "GROWING",
+     "stageExpr": "value - 8"
+    },
+    {
+     "from": 12,
+     "to": 12,
+     "produce": "MARIGOLD",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    },
+    {
+     "from": 13,
+     "to": 16,
+     "produce": "ROSEMARY",
+     "state": "GROWING",
+     "stageExpr": "value - 13"
+    },
+    {
+     "from": 17,
+     "to": 17,
+     "produce": "ROSEMARY",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    },
+    {
+     "from": 18,
+     "to": 21,
+     "produce": "NASTURTIUM",
+     "state": "GROWING",
+     "stageExpr": "value - 18"
+    },
+    {
+     "from": 22,
+     "to": 22,
+     "produce": "NASTURTIUM",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    },
+    {
+     "from": 23,
+     "to": 26,
+     "produce": "WOAD",
+     "state": "GROWING",
+     "stageExpr": "value - 23"
+    },
+    {
+     "from": 27,
+     "to": 27,
+     "produce": "WOAD",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    },
+    {
+     "from": 28,
+     "to": 31,
+     "produce": "LIMPWURT",
+     "state": "GROWING",
+     "stageExpr": "value - 28"
+    },
+    {
+     "from": 32,
+     "to": 32,
+     "produce": "LIMPWURT",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    },
+    {
+     "from": 33,
+     "to": 35,
+     "produce": "SCARECROW",
+     "state": "GROWING",
+     "stageExpr": "35 - value"
+    },
+    {
+     "from": 36,
+     "to": 36,
+     "produce": "SCARECROW",
+     "state": "GROWING",
+     "stageExpr": "0"
+    },
+    {
+     "from": 37,
+     "to": 40,
+     "produce": "WHITE_LILY",
+     "state": "GROWING",
+     "stageExpr": "value - 37"
+    },
+    {
+     "from": 41,
+     "to": 41,
+     "produce": "WHITE_LILY",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    },
+    {
+     "from": 42,
+     "to": 71,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 72,
+     "to": 75,
+     "produce": "MARIGOLD",
+     "state": "GROWING",
+     "stageExpr": "value - 72"
+    },
+    {
+     "from": 76,
+     "to": 76,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 77,
+     "to": 80,
+     "produce": "ROSEMARY",
+     "state": "GROWING",
+     "stageExpr": "value - 77"
+    },
+    {
+     "from": 81,
+     "to": 81,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 82,
+     "to": 85,
+     "produce": "NASTURTIUM",
+     "state": "GROWING",
+     "stageExpr": "value - 82"
+    },
+    {
+     "from": 86,
+     "to": 86,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 87,
+     "to": 90,
+     "produce": "WOAD",
+     "state": "GROWING",
+     "stageExpr": "value - 87"
+    },
+    {
+     "from": 91,
+     "to": 91,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 92,
+     "to": 95,
+     "produce": "LIMPWURT",
+     "state": "GROWING",
+     "stageExpr": "value - 92"
+    },
+    {
+     "from": 96,
+     "to": 100,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 101,
+     "to": 104,
+     "produce": "WHITE_LILY",
+     "state": "GROWING",
+     "stageExpr": "value - 101"
+    },
+    {
+     "from": 105,
+     "to": 136,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 137,
+     "to": 139,
+     "produce": "MARIGOLD",
+     "state": "DISEASED",
+     "stageExpr": "value - 136"
+    },
+    {
+     "from": 140,
+     "to": 141,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 142,
+     "to": 144,
+     "produce": "ROSEMARY",
+     "state": "DISEASED",
+     "stageExpr": "value - 141"
+    },
+    {
+     "from": 145,
+     "to": 146,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 147,
+     "to": 149,
+     "produce": "NASTURTIUM",
+     "state": "DISEASED",
+     "stageExpr": "value - 146"
+    },
+    {
+     "from": 150,
+     "to": 151,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 152,
+     "to": 154,
+     "produce": "WOAD",
+     "state": "DISEASED",
+     "stageExpr": "value - 151"
+    },
+    {
+     "from": 155,
+     "to": 156,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 157,
+     "to": 159,
+     "produce": "LIMPWURT",
+     "state": "DISEASED",
+     "stageExpr": "value - 156"
+    },
+    {
+     "from": 160,
+     "to": 165,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 166,
+     "to": 168,
+     "produce": "WHITE_LILY",
+     "state": "DISEASED",
+     "stageExpr": "value - 165"
+    },
+    {
+     "from": 169,
+     "to": 200,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 201,
+     "to": 204,
+     "produce": "MARIGOLD",
+     "state": "DEAD",
+     "stageExpr": "value - 200"
+    },
+    {
+     "from": 205,
+     "to": 205,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 206,
+     "to": 209,
+     "produce": "ROSEMARY",
+     "state": "DEAD",
+     "stageExpr": "value - 205"
+    },
+    {
+     "from": 210,
+     "to": 210,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 211,
+     "to": 214,
+     "produce": "NASTURTIUM",
+     "state": "DEAD",
+     "stageExpr": "value - 210"
+    },
+    {
+     "from": 215,
+     "to": 215,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 216,
+     "to": 219,
+     "produce": "WOAD",
+     "state": "DEAD",
+     "stageExpr": "value - 215"
+    },
+    {
+     "from": 220,
+     "to": 220,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 221,
+     "to": 224,
+     "produce": "LIMPWURT",
+     "state": "DEAD",
+     "stageExpr": "value - 220"
+    },
+    {
+     "from": 225,
+     "to": 229,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 230,
+     "to": 233,
+     "produce": "WHITE_LILY",
+     "state": "DEAD",
+     "stageExpr": "value - 229"
+    },
+    {
+     "from": 234,
+     "to": 255,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    }
+   ]
+  },
+  {
+   "impl": "BUSH",
+   "ranges": [
+    {
+     "from": 0,
+     "to": 3,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3 - value"
+    },
+    {
+     "from": 4,
+     "to": 4,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 5,
+     "to": 9,
+     "produce": "REDBERRIES",
+     "state": "GROWING",
+     "stageExpr": "value - 5"
+    },
+    {
+     "from": 10,
+     "to": 14,
+     "produce": "REDBERRIES",
+     "state": "HARVESTABLE",
+     "stageExpr": "value - 10"
+    },
+    {
+     "from": 15,
+     "to": 20,
+     "produce": "CADAVABERRIES",
+     "state": "GROWING",
+     "stageExpr": "value - 15"
+    },
+    {
+     "from": 21,
+     "to": 25,
+     "produce": "CADAVABERRIES",
+     "state": "HARVESTABLE",
+     "stageExpr": "value - 21"
+    },
+    {
+     "from": 26,
+     "to": 32,
+     "produce": "DWELLBERRIES",
+     "state": "GROWING",
+     "stageExpr": "value - 26"
+    },
+    {
+     "from": 33,
+     "to": 37,
+     "produce": "DWELLBERRIES",
+     "state": "HARVESTABLE",
+     "stageExpr": "value - 33"
+    },
+    {
+     "from": 38,
+     "to": 45,
+     "produce": "JANGERBERRIES",
+     "state": "GROWING",
+     "stageExpr": "value - 38"
+    },
+    {
+     "from": 46,
+     "to": 50,
+     "produce": "JANGERBERRIES",
+     "state": "HARVESTABLE",
+     "stageExpr": "value - 46"
+    },
+    {
+     "from": 51,
+     "to": 58,
+     "produce": "WHITEBERRIES",
+     "state": "GROWING",
+     "stageExpr": "value - 51"
+    },
+    {
+     "from": 59,
+     "to": 63,
+     "produce": "WHITEBERRIES",
+     "state": "HARVESTABLE",
+     "stageExpr": "value - 59"
+    },
+    {
+     "from": 64,
+     "to": 69,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 70,
+     "to": 74,
+     "produce": "REDBERRIES",
+     "state": "DISEASED",
+     "stageExpr": "value - 69"
+    },
+    {
+     "from": 75,
+     "to": 79,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 80,
+     "to": 85,
+     "produce": "CADAVABERRIES",
+     "state": "DISEASED",
+     "stageExpr": "value - 79"
+    },
+    {
+     "from": 86,
+     "to": 90,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 91,
+     "to": 97,
+     "produce": "DWELLBERRIES",
+     "state": "DISEASED",
+     "stageExpr": "value - 90"
+    },
+    {
+     "from": 98,
+     "to": 102,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 103,
+     "to": 110,
+     "produce": "JANGERBERRIES",
+     "state": "DISEASED",
+     "stageExpr": "value - 102"
+    },
+    {
+     "from": 111,
+     "to": 115,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 116,
+     "to": 123,
+     "produce": "WHITEBERRIES",
+     "state": "DISEASED",
+     "stageExpr": "value - 115"
+    },
+    {
+     "from": 124,
+     "to": 133,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 134,
+     "to": 138,
+     "produce": "REDBERRIES",
+     "state": "DEAD",
+     "stageExpr": "value - 133"
+    },
+    {
+     "from": 139,
+     "to": 143,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 144,
+     "to": 149,
+     "produce": "CADAVABERRIES",
+     "state": "DEAD",
+     "stageExpr": "value - 143"
+    },
+    {
+     "from": 150,
+     "to": 154,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 155,
+     "to": 161,
+     "produce": "DWELLBERRIES",
+     "state": "DEAD",
+     "stageExpr": "value - 154"
+    },
+    {
+     "from": 162,
+     "to": 166,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 167,
+     "to": 174,
+     "produce": "JANGERBERRIES",
+     "state": "DEAD",
+     "stageExpr": "value - 166"
+    },
+    {
+     "from": 175,
+     "to": 179,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 180,
+     "to": 187,
+     "produce": "WHITEBERRIES",
+     "state": "DEAD",
+     "stageExpr": "value - 179"
+    },
+    {
+     "from": 188,
+     "to": 196,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 197,
+     "to": 204,
+     "produce": "POISON_IVY",
+     "state": "GROWING",
+     "stageExpr": "value - 197"
+    },
+    {
+     "from": 205,
+     "to": 209,
+     "produce": "POISON_IVY",
+     "state": "HARVESTABLE",
+     "stageExpr": "value - 205"
+    },
+    {
+     "from": 210,
+     "to": 216,
+     "produce": "POISON_IVY",
+     "state": "DISEASED",
+     "stageExpr": "value - 209"
+    },
+    {
+     "from": 217,
+     "to": 224,
+     "produce": "POISON_IVY",
+     "state": "DEAD",
+     "stageExpr": "value - 216"
+    },
+    {
+     "from": 225,
+     "to": 225,
+     "produce": "POISON_IVY",
+     "state": "DISEASED",
+     "stageExpr": "8"
+    },
+    {
+     "from": 226,
+     "to": 249,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    }
+   ]
+  },
+  {
+   "impl": "FRUIT_TREE",
+   "ranges": [
+    {
+     "from": 0,
+     "to": 3,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3 - value"
+    },
+    {
+     "from": 4,
+     "to": 7,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 8,
+     "to": 13,
+     "produce": "APPLE",
+     "state": "GROWING",
+     "stageExpr": "value - 8"
+    },
+    {
+     "from": 14,
+     "to": 20,
+     "produce": "APPLE",
+     "state": "HARVESTABLE",
+     "stageExpr": "value - 14"
+    },
+    {
+     "from": 21,
+     "to": 26,
+     "produce": "APPLE",
+     "state": "DISEASED",
+     "stageExpr": "value - 20"
+    },
+    {
+     "from": 27,
+     "to": 32,
+     "produce": "APPLE",
+     "state": "DEAD",
+     "stageExpr": "value - 26"
+    },
+    {
+     "from": 33,
+     "to": 33,
+     "produce": "APPLE",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    },
+    {
+     "from": 35,
+     "to": 40,
+     "produce": "BANANA",
+     "state": "GROWING",
+     "stageExpr": "value - 35"
+    },
+    {
+     "from": 41,
+     "to": 47,
+     "produce": "BANANA",
+     "state": "HARVESTABLE",
+     "stageExpr": "value - 41"
+    },
+    {
+     "from": 48,
+     "to": 53,
+     "produce": "BANANA",
+     "state": "DISEASED",
+     "stageExpr": "value - 47"
+    },
+    {
+     "from": 54,
+     "to": 59,
+     "produce": "BANANA",
+     "state": "DEAD",
+     "stageExpr": "value - 53"
+    },
+    {
+     "from": 60,
+     "to": 60,
+     "produce": "BANANA",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    },
+    {
+     "from": 62,
+     "to": 71,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 72,
+     "to": 77,
+     "produce": "ORANGE",
+     "state": "GROWING",
+     "stageExpr": "value - 72"
+    },
+    {
+     "from": 78,
+     "to": 84,
+     "produce": "ORANGE",
+     "state": "HARVESTABLE",
+     "stageExpr": "value - 78"
+    },
+    {
+     "from": 85,
+     "to": 89,
+     "produce": "ORANGE",
+     "state": "DISEASED",
+     "stageExpr": "value - 84"
+    },
+    {
+     "from": 90,
+     "to": 90,
+     "produce": "ORANGE",
+     "state": "DISEASED",
+     "stageExpr": "6"
+    },
+    {
+     "from": 91,
+     "to": 96,
+     "produce": "ORANGE",
+     "state": "DEAD",
+     "stageExpr": "value - 90"
+    },
+    {
+     "from": 97,
+     "to": 97,
+     "produce": "ORANGE",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    },
+    {
+     "from": 99,
+     "to": 104,
+     "produce": "CURRY",
+     "state": "GROWING",
+     "stageExpr": "value - 99"
+    },
+    {
+     "from": 105,
+     "to": 111,
+     "produce": "CURRY",
+     "state": "HARVESTABLE",
+     "stageExpr": "value - 105"
+    },
+    {
+     "from": 112,
+     "to": 117,
+     "produce": "CURRY",
+     "state": "DISEASED",
+     "stageExpr": "value - 111"
+    },
+    {
+     "from": 118,
+     "to": 123,
+     "produce": "CURRY",
+     "state": "DEAD",
+     "stageExpr": "value - 117"
+    },
+    {
+     "from": 124,
+     "to": 124,
+     "produce": "CURRY",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    },
+    {
+     "from": 126,
+     "to": 135,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 136,
+     "to": 141,
+     "produce": "PINEAPPLE",
+     "state": "GROWING",
+     "stageExpr": "value - 136"
+    },
+    {
+     "from": 142,
+     "to": 148,
+     "produce": "PINEAPPLE",
+     "state": "HARVESTABLE",
+     "stageExpr": "value - 142"
+    },
+    {
+     "from": 149,
+     "to": 154,
+     "produce": "PINEAPPLE",
+     "state": "DISEASED",
+     "stageExpr": "value - 148"
+    },
+    {
+     "from": 155,
+     "to": 160,
+     "produce": "PINEAPPLE",
+     "state": "DEAD",
+     "stageExpr": "value - 154"
+    },
+    {
+     "from": 161,
+     "to": 161,
+     "produce": "PINEAPPLE",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    },
+    {
+     "from": 163,
+     "to": 168,
+     "produce": "PAPAYA",
+     "state": "GROWING",
+     "stageExpr": "value - 163"
+    },
+    {
+     "from": 169,
+     "to": 175,
+     "produce": "PAPAYA",
+     "state": "HARVESTABLE",
+     "stageExpr": "value - 169"
+    },
+    {
+     "from": 176,
+     "to": 181,
+     "produce": "PAPAYA",
+     "state": "DISEASED",
+     "stageExpr": "value - 175"
+    },
+    {
+     "from": 182,
+     "to": 187,
+     "produce": "PAPAYA",
+     "state": "DEAD",
+     "stageExpr": "value - 181"
+    },
+    {
+     "from": 188,
+     "to": 188,
+     "produce": "PAPAYA",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    },
+    {
+     "from": 190,
+     "to": 199,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 200,
+     "to": 205,
+     "produce": "PALM",
+     "state": "GROWING",
+     "stageExpr": "value - 200"
+    },
+    {
+     "from": 206,
+     "to": 212,
+     "produce": "PALM",
+     "state": "HARVESTABLE",
+     "stageExpr": "value - 206"
+    },
+    {
+     "from": 213,
+     "to": 218,
+     "produce": "PALM",
+     "state": "DISEASED",
+     "stageExpr": "value - 212"
+    },
+    {
+     "from": 219,
+     "to": 224,
+     "produce": "PALM",
+     "state": "DEAD",
+     "stageExpr": "value - 218"
+    },
+    {
+     "from": 225,
+     "to": 225,
+     "produce": "PALM",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    },
+    {
+     "from": 227,
+     "to": 232,
+     "produce": "DRAGONFRUIT",
+     "state": "GROWING",
+     "stageExpr": "value - 227"
+    },
+    {
+     "from": 233,
+     "to": 239,
+     "produce": "DRAGONFRUIT",
+     "state": "HARVESTABLE",
+     "stageExpr": "value - 233"
+    },
+    {
+     "from": 240,
+     "to": 245,
+     "produce": "DRAGONFRUIT",
+     "state": "DISEASED",
+     "stageExpr": "value - 239"
+    },
+    {
+     "from": 246,
+     "to": 251,
+     "produce": "DRAGONFRUIT",
+     "state": "DEAD",
+     "stageExpr": "value - 245"
+    },
+    {
+     "from": 252,
+     "to": 252,
+     "produce": "DRAGONFRUIT",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    },
+    {
+     "from": 254,
+     "to": 255,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    }
+   ]
+  },
+  {
+   "impl": "HOPS",
+   "ranges": [
+    {
+     "from": 0,
+     "to": 3,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3 - value"
+    },
+    {
+     "from": 4,
+     "to": 7,
+     "produce": "HAMMERSTONE",
+     "state": "GROWING",
+     "stageExpr": "value - 4"
+    },
+    {
+     "from": 8,
+     "to": 10,
+     "produce": "HAMMERSTONE",
+     "state": "HARVESTABLE",
+     "stageExpr": "10 - value"
+    },
+    {
+     "from": 11,
+     "to": 13,
+     "produce": "HAMMERSTONE",
+     "state": "DISEASED",
+     "stageExpr": "value - 10"
+    },
+    {
+     "from": 14,
+     "to": 18,
+     "produce": "ASGARNIAN",
+     "state": "GROWING",
+     "stageExpr": "value - 14"
+    },
+    {
+     "from": 19,
+     "to": 21,
+     "produce": "ASGARNIAN",
+     "state": "HARVESTABLE",
+     "stageExpr": "21 - value"
+    },
+    {
+     "from": 22,
+     "to": 25,
+     "produce": "ASGARNIAN",
+     "state": "DISEASED",
+     "stageExpr": "value - 21"
+    },
+    {
+     "from": 26,
+     "to": 31,
+     "produce": "YANILLIAN",
+     "state": "GROWING",
+     "stageExpr": "value - 26"
+    },
+    {
+     "from": 32,
+     "to": 34,
+     "produce": "YANILLIAN",
+     "state": "HARVESTABLE",
+     "stageExpr": "34 - value"
+    },
+    {
+     "from": 35,
+     "to": 39,
+     "produce": "YANILLIAN",
+     "state": "DISEASED",
+     "stageExpr": "value - 34"
+    },
+    {
+     "from": 40,
+     "to": 46,
+     "produce": "KRANDORIAN",
+     "state": "GROWING",
+     "stageExpr": "value - 40"
+    },
+    {
+     "from": 47,
+     "to": 49,
+     "produce": "KRANDORIAN",
+     "state": "HARVESTABLE",
+     "stageExpr": "49 - value"
+    },
+    {
+     "from": 50,
+     "to": 55,
+     "produce": "KRANDORIAN",
+     "state": "DISEASED",
+     "stageExpr": "value - 49"
+    },
+    {
+     "from": 56,
+     "to": 63,
+     "produce": "WILDBLOOD",
+     "state": "GROWING",
+     "stageExpr": "value - 56"
+    },
+    {
+     "from": 64,
+     "to": 66,
+     "produce": "WILDBLOOD",
+     "state": "HARVESTABLE",
+     "stageExpr": "66 - value"
+    },
+    {
+     "from": 67,
+     "to": 73,
+     "produce": "WILDBLOOD",
+     "state": "DISEASED",
+     "stageExpr": "value - 66"
+    },
+    {
+     "from": 74,
+     "to": 77,
+     "produce": "BARLEY",
+     "state": "GROWING",
+     "stageExpr": "value - 74"
+    },
+    {
+     "from": 78,
+     "to": 80,
+     "produce": "BARLEY",
+     "state": "HARVESTABLE",
+     "stageExpr": "80 - value"
+    },
+    {
+     "from": 81,
+     "to": 83,
+     "produce": "BARLEY",
+     "state": "DISEASED",
+     "stageExpr": "value - 80"
+    },
+    {
+     "from": 84,
+     "to": 88,
+     "produce": "JUTE",
+     "state": "GROWING",
+     "stageExpr": "value - 84"
+    },
+    {
+     "from": 89,
+     "to": 91,
+     "produce": "JUTE",
+     "state": "HARVESTABLE",
+     "stageExpr": "91 - value"
+    },
+    {
+     "from": 92,
+     "to": 95,
+     "produce": "JUTE",
+     "state": "DISEASED",
+     "stageExpr": "value - 91"
+    },
+    {
+     "from": 96,
+     "to": 98,
+     "produce": "FLAX",
+     "state": "GROWING",
+     "stageExpr": "value - 96"
+    },
+    {
+     "from": 99,
+     "to": 101,
+     "produce": "FLAX",
+     "state": "HARVESTABLE",
+     "stageExpr": "101 - value"
+    },
+    {
+     "from": 102,
+     "to": 103,
+     "produce": "FLAX",
+     "state": "DISEASED",
+     "stageExpr": "value - 101"
+    },
+    {
+     "from": 104,
+     "to": 107,
+     "produce": "HEMP",
+     "state": "GROWING",
+     "stageExpr": "value - 104"
+    },
+    {
+     "from": 108,
+     "to": 110,
+     "produce": "HEMP",
+     "state": "HARVESTABLE",
+     "stageExpr": "110 - value"
+    },
+    {
+     "from": 111,
+     "to": 113,
+     "produce": "HEMP",
+     "state": "DISEASED",
+     "stageExpr": "value - 110"
+    },
+    {
+     "from": 114,
+     "to": 118,
+     "produce": "COTTON",
+     "state": "GROWING",
+     "stageExpr": "value - 114"
+    },
+    {
+     "from": 119,
+     "to": 121,
+     "produce": "COTTON",
+     "state": "HARVESTABLE",
+     "stageExpr": "121 - value"
+    },
+    {
+     "from": 122,
+     "to": 125,
+     "produce": "COTTON",
+     "state": "DISEASED",
+     "stageExpr": "value - 121"
+    },
+    {
+     "from": 126,
+     "to": 131,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 132,
+     "to": 135,
+     "produce": "HAMMERSTONE",
+     "state": "GROWING",
+     "stageExpr": "value - 132"
+    },
+    {
+     "from": 136,
+     "to": 138,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 139,
+     "to": 141,
+     "produce": "HAMMERSTONE",
+     "state": "DEAD",
+     "stageExpr": "value - 138"
+    },
+    {
+     "from": 142,
+     "to": 146,
+     "produce": "ASGARNIAN",
+     "state": "GROWING",
+     "stageExpr": "value - 142"
+    },
+    {
+     "from": 147,
+     "to": 149,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 150,
+     "to": 153,
+     "produce": "ASGARNIAN",
+     "state": "DEAD",
+     "stageExpr": "value - 149"
+    },
+    {
+     "from": 154,
+     "to": 159,
+     "produce": "YANILLIAN",
+     "state": "GROWING",
+     "stageExpr": "value - 154"
+    },
+    {
+     "from": 160,
+     "to": 162,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 163,
+     "to": 167,
+     "produce": "YANILLIAN",
+     "state": "DEAD",
+     "stageExpr": "value - 162"
+    },
+    {
+     "from": 168,
+     "to": 174,
+     "produce": "KRANDORIAN",
+     "state": "GROWING",
+     "stageExpr": "value - 168"
+    },
+    {
+     "from": 175,
+     "to": 177,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 178,
+     "to": 183,
+     "produce": "KRANDORIAN",
+     "state": "DEAD",
+     "stageExpr": "value - 177"
+    },
+    {
+     "from": 184,
+     "to": 191,
+     "produce": "WILDBLOOD",
+     "state": "GROWING",
+     "stageExpr": "value - 184"
+    },
+    {
+     "from": 192,
+     "to": 194,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 195,
+     "to": 201,
+     "produce": "WILDBLOOD",
+     "state": "DEAD",
+     "stageExpr": "value - 194"
+    },
+    {
+     "from": 202,
+     "to": 205,
+     "produce": "BARLEY",
+     "state": "GROWING",
+     "stageExpr": "value - 202"
+    },
+    {
+     "from": 206,
+     "to": 208,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 209,
+     "to": 211,
+     "produce": "BARLEY",
+     "state": "DEAD",
+     "stageExpr": "value - 208"
+    },
+    {
+     "from": 212,
+     "to": 216,
+     "produce": "JUTE",
+     "state": "GROWING",
+     "stageExpr": "value - 212"
+    },
+    {
+     "from": 217,
+     "to": 219,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 220,
+     "to": 223,
+     "produce": "JUTE",
+     "state": "DEAD",
+     "stageExpr": "value - 219"
+    },
+    {
+     "from": 224,
+     "to": 226,
+     "produce": "FLAX",
+     "state": "GROWING",
+     "stageExpr": "value - 224"
+    },
+    {
+     "from": 227,
+     "to": 229,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 230,
+     "to": 231,
+     "produce": "FLAX",
+     "state": "DEAD",
+     "stageExpr": "value - 229"
+    },
+    {
+     "from": 232,
+     "to": 235,
+     "produce": "HEMP",
+     "state": "GROWING",
+     "stageExpr": "value - 232"
+    },
+    {
+     "from": 236,
+     "to": 238,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 239,
+     "to": 240,
+     "produce": "HEMP",
+     "state": "DEAD",
+     "stageExpr": "value - 238"
+    },
+    {
+     "from": 241,
+     "to": 241,
+     "produce": "HEMP",
+     "state": "DEAD",
+     "stageExpr": "3"
+    },
+    {
+     "from": 242,
+     "to": 246,
+     "produce": "COTTON",
+     "state": "GROWING",
+     "stageExpr": "value - 242"
+    },
+    {
+     "from": 247,
+     "to": 249,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 250,
+     "to": 253,
+     "produce": "COTTON",
+     "state": "DEAD",
+     "stageExpr": "value - 249"
+    },
+    {
+     "from": 254,
+     "to": 255,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    }
+   ]
+  },
+  {
+   "impl": "TREE",
+   "ranges": [
+    {
+     "from": 0,
+     "to": 3,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3 - value"
+    },
+    {
+     "from": 4,
+     "to": 7,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 8,
+     "to": 11,
+     "produce": "OAK",
+     "state": "GROWING",
+     "stageExpr": "value - 8"
+    },
+    {
+     "from": 13,
+     "to": 13,
+     "produce": "OAK",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    },
+    {
+     "from": 14,
+     "to": 14,
+     "produce": "OAK",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    },
+    {
+     "from": 15,
+     "to": 20,
+     "produce": "WILLOW",
+     "state": "GROWING",
+     "stageExpr": "value - 15"
+    },
+    {
+     "from": 22,
+     "to": 22,
+     "produce": "WILLOW",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    },
+    {
+     "from": 23,
+     "to": 23,
+     "produce": "WILLOW",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    },
+    {
+     "from": 24,
+     "to": 31,
+     "produce": "MAPLE",
+     "state": "GROWING",
+     "stageExpr": "value - 24"
+    },
+    {
+     "from": 33,
+     "to": 33,
+     "produce": "MAPLE",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    },
+    {
+     "from": 34,
+     "to": 34,
+     "produce": "MAPLE",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    },
+    {
+     "from": 35,
+     "to": 44,
+     "produce": "YEW",
+     "state": "GROWING",
+     "stageExpr": "value - 35"
+    },
+    {
+     "from": 46,
+     "to": 46,
+     "produce": "YEW",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    },
+    {
+     "from": 47,
+     "to": 47,
+     "produce": "YEW",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    },
+    {
+     "from": 48,
+     "to": 59,
+     "produce": "MAGIC",
+     "state": "GROWING",
+     "stageExpr": "value - 48"
+    },
+    {
+     "from": 61,
+     "to": 61,
+     "produce": "MAGIC",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    },
+    {
+     "from": 62,
+     "to": 62,
+     "produce": "MAGIC",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    },
+    {
+     "from": 63,
+     "to": 72,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 73,
+     "to": 75,
+     "produce": "OAK",
+     "state": "DISEASED",
+     "stageExpr": "value - 72"
+    },
+    {
+     "from": 77,
+     "to": 77,
+     "produce": "OAK",
+     "state": "DISEASED",
+     "stageExpr": "4"
+    },
+    {
+     "from": 78,
+     "to": 79,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 80,
+     "to": 84,
+     "produce": "WILLOW",
+     "state": "DISEASED",
+     "stageExpr": "value - 79"
+    },
+    {
+     "from": 86,
+     "to": 86,
+     "produce": "WILLOW",
+     "state": "DISEASED",
+     "stageExpr": "6"
+    },
+    {
+     "from": 87,
+     "to": 88,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 89,
+     "to": 95,
+     "produce": "MAPLE",
+     "state": "DISEASED",
+     "stageExpr": "value - 88"
+    },
+    {
+     "from": 97,
+     "to": 97,
+     "produce": "MAPLE",
+     "state": "DISEASED",
+     "stageExpr": "8"
+    },
+    {
+     "from": 98,
+     "to": 99,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 100,
+     "to": 108,
+     "produce": "YEW",
+     "state": "DISEASED",
+     "stageExpr": "value - 99"
+    },
+    {
+     "from": 110,
+     "to": 110,
+     "produce": "YEW",
+     "state": "DISEASED",
+     "stageExpr": "10"
+    },
+    {
+     "from": 111,
+     "to": 112,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 113,
+     "to": 123,
+     "produce": "MAGIC",
+     "state": "DISEASED",
+     "stageExpr": "value - 112"
+    },
+    {
+     "from": 125,
+     "to": 125,
+     "produce": "MAGIC",
+     "state": "DISEASED",
+     "stageExpr": "12"
+    },
+    {
+     "from": 126,
+     "to": 136,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 137,
+     "to": 139,
+     "produce": "OAK",
+     "state": "DEAD",
+     "stageExpr": "value - 136"
+    },
+    {
+     "from": 141,
+     "to": 141,
+     "produce": "OAK",
+     "state": "DEAD",
+     "stageExpr": "4"
+    },
+    {
+     "from": 142,
+     "to": 143,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 144,
+     "to": 148,
+     "produce": "WILLOW",
+     "state": "DEAD",
+     "stageExpr": "value - 143"
+    },
+    {
+     "from": 150,
+     "to": 150,
+     "produce": "WILLOW",
+     "state": "DEAD",
+     "stageExpr": "6"
+    },
+    {
+     "from": 151,
+     "to": 152,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 153,
+     "to": 159,
+     "produce": "MAPLE",
+     "state": "DEAD",
+     "stageExpr": "value - 152"
+    },
+    {
+     "from": 161,
+     "to": 161,
+     "produce": "MAPLE",
+     "state": "DEAD",
+     "stageExpr": "8"
+    },
+    {
+     "from": 162,
+     "to": 163,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 164,
+     "to": 172,
+     "produce": "YEW",
+     "state": "DEAD",
+     "stageExpr": "value - 163"
+    },
+    {
+     "from": 174,
+     "to": 174,
+     "produce": "YEW",
+     "state": "DEAD",
+     "stageExpr": "10"
+    },
+    {
+     "from": 175,
+     "to": 176,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 177,
+     "to": 187,
+     "produce": "MAGIC",
+     "state": "DEAD",
+     "stageExpr": "value - 176"
+    },
+    {
+     "from": 189,
+     "to": 189,
+     "produce": "MAGIC",
+     "state": "DEAD",
+     "stageExpr": "12"
+    },
+    {
+     "from": 190,
+     "to": 191,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 192,
+     "to": 197,
+     "produce": "WILLOW",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    },
+    {
+     "from": 198,
+     "to": 255,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    }
+   ]
+  },
+  {
+   "impl": "HARDWOOD_TREE",
+   "ranges": [
+    {
+     "from": 0,
+     "to": 3,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3 - value"
+    },
+    {
+     "from": 4,
+     "to": 7,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 8,
+     "to": 14,
+     "produce": "TEAK",
+     "state": "GROWING",
+     "stageExpr": "value - 8"
+    },
+    {
+     "from": 16,
+     "to": 16,
+     "produce": "TEAK",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    },
+    {
+     "from": 17,
+     "to": 17,
+     "produce": "TEAK",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    },
+    {
+     "from": 18,
+     "to": 23,
+     "produce": "TEAK",
+     "state": "DISEASED",
+     "stageExpr": "value - 17"
+    },
+    {
+     "from": 24,
+     "to": 29,
+     "produce": "TEAK",
+     "state": "DEAD",
+     "stageExpr": "value - 23"
+    },
+    {
+     "from": 30,
+     "to": 37,
+     "produce": "MAHOGANY",
+     "state": "GROWING",
+     "stageExpr": "value - 30"
+    },
+    {
+     "from": 39,
+     "to": 39,
+     "produce": "MAHOGANY",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    },
+    {
+     "from": 40,
+     "to": 40,
+     "produce": "MAHOGANY",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    },
+    {
+     "from": 41,
+     "to": 47,
+     "produce": "MAHOGANY",
+     "state": "DISEASED",
+     "stageExpr": "value - 40"
+    },
+    {
+     "from": 48,
+     "to": 54,
+     "produce": "MAHOGANY",
+     "state": "DEAD",
+     "stageExpr": "value - 47"
+    },
+    {
+     "from": 55,
+     "to": 62,
+     "produce": "CAMPHOR",
+     "state": "GROWING",
+     "stageExpr": "value - 55"
+    },
+    {
+     "from": 64,
+     "to": 64,
+     "produce": "CAMPHOR",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    },
+    {
+     "from": 65,
+     "to": 65,
+     "produce": "CAMPHOR",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    },
+    {
+     "from": 66,
+     "to": 72,
+     "produce": "CAMPHOR",
+     "state": "DISEASED",
+     "stageExpr": "value - 65"
+    },
+    {
+     "from": 73,
+     "to": 79,
+     "produce": "CAMPHOR",
+     "state": "DEAD",
+     "stageExpr": "value - 72"
+    },
+    {
+     "from": 80,
+     "to": 87,
+     "produce": "IRONWOOD",
+     "state": "GROWING",
+     "stageExpr": "value - 80"
+    },
+    {
+     "from": 89,
+     "to": 89,
+     "produce": "IRONWOOD",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    },
+    {
+     "from": 90,
+     "to": 90,
+     "produce": "IRONWOOD",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    },
+    {
+     "from": 91,
+     "to": 97,
+     "produce": "IRONWOOD",
+     "state": "DISEASED",
+     "stageExpr": "value - 90"
+    },
+    {
+     "from": 98,
+     "to": 104,
+     "produce": "IRONWOOD",
+     "state": "DEAD",
+     "stageExpr": "value - 97"
+    },
+    {
+     "from": 105,
+     "to": 113,
+     "produce": "ROSEWOOD",
+     "state": "GROWING",
+     "stageExpr": "value - 105"
+    },
+    {
+     "from": 115,
+     "to": 115,
+     "produce": "ROSEWOOD",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    },
+    {
+     "from": 116,
+     "to": 116,
+     "produce": "ROSEWOOD",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    },
+    {
+     "from": 117,
+     "to": 124,
+     "produce": "ROSEWOOD",
+     "state": "DISEASED",
+     "stageExpr": "value - 116"
+    },
+    {
+     "from": 125,
+     "to": 132,
+     "produce": "ROSEWOOD",
+     "state": "DEAD",
+     "stageExpr": "value - 124"
+    },
+    {
+     "from": 133,
+     "to": 255,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    }
+   ]
+  },
+  {
+   "impl": "REDWOOD",
+   "ranges": [
+    {
+     "from": 0,
+     "to": 3,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3 - value"
+    },
+    {
+     "from": 4,
+     "to": 7,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 8,
+     "to": 17,
+     "produce": "REDWOOD",
+     "state": "GROWING",
+     "stageExpr": "value - 8"
+    },
+    {
+     "from": 18,
+     "to": 18,
+     "produce": "REDWOOD",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    },
+    {
+     "from": 19,
+     "to": 27,
+     "produce": "REDWOOD",
+     "state": "DISEASED",
+     "stageExpr": "value - 18"
+    },
+    {
+     "from": 28,
+     "to": 36,
+     "produce": "REDWOOD",
+     "state": "DEAD",
+     "stageExpr": "value - 27"
+    },
+    {
+     "from": 41,
+     "to": 55,
+     "produce": "REDWOOD",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    }
+   ]
+  },
+  {
+   "impl": "SPIRIT_TREE",
+   "ranges": [
+    {
+     "from": 0,
+     "to": 3,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3 - value"
+    },
+    {
+     "from": 4,
+     "to": 7,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 8,
+     "to": 19,
+     "produce": "SPIRIT_TREE",
+     "state": "GROWING",
+     "stageExpr": "value - 8"
+    },
+    {
+     "from": 20,
+     "to": 20,
+     "produce": "SPIRIT_TREE",
+     "state": "GROWING",
+     "stageExpr": "12"
+    },
+    {
+     "from": 21,
+     "to": 31,
+     "produce": "SPIRIT_TREE",
+     "state": "DISEASED",
+     "stageExpr": "value - 20"
+    },
+    {
+     "from": 32,
+     "to": 43,
+     "produce": "SPIRIT_TREE",
+     "state": "DEAD",
+     "stageExpr": "value - 31"
+    },
+    {
+     "from": 45,
+     "to": 63,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    }
+   ]
+  },
+  {
+   "impl": "ANIMA",
+   "ranges": [
+    {
+     "from": 0,
+     "to": 3,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3 - value"
+    },
+    {
+     "from": 4,
+     "to": 7,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 8,
+     "to": 16,
+     "produce": "ATTAS",
+     "state": "GROWING",
+     "stageExpr": "value - 8"
+    },
+    {
+     "from": 17,
+     "to": 25,
+     "produce": "IASOR",
+     "state": "GROWING",
+     "stageExpr": "value - 17"
+    },
+    {
+     "from": 26,
+     "to": 34,
+     "produce": "KRONOS",
+     "state": "GROWING",
+     "stageExpr": "value - 26"
+    },
+    {
+     "from": 35,
+     "to": 255,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    }
+   ]
+  },
+  {
+   "impl": "BELLADONNA",
+   "ranges": [
+    {
+     "from": 0,
+     "to": 3,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3 - value"
+    },
+    {
+     "from": 4,
+     "to": 7,
+     "produce": "BELLADONNA",
+     "state": "GROWING",
+     "stageExpr": "value - 4"
+    },
+    {
+     "from": 8,
+     "to": 8,
+     "produce": "BELLADONNA",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    },
+    {
+     "from": 9,
+     "to": 11,
+     "produce": "BELLADONNA",
+     "state": "DISEASED",
+     "stageExpr": "value - 8"
+    },
+    {
+     "from": 12,
+     "to": 14,
+     "produce": "BELLADONNA",
+     "state": "DEAD",
+     "stageExpr": "value - 11"
+    },
+    {
+     "from": 15,
+     "to": 255,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    }
+   ]
+  },
+  {
+   "impl": "CACTUS",
+   "ranges": [
+    {
+     "from": 0,
+     "to": 3,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3 - value"
+    },
+    {
+     "from": 4,
+     "to": 7,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 8,
+     "to": 14,
+     "produce": "CACTUS",
+     "state": "GROWING",
+     "stageExpr": "value - 8"
+    },
+    {
+     "from": 15,
+     "to": 18,
+     "produce": "CACTUS",
+     "state": "HARVESTABLE",
+     "stageExpr": "value - 15"
+    },
+    {
+     "from": 19,
+     "to": 24,
+     "produce": "CACTUS",
+     "state": "DISEASED",
+     "stageExpr": "value - 18"
+    },
+    {
+     "from": 25,
+     "to": 30,
+     "produce": "CACTUS",
+     "state": "DEAD",
+     "stageExpr": "value - 24"
+    },
+    {
+     "from": 32,
+     "to": 38,
+     "produce": "POTATO_CACTUS",
+     "state": "GROWING",
+     "stageExpr": "value - 32"
+    },
+    {
+     "from": 39,
+     "to": 45,
+     "produce": "POTATO_CACTUS",
+     "state": "HARVESTABLE",
+     "stageExpr": "value - 39"
+    },
+    {
+     "from": 46,
+     "to": 51,
+     "produce": "POTATO_CACTUS",
+     "state": "DISEASED",
+     "stageExpr": "value - 45"
+    },
+    {
+     "from": 52,
+     "to": 57,
+     "produce": "POTATO_CACTUS",
+     "state": "DEAD",
+     "stageExpr": "value - 51"
+    },
+    {
+     "from": 59,
+     "to": 255,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    }
+   ]
+  },
+  {
+   "impl": "CORAL",
+   "ranges": [
+    {
+     "from": 0,
+     "to": 3,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 4,
+     "to": 7,
+     "produce": "ELKHORN_CORAL",
+     "state": "GROWING",
+     "stageExpr": "value - 4"
+    },
+    {
+     "from": 8,
+     "to": 8,
+     "produce": "ELKHORN_CORAL",
+     "state": "GROWING",
+     "stageExpr": "4"
+    },
+    {
+     "from": 9,
+     "to": 11,
+     "produce": "ELKHORN_CORAL",
+     "state": "DISEASED",
+     "stageExpr": "value - 8"
+    },
+    {
+     "from": 12,
+     "to": 14,
+     "produce": "ELKHORN_CORAL",
+     "state": "DEAD",
+     "stageExpr": "value - 11"
+    },
+    {
+     "from": 15,
+     "to": 18,
+     "produce": "PILLAR_CORAL",
+     "state": "GROWING",
+     "stageExpr": "value - 15"
+    },
+    {
+     "from": 19,
+     "to": 19,
+     "produce": "PILLAR_CORAL",
+     "state": "GROWING",
+     "stageExpr": "4"
+    },
+    {
+     "from": 20,
+     "to": 22,
+     "produce": "PILLAR_CORAL",
+     "state": "DISEASED",
+     "stageExpr": "value - 19"
+    },
+    {
+     "from": 23,
+     "to": 25,
+     "produce": "PILLAR_CORAL",
+     "state": "DEAD",
+     "stageExpr": "value - 22"
+    },
+    {
+     "from": 26,
+     "to": 29,
+     "produce": "UMBRAL_CORAL",
+     "state": "GROWING",
+     "stageExpr": "value - 26"
+    },
+    {
+     "from": 30,
+     "to": 30,
+     "produce": "UMBRAL_CORAL",
+     "state": "GROWING",
+     "stageExpr": "4"
+    },
+    {
+     "from": 31,
+     "to": 33,
+     "produce": "UMBRAL_CORAL",
+     "state": "DISEASED",
+     "stageExpr": "value - 30"
+    },
+    {
+     "from": 34,
+     "to": 36,
+     "produce": "UMBRAL_CORAL",
+     "state": "DEAD",
+     "stageExpr": "value - 33"
+    },
+    {
+     "from": 37,
+     "to": 255,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "0"
+    }
+   ]
+  },
+  {
+   "impl": "SEAWEED",
+   "ranges": [
+    {
+     "from": 0,
+     "to": 3,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3 - value"
+    },
+    {
+     "from": 4,
+     "to": 7,
+     "produce": "SEAWEED",
+     "state": "GROWING",
+     "stageExpr": "value - 4"
+    },
+    {
+     "from": 8,
+     "to": 10,
+     "produce": "SEAWEED",
+     "state": "HARVESTABLE",
+     "stageExpr": "value - 8"
+    },
+    {
+     "from": 11,
+     "to": 13,
+     "produce": "SEAWEED",
+     "state": "DISEASED",
+     "stageExpr": "value - 10"
+    },
+    {
+     "from": 14,
+     "to": 16,
+     "produce": "SEAWEED",
+     "state": "DEAD",
+     "stageExpr": "value - 13"
+    },
+    {
+     "from": 17,
+     "to": 255,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    }
+   ]
+  },
+  {
+   "impl": "CALQUAT",
+   "ranges": [
+    {
+     "from": 0,
+     "to": 3,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3 - value"
+    },
+    {
+     "from": 4,
+     "to": 11,
+     "produce": "CALQUAT",
+     "state": "GROWING",
+     "stageExpr": "value - 4"
+    },
+    {
+     "from": 12,
+     "to": 18,
+     "produce": "CALQUAT",
+     "state": "HARVESTABLE",
+     "stageExpr": "value - 12"
+    },
+    {
+     "from": 19,
+     "to": 25,
+     "produce": "CALQUAT",
+     "state": "DISEASED",
+     "stageExpr": "value - 18"
+    },
+    {
+     "from": 26,
+     "to": 33,
+     "produce": "CALQUAT",
+     "state": "DEAD",
+     "stageExpr": "value - 25"
+    },
+    {
+     "from": 35,
+     "to": 255,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    }
+   ]
+  },
+  {
+   "impl": "CELASTRUS",
+   "ranges": [
+    {
+     "from": 0,
+     "to": 3,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3 - value"
+    },
+    {
+     "from": 4,
+     "to": 7,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 8,
+     "to": 12,
+     "produce": "CELASTRUS",
+     "state": "GROWING",
+     "stageExpr": "value - 8"
+    },
+    {
+     "from": 14,
+     "to": 16,
+     "produce": "CELASTRUS",
+     "state": "HARVESTABLE",
+     "stageExpr": "value - 14"
+    },
+    {
+     "from": 17,
+     "to": 17,
+     "produce": "CELASTRUS",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    },
+    {
+     "from": 18,
+     "to": 22,
+     "produce": "CELASTRUS",
+     "state": "DISEASED",
+     "stageExpr": "value - 17"
+    },
+    {
+     "from": 23,
+     "to": 27,
+     "produce": "CELASTRUS",
+     "state": "DEAD",
+     "stageExpr": "value - 22"
+    },
+    {
+     "from": 28,
+     "to": 28,
+     "produce": "CELASTRUS",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    },
+    {
+     "from": 29,
+     "to": 255,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    }
+   ]
+  },
+  {
+   "impl": "GRAPES",
+   "ranges": [
+    {
+     "from": 0,
+     "to": 1,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3"
+    },
+    {
+     "from": 2,
+     "to": 9,
+     "produce": "GRAPE",
+     "state": "GROWING",
+     "stageExpr": "value - 2"
+    },
+    {
+     "from": 10,
+     "to": 10,
+     "produce": "GRAPE",
+     "state": "GROWING",
+     "stageExpr": "7"
+    },
+    {
+     "from": 11,
+     "to": 15,
+     "produce": "GRAPE",
+     "state": "HARVESTABLE",
+     "stageExpr": "value - 11"
+    }
+   ]
+  },
+  {
+   "impl": "CRYSTAL_TREE",
+   "ranges": [
+    {
+     "from": 0,
+     "to": 3,
+     "produce": "WEEDS",
+     "state": "GROWING",
+     "stageExpr": "3 - value"
+    },
+    {
+     "from": 8,
+     "to": 13,
+     "produce": "CRYSTAL_TREE",
+     "state": "GROWING",
+     "stageExpr": "value - 8"
+    },
+    {
+     "from": 15,
+     "to": 15,
+     "produce": "CRYSTAL_TREE",
+     "state": "HARVESTABLE",
+     "stageExpr": "0"
+    }
+   ]
+  },
+  {
+   "impl": "COMPOST",
+   "ranges": [
+    {
+     "from": 0,
+     "to": 0,
+     "produce": "EMPTY_COMPOST_BIN",
+     "state": "EMPTY",
+     "stageExpr": "0"
+    },
+    {
+     "from": 1,
+     "to": 15,
+     "produce": "COMPOST",
+     "state": "FILLING",
+     "stageExpr": "value - 1"
+    },
+    {
+     "from": 16,
+     "to": 30,
+     "produce": "COMPOST",
+     "state": "HARVESTABLE",
+     "stageExpr": "value - 16"
+    },
+    {
+     "from": 33,
+     "to": 47,
+     "produce": "SUPERCOMPOST",
+     "state": "FILLING",
+     "stageExpr": "value - 33"
+    },
+    {
+     "from": 48,
+     "to": 62,
+     "produce": "SUPERCOMPOST",
+     "state": "HARVESTABLE",
+     "stageExpr": "value - 48"
+    },
+    {
+     "from": 129,
+     "to": 143,
+     "produce": "ROTTEN_TOMATO",
+     "state": "FILLING",
+     "stageExpr": "value - 129"
+    },
+    {
+     "from": 144,
+     "to": 158,
+     "produce": "ROTTEN_TOMATO",
+     "state": "HARVESTABLE",
+     "stageExpr": "value - 144"
+    },
+    {
+     "from": 159,
+     "to": 160,
+     "produce": "ROTTEN_TOMATO",
+     "state": "GROWING",
+     "stageExpr": "value - 159"
+    },
+    {
+     "from": 176,
+     "to": 190,
+     "produce": "ULTRACOMPOST",
+     "state": "HARVESTABLE",
+     "stageExpr": "value - 176"
+    }
+   ]
+  },
+  {
+   "impl": "BIG_COMPOST",
+   "ranges": [
+    {
+     "from": 0,
+     "to": 0,
+     "produce": "EMPTY_BIG_COMPOST_BIN",
+     "state": "EMPTY",
+     "stageExpr": "0"
+    },
+    {
+     "from": 1,
+     "to": 15,
+     "produce": "BIG_COMPOST",
+     "state": "FILLING",
+     "stageExpr": "value - 1"
+    },
+    {
+     "from": 16,
+     "to": 30,
+     "produce": "BIG_COMPOST",
+     "state": "HARVESTABLE",
+     "stageExpr": "value - 16"
+    },
+    {
+     "from": 33,
+     "to": 47,
+     "produce": "BIG_SUPERCOMPOST",
+     "state": "FILLING",
+     "stageExpr": "value - 33"
+    },
+    {
+     "from": 48,
+     "to": 62,
+     "produce": "BIG_SUPERCOMPOST",
+     "state": "HARVESTABLE",
+     "stageExpr": "value - 48"
+    },
+    {
+     "from": 63,
+     "to": 77,
+     "produce": "BIG_COMPOST",
+     "state": "FILLING",
+     "stageExpr": "15 + value - 63"
+    },
+    {
+     "from": 78,
+     "to": 92,
+     "produce": "BIG_COMPOST",
+     "state": "HARVESTABLE",
+     "stageExpr": "15 + value - 78"
+    },
+    {
+     "from": 97,
+     "to": 99,
+     "produce": "BIG_SUPERCOMPOST",
+     "state": "GROWING",
+     "stageExpr": "value - 97"
+    },
+    {
+     "from": 100,
+     "to": 114,
+     "produce": "BIG_SUPERCOMPOST",
+     "state": "HARVESTABLE",
+     "stageExpr": "15 + value - 100"
+    },
+    {
+     "from": 127,
+     "to": 128,
+     "produce": "BIG_COMPOST",
+     "state": "GROWING",
+     "stageExpr": "value - 127"
+    },
+    {
+     "from": 129,
+     "to": 143,
+     "produce": "BIG_ROTTEN_TOMATO",
+     "state": "FILLING",
+     "stageExpr": "value - 129"
+    },
+    {
+     "from": 144,
+     "to": 158,
+     "produce": "BIG_ROTTEN_TOMATO",
+     "state": "HARVESTABLE",
+     "stageExpr": "value - 144"
+    },
+    {
+     "from": 159,
+     "to": 160,
+     "produce": "BIG_ROTTEN_TOMATO",
+     "state": "GROWING",
+     "stageExpr": "value - 159"
+    },
+    {
+     "from": 161,
+     "to": 175,
+     "produce": "BIG_SUPERCOMPOST",
+     "state": "FILLING",
+     "stageExpr": "15 + value - 161"
+    },
+    {
+     "from": 176,
+     "to": 205,
+     "produce": "BIG_ULTRACOMPOST",
+     "state": "HARVESTABLE",
+     "stageExpr": "value - 176"
+    },
+    {
+     "from": 207,
+     "to": 221,
+     "produce": "BIG_ROTTEN_TOMATO",
+     "state": "HARVESTABLE",
+     "stageExpr": "15 + value - 207"
+    },
+    {
+     "from": 223,
+     "to": 237,
+     "produce": "BIG_ROTTEN_TOMATO",
+     "state": "FILLING",
+     "stageExpr": "15 + value  - 223"
+    }
+   ]
+  }
+ ],
+ "produce": [
+  {
+   "produce": "POTATO",
+   "name": "Potato",
+   "impl": "ALLOTMENT",
+   "tickrate": 10,
+   "stages": 5,
+   "regrow": 0,
+   "harvestStages": 3
+  },
+  {
+   "produce": "ONION",
+   "name": "Onion",
+   "impl": "ALLOTMENT",
+   "tickrate": 10,
+   "stages": 5,
+   "regrow": 0,
+   "harvestStages": 3
+  },
+  {
+   "produce": "CABBAGE",
+   "name": "Cabbage",
+   "impl": "ALLOTMENT",
+   "tickrate": 10,
+   "stages": 5,
+   "regrow": 0,
+   "harvestStages": 3
+  },
+  {
+   "produce": "TOMATO",
+   "name": "Tomato",
+   "impl": "ALLOTMENT",
+   "tickrate": 10,
+   "stages": 5,
+   "regrow": 0,
+   "harvestStages": 3
+  },
+  {
+   "produce": "SWEETCORN",
+   "name": "Sweetcorn",
+   "impl": "ALLOTMENT",
+   "tickrate": 10,
+   "stages": 7,
+   "regrow": 0,
+   "harvestStages": 3
+  },
+  {
+   "produce": "STRAWBERRY",
+   "name": "Strawberry",
+   "impl": "ALLOTMENT",
+   "tickrate": 10,
+   "stages": 7,
+   "regrow": 0,
+   "harvestStages": 3
+  },
+  {
+   "produce": "WATERMELON",
+   "name": "Watermelon",
+   "impl": "ALLOTMENT",
+   "tickrate": 10,
+   "stages": 9,
+   "regrow": 0,
+   "harvestStages": 3
+  },
+  {
+   "produce": "SNAPE_GRASS",
+   "name": "Snape grass",
+   "impl": "ALLOTMENT",
+   "tickrate": 10,
+   "stages": 8,
+   "regrow": 0,
+   "harvestStages": 3
+  },
+  {
+   "produce": "MARIGOLD",
+   "name": "Marigold",
+   "impl": "FLOWER",
+   "tickrate": 5,
+   "stages": 5
+  },
+  {
+   "produce": "ROSEMARY",
+   "name": "Rosemary",
+   "impl": "FLOWER",
+   "tickrate": 5,
+   "stages": 5
+  },
+  {
+   "produce": "NASTURTIUM",
+   "name": "Nasturtium",
+   "impl": "FLOWER",
+   "tickrate": 5,
+   "stages": 5
+  },
+  {
+   "produce": "WOAD",
+   "name": "Woad",
+   "impl": "FLOWER",
+   "tickrate": 5,
+   "stages": 5
+  },
+  {
+   "produce": "LIMPWURT",
+   "name": "Limpwurt",
+   "impl": "FLOWER",
+   "tickrate": 5,
+   "stages": 5
+  },
+  {
+   "produce": "WHITE_LILY",
+   "name": "White lily",
+   "impl": "FLOWER",
+   "tickrate": 5,
+   "stages": 5
+  },
+  {
+   "produce": "REDBERRIES",
+   "name": "Redberry",
+   "impl": "BUSH",
+   "tickrate": 20,
+   "stages": 6,
+   "regrow": 20,
+   "harvestStages": 5
+  },
+  {
+   "produce": "CADAVABERRIES",
+   "name": "Cadavaberry",
+   "impl": "BUSH",
+   "tickrate": 20,
+   "stages": 7,
+   "regrow": 20,
+   "harvestStages": 5
+  },
+  {
+   "produce": "DWELLBERRIES",
+   "name": "Dwellberry",
+   "impl": "BUSH",
+   "tickrate": 20,
+   "stages": 8,
+   "regrow": 20,
+   "harvestStages": 5
+  },
+  {
+   "produce": "JANGERBERRIES",
+   "name": "Jangerberry",
+   "impl": "BUSH",
+   "tickrate": 20,
+   "stages": 9,
+   "regrow": 20,
+   "harvestStages": 5
+  },
+  {
+   "produce": "WHITEBERRIES",
+   "name": "Whiteberry",
+   "impl": "BUSH",
+   "tickrate": 20,
+   "stages": 9,
+   "regrow": 20,
+   "harvestStages": 5
+  },
+  {
+   "produce": "POISON_IVY",
+   "name": "Poison ivy",
+   "impl": "BUSH",
+   "tickrate": 20,
+   "stages": 9,
+   "regrow": 20,
+   "harvestStages": 5
+  },
+  {
+   "produce": "BARLEY",
+   "name": "Barley",
+   "impl": "HOPS",
+   "tickrate": 10,
+   "stages": 5,
+   "regrow": 0,
+   "harvestStages": 3
+  },
+  {
+   "produce": "HAMMERSTONE",
+   "name": "Hammerstone",
+   "impl": "HOPS",
+   "tickrate": 10,
+   "stages": 5,
+   "regrow": 0,
+   "harvestStages": 3
+  },
+  {
+   "produce": "ASGARNIAN",
+   "name": "Asgarnian",
+   "impl": "HOPS",
+   "tickrate": 10,
+   "stages": 6,
+   "regrow": 0,
+   "harvestStages": 3
+  },
+  {
+   "produce": "JUTE",
+   "name": "Jute",
+   "impl": "HOPS",
+   "tickrate": 10,
+   "stages": 6,
+   "regrow": 0,
+   "harvestStages": 3
+  },
+  {
+   "produce": "YANILLIAN",
+   "name": "Yanillian",
+   "impl": "HOPS",
+   "tickrate": 10,
+   "stages": 7,
+   "regrow": 0,
+   "harvestStages": 3
+  },
+  {
+   "produce": "FLAX",
+   "name": "Flax",
+   "impl": "HOPS",
+   "tickrate": 20,
+   "stages": 4,
+   "regrow": 0,
+   "harvestStages": 3
+  },
+  {
+   "produce": "KRANDORIAN",
+   "name": "Krandorian",
+   "impl": "HOPS",
+   "tickrate": 10,
+   "stages": 8,
+   "regrow": 0,
+   "harvestStages": 3
+  },
+  {
+   "produce": "WILDBLOOD",
+   "name": "Wildblood",
+   "impl": "HOPS",
+   "tickrate": 10,
+   "stages": 9,
+   "regrow": 0,
+   "harvestStages": 3
+  },
+  {
+   "produce": "HEMP",
+   "name": "Hemp",
+   "impl": "HOPS",
+   "tickrate": 20,
+   "stages": 5,
+   "regrow": 0,
+   "harvestStages": 3
+  },
+  {
+   "produce": "COTTON",
+   "name": "Cotton",
+   "impl": "HOPS",
+   "tickrate": 20,
+   "stages": 6,
+   "regrow": 0,
+   "harvestStages": 3
+  },
+  {
+   "produce": "GUAM",
+   "name": "Guam",
+   "impl": "HERB",
+   "tickrate": 20,
+   "stages": 5,
+   "regrow": 0,
+   "harvestStages": 3
+  },
+  {
+   "produce": "MARRENTILL",
+   "name": "Marrentill",
+   "impl": "HERB",
+   "tickrate": 20,
+   "stages": 5,
+   "regrow": 0,
+   "harvestStages": 3
+  },
+  {
+   "produce": "TARROMIN",
+   "name": "Tarromin",
+   "impl": "HERB",
+   "tickrate": 20,
+   "stages": 5,
+   "regrow": 0,
+   "harvestStages": 3
+  },
+  {
+   "produce": "HARRALANDER",
+   "name": "Harralander",
+   "impl": "HERB",
+   "tickrate": 20,
+   "stages": 5,
+   "regrow": 0,
+   "harvestStages": 3
+  },
+  {
+   "produce": "RANARR",
+   "name": "Ranarr",
+   "impl": "HERB",
+   "tickrate": 20,
+   "stages": 5,
+   "regrow": 0,
+   "harvestStages": 3
+  },
+  {
+   "produce": "TOADFLAX",
+   "name": "Toadflax",
+   "impl": "HERB",
+   "tickrate": 20,
+   "stages": 5,
+   "regrow": 0,
+   "harvestStages": 3
+  },
+  {
+   "produce": "IRIT",
+   "name": "Irit",
+   "impl": "HERB",
+   "tickrate": 20,
+   "stages": 5,
+   "regrow": 0,
+   "harvestStages": 3
+  },
+  {
+   "produce": "AVANTOE",
+   "name": "Avantoe",
+   "impl": "HERB",
+   "tickrate": 20,
+   "stages": 5,
+   "regrow": 0,
+   "harvestStages": 3
+  },
+  {
+   "produce": "KWUARM",
+   "name": "Kwuarm",
+   "impl": "HERB",
+   "tickrate": 20,
+   "stages": 5,
+   "regrow": 0,
+   "harvestStages": 3
+  },
+  {
+   "produce": "HUASCA",
+   "name": "Huasca",
+   "impl": "HERB",
+   "tickrate": 20,
+   "stages": 5,
+   "regrow": 0,
+   "harvestStages": 3
+  },
+  {
+   "produce": "SNAPDRAGON",
+   "name": "Snapdragon",
+   "impl": "HERB",
+   "tickrate": 20,
+   "stages": 5,
+   "regrow": 0,
+   "harvestStages": 3
+  },
+  {
+   "produce": "CADANTINE",
+   "name": "Cadantine",
+   "impl": "HERB",
+   "tickrate": 20,
+   "stages": 5,
+   "regrow": 0,
+   "harvestStages": 3
+  },
+  {
+   "produce": "LANTADYME",
+   "name": "Lantadyme",
+   "impl": "HERB",
+   "tickrate": 20,
+   "stages": 5,
+   "regrow": 0,
+   "harvestStages": 3
+  },
+  {
+   "produce": "DWARF_WEED",
+   "name": "Dwarf weed",
+   "impl": "HERB",
+   "tickrate": 20,
+   "stages": 5,
+   "regrow": 0,
+   "harvestStages": 3
+  },
+  {
+   "produce": "TORSTOL",
+   "name": "Torstol",
+   "impl": "HERB",
+   "tickrate": 20,
+   "stages": 5,
+   "regrow": 0,
+   "harvestStages": 3
+  },
+  {
+   "produce": "GOUTWEED",
+   "name": "Goutweed",
+   "impl": "HERB",
+   "tickrate": 20,
+   "stages": 5,
+   "regrow": 0,
+   "harvestStages": 2
+  },
+  {
+   "produce": "ANYHERB",
+   "name": "Any herb",
+   "impl": "HERB",
+   "tickrate": 20,
+   "stages": 5,
+   "regrow": 0,
+   "harvestStages": 3
+  },
+  {
+   "produce": "OAK",
+   "name": "Oak",
+   "impl": "TREE",
+   "tickrate": 40,
+   "stages": 5
+  },
+  {
+   "produce": "WILLOW",
+   "name": "Willow",
+   "impl": "TREE",
+   "tickrate": 40,
+   "stages": 7
+  },
+  {
+   "produce": "MAPLE",
+   "name": "Maple",
+   "impl": "TREE",
+   "tickrate": 40,
+   "stages": 9
+  },
+  {
+   "produce": "YEW",
+   "name": "Yew",
+   "impl": "TREE",
+   "tickrate": 40,
+   "stages": 11
+  },
+  {
+   "produce": "MAGIC",
+   "name": "Magic",
+   "impl": "TREE",
+   "tickrate": 40,
+   "stages": 13
+  },
+  {
+   "produce": "APPLE",
+   "name": "Apple",
+   "impl": "FRUIT_TREE",
+   "tickrate": 160,
+   "stages": 7,
+   "regrow": 45,
+   "harvestStages": 7
+  },
+  {
+   "produce": "BANANA",
+   "name": "Banana",
+   "impl": "FRUIT_TREE",
+   "tickrate": 160,
+   "stages": 7,
+   "regrow": 45,
+   "harvestStages": 7
+  },
+  {
+   "produce": "ORANGE",
+   "name": "Orange",
+   "impl": "FRUIT_TREE",
+   "tickrate": 160,
+   "stages": 7,
+   "regrow": 45,
+   "harvestStages": 7
+  },
+  {
+   "produce": "CURRY",
+   "name": "Curry",
+   "impl": "FRUIT_TREE",
+   "tickrate": 160,
+   "stages": 7,
+   "regrow": 45,
+   "harvestStages": 7
+  },
+  {
+   "produce": "PINEAPPLE",
+   "name": "Pineapple",
+   "impl": "FRUIT_TREE",
+   "tickrate": 160,
+   "stages": 7,
+   "regrow": 45,
+   "harvestStages": 7
+  },
+  {
+   "produce": "PAPAYA",
+   "name": "Papaya",
+   "impl": "FRUIT_TREE",
+   "tickrate": 160,
+   "stages": 7,
+   "regrow": 45,
+   "harvestStages": 7
+  },
+  {
+   "produce": "PALM",
+   "name": "Palm",
+   "impl": "FRUIT_TREE",
+   "tickrate": 160,
+   "stages": 7,
+   "regrow": 45,
+   "harvestStages": 7
+  },
+  {
+   "produce": "DRAGONFRUIT",
+   "name": "Dragonfruit",
+   "impl": "FRUIT_TREE",
+   "tickrate": 160,
+   "stages": 7,
+   "regrow": 45,
+   "harvestStages": 7
+  },
+  {
+   "produce": "CACTUS",
+   "name": "Cactus",
+   "impl": "CACTUS",
+   "tickrate": 80,
+   "stages": 8,
+   "regrow": 20,
+   "harvestStages": 4
+  },
+  {
+   "produce": "POTATO_CACTUS",
+   "name": "Potato cactus",
+   "impl": "CACTUS",
+   "tickrate": 10,
+   "stages": 8,
+   "regrow": 5,
+   "harvestStages": 7
+  },
+  {
+   "produce": "TEAK",
+   "name": "Teak",
+   "impl": "HARDWOOD_TREE",
+   "tickrate": 640,
+   "stages": 8
+  },
+  {
+   "produce": "MAHOGANY",
+   "name": "Mahogany",
+   "impl": "HARDWOOD_TREE",
+   "tickrate": 640,
+   "stages": 9
+  },
+  {
+   "produce": "CAMPHOR",
+   "name": "Camphor",
+   "impl": "HARDWOOD_TREE",
+   "tickrate": 640,
+   "stages": 9
+  },
+  {
+   "produce": "IRONWOOD",
+   "name": "Ironwood",
+   "impl": "HARDWOOD_TREE",
+   "tickrate": 640,
+   "stages": 9
+  },
+  {
+   "produce": "ROSEWOOD",
+   "name": "Rosewood",
+   "impl": "HARDWOOD_TREE",
+   "tickrate": 640,
+   "stages": 10
+  },
+  {
+   "produce": "ATTAS",
+   "name": "Attas",
+   "impl": "ANIMA",
+   "tickrate": 640,
+   "stages": 9
+  },
+  {
+   "produce": "IASOR",
+   "name": "Iasor",
+   "impl": "ANIMA",
+   "tickrate": 640,
+   "stages": 9
+  },
+  {
+   "produce": "KRONOS",
+   "name": "Kronos",
+   "impl": "ANIMA",
+   "tickrate": 640,
+   "stages": 9
+  },
+  {
+   "produce": "ELKHORN_CORAL",
+   "name": "Elkhorn",
+   "impl": "CORAL",
+   "tickrate": 40,
+   "stages": 5
+  },
+  {
+   "produce": "PILLAR_CORAL",
+   "name": "Pillar",
+   "impl": "CORAL",
+   "tickrate": 40,
+   "stages": 5
+  },
+  {
+   "produce": "UMBRAL_CORAL",
+   "name": "Umbral",
+   "impl": "CORAL",
+   "tickrate": 40,
+   "stages": 5
+  },
+  {
+   "produce": "SEAWEED",
+   "name": "Seaweed",
+   "impl": "SEAWEED",
+   "tickrate": 10,
+   "stages": 5,
+   "regrow": 0,
+   "harvestStages": 4
+  },
+  {
+   "produce": "GRAPE",
+   "name": "Grape",
+   "impl": "GRAPES",
+   "tickrate": 5,
+   "stages": 8,
+   "regrow": 0,
+   "harvestStages": 5
+  },
+  {
+   "produce": "MUSHROOM",
+   "name": "Mushroom",
+   "impl": "MUSHROOM",
+   "tickrate": 40,
+   "stages": 7,
+   "regrow": 0,
+   "harvestStages": 7
+  },
+  {
+   "produce": "BELLADONNA",
+   "name": "Belladonna",
+   "impl": "BELLADONNA",
+   "tickrate": 80,
+   "stages": 5
+  },
+  {
+   "produce": "CALQUAT",
+   "name": "Calquat",
+   "impl": "CALQUAT",
+   "tickrate": 160,
+   "stages": 9,
+   "regrow": 0,
+   "harvestStages": 7
+  },
+  {
+   "produce": "SPIRIT_TREE",
+   "name": "Spirit tree",
+   "impl": "SPIRIT_TREE",
+   "tickrate": 320,
+   "stages": 13
+  },
+  {
+   "produce": "CELASTRUS",
+   "name": "Celastrus",
+   "impl": "CELASTRUS",
+   "tickrate": 160,
+   "stages": 6,
+   "regrow": 0,
+   "harvestStages": 4
+  },
+  {
+   "produce": "REDWOOD",
+   "name": "Redwood",
+   "impl": "REDWOOD",
+   "tickrate": 640,
+   "stages": 11
+  },
+  {
+   "produce": "HESPORI",
+   "name": "Hespori",
+   "impl": "HESPORI",
+   "tickrate": 640,
+   "stages": 4,
+   "regrow": 0,
+   "harvestStages": 2
+  },
+  {
+   "produce": "CRYSTAL_TREE",
+   "name": "Crystal tree",
+   "impl": "CRYSTAL_TREE",
+   "tickrate": 80,
+   "stages": 7
+  },
+  {
+   "produce": "COMPOST",
+   "name": "Compost",
+   "impl": "COMPOST",
+   "tickrate": 40,
+   "stages": 3,
+   "regrow": 0,
+   "harvestStages": 15
+  },
+  {
+   "produce": "SUPERCOMPOST",
+   "name": "Supercompost",
+   "impl": "COMPOST",
+   "tickrate": 40,
+   "stages": 3,
+   "regrow": 0,
+   "harvestStages": 15
+  },
+  {
+   "produce": "ROTTEN_TOMATO",
+   "name": "Rotten Tomato",
+   "impl": "COMPOST",
+   "tickrate": 40,
+   "stages": 3,
+   "regrow": 0,
+   "harvestStages": 15
+  },
+  {
+   "produce": "BIG_COMPOST",
+   "name": "Compost",
+   "impl": "BIG_COMPOST",
+   "tickrate": 40,
+   "stages": 3,
+   "regrow": 0,
+   "harvestStages": 30
+  },
+  {
+   "produce": "BIG_SUPERCOMPOST",
+   "name": "Supercompost",
+   "impl": "BIG_COMPOST",
+   "tickrate": 40,
+   "stages": 3,
+   "regrow": 0,
+   "harvestStages": 30
+  }
+ ]
+}

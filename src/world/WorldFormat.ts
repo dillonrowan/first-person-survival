@@ -6,9 +6,9 @@
 //   regions/X_Y.bin    one gzip-compressed region per 64x64-tile map square (see encodeRegion)
 //   npcs.json, npcs/*.bin   optional NPC spawns and baked models (see NpcFormat.ts)
 
-export const WORLD_FORMAT_VERSION = 3;
+export const WORLD_FORMAT_VERSION = 4;
 /** Region files of these versions can be read. Version 1 has no doors or ladders. */
-const READABLE_VERSIONS = [1, 2, 3];
+const READABLE_VERSIONS = [1, 2, 3, 4];
 
 /** Tiles per region (an OSRS map square). */
 export const REGION_SIZE = 64;
@@ -79,9 +79,12 @@ export type PropData = {
     radius: number;
 };
 
-/** A door, gate, ladder, staircase, bank booth or physics prop the player can act on. */
+/**
+ * A door, gate, ladder, staircase, bank booth or physics prop the player can act on; a "passage"
+ * is an entrance that is not a ladder (cave mouth, trapdoor, tunnel) and is told where it leads by `links`.
+ */
 export type InteractiveLoc = {
-    kind: "door" | "climb" | "prop" | "bank";
+    kind: "door" | "climb" | "prop" | "bank" | "skill" | "passage";
     /** Loc id in the cache. */
     id: number;
     name: string;
@@ -101,6 +104,38 @@ export type InteractiveLoc = {
     height: number;
     door?: DoorData;
     prop?: PropData;
+    skill?: SkillLocData;
+    /** Where this entrance leads (see tools/world-export/data/dungeon-links.json). */
+    links?: LocLink[];
+    hatch?: HatchData;
+};
+
+/** One way through an entrance: using `action` puts the player on the tile (x, y, plane). */
+export type LocLink = { action: string; x: number; y: number; plane: number; dungeon?: string };
+
+/**
+ * A trapdoor or manhole that starts closed: "Open" swaps its closed model for the open one, whose
+ * own actions (`openActions`) then climb through. Mesh fields index RegionData.doorMeshes.
+ */
+export type HatchData = {
+    openMesh: number;
+    closedMesh: number;
+    openActions: string[];
+    /** True if the hatch stands open as placed. */
+    placedOpen: boolean;
+};
+
+/**
+ * A skill target (tree, rock, facility, patch…); what it does comes from skills.json by
+ * loc id. Mesh fields index RegionData.doorMeshes; a loc without them is drawn with the map.
+ */
+export type SkillLocData = {
+    /** The loc as placed, when its look can change. */
+    mesh?: number;
+    /** Depleted look (stump, empty rock). */
+    depletedMesh?: number;
+    /** Farming patch: mesh per varbit value (-1 draws nothing); values past the end use the last. */
+    stateMeshes?: number[];
 };
 
 /** Meshes of one door or prop, in region-local RS units like the region's own meshes. */

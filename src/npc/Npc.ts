@@ -30,8 +30,8 @@ import { Combatant } from "../combat/Combatant";
 import { environmentDamage, fallbackCombatStats } from "../combat/Osrs";
 import { XpLedger } from "../combat/XpLedger";
 import { tuning } from "../combat/tuning";
-import { Knockback, deathLaunch, findSnapTile, massForce, slideSpeedForDistance, stepKnockback } from "./NpcPhysics";
-import type { SharedNpcModel } from "./NpcModels";
+import { Knockback, deathLaunch, findSnapTile, kickThrowScale, npcMass, slideSpeedForDistance, stepKnockback, weightThrowScale } from "./NpcPhysics";
+import { basePositions, type SharedNpcModel } from "./NpcModels";
 import { NpcAttack, NpcAttacker, StrikeEvent, attacksFromClips, attacksFromStyles } from "./NpcAttacks";
 import { canSee } from "./NpcSenses";
 import { Ragdoll, RagdollWorld, singlePartSkeleton } from "./Ragdoll";
@@ -376,9 +376,9 @@ export class Npc {
         this.rotation = this.orientation;
     }
 
-    /** Mass for kicks: 80 for a one-tile NPC, growing with its footprint. [design] */
+    /** Weight, kg: from the tiles the NPC takes up and its height (npcMass). Heavier bodies are thrown less far. */
     get mass(): number {
-        return tuning.npcBaseMass * this.size * this.size;
+        return npcMass(this.size, this.body.height);
     }
 
     /** Unit vector the NPC faces, in world tiles (orientation 0 faces south). */
@@ -447,14 +447,43 @@ export class Npc {
         }
     }
 
+    /** A standing humanoid body can parry: it has the guard and parry clips to show it. */
+    get canParry(): boolean {
+        return !!this.reactions?.humanoid && !this.ragdoll && !this.combatant.incapacitated;
+    }
+
     /**
      * Reacts to a hit travelling along (dirX, dirY) from an attacker at (fromX, fromY). `push` is the
      * damage result's push level (0 none, 1 medium, 2 long, 3 huge): the NPC slides as far as its
      * medium or long hit animation moves it (spec 5.3); a hit too light to push still shoves it a
      * little along (dirX, dirY), by `hitPow`. `height` is where the hit struck, 0 (feet) to 1 (top
-     * of the head).
+     * of the head). A blow that did nothing (`defence`) is taken on the NPC's guard (a humanoid
+     * raises its shield, weapon or forearms; any other body braces), or parried by a humanoid with
+     * a blow back that drops any attack of its own. Either shows instead of a flinch, without a
+     * shove; a body without hit reactions flinches as before.
      */
-    takeHit(dirX: number, dirY: number, push: number, fromX: number, fromY: number, hitPow = 1, height = 0.5): void {
+    takeHit(
+        dirX: number,
+        dirY: number,
+        push: number,
+        fromX: number,
+        fromY: number,
+        hitPow = 1,
+        height = 0.5,
+        defence?: "guard" | "parry",
+    ): void {
+        const c = this.combatant;
+        if (defence && this.reactions && !this.ragdoll && !c.incapacitated && !c.dead && (defence === "guard" || this.canParry)) {
+            this.becomeAlerted(fromX, fromY);
+            this.sinceHit = 0;
+            this.faceTowards(fromX, fromY);
+            this.rotation = this.orientation;
+            if (defence === "parry") {
+                this.attacker.interrupt();
+            }
+            this.reactions!.defend(defence);
+            return;
+        }
         this.hitHeight = height;
         this.becomeAlerted(fromX, fromY);
         this.sinceHit = 0;
@@ -473,11 +502,11 @@ export class Npc {
         if (push > 0) {
             const side = this.hitSide(dirX, dirY);
             const table = push >= 2 ? tuning.longHitDistance : tuning.mediumHitDistance;
-            const distance = (table[side] * (push >= 3 ? 1.5 : 1)) / this.size;
+            const distance = table[side] * (push >= 3 ? 1.5 : 1) * weightThrowScale(this.mass);
             this.slide(dirX, dirY, distance);
         } else if (!this.combatant.dead) {
             // Killing blows are thrown by deathLaunch instead.
-            this.slide(dirX, dirY, (tuning.hitNudge * Math.min(2, hitPow)) / this.size);
+            this.slide(dirX, dirY, tuning.hitNudge * Math.min(2, hitPow) * weightThrowScale(this.mass));
         }
     }
 
@@ -527,10 +556,11 @@ export class Npc {
         const d = Math.hypot(tx, ty) || 1;
         const facing = (f.x * tx + f.y * ty) / d;
         if (!c.incapacitated && facing > tuning.kickDodgeFacing && this.random() < chance) {
-            // Dodge_left / Dodge_right: about 40 u sideways.
+            // Dodge_left / Dodge_right: about 40 u sideways, s = 1 towards the NPC's left.
             const s = this.random() < 0.5 ? 1 : -1;
             this.slide((-ty / d) * s, (tx / d) * s, units40);
             this.faceTowards(fromX, fromY);
+            this.reactions?.dodge(s > 0);
             return "dodged";
         }
 
@@ -542,9 +572,7 @@ export class Npc {
         this.kickedDown = true;
         // A body already on the ground is shoved by the slide below instead.
         this.kickLaunch = !this.ragdoll;
-        const reference = massForce(tuning.npcBaseMass) / tuning.npcBaseMass;
-        const scale = Math.min(2, Math.max(0.2, massForce(this.mass) / this.mass / reference));
-        this.slide(dirX, dirY, tuning.longHitDistance[this.hitSide(dirX, dirY)] * scale, true);
+        this.slide(dirX, dirY, tuning.longHitDistance[this.hitSide(dirX, dirY)] * kickThrowScale(this.mass), true);
         return "hit";
     }
 
@@ -554,7 +582,8 @@ export class Npc {
      */
     /**
      * Turns hostile towards the player at (x, y): leaves the tile grid and fights (spec 16.7). Only
-     * the player's own attacks call this: NPCs never start a fight on sight or sound.
+     * the player's own attacks and a failed pickpocket call this: NPCs never start a fight on sight
+     * or sound.
      * Returns false if it already was.
      */
     becomeAlerted(x: number, y: number): boolean {
@@ -727,7 +756,6 @@ export class Npc {
             playerX: target.x,
             playerY: target.y,
             playerYaw: player.yaw,
-            healthFraction: this.combatant.healthFraction,
         });
         if (this.searching >= 0 && Math.hypot(target.x - x, target.y - y) < 0.5) {
             move.vx = move.vy = 0;
@@ -748,7 +776,16 @@ export class Npc {
             const tx = d > 1e-6 ? (player.x - x) / d : f.x;
             const ty = d > 1e-6 ? (player.y - y) / d : f.y;
             // Only a melee strike lunges; an archer, a caster or a breathing dragon stands and faces.
-            const lunge = gap > 0.05 && this.attacker.current!.style === "melee" ? this.attacker.lungeSpeed : 0;
+            const attack = this.attacker.current!;
+            let lunge = gap > 0.05 && attack.style === "melee" ? this.attacker.lungeSpeed : 0;
+            const close = attack.range * 0.5;
+            if (lunge > 0 && gap > close) {
+                // A player backing off is followed in while the blow winds up, fast enough to be
+                // well within reach when it lands (re-aimed every frame, so it keeps up with them),
+                // up to a burst a sprinting player can still outrun.
+                const needed = (gap - close) / Math.max(dt, this.attacker.untilHit);
+                lunge = Math.max(lunge, Math.min(needed, tuning.npcRunSpeed * tuning.npcCombatPace * tuning.npcLungeBurst));
+            }
             move.vx = tx * lunge;
             move.vy = ty * lunge;
             move.faceX = tx;
@@ -815,17 +852,7 @@ export class Npc {
 
     /** Base-pose position of every model vertex: model space in three.js axes, tiles. */
     private basePositions(): Float32Array {
-        const out = new Float32Array(this.model.data.vertexCount * 3);
-        for (const shared of this.model.meshes) {
-            const { positions, sources } = shared.source;
-            for (let i = 0; i < sources.length; i++) {
-                const v = sources[i];
-                out[v * 3] = positions[i * 4] / RS_UNITS_PER_TILE;
-                out[v * 3 + 1] = -positions[i * 4 + 1] / RS_UNITS_PER_TILE;
-                out[v * 3 + 2] = -positions[i * 4 + 2] / RS_UNITS_PER_TILE;
-            }
-        }
-        return out;
+        return basePositions(this.model.data);
     }
 
     /**

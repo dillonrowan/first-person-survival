@@ -10,6 +10,8 @@ Argos stores visual baselines remotely and compares screenshots from pull-reques
 - Tests live in [tests/](../tests/).
 - The NPC visual fixture is [npc-animation.html](../tests/fixtures/npc-animation.html).
 - Chromium runs in headless mode with SwiftShader WebGL.
+- Tests run one at a time (`workers: 1`): SwiftShader renders on the CPU, and parallel browsers
+  slow each other into timeouts.
 - Text-rendering flags reduce differences between local machines and CI.
 - The `list` or `dot` reporter controls terminal output.
 - The HTML reporter writes to `playwright-report/`.

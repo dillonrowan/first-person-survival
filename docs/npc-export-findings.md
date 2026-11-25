@@ -71,8 +71,10 @@ lose roughly 2,800).
 ### 6. Almost all NPC animations are frame-based
 
 Of the 3,634 NPC types on the surface, 3,559 have a frame-based idle animation (14.4 frames on
-average), 4 have a skeletal one and 55 have none. Skeletal animation needs gl-matrix and about
-1,300 more lines of decoders, so those NPCs are shown in their base pose.
+average), 4 have a skeletal one and 55 have none. Skeletal animations are decoded with code from
+rs-map-viewer (BSD-2-Clause, `tools/world-export/rs/model/skeletal/`, its gl-matrix calls replaced
+by a small shim, `glm.ts`) and baked like frame ones, sampled every few client cycles so a clip has
+at most 32 frames. Their attacks are found by name among the sequences on the same skeletal base.
 
 ## How NPCs now get into the game
 
@@ -111,7 +113,7 @@ NPCs: 12083 spawns, 3472 appearances (3111 can walk, 3160 with attacks), 135 MiB
 
 125 appearances have attack styles beyond melee (from the wiki); 10 of their extra styles reuse the
 melee animation because the cache has none of its own (the Suqah has no cast, for example), and
-Callisto and Vet'ion have skeletal animations, so they have no clips at all.
+Callisto and Vet'ion (skeletal, without clips then) now bake theirs like the rest.
 
 `public/world/npcs/` is about 140 MB on disk.
 
@@ -121,13 +123,55 @@ Callisto and Vet'ion have skeletal animations, so they have no clips at all.
 | ------------------------ | ------ | ---------------------------------------------------------------------------------------------------------------------- |
 | Outside the exported area | 11,694 | The default area is the surface (map y 65 and below). Dungeons, minigames and instances are not exported; `--area all` includes them. |
 | Name mismatch            | 237    | The list dates from 2023. If the cache NPC with that id has a different name, the id was likely renumbered; it is skipped rather than shown wrongly. |
-| No idle animation        | 127    | Neither the spawn's NPC nor the one shown has an idle sequence. rs-map-viewer skips these too. Not inspected by name yet. |
+| No idle animation        | 127    | Neither the spawn's NPC nor the one shown has an idle sequence. rs-map-viewer skips these too. Not inspected by name yet. A hand-added spawn marked `still` in `data/npc-spawn-overrides.json` (the Great Olm) is kept in its base pose. |
 | No model                 | 0      |                                                                                                                        |
+
+## Attack animation audit (November 2026)
+
+`npx tsx tools/world-export/audit-npc-attacks.ts` checks the attack clips of every exported NPC
+against their sequence names and writes `out/attack-audit.json`. The first run, over 1,571
+attackable appearances, found:
+
+- **Numbered names were misread.** `NPC_CALLISTO_ATTACK_RANGED01` kept `RANGED01` as one word, so
+  Callisto and Artio swung their ranged animation as a melee attack, and `MAHJARRAT_ATTACK_MAGIC01`
+  was a melee swing for General Khazard and Azzanadra. Numbers are now split off and ignored when
+  names are compared.
+- **Idles, roars and summons counted as attacks** (`TOP_SPIDER_MELEE_IDLE` for Nylocas Vasilias,
+  Zebak's roar, the Mahjarrat summon). They are excluded now.
+- **A creature's own family word excluded its attack**: `ELEMENTAL_FIRE_ATTACK` was dropped as
+  "fire" breath, so the fire elemental had no attack, and fire giants used the plain giant's. A word
+  the idle's name shares names the family and no longer excludes (not on the player's skeleton,
+  where the idle names a stance: crossbow guards keep their sword).
+- **Clips that do not move** (the 4-cycle `DEMON_UPDATE_ATTACK` of every demon) are no longer baked.
+- **Bosses whose other styles reused their melee animation**, set in `data/npc-attack-overrides.ts`
+  from the OSRS Wiki's account of each fight: Corporeal Beast (sprite shot), Vorkath (fireball spit),
+  Cerberus, Sotetseg, Zebak, the Leviathan (orb volleys), the Kalphite Queen (lightning), the
+  Skeletal Wyvern (iceball), the fossil wyverns, TzHaar-Xil (ring throw), Experiment No.2 (throw)
+  and Nylocas Vasilias.
+- **The blow landed at the wrong moment** for long weapons (Akkha's spear at cycle 5 of 60, the
+  Warden at 86 of 90, a fire giant's slash at 38 of 40), because the impact was the frame of
+  furthest forward reach, which a spear or a sideways slash reaches at rest. It is now the end of the
+  fastest forward-and-down stroke, not counting the first step: 155 melee clips (the staff pound of
+  82 human NPCs, ogres, wolves) open with a snap from their first frame into the swing, which won
+  over the blow itself. Renders of over 40 NPCs (rest pose and each attack at its hit, and whole
+  swings frame by frame, through `tools/blender/attack_poses.ts` and `render_attack_poses.py`)
+  checked it; the one doubtful case is Nylocas Vasilias, whose quick leg snap at 51 of 60 beats its
+  strike at 35.
+- **Cave goblins swung a club they do not hold**: "CLUB" was not a weapon word, so
+  `DORGESH_GOBLIN_CLUB_ATTACK` tied with their unarmed attack. It is one now.
+- **Seagulls and ducks had no attack**, though the wiki gives both a melee attack: they idle with
+  the duck's sequence, and the only attack on that skeleton is `SEAGULL_ATTACK`. When no attack
+  shares the idle's family, the skeleton's best one is taken now (it fits the rig).
+- **Effect sequences were picked as attacks** (`VFX_DJINN_01_MAGIC_01` for the Killerwatt, whose
+  skeleton is an effects one). `VFX` sequences are excluded; the Killerwatt has no body animation of
+  its own and attacks without one.
+
+Styles still sharing the melee animation are those the cache gives no other for (dark beasts, the
+revenants, the Suqah, metal dragons' ranged attack); the wiki describes no separate pose for them.
 
 ## Limitations
 
-- Skeletal animations (about 4 surface NPC types) show the base pose.
-- Per-frame alpha changes are not baked; faces keep their base alpha.
+- Per-frame alpha changes are not baked; faces keep their base alpha (skeletal ones included).
 - NPCs are solid for the player (cylinder collision, see `src/physics/Bodies.ts`). Attack
   animations are baked since format 3 (melee) and, since format 4, one per extra attack style
   (breath, cast, bow shot, spit) for the NPCs the OSRS wiki gives several styles; the cache has no

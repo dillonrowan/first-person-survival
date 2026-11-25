@@ -217,23 +217,7 @@ export class GroundItems {
     }
 
     private meshes(data: NpcModelData, level: number): THREE.Mesh[] {
-        const out: THREE.Mesh[] = [];
-        for (const [part, transparent] of [[data.opaque, false], [data.transparent, true]] as [NpcMeshData, boolean][]) {
-            if (part.indices.length === 0) continue;
-            const positions = new Int16Array(part.positions);
-            // Depth bias plane bits, see the vertex shader.
-            for (let i = 3; i < positions.length; i += 4) positions[i] |= level << 13;
-            const geometry = new THREE.BufferGeometry();
-            geometry.setAttribute("a_position", new THREE.BufferAttribute(positions, 4));
-            geometry.setAttribute("a_color", new THREE.BufferAttribute(part.colors, 4, true));
-            geometry.setAttribute("a_uv", new THREE.BufferAttribute(part.uvs, 2));
-            geometry.setIndex(new THREE.BufferAttribute(part.indices, 1));
-            const mesh = new THREE.Mesh(geometry, transparent ? this.materials.transparent : this.materials.opaque);
-            mesh.renderOrder = transparent ? 2 : 1;
-            mesh.frustumCulled = false;
-            out.push(mesh);
-        }
-        return out;
+        return modelMeshes(data, level, this.materials);
     }
 
     private disposePile(pile: Pile, forget = true): void {
@@ -246,6 +230,31 @@ export class GroundItems {
         }
         if (forget) pile.drawn = undefined;
     }
+}
+
+/** The meshes of an item or loc model (NPC format, no clips) drawn with the world materials. */
+export function modelMeshes(
+    data: NpcModelData,
+    level: number,
+    materials: { opaque: THREE.Material; transparent: THREE.Material },
+): THREE.Mesh[] {
+    const out: THREE.Mesh[] = [];
+    for (const [part, transparent] of [[data.opaque, false], [data.transparent, true]] as [NpcMeshData, boolean][]) {
+        if (part.indices.length === 0) continue;
+        const positions = new Int16Array(part.positions);
+        // Depth bias plane bits, see the vertex shader.
+        for (let i = 3; i < positions.length; i += 4) positions[i] |= level << 13;
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute("a_position", new THREE.BufferAttribute(positions, 4));
+        geometry.setAttribute("a_color", new THREE.BufferAttribute(part.colors, 4, true));
+        geometry.setAttribute("a_uv", new THREE.BufferAttribute(part.uvs, 2));
+        geometry.setIndex(new THREE.BufferAttribute(part.indices, 1));
+        const mesh = new THREE.Mesh(geometry, transparent ? materials.transparent : materials.opaque);
+        mesh.renderOrder = transparent ? 2 : 1;
+        mesh.frustumCulled = false;
+        out.push(mesh);
+    }
+    return out;
 }
 
 /** A model that dips below the ground (RS y is down) is lifted so it rests on it. */

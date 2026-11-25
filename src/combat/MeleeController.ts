@@ -1,4 +1,6 @@
+import { BLOCKED_SECONDS, LODGE_SECONDS } from "./LodgeClip";
 import { COMBOS, MOVE_SETS, MoveDef, PowerDirection, Timeline, rayFor, timelineFor } from "./moves";
+import { ViewDir, rayDirection, raySign } from "./SwingRay";
 import { tuning } from "./tuning";
 import type { WeaponDef } from "./weapons";
 
@@ -39,8 +41,14 @@ export type MeleeEvents = {
     active: ActiveSlice[];
 };
 
-/** Where the melee input is (spec 18.1). */
-export type MeleePhase = "idle" | "windup" | "charged" | "swing" | "end";
+/** What stopped a blade dead: a tree or rock it lodged in, or an enemy's guard that took a blow of 0. */
+export type StoppedBy = "solid" | "guard";
+
+/**
+ * Where the melee input is (spec 18.1); "lodged": the blade was stopped dead, stuck in a tree being
+ * worked free or knocked back off an enemy's guard.
+ */
+export type MeleePhase = "idle" | "windup" | "charged" | "swing" | "end" | "lodged";
 
 /**
  * The player's melee input as Dark Messiah's state machine runs it (docs/combat-movement-spec.md
@@ -56,6 +64,11 @@ export class MeleeController {
     adrenaline = 0;
     swing: SwingState | undefined;
     phase: MeleePhase = "idle";
+    /**
+     * The swing whose blade was stopped dead (its elapsed is the moment of contact), the attack
+     * ray's direction there (view space: where it was met), seconds since, and what stopped it.
+     */
+    lodged: { swing: SwingState; dir: ViewDir; time: number; by: StoppedBy } | undefined;
 
     /** Seconds the attack button has been held since its last press, or undefined when up. */
     private pressHeld: number | undefined;
@@ -115,11 +128,39 @@ export class MeleeController {
     /** Drops any press, charge or swing (weapon switch, block, getting knocked down). */
     cancel(): void {
         this.swing = undefined;
+        this.lodged = undefined;
         this.phase = "idle";
         this.pressHeld = undefined;
         this.lockedDirection = undefined;
         this.queued = 0;
         this.comboIndex = -1;
+    }
+
+    /**
+     * The blade was caught (a parry): the swing ends and queued clicks are dropped, but the next
+     * strike still comes from the other side.
+     */
+    stopSwing(): void {
+        this.swing = undefined;
+        this.phase = "idle";
+        this.queued = 0;
+    }
+
+    /**
+     * The blade was stopped dead `at` (0..1) through hit `hitIndex`'s window, by something solid (a
+     * tree, a rock: it lodges for LODGE_SECONDS while it is worked free) or by an enemy's guard (a
+     * blow that did 0: it is knocked back and recovers for BLOCKED_SECONDS). Clicks meanwhile queue
+     * strikes for after; the next strike still comes from the other side.
+     */
+    lodge(hitIndex: number, at: number, by: StoppedBy = "solid"): void {
+        const swing = this.swing;
+        if (!swing) return;
+        const ray = rayFor(swing.timeline, hitIndex);
+        const dir = rayDirection(ray, raySign(ray, swing.move.hits[hitIndex].impact), at);
+        this.lodged = { swing: { ...swing, elapsed: ray.on + at * (ray.off - ray.on) }, dir, time: 0, by };
+        this.swing = undefined;
+        this.phase = "lodged";
+        this.queued = 0;
     }
 
     update(dt: number, input: MeleeInput): MeleeEvents {
@@ -131,6 +172,18 @@ export class MeleeController {
         this.decayAdrenaline(dt);
 
         switch (this.phase) {
+            case "lodged":
+                if (pressed) this.queue();
+                this.lodged!.time += dt;
+                if (this.lodged!.time >= (this.lodged!.by === "guard" ? BLOCKED_SECONDS : LODGE_SECONDS)) {
+                    this.lodged = undefined;
+                    this.phase = "idle";
+                    if (this.queued > 0) {
+                        this.queued--;
+                        this.startQuick(events);
+                    }
+                }
+                break;
             case "swing":
                 this.updateSwing(dt, input, pressed, events);
                 break;

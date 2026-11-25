@@ -34,13 +34,15 @@ For movement, combat, interactions, props, flying, and the HUD, see the
 | Mouse      | Look                                                            |
 | Left mouse | Attack: tap for quick strikes, hold to charge a power attack    |
 | F          | Kick: shoves an enemy back; into a wall or off a ledge it falls |
-| Wheel      | Switch weapon (sword, daggers, club, staff)                     |
+| Wheel      | Zoom between first and third person                             |
+| Q          | Switch weapon (sword, daggers, club, staff)                     |
 | Shift      | Sprint, costs stamina (or fly faster)                           |
 | Alt        | Walk slowly                                                     |
 | C          | Crouch (while flying: sink)                                     |
 | Space      | Jump                                                            |
 | N          | Toggle flying; Space / C to rise / sink                         |
-| E / R      | First / second action on what you aim at (E picks up a prop)    |
+| E / R / T  | First / second / third action on what you aim at (E picks up a prop) |
+| Tab / K    | Inventory and equipment / skills                                |
 | Left mouse | While carrying a prop: throw it (E drops it)                    |
 | Esc        | Release the mouse                                               |
 | V          | Third-person camera (dev builds only)                           |
@@ -72,17 +74,57 @@ damage, 60% taken). The values and their sources are in section 19 of the spec.
 Turning flying off lands you on the highest floor below you, so you can fly onto a castle
 roof or into an upper floor and walk around there.
 
+### Skills, items and banking
+
+The OSRS non-combat skills (except Agility, Firemaking and Construction; logs still burn) work on
+the exported map: Woodcutting, Mining, Fishing, Cooking, Smithing, Crafting, Fletching, Herblore,
+Runecraft, Thieving, Hunter, Farming and Slayer, with the 28-slot inventory, the bank, shops, monster drops and
+NPC respawn. Aim at a tree, rock, fishing spot, furnace or stall and press E; use an inventory item
+on another or on what you aim at. Trees are chopped by swinging a wielded axe into them (the blade lodges
+in the trunk; every blow rolls); rocks by clicking them with a wielded pickaxe (an overhead strike). Left click a fishing spot with a fishing tool wielded to
+fish there. Rod fishing is cast, watch the bobber, hook and reel (a
+minigame); nets, pots and harpoons scoop through the spot until a fish comes up; spots are placed
+where the wiki lists them. The tree and rock reactions, the bobber, the spot ripples, the splash,
+the held rods and the leaping fish are made in Blender (`tools/blender/loc_reactions.py`,
+`tools/blender/fishing.py`); fires are the cache fire with its own animation. Other skilling runs on the 0.6 s OSRS
+game tick. Data comes from the
+OSRS wiki (`npm run fetch-wiki-skills`, committed in `tools/world-export/data/wiki/`) and the
+cache. The run order is `export-world`, then `export-skills`, then `export-items`
+(`export-skills` also writes `tools/world-export/data/skill-locs.json`, which `export-world`
+reads to give trees, rocks and patches their own meshes). Formulas and every
+[design] value are in [docs/skills-spec.md](docs/skills-spec.md).
+
 ### Export options
 
 ```bash
-npm run export-world -- --area all            # surface plus dungeons, minigames, instances
+npm run export-world                          # the default, --area dungeons: the surface plus the dungeons its entrances lead to
+npm run export-world -- --area surface        # the surface only
+npm run export-world -- --area links          # only squares that carry dungeon links (with --merge: update an existing export)
+npm run export-world -- --area all            # everything, including minigames and instances
 npm run export-world -- --area 44,48,54,56    # only map squares x 44..54, y 48..56
 npm run export-world -- --workers 4           # parallel workers (default: by cores and free RAM, max 6)
 npm run export-world -- --no-npcs             # skip NPC models and spawns
+npm run export-world -- --merge --squares "29,110;44,75"   # add or redo squares, keep everything else
 npm run download-cache -- 238                 # a specific OSRS revision instead of the newest
 ```
 
 Re-run `export-world` whenever you change the exporter or download a newer cache.
+
+### Dungeons
+
+The cache says where entrances (ladders, trapdoors, cave mouths) stand but not where they lead.
+`npm run find-dungeon-links` works that out and writes the committed
+`tools/world-export/data/dungeon-links.json`: it pairs each surface entrance with the exit
+6,400 tiles north of it, and matches the cache's entrances to the object transports of RuneLite's
+Shortest Path plugin (downloaded once from a pinned commit). Hand fixes go in
+`tools/world-export/data/dungeon-links-overrides.json`. How it works, what it found and what is
+still unresolved is in [docs/dungeon-links-findings.md](docs/dungeon-links-findings.md).
+
+`export-world` then exports the squares those links lead into, grown through neighbouring
+squares joined by walkable ground (about 360 squares, roughly 330 MB). In the game, aim at an
+entrance and press `E`; a trapdoor or manhole must be opened first (`E`), then climbed (`E`
+again). The screen fades through the transition, and dungeons are dark. Quest, item and level
+requirements are not checked yet; they are recorded in the links for later.
 
 ## How the cache becomes a 3D map
 
@@ -157,8 +199,8 @@ longer match the cache are skipped and counted in the export log).
   labelled vertex groups that animate together become rigid parts, joined where the animation's
   frame base rotates them.
 - NPCs are solid: the player is pushed out of their collision cylinder and slides around them,
-  and NPCs wait instead of walking into the player. NPCs with skeletal animations (a
-  handful) are shown in their base pose. Deaths and knockdowns are ragdolls.
+  and NPCs wait instead of walking into the player. Skeletal animations (Callisto, the Tombs
+  of Amascut bosses) are baked like frame ones. Deaths and knockdowns are ragdolls.
   Dev builds can draw the collision circles with `?debug=collision`.
 - NPC attacks are the cache's own melee animations, baked into each NPC file with the moment the
   blow lands (`tools/world-export/NpcAttackAnims.ts`). The cache does not say which animation an
@@ -166,8 +208,10 @@ longer match the cache are skipped and counted in the export log).
   names (`data/animation-names-runelite.json`): a creature's attack is the one on its own skeleton
   whose name matches its idle (`ZOMBIE_UPDATE_READY_DRAGGING` → `ZOMBIE_UPDATE_ATTACK_DRAGGING`),
   and NPCs on the player's skeleton fight like players, with their stance's weapon attacks (or
-  punches and kicks when they hold nothing). NPCs the cache has no attack for lunge with a generic
-  attack made in Blender (`tools/blender/lunge_clip.py`).
+  punches and kicks when they hold nothing). The blow lands at the frame of the clip's fastest
+  forward-and-down stroke. `tools/world-export/audit-npc-attacks.ts` flags doubtful choices and
+  `tools/blender/attack_poses.ts` renders each NPC at the moment of its hits in Blender. NPCs the
+  cache has no attack for lunge with a generic attack made in Blender (`tools/blender/lunge_clip.py`).
 - NPCs that use more than melee (dragons breathe fire, archers shoot, mages cast) get one baked
   clip per attack style. The styles come from the OSRS wiki, not the cache:
   `npm run fetch-wiki-attacks` saves them to `tools/world-export/data/npc-attacks-wiki.json`, and
@@ -196,6 +240,13 @@ Defined in `src/world/WorldFormat.ts`, shared by the exporter and the game.
 - `public/world/npcs.json` and `public/world/npcs/{id}_{displayId}.bin`: NPC spawns, and one
   gzip-compressed model per NPC appearance (lit mesh plus baked idle, walk and attack frames). Defined
   in `src/world/NpcFormat.ts`. Absent when exported with `--no-npcs`.
+- `public/world/items.json` and `public/world/items/`: every item and its inventory model
+  (`src/world/ItemFormat.ts`, `npm run export-items`).
+- `public/world/skills.json`, `public/world/shops.json` and `public/world/skill-models/`:
+  skill data by loc and NPC id, shops with item values, and the fire and hunter trap models (with
+  their cache animation baked in) the game places itself (`src/world/SkillFormat.ts`,
+  `npm run export-skills`). Skill locs are
+  `InteractiveLoc`s of kind `skill` inside the region files.
 
 Coordinates are OSRS world tiles (`x` east, `y` north; Lumbridge is 3222, 3218). In three.js
 space, tile `(x, y)` at height `h` is `(x, h, -y)`, one unit per tile.
@@ -218,4 +269,9 @@ NPC spawn list come from [rs-map-viewer](https://github.com/dennisdev/rs-map-vie
 [OpenRS2 archive](https://archive.openrs2.org/). The animation names in
 `tools/world-export/data/animation-names-runelite.json` come from RuneLite's
 `net.runelite.api.gameval.AnimationID` ([RuneLite](https://github.com/runelite/runelite),
-BSD 2-Clause).
+BSD 2-Clause). Skill, recipe, drop, shop and slayer data come from the
+[Old School RuneScape Wiki](https://oldschool.runescape.wiki/) (CC BY-NC-SA 3.0); the farming
+patch states and growth rates come from RuneLite's time-tracking plugin (BSD 2-Clause). Where
+dungeon entrances lead comes partly from the object transports of the RuneLite
+[Shortest Path](https://github.com/Skretzo/shortest-path) plugin (BSD 2-Clause, Copyright (c)
+Skretzo and contributors), pinned in `tools/world-export/find-dungeon-links.ts`.

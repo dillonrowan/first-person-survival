@@ -19,6 +19,8 @@ import {
     RS_UNITS_PER_TILE,
     RegionData,
 } from "../../src/world/WorldFormat";
+import { SURFACE_MAX_MAP_Y } from "./DungeonCandidates";
+import { DungeonLinkIndex, toLocLink } from "./DungeonLinks";
 import { areGateLeaves, doorStates, gateLeafStates, isBank, isClimbable, placedDoorState } from "./Interactives";
 import { MAX_PROP_HEIGHT, propClassFor, propExtent } from "./Props";
 import { stripNameTags } from "./NpcSpawns";
@@ -26,6 +28,7 @@ import { FaceColors, BRIGHTNESS } from "./FaceColors";
 import { MeshBuilder } from "./MeshBuilder";
 import { WorldLoaders } from "./WorldLoaders";
 import type { OverlayFloorTypeLoader } from "./rs/config/floortype/FloorTypeLoader";
+import type { SkillLocIndex } from "./skills/SkillLocIndex";
 
 // Neighbouring tiles are decoded too, so underlay blending, lighting and ground contouring are
 // seamless across region edges.
@@ -44,7 +47,7 @@ const PRIORITY_WALL = 1;
 const PRIORITY_WALL_DECORATION = 2;
 const PRIORITY_LOC = 1;
 
-export type RegionStats = { tiles: number; locs: number; triangles: number; buildMs: number };
+export type RegionStats = { tiles: number; locs: number; triangles: number; buildMs: number; links: number };
 
 /** Doors and ladders found in a region's scene. */
 type FoundInteractives = {
@@ -55,8 +58,18 @@ type FoundInteractives = {
     doorByWall: Map<SceneLoc, number>;
     /** Physics prop loc -> index into doorBuilders (props get their own meshes like doors). */
     propByLoc: Map<SceneLoc, number>;
+    /** Skill locs whose look can change (trees, rocks, patches), drawn into their own meshes. */
+    skillByLoc: Map<SceneLoc, InteractiveLoc>;
+    /** Closed trapdoors and manholes: the loc and the id of its open model, drawn into two own meshes. */
+    hatchByLoc: Map<SceneLoc, { interactive: InteractiveLoc; openId: number }>;
+    /** Ladders and passages, whose height is measured from their model. */
+    entranceByLoc: Map<SceneLoc, InteractiveLoc>;
+    /** Dungeon links attached to the entrances of this region. */
+    linksAttached: number;
     doorBuilders: { opaque: MeshBuilder; transparent: MeshBuilder }[];
 };
+
+type Builders = { opaque: MeshBuilder; transparent: MeshBuilder };
 
 type PlacedEntity = {
     entity: Entity;
@@ -71,6 +84,10 @@ export class RegionBuilder {
     constructor(
         readonly loaders: WorldLoaders,
         private readonly colors: FaceColors = new FaceColors(loaders.textureLoader),
+        /** Which locs are skill targets (data/skill-locs.json); none without it. */
+        private readonly skillLocs?: SkillLocIndex,
+        /** Where entrances lead (data/dungeon-links.json); entrances get no links without it. */
+        private readonly dungeonLinks?: DungeonLinkIndex,
     ) {}
 
     /** Texture ids in texture-array order (layer = index + 1). */
@@ -127,6 +144,17 @@ export class RegionBuilder {
 
         let locs = 0;
         for (const p of placed) {
+            const hatch = found.hatchByLoc.get(p.sceneLoc);
+            if (hatch && this.addHatchMeshes(scene, found, p, hatch.interactive, hatch.openId)) {
+                locs++;
+                continue;
+            }
+            const skillLoc = found.skillByLoc.get(p.sceneLoc);
+            if (skillLoc) {
+                this.addSkillLocMeshes(scene, found, p, skillLoc);
+                locs++;
+                continue;
+            }
             const resolved = this.resolveModel(scene, p);
             if (resolved) {
                 const doorIndex = found.doorByWall.get(p.sceneLoc);
@@ -170,6 +198,10 @@ export class RegionBuilder {
                         p,
                         resolved.height,
                     );
+                    const entrance = found.entranceByLoc.get(p.sceneLoc);
+                    if (entrance) {
+                        entrance.height = Math.max(entrance.height, modelHeight(resolved.model));
+                    }
                 }
                 locs++;
             }
@@ -201,11 +233,11 @@ export class RegionBuilder {
                 mapX,
                 mapY,
                 ...meshes,
-                ...extractTerrainData(scene, this.loaders.overlayTypeLoader),
+                ...extractTerrainData(scene, this.loaders.overlayTypeLoader, mapY > SURFACE_MAX_MAP_Y),
                 interactives: found.interactives,
                 doorMeshes,
             },
-            stats: { tiles, locs, triangles, buildMs: Math.round(performance.now() - start) },
+            stats: { tiles, locs, triangles, buildMs: Math.round(performance.now() - start), links: found.linksAttached },
         };
     }
 
@@ -275,6 +307,10 @@ export class RegionBuilder {
             doorWalls: new Set(),
             doorByWall: new Map(),
             propByLoc: new Map(),
+            skillByLoc: new Map(),
+            hatchByLoc: new Map(),
+            entranceByLoc: new Map(),
+            linksAttached: 0,
             doorBuilders: [],
         };
         const shownType = (id: number) => {
@@ -299,7 +335,23 @@ export class RegionBuilder {
                     const worldY = mapY * REGION_SIZE + y - BORDER_SIZE;
 
                     const wall = tile.wall;
-                    if (wall) {
+                    // A wall loc a dungeon link starts at (a Theatre of Blood passage, a tomb door, a
+                    // crevice) is a passage, not a swinging door.
+                    const wallLinked =
+                        !!wall &&
+                        (this.dungeonLinks?.linksForLoc(
+                            (scene.tileRenderFlags[1][x][y] & 0x2) === 2 ? level - 1 : level,
+                            worldX,
+                            worldY,
+                            getIdFromTag(wall.tag),
+                        ).length ?? 0) > 0;
+                    if (wall && wallLinked && inside) {
+                        const id = getIdFromTag(wall.tag);
+                        const { locType, shown } = shownType(id);
+                        this.addEntrance(found, scene, {
+                            level, x, y, worldX, worldY, sceneLoc: wall, id, locType, shown, rotation: (wall.flags >> 6) & 0x3,
+                        });
+                    } else if (wall && !wallLinked) {
                         const { locType, shown } = shownType(getIdFromTag(wall.tag));
                         const state = placedDoorState(shown.actions);
                         const flags = scene.getLocFlags(level, x, y, wall.tag);
@@ -337,24 +389,20 @@ export class RegionBuilder {
                         if (this.addProp(found, scene, { level, x, y, worldX, worldY, loc, id, locType, shown })) {
                             continue;
                         }
-                        const bank = isBank(shown.name, shown.actions);
-                        if (!bank && !isClimbable(shown.actions)) {
+                        if (this.addSkillLoc(found, scene, { level, x, y, worldX, worldY, loc, id, locType, shown })) {
                             continue;
                         }
-                        const swap = loc.rotation === 1 || loc.rotation === 3;
-                        found.interactives.push({
-                            kind: bank ? "bank" : "climb",
-                            id,
-                            name: stripNameTags(shown.name),
-                            actions: shown.actions.filter((action): action is string => !!action),
-                            plane: level,
-                            level,
-                            tileX: worldX,
-                            tileY: worldY,
-                            sizeX: swap ? locType.sizeY : locType.sizeX,
-                            sizeY: swap ? locType.sizeX : locType.sizeY,
-                            rotation: loc.rotation,
-                            height: DEFAULT_INTERACTIVE_HEIGHT,
+                        this.addEntrance(found, scene, { level, x, y, worldX, worldY, sceneLoc: loc, id, locType, shown, rotation: loc.rotation });
+                    }
+                    // Trapdoors and cave mouths are often floor or wall decorations rather than normal locs.
+                    for (const decoration of [tile.floorDecoration, tile.wallDecoration]) {
+                        if (!decoration) {
+                            continue;
+                        }
+                        const id = getIdFromTag(decoration.tag);
+                        const { locType, shown } = shownType(id);
+                        this.addEntrance(found, scene, {
+                            level, x, y, worldX, worldY, sceneLoc: decoration, id, locType, shown, rotation: (decoration.flags >> 6) & 0x3,
                         });
                     }
                 }
@@ -362,6 +410,113 @@ export class RegionBuilder {
         }
         this.pairGateLeaves(found.interactives);
         return found;
+    }
+
+    /**
+     * Records a bank booth, a ladder or stair ("Climb" verbs), or a passage: any other loc that a
+     * dungeon link starts at (cave mouth, trapdoor, tunnel). A closed trapdoor with a known open
+     * model becomes a hatch, drawn into its own meshes by addHatchMeshes.
+     */
+    private addEntrance(
+        found: FoundInteractives,
+        scene: Scene,
+        p: {
+            level: number;
+            x: number;
+            y: number;
+            worldX: number;
+            worldY: number;
+            sceneLoc: SceneLoc;
+            id: number;
+            locType: LocType;
+            shown: LocType;
+            rotation: number;
+        },
+    ): void {
+        // Same level remapping SceneBuilder.decodeLocs applies under bridges.
+        let plane = p.level;
+        if ((scene.tileRenderFlags[1][p.x][p.y] & 0x2) === 2) {
+            plane--;
+        }
+        if (plane < 0) {
+            return;
+        }
+        const bank = isBank(p.shown.name, p.shown.actions);
+        const links = bank ? [] : (this.dungeonLinks?.linksForLoc(plane, p.worldX, p.worldY, p.id) ?? []);
+        const climbable = isClimbable(p.shown.actions);
+        if (!bank && !climbable && links.length === 0) {
+            return;
+        }
+        const kind = bank ? "bank" : climbable ? "climb" : "passage";
+        const actions = p.shown.actions.filter((action): action is string => !!action);
+        const swap = p.rotation === 1 || p.rotation === 3;
+        const interactive: InteractiveLoc = {
+            kind,
+            id: p.id,
+            // An unnamed loc a hand link starts at (a gate in Theatre of Blood) goes by the link's name.
+            name: p.shown.name === "null" && links.length > 0 ? links[0].name : stripNameTags(p.shown.name),
+            actions: kind === "passage" ? [...new Set(links.map((link) => link.action))] : actions,
+            plane,
+            level: p.level,
+            tileX: p.worldX,
+            tileY: p.worldY,
+            sizeX: swap ? p.locType.sizeY : p.locType.sizeX,
+            sizeY: swap ? p.locType.sizeX : p.locType.sizeY,
+            rotation: p.rotation,
+            height: DEFAULT_INTERACTIVE_HEIGHT,
+        };
+        if (links.length > 0) {
+            interactive.links = links.map(toLocLink);
+            found.linksAttached += links.length;
+        }
+        found.interactives.push(interactive);
+        const openId = this.dungeonLinks?.openIdFor(plane, p.worldX, p.worldY, p.id);
+        if (kind === "passage" && openId !== undefined && actions.some((action) => /^open$/i.test(action))) {
+            found.hatchByLoc.set(p.sceneLoc, { interactive, openId });
+        } else {
+            found.entranceByLoc.set(p.sceneLoc, interactive);
+        }
+    }
+
+    /**
+     * Draws a closed trapdoor and its open model into two own meshes, so the game can swap them.
+     * Returns false, drawing nothing, if either model is missing; the loc then stays a plain passage.
+     */
+    private addHatchMeshes(
+        scene: Scene,
+        found: FoundInteractives,
+        p: PlacedEntity,
+        interactive: InteractiveLoc,
+        openId: number,
+    ): boolean {
+        const closed = this.resolveModel(scene, p);
+        if (!closed) {
+            return false;
+        }
+        // Decorations have no start tile; they stand on the tile their position is in.
+        const sceneLoc = p.sceneLoc as unknown as Record<string, number>;
+        const standsOn = "startX" in sceneLoc ? p.sceneLoc : Object.assign(Object.create(p.sceneLoc), {
+            startX: Math.floor(sceneLoc.x / 128),
+            startY: Math.floor(sceneLoc.y / 128),
+        });
+        const openBuilders: Builders = { opaque: new MeshBuilder(256), transparent: new MeshBuilder(64) };
+        const openHeight = this.buildLocVariant(scene, { ...p, sceneLoc: standsOn }, this.loaders.locTypeLoader.load(openId), openBuilders);
+        if (openHeight === undefined) {
+            return false;
+        }
+        const closedBuilders: Builders = { opaque: new MeshBuilder(256), transparent: new MeshBuilder(64) };
+        this.addModel({ doubleSided: closedBuilders.opaque, ...closedBuilders }, closed.model, p, closed.height);
+        found.doorBuilders.push(closedBuilders, openBuilders);
+        const closedMesh = found.doorBuilders.length - 2;
+        interactive.actions = ["Open"];
+        interactive.hatch = {
+            closedMesh,
+            openMesh: closedMesh + 1,
+            openActions: this.loaders.locTypeLoader.load(openId).actions.filter((action): action is string => !!action),
+            placedOpen: false,
+        };
+        interactive.height = Math.max(modelHeight(closed.model), openHeight);
+        return true;
     }
 
     /** Links the two leaves of each gate or double door and re-hinges them at their outer ends. */
@@ -473,6 +628,135 @@ export class RegionBuilder {
         });
         return true;
     }
+
+    /**
+     * Makes a loc a skill target if data/skill-locs.json lists it. It keeps its tile collision.
+     * Trees, rocks and patches get their own meshes (built in addSkillLocMeshes), so the
+     * game can swap their look; the others stay part of the map. Returns false otherwise.
+     */
+    private addSkillLoc(
+        found: FoundInteractives,
+        scene: Scene,
+        p: { level: number; x: number; y: number; worldX: number; worldY: number; loc: Loc; id: number; locType: LocType; shown: LocType },
+    ): boolean {
+        const index = this.skillLocs;
+        if (!index) return false;
+        const key = String(p.id);
+        const ownMesh = key in index.resources || index.patches.includes(p.id);
+        if (!ownMesh && !index.statics.includes(p.id)) return false;
+        // Same level remapping SceneBuilder.decodeLocs applies under bridges.
+        let plane = p.level;
+        if ((scene.tileRenderFlags[1][p.x][p.y] & 0x2) === 2) {
+            plane--;
+        }
+        if (plane < 0) return false;
+        const swap = p.loc.rotation === 1 || p.loc.rotation === 3;
+        const interactive: InteractiveLoc = {
+            kind: "skill",
+            id: p.id,
+            name: stripNameTags(p.shown.name),
+            actions: p.shown.actions.filter((action): action is string => !!action),
+            plane,
+            level: p.level,
+            tileX: p.worldX,
+            tileY: p.worldY,
+            sizeX: swap ? p.locType.sizeY : p.locType.sizeX,
+            sizeY: swap ? p.locType.sizeX : p.locType.sizeY,
+            rotation: p.loc.rotation,
+            height: DEFAULT_INTERACTIVE_HEIGHT,
+            skill: {},
+        };
+        found.interactives.push(interactive);
+        if (ownMesh) found.skillByLoc.set(p.loc, interactive);
+        return true;
+    }
+
+    /** Draws a skill loc into new meshes: as placed, depleted or per patch state. */
+    private addSkillLocMeshes(scene: Scene, found: FoundInteractives, p: PlacedEntity, loc: InteractiveLoc): void {
+        const { locTypeLoader } = this.loaders;
+        const index = this.skillLocs!;
+        const skill = loc.skill!;
+        let height = 0;
+        const newMesh = (): [number, Builders] => {
+            const builders = { opaque: new MeshBuilder(256), transparent: new MeshBuilder(64) };
+            found.doorBuilders.push(builders);
+            return [found.doorBuilders.length - 1, builders];
+        };
+        const variant = (locType: LocType): number | undefined => {
+            const [i, builders] = newMesh();
+            const h = this.buildLocVariant(scene, p, locType, builders);
+            if (h === undefined) return undefined;
+            height = Math.max(height, h);
+            return i;
+        };
+        const key = String(loc.id);
+        if (index.patches.includes(loc.id)) {
+            const transforms = locTypeLoader.load(loc.id).transforms ?? [];
+            const meshOf = new Map<number, number>();
+            skill.stateMeshes = transforms.map((t) => {
+                if (t < 0) return -1;
+                if (!meshOf.has(t)) meshOf.set(t, variant(locTypeLoader.load(t)) ?? -1);
+                return meshOf.get(t)!;
+            });
+            loc.height = Math.max(1, height);
+            return;
+        }
+        const placed = this.resolveModel(scene, p);
+        if (placed) {
+            const [i, builders] = newMesh();
+            this.addModel({ doubleSided: builders.opaque, ...builders }, placed.model, p, placed.height);
+            skill.mesh = i;
+            height = modelHeight(placed.model);
+        }
+        const depleted = index.resources[key];
+        if (depleted !== undefined) {
+            const type = depleted >= 1_000_000 ? plainRock(locTypeLoader.load(depleted - 1_000_000), depleted) : locTypeLoader.load(depleted);
+            skill.depletedMesh = variant(type);
+        }
+        loc.height = Math.max(1, height);
+    }
+
+    /**
+     * Builds another loc type's model where a placed loc stands (same tile and rotation), centred on
+     * its own footprint, into `builders`. Returns the model's height in tiles, or undefined.
+     */
+    private buildLocVariant(scene: Scene, p: PlacedEntity, locType: LocType, builders: Builders): number | undefined {
+        const sceneLoc = p.sceneLoc as Loc;
+        const type: LocModelType = sceneLoc.flags & 0x3f;
+        const rotation = (sceneLoc.flags >> 6) & 0x3;
+        const swap = rotation === 1 || rotation === 3;
+        const sizeX = swap ? locType.sizeY : locType.sizeX;
+        const sizeY = swap ? locType.sizeX : locType.sizeY;
+        const tileX = sceneLoc.startX;
+        const tileY = sceneLoc.startY;
+        const heightMap = scene.tileHeights[p.level];
+        const last = heightMap.length - 1;
+        const startX = Math.min((sizeX >> 1) + tileX, last);
+        const endX = Math.min(((sizeX + 1) >> 1) + tileX, last);
+        const startY = Math.min((sizeY >> 1) + tileY, last);
+        const endY = Math.min(((sizeY + 1) >> 1) + tileY, last);
+        const centerHeight = (heightMap[endX][endY] + heightMap[startX][endY] + heightMap[startX][startY] + heightMap[endX][startY]) >> 2;
+        const centerX = (tileX << 7) + (sizeX << 6);
+        const centerZ = (tileY << 7) + (sizeY << 6);
+        const model = this.loaders.locModelLoader.getModelStatic(locType, type, rotation, {
+            type: locType.contourGroundType,
+            param: locType.contourGroundParam,
+            heightMap,
+            heightMapAbove: p.level < scene.levels - 1 ? scene.tileHeights[p.level + 1] : undefined,
+            entityX: centerX,
+            entityY: centerHeight,
+            entityZ: centerZ,
+        });
+        if (!model) return undefined;
+        this.addModel(
+            { doubleSided: builders.opaque, ...builders },
+            model,
+            { ...p, offsetX: p.offsetX + centerX - sceneLoc.x, offsetZ: p.offsetZ + centerZ - sceneLoc.y },
+            centerHeight,
+        );
+        return modelHeight(model);
+    }
+
 
     private addDoor(
         found: FoundInteractives,
@@ -757,9 +1041,19 @@ function collectTileLocs(
     }
 }
 
+/** Collision flags that make a tile unwalkable as a whole (a loc on it, or blocked ground). */
+const TILE_BLOCKED = 0x100 | 0x200000;
+
+/**
+ * Heights, flags, floors, collision and water of a region. Underground (`dungeon`), a tile with no
+ * tile model also counts as floor when it can be walked and a floor decoration covers it (Verzik
+ * Vitur's arena is laid that way on level 0), or, on an upper level, when anything stands on it:
+ * some lairs (the Wilderness boss chasms) lay their floor as loc models on level 2.
+ */
 function extractTerrainData(
     scene: Scene,
     overlayTypeLoader: OverlayFloorTypeLoader,
+    dungeon: boolean,
 ): Pick<RegionData, "heights" | "renderFlags" | "floors" | "collision" | "water"> {
     const corners = REGION_SIZE + 1;
     const heights = new Int32Array(LEVELS * corners * corners);
@@ -781,8 +1075,14 @@ function extractTerrainData(
                 const i = (level * REGION_SIZE + x) * REGION_SIZE + y;
                 renderFlags[i] = scene.tileRenderFlags[level][x + BORDER_SIZE][y + BORDER_SIZE];
                 const tileModel = scene.tiles[level][x + BORDER_SIZE][y + BORDER_SIZE]?.tileModel;
-                floors[i] = tileModel && tileModel.faces.length > 0 ? 1 : 0;
                 collision[i] = collisionMap.getFlag(x + BORDER_SIZE, y + BORDER_SIZE);
+                const sceneTile = scene.tiles[level][x + BORDER_SIZE][y + BORDER_SIZE];
+                const locFloor =
+                    dungeon &&
+                    (collision[i] & TILE_BLOCKED) === 0 &&
+                    !!sceneTile &&
+                    (!!sceneTile.floorDecoration || (level > 0 && sceneTile.locs.length > 0));
+                floors[i] = (tileModel && tileModel.faces.length > 0) || locFloor ? 1 : 0;
                 const overlayId = scene.tileOverlays[level][x + BORDER_SIZE][y + BORDER_SIZE] - 1;
                 const overlay = overlayId >= 0 ? overlayTypeLoader.load(overlayId) : undefined;
                 water[i] = overlay?.name?.toLowerCase().includes("water") ? 1 : 0;
@@ -809,6 +1109,15 @@ function modelHeight(model: Model): number {
         top = Math.max(top, -model.verticesY[i]);
     }
     return top / RS_UNITS_PER_TILE;
+}
+
+/** A rock without its ore colours, as a separate type (its own id keeps the model cache apart). */
+function plainRock(rock: LocType, id: number): LocType {
+    const copy = Object.assign(Object.create(Object.getPrototypeOf(rock)), rock) as LocType;
+    copy.recolorFrom = undefined as never;
+    copy.recolorTo = undefined as never;
+    (copy as { id: number }).id = id;
+    return copy;
 }
 
 function isOpenable(actions: (string | undefined)[]): boolean {

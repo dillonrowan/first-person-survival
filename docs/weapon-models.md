@@ -31,6 +31,9 @@ The weapon ids live in `src/combat/weapons.ts`:
 - **First person.** The model hangs off the camera and is posed by code from the swing timeline
   (wind-up, strike, recovery) in `src/combat/WeaponView.ts`. It needs no animations, and any
   animations in the file are ignored.
+  The character's right hand is put on the grip (see [player-model.md](player-model.md)). While a
+  power attack is wound up, the grip is kept at least `GRIP_CLEAR_DISTANCE` from the eyes and
+  `GRIP_CLEAR_ANGLE` off the line of sight, so the hand does not block the view.
 - **Third person.** The model is parented to the character's `socket_hand_r` empty (see
   [player-model.md](player-model.md)), rotated so +Y points along the forearm. The character has no
   attack clips yet, so in third person the weapon is held still.
