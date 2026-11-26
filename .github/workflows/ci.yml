@@ -11,8 +11,14 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
+            # The exported world (~2.6 GB of LFS objects) is cached so each job does not download
+            # it again; the key changes only when an LFS file does.
+            - run: git lfs ls-files --long | cut -d ' ' -f1 | sort > .lfs-assets-id
+            - uses: actions/cache@v4
               with:
-                  lfs: true
+                  path: .git/lfs
+                  key: lfs-${{ hashFiles('.lfs-assets-id') }}
+            - run: git lfs pull
             - uses: actions/setup-node@v4
               with:
                   node-version: 22
@@ -21,24 +27,37 @@ jobs:
             - run: npm run typecheck
             - run: npm test
     visual-npc-animations:
+        name: visual-npc-animations (${{ matrix.shard }}/4)
         runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                # The game renders on the CPU, so one machine runs one browser at a time; the
+                # suite is split across machines instead.
+                shard: [1, 2, 3, 4]
         steps:
             - uses: actions/checkout@v4
+            - run: git lfs ls-files --long | cut -d ' ' -f1 | sort > .lfs-assets-id
+            - uses: actions/cache@v4
               with:
-                  lfs: true
+                  path: .git/lfs
+                  key: lfs-${{ hashFiles('.lfs-assets-id') }}
+            - run: git lfs pull
             - uses: actions/setup-node@v4
               with:
                   node-version: 22
                   cache: npm
             - run: npm ci
             - run: npx playwright install --with-deps chromium
-            - run: npm run test:e2e
+            - run: npm run test:e2e -- --shard=${{ matrix.shard }}/4
               env:
                   ARGOS_TOKEN: ${{ secrets.ARGOS_TOKEN }}
+                  # Lets Argos combine the shards' screenshots into one build.
+                  ARGOS_PARALLEL_NONCE: ${{ github.run_id }}-${{ github.run_attempt }}
             - uses: actions/upload-artifact@v4
               if: failure()
               with:
-                  name: npc-animation-playwright
+                  name: npc-animation-playwright-${{ matrix.shard }}
                   path: |
                       test-results/
                       playwright-report/
