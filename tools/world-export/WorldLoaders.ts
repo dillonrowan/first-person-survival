@@ -22,7 +22,7 @@ import { MapFileLoader, ModernMapFileLoader } from "./rs/map/MapFileLoader";
 import { IndexModelLoader, ModelLoader } from "./rs/model/ModelLoader";
 import { IndexSeqBaseLoader } from "./rs/model/seq/SeqBaseLoader";
 import { Dat2SeqFrameLoader, SeqFrameLoader } from "./rs/model/seq/SeqFrameLoader";
-import { IndexSkeletalSeqLoader } from "./rs/model/skeletal/SkeletalSeqLoader";
+import { IndexSkeletalSeqLoader, SkeletalSeqLoader } from "./rs/model/skeletal/SkeletalSeqLoader";
 import { SceneBuilder } from "./rs/scene/SceneBuilder";
 import { SpriteTextureLoader } from "./rs/texture/SpriteTextureLoader";
 import { TextureLoader } from "./rs/texture/TextureLoader";
@@ -47,6 +47,7 @@ export type WorldLoaders = {
     npcTypeLoader: NpcTypeLoader;
     seqTypeLoader: SeqTypeLoader;
     seqFrameLoader: SeqFrameLoader;
+    skeletalSeqLoader: SkeletalSeqLoader;
     npcModelLoader: NpcModelLoader;
     objTypeLoader: ObjTypeLoader;
     modelLoader: ModelLoader;
