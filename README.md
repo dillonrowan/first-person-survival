@@ -126,6 +126,28 @@ entrance and press `E`; a trapdoor or manhole must be opened first (`E`), then c
 again). The screen fades through the transition, and dungeons are dark. Quest, item and level
 requirements are not checked yet; they are recorded in the links for later.
 
+## Windows release
+
+`npm run package:win` (Windows only) builds a copy players can run without installing anything:
+
+```
+release/FirstPersonSurvival/
+  FirstPersonSurvival.exe   the launcher, ~11 KB
+  game/                     the Vite build, ~2.6 GB
+```
+
+The launcher ([launcher/Launcher.cs](launcher/Launcher.cs)) serves `game/` at
+`http://localhost:47613/` and opens it in an Edge app window, falling back to Chrome and then the
+default browser. The game's own profile lives in `%LOCALAPPDATA%\FirstPersonSurvival\`. The port
+is fixed because saves are in localStorage, which is keyed by origin. Closing the window stops the
+launcher; running it again while the game is open just opens another window.
+[scripts/build-launcher.mjs](scripts/build-launcher.mjs) compiles it with the C# compiler from
+.NET Framework 4, which ships with Windows, so players need Windows 10 or 11 and nothing else.
+
+To share it, zip the whole `FirstPersonSurvival` folder. Players must extract it before running
+the exe. The exe is unsigned, so Windows SmartScreen asks them to confirm (**More info → Run
+anyway**). Mind the note on Jagex's assets under [Notes](#notes) before publishing it.
+
 ## How the cache becomes a 3D map
 
 `tools/world-export/` reads the cache in Node (decoders in `tools/world-export/rs/`) and turns
@@ -264,7 +286,7 @@ space, tile `(x, y)` at height `h` is `(x, h, -y)`, one unit per tile.
   Using them for a personal prototype is
   one thing; publishing a game built on them would need permission or your own replacement
   assets.
-- `vite build` copies `public/world/` into `dist/`, so a production build is ~1.5 GB.
+- `vite build` copies `public/world/` into `dist/`, so a production build is ~2.6 GB.
 
 ## Credits
 
