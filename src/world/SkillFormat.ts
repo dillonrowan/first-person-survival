@@ -86,6 +86,12 @@ export type RecipeDef = {
     verb?: string;
 };
 
+/**
+ * A boss's chest: opened with its key once per kill of the boss; the loot lands on the ground
+ * [OSRS Wiki: Chest (Obor's lair), Chest (Bryophyta's lair)]. `tertiary` rows (another key) roll
+ * on their own beside the main table.
+ */
+export type ChestDef = { name: string; boss: string; locIds: number[]; npcIds: number[]; key: number; loot: LootEntry[]; tertiary: LootEntry[] };
 export type StallDef = { name: string; locIds: number[]; level: number; xp: number; respawnTicks: number; loot: LootEntry[] };
 export type PickpocketDef = {
     name: string;
@@ -169,6 +175,7 @@ export type LocRole =
     | { role: "rock"; index: number }
     | { role: "facility"; facility: Facility }
     | { role: "stall"; index: number }
+    | { role: "chest"; index: number }
     | { role: "ruins"; rune: string }
     | { role: "altar"; rune: string }
     | { role: "altar-exit"; rune: string }
@@ -192,6 +199,8 @@ export type SkillsManifest = {
     /** Vial, bucket and jug filled at water. */
     fills: { from: number; to: number }[];
     stalls: StallDef[];
+    /** Boss chests (absent from skills.json exported before them). */
+    chests?: ChestDef[];
     pickpockets: PickpocketDef[];
     hunter: HunterDef[];
     farming: FarmingDef;
@@ -221,6 +230,7 @@ export function emptySkillsManifest(): SkillsManifest {
         logs: [],
         fills: [],
         stalls: [],
+        chests: [],
         pickpockets: [],
         hunter: [],
         farming: { patches: [], crops: [], weeds: {} },

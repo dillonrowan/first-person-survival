@@ -18,6 +18,8 @@ export type WikiDrop = {
     rolls: number;
     /** The combat level of the monster version the drop is listed for, when the wiki says. */
     level?: string;
+    /** The table version the drop is listed under ("Members", "Free-to-play"), when the page has several. */
+    version?: string;
 };
 
 export type WikiItemSpawn = { page: string; x: number; y: number; plane: number; qty: number };
@@ -97,6 +99,9 @@ export function rowToDrop(row: DropBucketRow): WikiDrop | undefined {
     const high = Number(json["Quantity High"] ?? low);
     const rolls = Number(json["Rolls"] ?? 1);
     const level = String(json["Drop level"] ?? "");
+    // "Dropped from" is the page and, after a #, the version of its drop table.
+    const from = String(json["Dropped from"] ?? "");
+    const version = from.includes("#") ? from.slice(from.indexOf("#") + 1) : "";
     return {
         item: row.item_name,
         qtyLow: Number.isFinite(low) && low > 0 ? low : 1,
@@ -104,6 +109,7 @@ export function rowToDrop(row: DropBucketRow): WikiDrop | undefined {
         chance,
         rolls: Number.isFinite(rolls) && rolls > 0 ? rolls : 1,
         ...(level !== "" ? { level } : {}),
+        ...(version !== "" ? { version } : {}),
     };
 }
 

@@ -91,7 +91,7 @@ game tick. Data comes from the
 OSRS wiki (`npm run fetch-wiki-skills`, committed in `tools/world-export/data/wiki/`) and the
 cache. The run order is `export-world`, then `export-skills`, then `export-items`
 (`export-skills` also writes `tools/world-export/data/skill-locs.json`, which `export-world`
-reads to give trees, rocks and patches their own meshes). Formulas and every
+reads to give trees, rocks, patches and boss chests their own meshes). Formulas and every
 [design] value are in [docs/skills-spec.md](docs/skills-spec.md).
 
 ### Export options
@@ -201,8 +201,9 @@ longer match the cache are skipped and counted in the export log).
 - NPCs are solid: the player is pushed out of their collision cylinder and slides around them,
   and NPCs wait instead of walking into the player. Skeletal animations (Callisto, the Tombs
   of Amascut bosses) are baked like frame ones. Deaths and knockdowns are ragdolls, except for
-  Scurrius and Bryophyta, who play their OSRS death animations and are never knocked down
-  (`src/npc/Scurrius.ts`, `src/npc/Bryophyta.ts`).
+  Scurrius, Bryophyta, Obor and the King Black Dragon, who play their OSRS death animations and
+  are never knocked down (`src/npc/Scurrius.ts`, `src/npc/Bryophyta.ts`, `src/npc/Obor.ts`,
+  `src/npc/KingBlackDragon.ts`).
   Dev builds can draw the collision circles with `?debug=collision`.
 - NPC attacks are the cache's own melee animations, baked into each NPC file with the moment the
   blow lands (`tools/world-export/NpcAttackAnims.ts`). The cache does not say which animation an

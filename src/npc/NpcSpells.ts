@@ -43,9 +43,39 @@ export type HitEffect = {
     message?: string;
 };
 
+/**
+ * One of a dragon's breaths, flown as a projectile: the King Black Dragon's fiery, toxic, icy and
+ * shocking breath [wiki: King Black Dragon/Strategies].
+ */
+export type DragonBreath = {
+    name: "fiery" | "toxic" | "icy" | "shocking";
+    /** Relative pick chance among the dragon's breaths. */
+    weight: number;
+    gfx: AttackGfx;
+    /** Max hit unprotected, and behind an anti-dragon shield [wiki: Dragonfire/King Black Dragon]. */
+    max: number;
+    shieldedMax: number;
+    /** Shown when it burns a player without a shield [wiki: King Black Dragon trivia]. */
+    message: string;
+    /** What a successful hit may also do (BREATH_EFFECT_CHANCE): poison, freeze or drain. */
+    effect?: "poison" | "freeze" | "shock";
+};
+
+/**
+ * Chance a special breath's effect comes with a successful hit: "a 50% chance ... Antifire shields
+ * ... reduce the effect chance to 1 in 8" [wiki: King Black Dragon/Strategies].
+ */
+export const BREATH_EFFECT_CHANCE = { unprotected: 1 / 2, shielded: 1 / 8 } as const;
+/** Icy breath "freezes the player for 10 ticks (6 seconds)" [wiki]. */
+export const FREEZE_SECONDS = 10 * 0.6;
+/** Shocking breath "drains two levels off of all the player's stats" [wiki]: the drainable ones here. */
+export const SHOCK_DRAIN: Drain = { skills: ["melee", "defence", "ranged", "magic"], flat: 2 };
+
 export type NpcEffects = {
     /** One picked at random per magic attack. */
     magic?: NpcSpell[];
+    /** A dragon's breaths, one picked by weight per dragonfire attack. Only its toxic breath poisons. */
+    breaths?: DragonBreath[];
     ranged?: AttackGfx;
     onHit?: HitEffect[];
     /** Other spot animations its fight plays (Scurrius's falling debris), exported with the rest. */
@@ -95,6 +125,17 @@ const battleMage = (impact: number): NpcEffects => ({
     // God spells hit with no projectile: the impact plays on the target. [wiki: Battle mage casts god spells]
     magic: [{ name: "God spell", gfx: { impact }, damaging: true }],
 });
+
+// The King Black Dragon: half his breaths are fire, the other half his three specials in equal
+// shares [wiki: Mod Ash], flown as DRAGON_RANGED_FIRE / TOXIC / ICE / LIGHTNING_ATTACK.
+const kingBlackDragon: NpcEffects = {
+    breaths: [
+        { name: "fiery", weight: 3, gfx: { projectile: 393 }, max: 65, shieldedMax: 15, message: "You're horribly burnt by the dragon's fiery breath!" },
+        { name: "toxic", weight: 1, gfx: { projectile: 394 }, max: 50, shieldedMax: 10, message: "You're badly scalded by the dragon's toxic breath!", effect: "poison" },
+        { name: "icy", weight: 1, gfx: { projectile: 395 }, max: 50, shieldedMax: 10, message: "You're chilled to the bone by the dragon's icy breath!", effect: "freeze" },
+        { name: "shocking", weight: 1, gfx: { projectile: 396 }, max: 50, shieldedMax: 10, message: "You're zapped by the dragon's shocking breath!", effect: "shock" },
+    ],
+};
 
 // Scurrius, by the graphics on his model's ids (50142-50155) and their VFX_RAT_BOSS_* sequences:
 // the fur ball (on the projectile spin PROJANIM_DUKE_SPIT) and its impact (PROJ_RANGED_IMPACT_02),
@@ -153,6 +194,7 @@ export const NPC_EFFECTS: Record<number, NpcEffects> = {
     6611: { magic: [{ name: "Lightning", gfx: { cast: 2344, impact: 2346 }, damaging: true }] }, // Vet'ion
     8058: { ranged: { projectile: 1477, impact: 1478 }, magic: [{ name: "Magic", gfx: { projectile: 1479, impact: 1480 }, damaging: true }] }, // Vorkath
     7221: scurrius, 7222: scurrius,
+    239: kingBlackDragon,
     // Chaos Elemental: Discord, its damaging attack. [design: both styles]
     2054: {
         magic: [{ name: "Discord", gfx: { cast: 556, projectile: 557, impact: 558 }, damaging: true }],
@@ -217,6 +259,7 @@ export function npcGraphicIds(): number[] {
     for (const e of Object.values(NPC_EFFECTS)) {
         add(e.ranged);
         e.magic?.forEach((s) => add(s.gfx));
+        e.breaths?.forEach((b) => add(b.gfx));
         e.other?.forEach((id) => ids.add(id));
     }
     return [...ids].sort((a, b) => a - b);
@@ -238,4 +281,21 @@ export function pickNpcSpell(npcId: number, random: () => number, drained?: (ski
     const list = all.filter((s) => !(s.onlyIfUndrained && s.drain && drained && s.drain.skills.some(drained)));
     if (list.length === 0) return all.find((s) => s.damaging);
     return list[Math.floor(random() * list.length) % list.length];
+}
+
+/** The breath a dragon breathes for this dragonfire attack, by weight; undefined if it has none listed. */
+export function pickBreath(npcId: number, random: () => number): DragonBreath | undefined {
+    const breaths = NPC_EFFECTS[npcId]?.breaths;
+    if (!breaths?.length) return undefined;
+    let r = random() * breaths.reduce((sum, b) => sum + b.weight, 0);
+    for (const b of breaths) {
+        r -= b.weight;
+        if (r < 0) return b;
+    }
+    return breaths[breaths.length - 1];
+}
+
+/** True for an NPC whose poison comes only from a breath (the King Black Dragon's toxic breath). */
+export function poisonsOnlyByBreath(npcId: number): boolean {
+    return !!NPC_EFFECTS[npcId]?.breaths?.some((b) => b.effect === "poison");
 }

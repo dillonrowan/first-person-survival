@@ -350,7 +350,7 @@ frequencies]` (dark wizards: Water Strike and Confuse at level 7, Earth Strike a
 elemental wizards their Strike and Weaken; Skeleton Mage Fire Strike and Vulnerability; Suqah Ice
 Barrage and Water Wave; Battle mages their god spell, which has no projectile, only the impact). Ranged
 NPCs fire their arrows, bolts, rocks or spit; bosses (Callisto, Venenatis, Vet'ion, Vorkath, the Chaos
-Elemental, Scurrius) their own projectiles. The cast graphic plays on the NPC 92 RS units up `[design]`; the
+Elemental, Scurrius, the King Black Dragon's four breaths) their own projectiles. The cast graphic plays on the NPC 92 RS units up `[design]`; the
 projectile flies with its OSRS model; on reaching the player the impact (a missed spell: the splash)
 plays at the player's hands. NPCs not in the table keep their exported placeholder.
 
@@ -954,7 +954,10 @@ Event 2152 (weapon swoosh) comes 0.15–0.25 s before the impact; that is the vi
   roll gets through, with no shove or flinch. A hit rolls 0 to
   the style's wiki max hit (the OSRS formula from its levels without one), scaled by the share of
   its attack interval that has passed since its previous attack. A breath splits its max hit over its
-  four damage ticks. `hitPow` now only sizes the NPC's flinch and push.
+  four damage ticks. `hitPow` now only sizes the NPC's flinch and push. A blow with a knock back
+  (Obor's slam: 25% of his clubs, a third of those also knock down [wiki]) throws the player
+  `knockBackTiles` 2 in a short hop unless a wall stops them, then holds them `knockBackStun`
+  0.6 s, or `knockdownDuration` 2 s when knocked down; a parried blow does not knock back.
 - Attack styles: the OSRS wiki lists the styles of every monster (melee, ranged, magic,
   dragonfire, icy breath), which the cache does not. `npm run fetch-wiki-attacks` saves them to
   `tools/world-export/data/npc-attacks-wiki.json`; the exporter turns them into
@@ -977,6 +980,10 @@ Event 2152 (weapon swoosh) comes 0.15–0.25 s before the impact; that is the vi
   (no damage) unless the attack breaks parries. Arrows, spells and breath cannot be parried.
 - Anti-dragon shield (worn in the shield slot): dragonfire's max hit is a tenth, but not icy
   breath's, and not while a bow takes both hands. Its defence bonuses count like any shield's.
+  The King Black Dragon's breaths have their own maxima [wiki: Dragonfire/King Black Dragon]: fire
+  65, or 15 behind the shield; his toxic, icy and shocking breaths 50, or 10. Half his breaths are
+  fire, a sixth each special [wiki: Mod Ash]; a special's successful hit poisons (from 8), freezes
+  (6 s) or drains 2 from each drainable skill half the time, one time in eight behind the shield.
 - Death: after 4 s (`mm_player_death_fadeout_duration`) the player respawns with full health,
   keeping items and skills.
 - Items: a 28-slot inventory, a bank, 11 equipment slots, NPC drops from the wiki drop tables

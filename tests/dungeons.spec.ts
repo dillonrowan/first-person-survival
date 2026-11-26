@@ -238,6 +238,144 @@ test("Bryophyta's lair: in through her gate, she fights, out over the rock pile"
     expect(errors).toEqual([]);
 });
 
+test("Obor's lair: in through his gate, down the rocks, he fights, back up and out", async ({ page }) => {
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(String(e)));
+    // The hill giants of the Edgeville Dungeon, east of his gate; then the safe zone beyond it.
+    const inside = await travel(page, [3097, 9832, 0], [3095, 9832], "Open", [3091, 9814], 4);
+    expect(inside.plane).toBe(0);
+    await shot(page, "obor-1-safe-zone");
+    // Nothing happens up here: he waits for a player in his arena.
+    expect(await page.evaluate(() => window.game!.npcs.all().find((n: any) => n.appearance.name === "Obor")?.behaviour?.mode)).toBe("waiting");
+
+    // Down the rocks into the arena: he is aggressive.
+    expect(await act(page, 3091, 9806, "Climb")).toBeDefined();
+    await arrive(page, false, 9805);
+    await page.waitForFunction(
+        () => window.game!.npcs.all().some((n: any) => n.appearance.name === "Obor" && n.alerted && n.behaviour?.mode === "fighting"),
+        undefined,
+        { timeout: 60_000, polling: 250 },
+    );
+    await page.evaluate(() => {
+        const g = window.game!;
+        const o = g.npcs.all().find((n: any) => n.appearance.name === "Obor");
+        g.player.yaw = Math.atan2(-(o.body.x - g.player.x), o.body.y - g.player.y);
+    });
+    await page.waitForTimeout(1500);
+    await shot(page, "obor-2-fight");
+
+    // Back up the rocks: he gives up and heals; then out through the inner gate.
+    expect(await act(page, 3091, 9805, "Climb")).toBeDefined();
+    await arrive(page, true, 9807);
+    expect(await page.evaluate(() => window.game!.npcs.all().find((n: any) => n.appearance.name === "Obor")?.behaviour?.mode)).toBe("waiting");
+    expect(await act(page, 3091, 9815, "Quick-exit")).toBeDefined();
+    await arrive(page, true, 9825);
+    const out = await page.evaluate(() => ({ x: window.game!.player.x, y: window.game!.player.y }));
+    expect(Math.hypot(out.x - 3096.5, out.y - 9832.5)).toBeLessThan(4);
+    expect(errors).toEqual([]);
+});
+
+test("the King Black Dragon claws and breathes his four breaths, and dies with his own animation", async ({ page }) => {
+    test.setTimeout(400_000);
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(String(e)));
+    await page.goto("/?x=2269&y=4689");
+    await page.waitForFunction(
+        () => !!window.game?.player?.ready && window.game.npcs.all().some((n: any) => n.appearance.name === "King Black Dragon"),
+        undefined,
+        { timeout: 180_000, polling: 1000 },
+    );
+    // Survive his breaths and note each one that reaches the player.
+    await page.evaluate(() => {
+        const g = window.game!;
+        g.tuning.playerUnlimitedHealth = true;
+        const w = window as any;
+        w.__breaths = [];
+        const struck = g.combat.onStruck;
+        g.combat.onStruck = (r: any) => {
+            if (r.breath) w.__breaths.push(r.breath.name);
+            struck(r);
+        };
+        const kbd = g.npcs.all().find((n: any) => n.appearance.name === "King Black Dragon");
+        g.player.yaw = Math.atan2(-(kbd.body.x - g.player.x), kbd.body.y - g.player.y);
+    });
+    // He is aggressive and breathes from range: wait for several breaths.
+    await page.waitForFunction(() => (window as any).__breaths.length >= 6, undefined, { timeout: 240_000, polling: 500 });
+    await shot(page, "kbd-fight");
+    const seen = await page.evaluate(() => ({ breaths: [...new Set((window as any).__breaths)], log: document.querySelector("#message-log")?.textContent ?? "" }));
+    expect(seen.breaths.length).toBeGreaterThan(1);
+    expect(seen.breaths.every((b) => ["fiery", "toxic", "icy", "shocking"].includes(b as string))).toBe(true);
+    expect(seen.log).toMatch(/dragon's (fiery|toxic|icy|shocking) breath/);
+
+    // Killed, he plays his death animation instead of falling as a ragdoll.
+    const death = await page.evaluate(async () => {
+        const g = window.game!;
+        const kbd = g.npcs.all().find((n: any) => n.appearance.name === "King Black Dragon");
+        kbd.combatant.hurt(kbd.combatant.health, "flinch");
+        await new Promise((r) => setTimeout(r, 1500));
+        return { ragdoll: !!kbd.ragdoll, frame: kbd.visualAnimationFrame, steadfast: kbd.combatant.steadfast };
+    });
+    expect(death).toMatchObject({ ragdoll: false, steadfast: true });
+    expect(death.frame).toBeGreaterThan(0);
+    expect(errors).toEqual([]);
+});
+
+for (const boss of [
+    { name: "Obor", start: [3088, 9799], chest: [3085, 9797], key: "Giant key" },
+    { name: "Bryophyta", start: [3226, 9934], chest: [3229, 9934], key: "Mossy key" },
+] as const) {
+    test(`${boss.name}'s chest opens once per kill, with the key, and drops its loot`, async ({ page }) => {
+        const errors: string[] = [];
+        page.on("pageerror", (e) => errors.push(String(e)));
+        await page.goto(`/?x=${boss.start[0]}&y=${boss.start[1]}`);
+        await page.waitForFunction(
+            ([x, y, name]) => {
+                const g = window.game;
+                return (
+                    !!g?.player?.ready &&
+                    g.skillLocs.all().some((s: any) => s.loc.tileX === x && s.loc.tileY === y) &&
+                    g.npcs.all().some((n: any) => n.appearance.name === name)
+                );
+            },
+            [...boss.chest, boss.name] as const,
+            { timeout: 180_000, polling: 1000 },
+        );
+        const open = () =>
+            page.evaluate(
+                ([x, y]) => {
+                    const g = window.game!;
+                    const chest = g.skillLocs.all().find((s: any) => s.loc.tileX === x && s.loc.tileY === y);
+                    const before = g.groundItems.count;
+                    g.skillSystem.locAction(chest, "Open");
+                    return { dropped: g.groundItems.count - before, message: document.querySelector("#message-log")?.textContent?.slice(-120) };
+                },
+                boss.chest,
+            );
+        const keys = () => page.evaluate((key) => window.game!.items.count(window.game!.db.byName(key).id), boss.key);
+
+        await page.evaluate((key) => window.game!.give(key), boss.key);
+        // Not before the boss is dead.
+        expect((await open()).dropped).toBe(0);
+        expect(await keys()).toBe(1);
+
+        await page.evaluate((name) => {
+            const b = window.game!.npcs.all().find((n: any) => n.appearance.name === name);
+            b.combatant.hurt(b.combatant.health, "flinch");
+        }, boss.name);
+        await page.waitForTimeout(500);
+        const looted = await open();
+        expect(looted.dropped).toBeGreaterThan(0);
+        expect(await keys()).toBe(0);
+        await shot(page, `${boss.name.toLowerCase()}-chest`);
+
+        // Once per kill.
+        await page.evaluate((key) => window.game!.give(key), boss.key);
+        expect((await open()).dropped).toBe(0);
+        expect(await keys()).toBe(1);
+        expect(errors).toEqual([]);
+    });
+}
+
 test("the world map shows the dungeon the player is in, and the surface from it", async ({ page }) => {
     await page.goto("/?x=3210&y=9617");
     await page.waitForFunction(() => !!window.game?.player?.ready, undefined, { timeout: 180_000, polling: 1000 });

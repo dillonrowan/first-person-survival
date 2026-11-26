@@ -50,7 +50,8 @@ export type NpcCombatStats = {
 };
 
 /** One entry of an NPC drop table (OSRS wiki): `rolls` rolls of `chance`, a quantity from `min` to `max`. */
-export type NpcDrop = { item: number; min: number; max: number; chance: number; rolls: number };
+/** One drop table row; a `tertiary` one rolls on its own beside the main table (a key, a clue scroll). */
+export type NpcDrop = { item: number; min: number; max: number; chance: number; rolls: number; tertiary?: boolean };
 
 export type NpcAppearanceInfo = {
     /** Spawn (base) NPC id. */

@@ -9,8 +9,10 @@ import { MeleeController, MeleeInput } from "./MeleeController";
 import type { MoveDef } from "./moves";
 import { tuning } from "./tuning";
 import { WEAPONS, WeaponDef } from "./weapons";
-import type { AttackStyle } from "../npc/AttackStyle";
+import type { AttackStyle, KnockBack } from "../npc/AttackStyle";
 import { HIT_CLIP_IMPACT } from "../npc/HitClips";
+import { applyDrain } from "../npc/NpcHitEffects";
+import { BREATH_EFFECT_CHANCE, type DragonBreath, SHOCK_DRAIN } from "../npc/NpcSpells";
 import type { ShieldDef } from "./Shields";
 import { SHIELDS } from "./Shields";
 import type { DefenceType, NpcCombatStats } from "../world/NpcFormat";
@@ -90,6 +92,9 @@ export interface CombatTarget {
 }
 
 /** The player state combat reads and pushes. */
+/** Poison severity of a toxic breath from an NPC without its own: starting at 8 damage. [wiki: King Black Dragon] */
+const TOXIC_BREATH_SEVERITY = 40;
+
 export type CombatPlayer = {
     x: number;
     y: number;
@@ -143,6 +148,11 @@ export type StrikeReport = {
     poisoned?: boolean;
     /** It was a spell (as IncomingStrike.spell): a miss is a splash, shown with no hitsplat. */
     spell?: "damaging" | "curse";
+    /** The blow knocked the player back, or back and down (IncomingStrike.knockBack). */
+    knocked?: "back" | "down";
+    /** The dragon breath it was (IncomingStrike.breath), and the effect its hit brought. */
+    breath?: DragonBreath;
+    breathEffect?: NonNullable<DragonBreath["effect"]>;
 };
 
 /** What the player needs to know about an incoming NPC strike. */
@@ -169,6 +179,10 @@ export type IncomingStrike = {
      * no damage and does not poison.
      */
     spell?: "damaging" | "curse";
+    /** A blow that can knock the player back and down; a parried one cannot. */
+    knockBack?: KnockBack;
+    /** One of a dragon's breaths: its own max hits, and an effect its successful hit may bring. */
+    breath?: DragonBreath;
 };
 
 /**
@@ -507,7 +521,8 @@ export class PlayerCombat {
      * player's defence roll for the style (a miss deals 0 but still shoves and flinches), a damage
      * roll from 0 to the attacker's max hit for the style, scaled by how much of its attack
      * interval has passed. The anti-dragon shield cuts the max hit of dragonfire. The hit pushes the
-     * player 250 u/s away from the attacker.
+     * player 250 u/s away from the attacker; a blow with a knock back may throw them further and
+     * hold them a moment, or knock them down for longer.
      */
     receiveStrike(player: CombatPlayer, strike: IncomingStrike, inCone: boolean): StrikeReport {
         const none = { damage: 0, punch: 0, style: strike.style, shielded: false, missed: false };
@@ -543,8 +558,9 @@ export class PlayerCombat {
             return report;
         }
         const shielded = strike.style === "dragonfire" && this.shieldActive;
-        let max = Math.ceil(npcMaxHit(npc, strike.style) * (strike.share ?? 1));
-        if (shielded) {
+        const breath = strike.breath;
+        let max = Math.ceil((breath ? (shielded ? breath.shieldedMax : breath.max) : npcMaxHit(npc, strike.style)) * (strike.share ?? 1));
+        if (shielded && !breath) {
             max = Math.floor(max * this.shield!.dragonfireFactor);
         }
         const base = success ? Math.floor(this.random() * (max + 1)) : 0;
@@ -561,11 +577,26 @@ export class PlayerCombat {
         // A poisonous monster can poison with any strike that reaches the player, hit or miss [wiki];
         // breath does not poison.
         const severity = npc.poisonSeverity ?? 0;
-        const poisoned =
+        let poisoned =
             severity > 0 &&
             (strike.style === "melee" || strike.style === "ranged" || strike.style === "magic") &&
             this.random() < NPC_POISON_CHANCE &&
             this.combatant.poison.apply(severity);
+        // A special breath's effect: half its successful hits, one in eight behind a shield [wiki].
+        let breathEffect: StrikeReport["breathEffect"];
+        const effect = breath?.effect;
+        if (effect && success && this.random() < (shielded ? BREATH_EFFECT_CHANCE.shielded : BREATH_EFFECT_CHANCE.unprotected)) {
+            if (effect === "poison") {
+                // Toxic breath poisons "starting at 8" [wiki]: the dragon's poison severity.
+                if (this.combatant.poison.apply(severity > 0 ? severity : TOXIC_BREATH_SEVERITY)) {
+                    poisoned = true;
+                    breathEffect = effect;
+                }
+            } else {
+                if (effect === "shock") applyDrain(this.skills, SHOCK_DRAIN);
+                breathEffect = effect;
+            }
+        }
         // A melee blow shoves hard, an arrow or spell a little, breath not at all.
         const push =
             strike.style === "melee"
@@ -575,6 +606,15 @@ export class PlayerCombat {
                   : 0;
         if (push > 0) {
             player.applyImpulse((dx / d) * push, (dy / d) * push);
+        }
+        let knocked: StrikeReport["knocked"];
+        if (strike.knockBack && !this.combatant.dead && this.random() < strike.knockBack.chance) {
+            knocked = this.random() < strike.knockBack.downChance ? "down" : "back";
+            // Thrown up and away: a short hop that carries knockBackTiles unless a wall stops it.
+            const speed = tuning.knockBackTiles / tuning.knockBackAir;
+            player.applyImpulse((dx / d) * speed, (dy / d) * speed, (tuning.gravity * tuning.knockBackAir) / 2);
+            // Knocked down, the player lies there a while; knocked back, only their next move waits.
+            this.combatant.stun(knocked === "down" ? tuning.knockdownDuration : tuning.knockBackStun);
         }
         if (this.combatant.reaction !== "flinch") {
             this.melee.cancel();
@@ -588,6 +628,9 @@ export class PlayerCombat {
             missed: !success,
             ...(poisoned ? { poisoned: true } : {}),
             ...(strike.spell ? { spell: strike.spell } : {}),
+            ...(knocked ? { knocked } : {}),
+            ...(breath ? { breath } : {}),
+            ...(breathEffect ? { breathEffect } : {}),
         };
         this.onStruck?.(report);
         return report;

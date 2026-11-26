@@ -27065,6 +27065,40 @@
    "source": "cache-pair"
   },
   {
+   "locId": 29491,
+   "name": "Rocks",
+   "action": "Climb",
+   "from": [
+    3091,
+    9805,
+    0
+   ],
+   "to": [
+    3091,
+    9808,
+    0
+   ],
+   "dungeon": "Obor's lair",
+   "source": "hand (cache locs, OSRS Wiki: Obor)"
+  },
+  {
+   "locId": 29491,
+   "name": "Rocks",
+   "action": "Climb",
+   "from": [
+    3092,
+    9805,
+    0
+   ],
+   "to": [
+    3092,
+    9808,
+    0
+   ],
+   "dungeon": "Obor's lair",
+   "source": "hand (cache locs, OSRS Wiki: Obor)"
+  },
+  {
    "locId": 30174,
    "name": "Tunnel",
    "action": "Enter",
@@ -27123,6 +27157,40 @@
    "requires": [
     "skills: 42 Agility"
    ]
+  },
+  {
+   "locId": 29491,
+   "name": "Rocks",
+   "action": "Climb",
+   "from": [
+    3091,
+    9806,
+    0
+   ],
+   "to": [
+    3091,
+    9804,
+    0
+   ],
+   "dungeon": "Obor's lair",
+   "source": "hand (cache locs, OSRS Wiki: Obor)"
+  },
+  {
+   "locId": 29491,
+   "name": "Rocks",
+   "action": "Climb",
+   "from": [
+    3092,
+    9806,
+    0
+   ],
+   "to": [
+    3092,
+    9804,
+    0
+   ],
+   "dungeon": "Obor's lair",
+   "source": "hand (cache locs, OSRS Wiki: Obor)"
   },
   {
    "locId": 5046,
@@ -27475,6 +27543,74 @@
    ]
   },
   {
+   "locId": 29489,
+   "name": "Gate",
+   "action": "Open",
+   "from": [
+    3091,
+    9815,
+    0
+   ],
+   "to": [
+    3096,
+    9832,
+    0
+   ],
+   "dungeon": "Obor's lair",
+   "source": "hand (cache locs, OSRS Wiki: Obor)"
+  },
+  {
+   "locId": 29489,
+   "name": "Gate",
+   "action": "Quick-exit",
+   "from": [
+    3091,
+    9815,
+    0
+   ],
+   "to": [
+    3096,
+    9832,
+    0
+   ],
+   "dungeon": "Obor's lair",
+   "source": "hand (cache locs, OSRS Wiki: Obor)"
+  },
+  {
+   "locId": 29488,
+   "name": "Gate",
+   "action": "Open",
+   "from": [
+    3092,
+    9815,
+    0
+   ],
+   "to": [
+    3096,
+    9832,
+    0
+   ],
+   "dungeon": "Obor's lair",
+   "source": "hand (cache locs, OSRS Wiki: Obor)"
+  },
+  {
+   "locId": 29488,
+   "name": "Gate",
+   "action": "Quick-exit",
+   "from": [
+    3092,
+    9815,
+    0
+   ],
+   "to": [
+    3096,
+    9832,
+    0
+   ],
+   "dungeon": "Obor's lair",
+   "source": "hand (cache locs, OSRS Wiki: Obor)"
+  },
+  {
    "locId": 27095,
    "name": "Clan Cup portal",
    "action": "Use",
@@ -27800,6 +27936,23 @@
    "source": "shortest-path@e56f8ff"
   },
   {
+   "locId": 29487,
+   "name": "Gate",
+   "action": "Open",
+   "from": [
+    3095,
+    9832,
+    0
+   ],
+   "to": [
+    3091,
+    9814,
+    0
+   ],
+   "dungeon": "Obor's lair",
+   "source": "hand (cache locs, OSRS Wiki: Obor)"
+  },
+  {
    "locId": 12770,
    "name": "Cave entrance",
    "action": "Enter",
@@ -27818,6 +27971,23 @@
    "requires": [
     "quests: In Aid of the Myreque"
    ]
+  },
+  {
+   "locId": 29486,
+   "name": "Gate",
+   "action": "Open",
+   "from": [
+    3095,
+    9833,
+    0
+   ],
+   "to": [
+    3091,
+    9814,
+    0
+   ],
+   "dungeon": "Obor's lair",
+   "source": "hand (cache locs, OSRS Wiki: Obor)"
   },
   {
    "locId": 11805,

@@ -4,7 +4,8 @@ import type { Stack } from "./ItemContainer";
 /**
  * Rolls an NPC drop table: entries that always drop (chance 1) drop; then, for each of the table
  * rolls, one entry of the rest is picked with probability equal to its chance (the chances add up
- * along the table, the remainder is nothing), and drops a quantity from min to max.
+ * along the table, the remainder is nothing), and drops a quantity from min to max. Tertiary
+ * entries (keys, clue scrolls) each roll on their own, once per roll of theirs.
  */
 export function rollDrops(drops: readonly NpcDrop[], random: () => number): Stack[] {
     const out: Stack[] = [];
@@ -12,7 +13,7 @@ export function rollDrops(drops: readonly NpcDrop[], random: () => number): Stac
     for (const d of drops) {
         if (d.chance >= 1) out.push({ id: d.item, qty: quantity(d) });
     }
-    const rest = drops.filter((d) => d.chance < 1);
+    const rest = drops.filter((d) => d.chance < 1 && !d.tertiary);
     const rolls = Math.max(1, ...rest.map((d) => d.rolls));
     for (let i = 0; i < rolls && rest.length > 0; i++) {
         let x = random();
@@ -22,6 +23,12 @@ export function rollDrops(drops: readonly NpcDrop[], random: () => number): Stac
                 out.push({ id: d.item, qty: quantity(d) });
                 break;
             }
+        }
+    }
+    for (const d of drops) {
+        if (!d.tertiary || d.chance >= 1) continue;
+        for (let i = 0; i < d.rolls; i++) {
+            if (random() < d.chance) out.push({ id: d.item, qty: quantity(d) });
         }
     }
     return out;

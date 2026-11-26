@@ -53,6 +53,11 @@ describe("rowToDrop", () => {
         });
     });
 
+    it("keeps the version of the drop table", () => {
+        expect(rowToDrop({ item_name: "Giant key", drop_json: json({ "Dropped from": "Obor#Free-to-play" }) })?.version).toBe("Free-to-play");
+        expect(rowToDrop({ item_name: "Bones", drop_json: json({ "Dropped from": "Goblin" }) })?.version).toBeUndefined();
+    });
+
     it("skips rare drop table rows, unknown rarities and Nothing", () => {
         expect(rowToDrop({ item_name: "X", rare_drop_table: true, drop_json: json({}) })).toBeUndefined();
         expect(rowToDrop({ item_name: "X", drop_json: json({ Rarity: "Varies" }) })).toBeUndefined();

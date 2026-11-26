@@ -109,10 +109,10 @@ attack animations are baked frame by frame into `npcs/{id}_{displayId}.bin`, and
 written to `npcs.json` (with the attack styles of NPCs that use more than melee, from the OSRS wiki). The game plays the baked frames back and wanders the NPCs itself.
 
 **Skill locs.** Trees, rocks, farming patches, facilities (furnaces, ranges,
-anvils…), stalls and runecraft altars become interactive locs of kind `skill` in the
+anvils…), stalls, runecraft altars and the boss chests (Obor's, Bryophyta's) become interactive locs of kind `skill` in the
 region file. Mysterious ruins do not: the placed ruins are multilocs whose ids the wiki does not
 list, so the game places their targets itself at each altar's ruins tile from `skills.json`. Which locs those are comes from `tools/world-export/data/skill-locs.json`, written
-by `npm run export-skills`. Trees and rocks get their own meshes plus a stump or empty-rock mesh,
+by `npm run export-skills`. Trees, rocks and boss chests get their own meshes plus a stump, empty-rock or open-chest mesh,
 and patches one mesh per growth state, so the game can swap them;
 the others stay part of the region meshes. They keep their collision.
 

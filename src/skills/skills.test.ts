@@ -444,3 +444,55 @@ describe("slayer", () => {
         expect(setup(1).sys.slayer.canDamage(3028)).toBe(true);
     });
 });
+
+describe("boss chests", () => {
+    const GIANT_KEY = 20754;
+    function setup() {
+        const data = emptyManifest();
+        data.chests = [
+            {
+                name: "Chest (Obor's lair)",
+                boss: "Obor",
+                locIds: [56380],
+                npcIds: [7416],
+                key: GIANT_KEY,
+                loot: [{ item: 995, min: 10000, max: 10000, p: 6 / 118 }, { item: 563, min: 50, max: 50, p: 12 / 118 }],
+                tertiary: [{ item: GIANT_KEY, min: 1, max: 1, p: 1 / 16 }],
+            },
+        ];
+        data.locs["56380"] = { role: "chest", index: 0 };
+        const t = createTestSkills(data, [
+            { id: 995, name: "Coins", stackable: true },
+            { id: 563, name: "Law rune", stackable: true },
+            { id: GIANT_KEY, name: "Giant key" },
+        ]);
+        return { t, chest: testLoc(56380, "Chest", 3085, 9797) };
+    }
+
+    it("opens once per kill of its boss, with the key, and drops the loot on the ground", () => {
+        const { t, chest } = setup();
+        t.sys.locAction(chest, "Open");
+        expect(t.logs.at(-1)).toBe("You need to defeat Obor before you can open the chest.");
+
+        t.sys.onNpcDeath(testNpc(7416, "Obor"));
+        t.sys.locAction(chest, "Open");
+        expect(t.logs.at(-1)).toBe("You need a giant key to open this chest.");
+
+        t.inventory.add(GIANT_KEY, 1);
+        setRandom(() => 0);
+        t.sys.locAction(chest, "Open");
+        expect(t.inventory.count(GIANT_KEY)).toBe(0);
+        // The first row of the main table, and the tertiary key.
+        expect(t.ground.map((s) => [s.id, s.qty])).toEqual([[995, 10000], [GIANT_KEY, 1]]);
+        expect(t.sys.look(chest)).toBe(1);
+
+        // Looted: the next opening needs another kill.
+        t.inventory.add(GIANT_KEY, 1);
+        t.sys.locAction(chest, "Open");
+        expect(t.logs.at(-1)).toBe("You need to defeat Obor before you can open the chest.");
+        expect(t.inventory.count(GIANT_KEY)).toBe(1);
+        // It shows closed again a few ticks later.
+        t.ctx.clock.advance(5);
+        expect(t.sys.look(chest)).toBeUndefined();
+    });
+});

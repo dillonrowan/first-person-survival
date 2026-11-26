@@ -194,6 +194,8 @@ weapon, body, shield, legs, hands, feet and ring, with the total bonuses), **Ski
 - You start with the runes, a bronze sword wielded, arrows in the ammunition slot, and a few spare
   weapons. Items you drop lie on the ground for 3 minutes. Killed NPCs drop what their OSRS drop
   table says. Items also lie around the world and come back a minute after you take them.
+- Obor's and Bryophyta's chests open once per kill of their boss, taking a giant or mossy key, and
+  drop their loot at your feet.
 - Press `E` on an item on the ground to take it. Press `E` on a bank booth or chest, or use a banker's
   Bank option, to open the bank: click an item to move one, right click for 5, 10 or all, search by
   name, or deposit everything you carry or wear. The bank has no slot limit and stacks everything.
@@ -299,7 +301,9 @@ sidestep a kick, ducking out of the way.
 
 Some NPCs fight in more than one way. Dragons sometimes breathe fire in a cone in front of them
 when you stand next to them, so step out of the cone or behind them (or wear the anti-dragon
-shield). Archers and mages keep their distance and shoot arrows or cast spells at where you were
+shield). The King Black Dragon breathes from across his lair: fire, or a toxic breath that may
+poison you, an icy one that may freeze you in place, or a shocking one that may drain your combat
+levels; the anti-dragon shield cuts all four and makes their effects rarer. Archers and mages keep their distance and shoot arrows or cast spells at where you were
 standing, so strafing out of the way or putting a wall between you works.
 
 Ladders, stairs, cave mouths and trapdoors use the same keys. A trapdoor or manhole is closed at

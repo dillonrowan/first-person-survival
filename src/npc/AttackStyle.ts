@@ -29,6 +29,14 @@ export type BreathInfo = {
 
 export type ProjectileInfo = { kind: ProjectileKind; speed: number; color: number };
 
+/** A blow that can throw the player back, and sometimes off their feet (Obor's slam). */
+export type KnockBack = {
+    /** Chance a blow that reaches the player knocks them back. */
+    chance: number;
+    /** Chance a knock back also knocks them down. */
+    downChance: number;
+};
+
 /** One attack style of an NPC, as written to npcs.json (NpcAppearanceInfo.attackStyles). */
 export type NpcStyledAttackInfo = {
     style: AttackStyle;

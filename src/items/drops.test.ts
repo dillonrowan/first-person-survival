@@ -34,4 +34,12 @@ describe("rollDrops", () => {
         const twice = table.map((d) => (d.chance < 1 ? { ...d, rolls: 2 } : d));
         expect(rollDrops(twice, scripted(0.2, 0, 0.2, 0)).filter((s) => s.id === 995)).toHaveLength(2);
     });
+
+    it("rolls tertiary entries on their own, beside the main table", () => {
+        const withKey = [...table, { item: 20754, min: 1, max: 1, chance: 1 / 16, rolls: 1, tertiary: true }];
+        // Main roll 0.02 picks the coins (then 0 for their quantity); the key's roll 0.01 < 1/16.
+        expect(rollDrops(withKey, scripted(0.02, 0, 0.01)).map((s) => s.id)).toEqual([526, 995, 20754]);
+        // The key never takes the main roll's place: 0.9 there is nothing, and 0.5 misses the key.
+        expect(rollDrops(withKey, scripted(0.9, 0.5)).map((s) => s.id)).toEqual([526]);
+    });
 });

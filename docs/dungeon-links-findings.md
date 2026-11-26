@@ -77,6 +77,7 @@ coordinates, so the tiles come from the cache: the entrance and exit locs, match
 | Theatre of Blood | Theatre of Blood 32653, 3678,3216 | Maiden, then each Formidable passage (33113) to the next room; Xarpus's door to Verzik; the gate 32691 at the end of Verzik's entry corridor to the treasure room (OSRS spawns the real exit on the kill) | treasure room stairs |
 | Scurrius' Lair | Broken bars 14203, 3282,9867 (Varrock Sewers) | the arena, 3291,9867 | Sewage water 14204, 3288,9867, back to 3281,9867 |
 | Bryophyta's lair | Gate 32534, 3174,9901 (Varrock Sewers) | her chamber, 3215,9937 | Rock Pile 32535, 3212,9937, back to 3174,9899 |
+| Obor's lair | Gate 29486/29487, 3095,9832 (Edgeville Dungeon, hill giants) | the safe zone, 3091,9814; Rocks 29491 down into the arena, 3091,9804, and back up | inner Gate 29488/29489 (Open or Quick-exit), 3091,9815, back to 3096,9832 |
 | Chambers of Xeric | Chambers of Xeric 29777, 1232,3573 | the room templates (x 3264..3359, y 5120..5407) in a fixed order, sorted by row then column: every passage, hole or steps in a room leads to the next room's centre, the last room's to the Olm's chamber | the ropes 29995, 29996, 32543 |
 
 OSRS builds a Chambers of Xeric raid from these templates at random; here they stand in one order.
@@ -90,9 +91,9 @@ generator is `tools/world-export/out/gen-overrides.cjs`.
 
 Player-owned house portals are excluded: the house is an instance. The NPC spawn list has the
 Wilderness bosses where they stood before the 2023 rework; `data/npc-spawn-overrides.json` moves
-Callisto, Vet'ion and Venenatis into their lairs and adds Artio, Calvar'ion, Spindel, the Great Olm and
-Scurrius (newer than the list), with his giant rats, and Bryophyta's growthlings baked for them to
-summon but not placed.
+Callisto, Vet'ion and Venenatis into their lairs and adds Artio, Calvar'ion, Spindel, the Great Olm,
+Scurrius (newer than the list) and Obor (his lair is an instance), with Scurrius's giant rats and
+Bryophyta's growthlings baked for them to summon but not placed.
 
 Wall locs (the Theatre of Blood passages, tomb doors, many crevices) that a link starts at are
 exported as passages, not swinging doors; a passage on an unnamed loc takes its link's name.
@@ -108,10 +109,10 @@ squares and the world map's dungeon views.
 
 | | Count |
 | --- | --- |
-| Links | 1,889 |
+| Links | 1,899 |
 | from the external transports | 1,520 |
 | from cache pairs (entrance and exit) | 220 |
-| by hand (`dungeon-links-overrides.json`) | 159 (some replace a pair or row) |
+| by hand (`dungeon-links-overrides.json`) | 169 (some replace a pair or row) |
 | Surface entrances (surface to underground) | 427 |
 | Distinct dungeon names | 151 |
 | Links with requirements recorded | 338 |

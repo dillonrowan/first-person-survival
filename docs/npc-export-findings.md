@@ -176,7 +176,7 @@ revenants, the Suqah, metal dragons' ranged attack); the wiki describes no separ
   animations are baked since format 3 (melee) and, since format 4, one per extra attack style
   (breath, cast, bow shot, spit) for the NPCs the OSRS wiki gives several styles. Format 5 adds
   extra clips a boss fight plays by sequence id (`extraSeqs` in `data/npc-attack-overrides.ts`):
-  Scurrius's stomp, summon, eating, run, enrage and death; Bryophyta's stamp and death. Deaths are otherwise ragdolls, though the
+  Scurrius's stomp, summon, eating, run, enrage and death; Bryophyta's stamp and death; Obor's death. Deaths are otherwise ragdolls, though the
   cache has death sequences. Which styles an NPC uses is not in the cache (server
   data): `npm run fetch-wiki-attacks` refreshes `data/npc-attacks-wiki.json` from the wiki, and
   `tools/world-export/list-npc-seqs.ts <npcId>` lists the named sequences of an NPC's skeleton
@@ -186,7 +186,10 @@ revenants, the Suqah, metal dragons' ranged attack); the wiki describes no separ
   ids as item bonuses (5-8 defence; the attack bonus and often the ranged defence are missing). The
   exporter fills the gaps from the wiki's `infobox_monster` bucket (`npm run fetch-wiki-attacks`)
   and writes them as `NpcAppearanceInfo.combat`, with drop tables (the wiki's `dropsline` bucket)
-  as `drops`.
+  as `drops`. A page with several versions of its table (members and free-to-play, a monster's
+  areas) keeps one: the members one, else the one named for the NPC level, else the first, beside
+  the rows every version shares. Keys, clue scrolls and the like are tertiary rows that roll on
+  their own; the main table is one roll, scaled to fit where the wiki's chances add up past 1.
 - Items: item definitions carry the examine text (opcode 3), the stackable flag (11), the inventory
   icon camera (4-8 and 95) and scale (110-112), and the equipment bonuses, attack speed (param 14)
   and skill requirements (params 434-437) as params: 0-4 attack, 5-9 defence, 10 melee strength,
@@ -196,7 +199,8 @@ revenants, the Suqah, metal dragons' ranged attack); the wiki describes no separ
 - Wandering is client-side only and uses a simplified size-N footprint rule.
 - The spawn list is from 2023. Newer content has no spawns until the list is updated.
 - Ground items come from the wiki's item spawn lines (`npm run fetch-wiki-items`), written to
-  `ground-items.json`; bank booths and chests are exported as `bank` interactives.
+  `ground-items.json`; bank booths and chests are exported as `bank` interactives (the boss chests
+  of Obor and Bryophyta are skill locs, from `export-skills`).
 - Spot animations (config archive 13, `rs/config/spotanimtype/SpotAnimType.ts`): opcode 1 model
   (u16), 3 model (int, rev 242 uses this), 2 sequence, 4/5 width and height scale, 6 orientation
   (degrees), 7/8 ambient and contrast, 10 a flag with no data (the Surge impacts), 40/41 recolours

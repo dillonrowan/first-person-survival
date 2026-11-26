@@ -78,6 +78,14 @@ export const tuning = {
     playerPushOnHit: units(250),
     /** An NPC arrow or spell pushes the player this fraction of playerPushOnHit. [design] */
     npcProjectilePush: 0.3,
+    /**
+     * A knock back (Obor's slam) throws the player this many tiles in a hop of knockBackAir seconds,
+     * unless a wall stops them. The wiki gives no distance. [design]
+     */
+    knockBackTiles: 2,
+    knockBackAir: 0.35,
+    /** Seconds a knock back holds the player: "your next attack will be slightly delayed" [wiki: Obor]. */
+    knockBackStun: 0.6,
 
     // --- 8 Adrenaline ---
     /** [data player_adrenaline_base_max / _needed] */

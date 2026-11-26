@@ -13,11 +13,13 @@ import type { NpcAttack, StrikeEvent } from "./npc/NpcAttacks";
 import { BreathView } from "./npc/BreathView";
 import { inBreathCone } from "./npc/Breath";
 import { NpcProjectileView } from "./npc/NpcProjectileView";
-import { NPC_EFFECTS, npcGraphicIds, pickNpcSpell } from "./npc/NpcSpells";
+import { FREEZE_SECONDS, NPC_EFFECTS, npcGraphicIds, pickBreath, pickNpcSpell, poisonsOnlyByBreath } from "./npc/NpcSpells";
 import { FallingBricks } from "./npc/FallingBricks";
 import { FallingBricksView } from "./npc/FallingBricksView";
 import { GIANT_RAT_ID, SCURRIUS_IDS, ScurriusFight } from "./npc/Scurrius";
 import { BRYOPHYTA_ID, BryophytaFight, GROWTHLING_ID } from "./npc/Bryophyta";
+import { OBOR_ID, OborFight } from "./npc/Obor";
+import { KING_BLACK_DRAGON_ID, KingBlackDragonFight } from "./npc/KingBlackDragon";
 import { applyDrain, curseMessage, runHitEffects } from "./npc/NpcHitEffects";
 import { NpcProjectile, ProjectileTarget, launchNpcProjectile, stepNpcProjectiles } from "./npc/NpcProjectiles";
 import { presenceFor } from "./npc/NpcSenses";
@@ -243,7 +245,8 @@ async function main(): Promise<void> {
           })
         : undefined;
     // Boss fights: Scurrius (npc/Scurrius.ts), with the rubble his stomps bring down and the rats he
-    // calls up, and Bryophyta (npc/Bryophyta.ts) with her growthlings.
+    // calls up, Bryophyta (npc/Bryophyta.ts) with her growthlings, Obor (npc/Obor.ts) with his slam,
+    // and the King Black Dragon (npc/KingBlackDragon.ts; his breaths are in npc/NpcSpells.ts).
     const fallingBricks = new FallingBricks();
     const fallingBricksView = new FallingBricksView(scene, spellEffects, (plane, x, y) => world.groundHeight(plane, x, y));
     if (npcs) {
@@ -263,6 +266,12 @@ async function main(): Promise<void> {
                     random: Math.random,
                     say,
                 });
+            }
+            if (npc.appearance.id === OBOR_ID) {
+                return new OborFight(npc, Math.random);
+            }
+            if (npc.appearance.id === KING_BLACK_DRAGON_ID) {
+                return new KingBlackDragonFight(npc);
             }
             return undefined;
         };
@@ -484,7 +493,13 @@ async function main(): Promise<void> {
             spellEffects.play(graphics.cast, atHands, 0, CAST_VIEW_SCALE);
         }
     };
-    combat.onStruck = ({ outcome, style, shielded, damage, missed, poisoned, spell }) => {
+    combat.onStruck = ({ outcome, style, shielded, damage, missed, poisoned, spell, knocked, breath }) => {
+        if (knocked) {
+            ui.showMessage(knocked === "down" ? "You're knocked down!" : "You're knocked back!");
+            // Thrown off their feet, the player's head snaps about and the view sways while they lie there.
+            hitFeel.impact(1);
+            stunFeel.kick(Math.random() < 0.5 ? -1 : 1, knocked === "down" ? 1 : 0.5);
+        }
         if (outcome === "hit") {
             combatHud.showDamage(damage, missed);
             // A curse does no damage, and a splashed spell shows only its splash: no hitsplat (OSRS).
@@ -495,7 +510,9 @@ async function main(): Promise<void> {
                 ui.showMessage("You have been poisoned!");
             }
             if (style === "dragonfire") {
-                ui.showMessage(shielded ? "You manage to resist some of the dragon fire!" : "You're horribly burnt by the dragon fire!");
+                ui.showMessage(
+                    shielded ? "You manage to resist some of the dragon fire!" : (breath?.message ?? "You're horribly burnt by the dragon fire!"),
+                );
             }
         } else if (outcome === "parried") {
             // A blow (an NPC's strike or its blow back from a parry) taken on the held weapon.
@@ -563,9 +580,11 @@ async function main(): Promise<void> {
                     push: a.push,
                     breaksParry: a.breaksParry,
                     style: "melee",
-                    attacker: npc.combatStats,
+                    // The King Black Dragon poisons only with his toxic breath.
+                    attacker: poisonsOnlyByBreath(npc.appearance.id) ? { ...npc.combatStats, poisonSeverity: 0 } : npc.combatStats,
                     rate: event.rate,
                     share: 1 / a.hitTimes.length,
+                    ...(a.knockBack ? { knockBack: a.knockBack } : {}),
                 },
                 npc.facingCos(body.x, body.y) >= Math.cos(tuning.npcStrikeCone),
             );
@@ -612,9 +631,12 @@ async function main(): Promise<void> {
                 const effects = NPC_EFFECTS[npc.appearance.id];
                 const spell =
                     a.style === "magic" ? pickNpcSpell(npc.appearance.id, Math.random, (s) => skills.drained(s)) : undefined;
-                const gfx = spell ? spell.gfx : a.style === "ranged" ? effects?.ranged : undefined;
+                // A dragon with several breaths breathes one of them (the King Black Dragon).
+                const breath = a.style === "dragonfire" ? pickBreath(npc.appearance.id, Math.random) : undefined;
+                const gfx = spell ? spell.gfx : breath ? breath.gfx : a.style === "ranged" ? effects?.ranged : undefined;
                 projectile.shooter = npc;
                 if (spell) projectile.npcSpell = spell;
+                if (breath) projectile.breath = breath;
                 if (gfx) {
                     projectile.gfx = gfx;
                     if (gfx.cast !== undefined) {
@@ -1106,11 +1128,20 @@ async function main(): Promise<void> {
                     style: p.style,
                     direct: true,
                     ...(p.attacker ? { attacker: p.attacker } : {}),
+                    ...(p.breath ? { breath: p.breath } : {}),
                     rate: p.rate,
                     share: p.share,
                 },
                 true,
             );
+            if (struck.breathEffect === "freeze") {
+                // Icy breath freezes the player where they stand [wiki: 10 ticks].
+                player.boundFor = Math.max(player.boundFor, FREEZE_SECONDS);
+                ui.showMessage("You have been frozen!");
+            } else if (struck.breathEffect === "shock") {
+                ui.showMessage("The shock drains your stats!");
+                skillsChanged();
+            }
             if (struck.outcome === "hit") {
                 // The impact on the player (a missed spell: the splash), drawn where the hands are so
                 // it shows in first person, like the player's own cast graphic.

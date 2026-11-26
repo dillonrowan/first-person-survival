@@ -2,7 +2,7 @@ import { TICK_SECONDS, attackRate } from "../combat/Osrs";
 import { tuning } from "../combat/tuning";
 import { units } from "../player/MoveMath";
 import type { NpcAttackClip } from "../world/NpcFormat";
-import { ADJACENT, AttackStyle, BreathInfo, NpcStyledAttackInfo, ProjectileInfo, RANGED_MAX } from "./AttackStyle";
+import { ADJACENT, AttackStyle, BreathInfo, KnockBack, NpcStyledAttackInfo, ProjectileInfo, RANGED_MAX } from "./AttackStyle";
 import { CLIENT_CYCLE_SECONDS } from "./NpcAnimation";
 
 /**
@@ -47,6 +47,8 @@ export type NpcAttack = {
      * handles it, see Scurrius.ts). It deals no damage itself.
      */
     special?: "bricks" | "summon";
+    /** The blow can knock the player back and down (Obor's slam, see Obor.ts). */
+    knockBack?: KnockBack;
 };
 
 const attack = (

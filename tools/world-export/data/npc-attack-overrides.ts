@@ -92,7 +92,15 @@ export const OVERRIDES: Record<string, NpcAttackOverride> = {
     },
     // A drake has no breath sequence; it breathes fire with the pose of its ranged attack.
     Drake: { styles: { dragonfire: { longRange: true, seq: 8276 } } }, // DRAKE_RANGED
-    "King Black Dragon": { styles: { dragonfire: { longRange: true, hitPow: 2.5 } } },
+    // The King Black Dragon: next to the player one attack in three is melee, the rest breaths [wiki:
+    // Mod Ash]; he claws and butts with his heads, breathes with all three, and dies as dragons do.
+    "King Black Dragon": {
+        styles: {
+            melee: { seq: [80, 91], weight: 1 }, // DRAGON_ATTACK, DRAGON_HEAD_ATTACK
+            dragonfire: { longRange: true, hitPow: 2.5, seq: 81, weight: 2 }, // DRAGON_FIREBREATH_ALL_ATTACK
+        },
+        extraSeqs: [92], // DRAGON_DEATH
+    },
     // Attacks the names do not give, checked against the OSRS Wiki's account of each fight
     // (tools/world-export/audit-npc-attacks.ts lists what the export picked).
     Cerberus: { styles: { magic: { seq: 4490 } } }, // CERBERUS_ATTACK_RANGE: both are balls from her mouths
@@ -109,6 +117,17 @@ export const OVERRIDES: Record<string, NpcAttackOverride> = {
     "Taloned Wyvern": { styles: { ranged: { seq: 7657 } } },
     "Spitting Wyvern": { styles: { ranged: { seq: 7657 } } },
     "Ancient Wyvern": { styles: { ranged: { seq: 7657 } } },
+    // Obor clubs with the hill giant's attack (his slam, src/npc/Obor.ts) and throws with the giants'
+    // forward thrust; he dies as hill giants do.
+    Obor: {
+        styles: {
+            melee: { seq: 4652 }, // GIANT_UPDATE_BASIC_ATTACK
+            ranged: { seq: 7173, projectile: "rock", color: 0x8a7a66 }, // GIANT_BASIC_SPELL
+        },
+        extraSeqs: [
+            4653, // GIANT_UPDATE_BASIC_DEATH
+        ],
+    },
     // Bryophyta clubs with the moss giant's attack and casts with the giants' spell; she stamps to call
     // up her growthlings and dies as moss giants do (src/npc/Bryophyta.ts plays these by id).
     Bryophyta: {
