@@ -309,7 +309,14 @@ when you are next to them, crescents across the den when you are not, and now an
 white orb you can sidestep, which throws you three tiles back and hurts more the closer the wall
 behind you is. At two thirds and one third of their health they roar and red bear traps spring up
 across the den; stepping on one hurts and holds you for a few seconds, and in the last third new
-traps come with every attack. Archers and mages keep their distance and shoot arrows or cast spells at where you were
+traps come with every attack. Vet'ion (in Vet'ion's Rest) and Calvar'ion (in the Skeletal Tomb)
+attack as soon as you walk in too. They call lightning onto five tiles at a time, one on or next to
+yours; each tile glows before its bolt strikes it and the tiles around it, so step off. Stand next
+to them and now and then they shield bash: get out of the shadows on the floor, or you are hit and
+cannot attack for a few seconds. At half health they call two skeleton hellhounds and cannot be hurt
+until both are dead. Brought to 0, they rise again in an orange second form at full health, after a
+ring of lightning that only misses you under them or well away; that form attacks faster, calls
+greater hounds at half health, and reverts if you have not killed it within five minutes. Archers and mages keep their distance and shoot arrows or cast spells at where you were
 standing, so strafing out of the way or putting a wall between you works.
 
 Ladders, stairs, cave mouths and trapdoors use the same keys. A trapdoor or manhole is closed at

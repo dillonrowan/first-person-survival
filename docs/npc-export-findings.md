@@ -177,7 +177,10 @@ revenants, the Suqah, metal dragons' ranged attack); the wiki describes no separ
   (breath, cast, bow shot, spit) for the NPCs the OSRS wiki gives several styles. Format 5 adds
   extra clips a boss fight plays by sequence id (`extraSeqs` in `data/npc-attack-overrides.ts`):
   Scurrius's stomp, summon, eating, run, enrage and death; Bryophyta's stamp and death; Obor's and
-  the King Black Dragon's deaths; Callisto's and Artio's roar and death. Deaths are otherwise ragdolls, though the
+  the King Black Dragon's deaths; Callisto's and Artio's roar and death; Vet'ion's and Calvar'ion's
+  lightning swing, shield bash, rise, enrage and death, both forms' (each form is its own NPC; the
+  second, 6612 and 11994, and their hounds are baked `summonOnly` for the fight to turn into and
+  call up). Deaths are otherwise ragdolls, though the
   cache has death sequences. Which styles an NPC uses is not in the cache (server
   data): `npm run fetch-wiki-attacks` refreshes `data/npc-attacks-wiki.json` from the wiki, and
   `tools/world-export/list-npc-seqs.ts <npcId>` lists the named sequences of an NPC's skeleton

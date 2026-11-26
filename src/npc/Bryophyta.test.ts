@@ -170,12 +170,12 @@ describe("Bryophyta's fight", () => {
         expect(messages).toContain("Bryophyta calls up her growthlings!");
         const growthlings = [...fight.growthlings];
         expect(growthlings.every((g) => g.alerted && inChamber(g.body.x, g.body.y, 0))).toBe(true);
-        expect(fight.invulnerable).toBe(true);
+        expect(fight.damageTaken).toBe(0);
 
         // Any weapon kills them; with the last one gone she can be hurt again.
         for (const g of growthlings) g.combatant.hurt(g.combatant.health, "flinch");
         npcs.update(0.02, player);
-        expect(fight.invulnerable).toBe(false);
+        expect(fight.damageTaken).toBe(1);
     });
 
     it("does not summon while the player leaves her alone", async () => {

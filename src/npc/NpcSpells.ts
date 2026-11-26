@@ -188,6 +188,14 @@ const bear = (enrage: number, knockBack: NpcSpell): NpcEffects => ({
     other: [enrage, BEAR_TRAP_GFX.spawn, BEAR_TRAP_GFX.idle, BEAR_TRAP_GFX.spring],
 });
 
+/**
+ * Vet'ion's and Calvar'ion's graphics, purple in the first form and orange in the second: the
+ * lightning crackling on the raised sword (VFX_SPELLCAST_VETION_01), a tile's glow and the bolt
+ * that strikes it 60 client cycles later (VFX_SPELLIMPACT_VETION_01), and the rubble the shield
+ * bash throws up in front of him (VFX_MELEE_IMPACT_VETION_01, bursting at 60 cycles).
+ */
+export const VETION_GFX = { cast: [2344, 2345], bolt: [2346, 2347], bash: 2348 } as const;
+
 /** Effects by NPC id. */
 export const NPC_EFFECTS: Record<number, NpcEffects> = {
     // ----- Magic -----
@@ -233,7 +241,7 @@ export const NPC_EFFECTS: Record<number, NpcEffects> = {
     6609: bear(BEAR_ENRAGE_GFX.callisto, bearKnockBack(2 * 0.6, true)), // Callisto
     11992: bear(BEAR_ENRAGE_GFX.artio, bearKnockBack(0, false)), // Artio
     6610: { ranged: { projectile: 2356, impact: 2357 }, magic: [{ name: "Magic", gfx: { projectile: 2358, impact: 2359 }, damaging: true }] }, // Venenatis
-    6611: { magic: [{ name: "Lightning", gfx: { cast: 2344, impact: 2346 }, damaging: true }] }, // Vet'ion
+    6611: { other: [...VETION_GFX.cast, ...VETION_GFX.bolt, VETION_GFX.bash] }, // Vet'ion and Calvar'ion
     8058: { ranged: { projectile: 1477, impact: 1478 }, magic: [{ name: "Magic", gfx: { projectile: 1479, impact: 1480 }, damaging: true }] }, // Vorkath
     7221: scurrius, 7222: scurrius,
     239: kingBlackDragon,

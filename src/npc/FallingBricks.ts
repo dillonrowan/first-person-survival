@@ -63,13 +63,13 @@ export class FallingBricks {
     }
 }
 
-/** True if the player's centre stands on the brick's tile. */
-export function onTile(player: BrickTarget, brick: Brick): boolean {
+/** True if the player's centre stands on the tile with its south-west corner at (x, y). */
+export function onTile(player: BrickTarget, tile: BrickTarget): boolean {
     return (
-        player.plane === brick.plane &&
-        player.x >= brick.x - TILE_MARGIN &&
-        player.x < brick.x + 1 + TILE_MARGIN &&
-        player.y >= brick.y - TILE_MARGIN &&
-        player.y < brick.y + 1 + TILE_MARGIN
+        player.plane === tile.plane &&
+        player.x >= tile.x - TILE_MARGIN &&
+        player.x < tile.x + 1 + TILE_MARGIN &&
+        player.y >= tile.y - TILE_MARGIN &&
+        player.y < tile.y + 1 + TILE_MARGIN
     );
 }

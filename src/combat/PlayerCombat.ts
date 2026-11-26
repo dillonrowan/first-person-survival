@@ -201,10 +201,15 @@ export class PlayerCombat {
     readonly melee: MeleeController;
     readonly kick = new KickController();
     weaponIndex = 0;
+    /** Seconds left in which the player cannot attack (disarm). */
+    disarmedFor = 0;
     /** Called for every hit, for hit markers and sounds. */
     onHit?: (report: HitReport) => void;
-    /** False for a target the player cannot hurt yet (Slayer level too low): its hits do 0. */
-    canDamage?: (target: CombatTarget) => boolean;
+    /**
+     * Share of the damage a target takes, 0 to 1: 0 for one the player cannot hurt yet (Slayer level
+     * too low, a boss shielded by its minions), whose hits do 0.
+     */
+    damageTaken?: (target: CombatTarget) => number;
     /** Solid things a swing stops on besides NPCs (trees and rocks to chop and mine). */
     solids?: SolidSource;
     /** The blade struck one of `solids` and lodged there (an axe in a tree chops it). */
@@ -368,8 +373,8 @@ export class PlayerCombat {
         const success = this.random() < hitChance(attack.attackRoll, npcDefenceRoll(stats, attack.defenceType));
         const base = success ? Math.max(1, Math.floor(this.random() * (attack.maxHit + 1))) : 0;
         const multiplier = clamp(attack.rate * extra, 0, tuning.osrsMaxDamageMultiplier);
-        const allowed = this.canDamage?.(target) ?? true;
-        const amount = success && allowed ? stochasticRound(base * multiplier, this.random) : 0;
+        const taken = this.damageTaken?.(target) ?? 1;
+        const amount = success && taken > 0 ? stochasticRound(base * multiplier * taken, this.random) : 0;
         const before = target.combatant.health;
         const result = applyDamage(target.combatant, amount, hit, this.weapon.stunMultiplier, this.random, {
             minReaction: "flinch",
@@ -475,6 +480,16 @@ export class PlayerCombat {
     /** The weapon arrows and bolts hit with: the held bow or crossbow, else the plain bow. */
     private get bowWeapon(): WeaponDef {
         return this.ranged ? this.weapon : WEAPONS.find((w) => w.family === "bow")!;
+    }
+
+    /**
+     * Stops the player attacking, kicking and casting for `seconds` (Vet'ion's shield bash); they
+     * can still move and parry. A swing being charged is dropped.
+     */
+    disarm(seconds: number): void {
+        this.disarmedFor = Math.max(this.disarmedFor, seconds);
+        this.melee.cancel();
+        this.kick.cancel();
     }
 
     /** Stunned by an NPC's parry: no moving or fighting until it wears off. */
@@ -677,6 +692,10 @@ export class PlayerCombat {
         this.sinceAttack += dt;
         this.time += dt;
         this.castCooldown = Math.max(0, this.castCooldown - dt);
+        this.disarmedFor = Math.max(0, this.disarmedFor - dt);
+        if (this.disarmedFor > 0) {
+            input = { ...input, attackDown: false, attackPressed: false, kickPressed: false, castPressed: false };
+        }
         this.regen(dt);
         if (this.parryStunIn >= 0) {
             this.parryStunIn -= dt;

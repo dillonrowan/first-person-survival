@@ -43,10 +43,11 @@ export type NpcAttack = {
     /** Index of the extra clip this plays instead (NpcModelData.extras): a boss's own moves. */
     extra?: number;
     /**
-     * A boss move that is no blow: its impact brings bricks down or calls minions (the fight
-     * handles it, see Scurrius.ts). It deals no damage itself.
+     * A boss move that is no blow: it brings bricks down, calls minions, lays traps, or marks tiles
+     * for lightning or a shield bash (the fight handles it, see Scurrius.ts and Vetion.ts). It deals
+     * no damage itself.
      */
-    special?: "bricks" | "summon" | "traps";
+    special?: "bricks" | "summon" | "traps" | "lightning" | "bash" | "hounds" | "rebirth";
     /** The blow can knock the player back and down (Obor's slam, see Obor.ts). */
     knockBack?: KnockBack;
     /** Least damage a successful hit deals (Callisto's swipe, see Callisto.ts). */

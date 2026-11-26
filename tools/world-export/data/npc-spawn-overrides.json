@@ -12,6 +12,12 @@
   { "id": 7222, "name": "Scurrius", "x": 3302, "y": 9866, "level": 0, "note": "Scurrius' lair (2024, after the spawn list), the solo version; the fight starts on the east side [OSRS Wiki: Scurrius/Strategies]" },
   { "id": 7223, "name": "Giant rat", "x": 3296, "y": 9866, "level": 0, "summonOnly": true, "note": "Scurrius' giant rats: baked for him to summon, never placed" },
   { "id": 8194, "name": "Growthling", "x": 3216, "y": 9930, "level": 0, "summonOnly": true, "note": "Bryophyta's growthlings: baked for her to summon, never placed" },
+  { "id": 6612, "name": "Vet'ion", "x": 3295, "y": 10205, "level": 1, "summonOnly": true, "note": "Vet'ion's second (enraged) form: baked for him to turn into, never placed" },
+  { "id": 6613, "name": "Skeleton Hellhound", "x": 3290, "y": 10198, "level": 1, "summonOnly": true, "note": "Vet'ion's hounds (first form): baked for him to summon, never placed" },
+  { "id": 6614, "name": "Greater Skeleton Hellhound", "x": 3290, "y": 10198, "level": 1, "summonOnly": true, "note": "Vet'ion's hounds (second form): baked for him to summon, never placed" },
+  { "id": 11994, "name": "Calvar'ion", "x": 1887, "y": 11549, "level": 1, "summonOnly": true, "note": "Calvar'ion's second (enraged) form: baked for him to turn into, never placed" },
+  { "id": 12107, "name": "Skeleton Hellhound", "x": 1882, "y": 11542, "level": 1, "summonOnly": true, "note": "Calvar'ion's hounds (first form): baked for him to summon, never placed" },
+  { "id": 12108, "name": "Greater Skeleton Hellhound", "x": 1882, "y": 11542, "level": 1, "summonOnly": true, "note": "Calvar'ion's hounds (second form): baked for him to summon, never placed" },
   { "id": 7416, "name": "Obor", "x": 3091, "y": 9798, "level": 0, "note": "Obor's lair, Edgeville Dungeon: the lair is an instance, so the spawn list has no Obor [OSRS Wiki: Obor, x 3091.5 y 9799]" }
  ]
 }

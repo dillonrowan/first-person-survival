@@ -350,8 +350,9 @@ frequencies]` (dark wizards: Water Strike and Confuse at level 7, Earth Strike a
 elemental wizards their Strike and Weaken; Skeleton Mage Fire Strike and Vulnerability; Suqah Ice
 Barrage and Water Wave; Battle mages their god spell, which has no projectile, only the impact). Ranged
 NPCs fire their arrows, bolts, rocks or spit; bosses (Callisto and Artio's crescents and knockback
-orb, Venenatis, Vet'ion, Vorkath, the Chaos Elemental, Scurrius, the King Black Dragon's four
-breaths) their own projectiles. The cast graphic plays on the NPC 92 RS units up `[design]`; the
+orb, Venenatis, Vorkath, the Chaos Elemental, Scurrius, the King Black Dragon's four
+breaths) their own projectiles. Vet'ion's and Calvar'ion's lightning is no projectile: it strikes
+marked tiles (`src/npc/Vetion.ts`). The cast graphic plays on the NPC 92 RS units up `[design]`; the
 projectile flies with its OSRS model; on reaching the player the impact (a missed spell: the splash)
 plays at the player's hands. NPCs not in the table keep their exported placeholder.
 
@@ -963,6 +964,10 @@ Event 2152 (weapon swoosh) comes 0.15–0.25 s before the impact; that is the vi
   player up to 3 tiles away from the boss and deals 5, 20, 35 or 50 as a wall (for Callisto also
   one of his bear traps) stops them after 3, 2, 1 or 0 tiles; Callisto's then holds them 1.2 s
   `[design]`. Their swipe never lands for less than its min hit (Callisto 35, Artio 15) [wiki].
+  Vet'ion's and Calvar'ion's lightning and shield bash are not rolled either: five bolts each hit
+  3x3 tiles 1.2 s after their tile glows (the cache graphic's 60 client cycles), 0 to the max hit on
+  the centre and to a third of it around `[design]`; the bash hits the tiles under its shadows for
+  0 to 35 (Calvar'ion 26) and keeps the player from attacking, kicking and casting for 4.8 s [wiki].
 - Attack styles: the OSRS wiki lists the styles of every monster (melee, ranged, magic,
   dragonfire, icy breath), which the cache does not. `npm run fetch-wiki-attacks` saves them to
   `tools/world-export/data/npc-attacks-wiki.json`; the exporter turns them into

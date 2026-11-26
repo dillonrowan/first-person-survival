@@ -88,8 +88,8 @@ export class BryophytaFight implements NpcBehaviour {
     }
 
     /** While a growthling lives she takes no damage [wiki]. */
-    get invulnerable(): boolean {
-        return this.growthlings.size + this.pending > 0;
+    get damageTaken(): number {
+        return this.growthlings.size + this.pending > 0 ? 0 : 1;
     }
 
     update(npc: Npc, dt: number, ctx: CombatContext): void {

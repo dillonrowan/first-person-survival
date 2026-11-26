@@ -140,6 +140,8 @@ const WAYS: { name: string; start: [number, number, number]; loc: [number, numbe
     { name: "a Stronghold of Security portal", start: [1863, 5237, 0], loc: [1863, 5238], action: "Use", to: [1914, 5222] },
     { name: "Callisto's Den", start: [3291, 3847, 0], loc: [3291, 3849], action: "Enter", to: [3358, 10317] },
     { name: "Hunter's End", start: [3115, 3674, 0], loc: [3115, 3676], action: "Enter", to: [1758, 11533] },
+    { name: "Vet'ion's Rest", start: [3221, 3785, 0], loc: [3221, 3787], action: "Jump-Down", to: [3294, 10192] },
+    { name: "the Skeletal Tomb", start: [3180, 3681, 0], loc: [3180, 3683], action: "Enter", to: [1886, 11536] },
     { name: "the Silk Chasm", start: [3321, 3792, 0], loc: [3321, 3794], action: "Enter", to: [3422, 10190] },
     { name: "the Theatre of Blood", start: [3678, 3214, 0], loc: [3678, 3216], action: "Enter", to: [3190, 4446] },
     { name: "the Tombs of Amascut", start: [3357, 9110, 0], loc: [3357, 9112], action: "Enter", to: [3548, 5163] },
@@ -422,6 +424,125 @@ for (const bear of [
             return { ragdoll: !!boss.ragdoll, frame: boss.visualAnimationFrame, traps: boss.behaviour.world.traps.traps.length };
         }, bear.name);
         expect(death).toMatchObject({ ragdoll: false, traps: 0 });
+        expect(death.frame).toBeGreaterThan(0);
+        expect(errors).toEqual([]);
+    });
+}
+
+for (const lord of [
+    { name: "Vet'ion", start: [3289, 10197], forms: [6611, 6612], bashMax: 35 },
+    { name: "Calvar'ion", start: [1881, 11541], forms: [11993, 11994], bashMax: 26 },
+] as const) {
+    test(`${lord.name} calls lightning, shield bashes, calls his hounds, rises in his second form and dies in it`, async ({ page }) => {
+        test.setTimeout(400_000);
+        const errors: string[] = [];
+        page.on("pageerror", (e) => errors.push(String(e)));
+        await page.goto(`/?x=${lord.start[0]}&y=${lord.start[1]}&plane=1`);
+        await page.waitForFunction(
+            (name) => !!window.game?.player?.ready && window.game.npcs.all().some((n: any) => n.appearance.name === name),
+            lord.name,
+            { timeout: 180_000, polling: 1000 },
+        );
+        // Survive the fight and note every hurt the player takes.
+        await page.evaluate((name) => {
+            const g = window.game!;
+            g.tuning.playerUnlimitedHealth = true;
+            const w = window as any;
+            w.__hurt = [];
+            const c = g.combat.combatant;
+            const hurt = c.hurt.bind(c);
+            c.hurt = (amount: number, ...rest: any[]) => {
+                w.__hurt.push(amount);
+                return hurt(amount, ...rest);
+            };
+            w.__fight = g.npcs.all().find((n: any) => n.appearance.name === name).behaviour;
+        }, lord.name);
+        // Aggressive, with lightning from afar: stand on a bolt's centre as it glows.
+        await page.waitForFunction(
+            () => {
+                const f = (window as any).__fight;
+                const bolt = f.world.strikes.pending.find((s: any) => s.kind === "lightning");
+                if (!bolt) return false;
+                window.game!.player.teleport(bolt.centre.x + 0.5, bolt.centre.y + 0.5, bolt.plane);
+                return true;
+            },
+            undefined,
+            { timeout: 120_000, polling: 100 },
+        );
+        await page.waitForTimeout(500);
+        await shot(page, `${lord.name}-1-lightning`);
+        await page.waitForFunction(() => (window as any).__fight.world.strikes.pending.length === 0, undefined, { timeout: 30_000 });
+        const bolts = await page.evaluate(() => (window as any).__hurt.length);
+        expect(bolts).toBeGreaterThan(0);
+
+        // Next to him he bashes now and then: stand in its shadow and be disarmed.
+        await page.waitForFunction(
+            () => {
+                const g = window.game!;
+                const f = (window as any).__fight;
+                const boss = f.npc;
+                const bash = f.world.strikes.pending.find((s: any) => s.kind === "bash");
+                if (bash) {
+                    const t = bash.tiles.find((t: any) => Math.abs(t.x + 0.5 - boss.body.x) > 1.5 || Math.abs(t.y + 0.5 - boss.body.y) > 1.5);
+                    g.player.teleport(t.x + 0.5, t.y + 0.5, bash.plane);
+                    return true;
+                }
+                if (Math.hypot(boss.body.x - g.player.x, boss.body.y - g.player.y) > boss.body.radius + 1.2) {
+                    g.player.teleport(boss.body.x, boss.body.y - boss.body.radius - 0.6, boss.plane);
+                }
+                return false;
+            },
+            undefined,
+            { timeout: 180_000, polling: 100 },
+        );
+        await shot(page, `${lord.name}-2-bash`);
+        await page.waitForFunction(() => window.game!.combat.disarmedFor > 0, undefined, { timeout: 10_000, polling: 50 });
+        const bash = await page.evaluate(() => ({ hurt: (window as any).__hurt.at(-1), log: document.querySelector("#message-log")?.textContent ?? "" }));
+        expect(bash.hurt).toBeLessThanOrEqual(lord.bashMax);
+        expect(bash.log).toMatch(/unable to attack/);
+
+        // At half health, two hounds; with them dead he can be hurt again.
+        await page.evaluate(() => {
+            const boss = (window as any).__fight.npc;
+            boss.combatant.health = Math.floor(boss.combatant.maxHealth * 0.45);
+        });
+        await page.waitForFunction(() => (window as any).__fight.hounds.size === 2, undefined, { timeout: 60_000, polling: 200 });
+        await page.waitForTimeout(800);
+        await shot(page, `${lord.name}-3-hounds`);
+        const shielded = await page.evaluate(() => (window as any).__fight.damageTaken);
+        expect(shielded).toBe(0);
+        await page.evaluate(() => {
+            for (const h of (window as any).__fight.hounds) h.combatant.hurt(h.combatant.health, "flinch");
+        });
+        await page.waitForFunction(() => (window as any).__fight.damageTaken === 1, undefined, { timeout: 10_000 });
+
+        // At 0 he rises again in his second form, at full health.
+        await page.evaluate(() => {
+            const boss = (window as any).__fight.npc;
+            boss.combatant.hurt(boss.combatant.health, "flinch");
+        });
+        await page.waitForFunction(
+            (id) => (window as any).__fight.form === 1 && (window as any).__fight.npc.appearance.id === id,
+            lord.forms[1],
+            { timeout: 90_000, polling: 100 },
+        );
+        await page.waitForTimeout(1200);
+        await shot(page, `${lord.name}-4-second-form`);
+        const second = await page.evaluate(() => {
+            const boss = (window as any).__fight.npc;
+            return { health: boss.combatant.health, max: boss.combatant.maxHealth, log: document.querySelector("#message-log")?.textContent ?? "" };
+        });
+        expect(second.health).toBe(second.max);
+        expect(second.log).toContain("Now... DO IT AGAIN!!!");
+
+        // Killed in it, he plays his death animation.
+        const death = await page.evaluate(async () => {
+            const boss = (window as any).__fight.npc;
+            boss.combatant.hurt(boss.combatant.health, "flinch");
+            await new Promise((r) => setTimeout(r, 1500));
+            return { ragdoll: !!boss.ragdoll, frame: boss.visualAnimationFrame, dead: boss.combatant.dead };
+        });
+        expect(death).toMatchObject({ ragdoll: false, dead: true });
         expect(death.frame).toBeGreaterThan(0);
         expect(errors).toEqual([]);
     });

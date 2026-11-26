@@ -44,6 +44,20 @@ const BEAR: NpcAttackOverride = {
     ],
 };
 
+const SKELETAL_LORD: NpcAttackOverride = {
+    extraSeqs: [
+        9969, // NPC_VETION_ATTACK_MAGIC_01: the sword swing that calls the lightning
+        9970, // NPC_VETION_ATTACK_MAGIC_02
+        9971, // NPC_VETION_ATTACK_MELEE_01: the shield bash
+        9972, // NPC_VETION_ATTACK_MELEE_02
+        9977, // NPC_VETION_SPAWN_01
+        9978, // NPC_VETION_ENRAGE_01
+        9979, // NPC_VETION_ENRAGE_02
+        9980, // NPC_VETION_DEATH_01
+        9981, // NPC_VETION_DEATH_02
+    ],
+};
+
 export const OVERRIDES: Record<string, NpcAttackOverride> = {
     // Melee when adjacent, the other style otherwise.
     "Crazy archaeologist": { styles: { ranged: { minGap: A, projectile: "rock", color: ROCK_BROWN } } },
@@ -70,10 +84,9 @@ export const OVERRIDES: Record<string, NpcAttackOverride> = {
     "Chaos Elemental": { styles: { ranged: { seq: 3148 }, magic: { seq: 3149 } } }, // DISCORD, CASTING
     "Commander Zilyana": { styles: { magic: { minGap: A } } },
     "K'ril Tsutsaroth": { styles: { magic: { minGap: A } } },
-    "Vet'ion": {
-        styles: { magic: { weight: 4, color: 0x9933ff } },
-        note: "TODO special: shield bash stun, hellhounds, enrage.",
-    },
+    // Vet'ion and Calvar'ion: their fight (src/npc/Vetion.ts) plays all of these by id, each form its own.
+    "Vet'ion": SKELETAL_LORD,
+    "Calvar'ion": SKELETAL_LORD,
     Lizardman: { styles: { ranged: { projectile: "spit", color: SPIT_GREEN } } },
     "Lizardman brute": { styles: { ranged: { projectile: "spit", color: SPIT_GREEN } } },
     "Thrower Troll": { styles: { ranged: { projectile: "rock", color: ROCK_GREY } } },

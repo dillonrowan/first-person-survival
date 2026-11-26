@@ -23,6 +23,9 @@ import { KING_BLACK_DRAGON_ID, KingBlackDragonFight } from "./npc/KingBlackDrago
 import { BEAR_BOSSES, CallistoFight, knockBackPath } from "./npc/Callisto";
 import { BearTraps, TRAP_BIND_SECONDS } from "./npc/BearTraps";
 import { BearTrapsView } from "./npc/BearTrapsView";
+import { GroundStrikes } from "./npc/GroundStrikes";
+import { GroundStrikesView } from "./npc/GroundStrikesView";
+import { BASH_DISARM_SECONDS, SKELETAL_LORDS, VetionFight } from "./npc/Vetion";
 import { BLOCKS_TILE } from "./physics/TileColliders";
 import { applyDrain, curseMessage, runHitEffects } from "./npc/NpcHitEffects";
 import { NpcProjectile, ProjectileTarget, launchNpcProjectile, stepNpcProjectiles } from "./npc/NpcProjectiles";
@@ -250,12 +253,17 @@ async function main(): Promise<void> {
         : undefined;
     // Boss fights: Scurrius (npc/Scurrius.ts), with the rubble his stomps bring down and the rats he
     // calls up, Bryophyta (npc/Bryophyta.ts) with her growthlings, Obor (npc/Obor.ts) with his slam,
-    // the King Black Dragon (npc/KingBlackDragon.ts; his breaths are in npc/NpcSpells.ts), and
-    // Callisto and Artio (npc/Callisto.ts) with their bear traps.
+    // the King Black Dragon (npc/KingBlackDragon.ts; his breaths are in npc/NpcSpells.ts),
+    // Callisto and Artio (npc/Callisto.ts) with their bear traps, and Vet'ion and Calvar'ion
+    // (npc/Vetion.ts) with their lightning, shield bash, hounds and second form.
     const fallingBricks = new FallingBricks();
     const fallingBricksView = new FallingBricksView(scene, spellEffects, (plane, x, y) => world.groundHeight(plane, x, y));
     const bearTraps = new BearTraps();
     const bearTrapsView = new BearTrapsView(scene, spellGfx, spellEffects, (plane, x, y) => world.groundHeight(plane, x, y));
+    const groundStrikes = new GroundStrikes();
+    const groundStrikesView = new GroundStrikesView(scene, (plane, x, y) => world.groundHeight(plane, x, y));
+    /** One fight per skeletal lord, shared by the NPCs of both his forms. */
+    const lordFights = new Map<number, VetionFight>();
     if (npcs) {
         npcs.behaviourFor = (npc) => {
             const say = (text: string) => ui.showMessage(text);
@@ -299,6 +307,34 @@ async function main(): Promise<void> {
                         say(`${b.name} roars, and bear traps spring up across the den!`);
                     },
                 });
+            }
+            const lord = SKELETAL_LORDS.find((l) => l.forms.includes(npc.appearance.id));
+            if (lord) {
+                let fight = lordFights.get(lord.forms[0]);
+                if (!fight) {
+                    fight = new VetionFight(lord, {
+                        strikes: groundStrikes,
+                        random: Math.random,
+                        open: (x, y, plane) => (world.collisionFlags(plane, x, y) & BLOCKS_TILE) === 0,
+                        summon: (id, x, y, plane) => npcs.summon(id, x, y, plane),
+                        transform: (boss, id) => npcs.transform(boss, id),
+                        playOn: (boss, gfx) =>
+                            spellEffects.play(
+                                gfx,
+                                () => ({ x: boss.body.x, y: boss.body.y, z: boss.body.z, yaw: Math.atan2(-boss.forward.x, boss.forward.y) }),
+                                0,
+                                1,
+                                boss.plane,
+                            ),
+                        playAt: (gfx, x, y, plane) => {
+                            const z = world.groundHeight(plane, x + 0.5, y + 0.5);
+                            spellEffects.play(gfx, () => ({ x: x + 0.5, y: y + 0.5, z }), 0, 1, plane);
+                        },
+                        say,
+                    });
+                    lordFights.set(lord.forms[0], fight);
+                }
+                return fight.attach(npc);
             }
             return undefined;
         };
@@ -794,16 +830,17 @@ async function main(): Promise<void> {
     });
     const skillSystem = skilling.system;
     let slayerWarned = -Infinity;
-    combat.canDamage = (target) => {
-        // A boss shielded by her minions takes no damage (Bryophyta's growthlings).
-        if ((target as unknown as Partial<Npc>).behaviour?.invulnerable) return false;
+    combat.damageTaken = (target) => {
         const id = (target as unknown as Partial<Npc>).appearance?.id;
-        if (id === undefined || skillSystem.slayer.canDamage(id)) return true;
-        if (performance.now() - slayerWarned > 3000) {
-            slayerWarned = performance.now();
-            ui.showMessage("You need a higher Slayer level to know how to wound this monster.");
+        if (id !== undefined && !skillSystem.slayer.canDamage(id)) {
+            if (performance.now() - slayerWarned > 3000) {
+                slayerWarned = performance.now();
+                ui.showMessage("You need a higher Slayer level to know how to wound this monster.");
+            }
+            return 0;
         }
-        return false;
+        // A boss shielded by its minions takes less or none (Bryophyta's growthlings, Vet'ion's hounds).
+        return (target as unknown as Partial<Npc>).behaviour?.damageTaken ?? 1;
     };
     // A weapon swung into a standing tree or rock lodges there (the blade meets the trunk); an axe
     // swung into a tree chops it. Mining is not done by swings but by clicking the rock with the
@@ -1105,6 +1142,8 @@ async function main(): Promise<void> {
                 npcProjectiles.length = 0;
                 fallingBricks.clear();
                 bearTraps.clear();
+                groundStrikes.clear();
+                combat.disarmedFor = 0;
                 combat.combatant.reset();
                 player.stamina.value = player.stamina.max;
                 player.teleport(spawn.x + 0.5, spawn.y + 0.5, spawn.plane);
@@ -1234,6 +1273,18 @@ async function main(): Promise<void> {
             ui.showMessage("You're caught in a bear trap!");
         }
         bearTrapsView.update(npcDt, bearTraps.traps);
+        // Vet'ion's lightning and shield bash hit whoever is still in their area.
+        for (const { strike, damage } of groundStrikes.update(npcDt, alive ? playerTarget() : undefined)) {
+            combat.combatant.hurt(damage, "flinch");
+            combatHud.showDamage(damage);
+            hitsplats.addPlayer(damage > 0 ? "damage" : "block", damage);
+            hitFeel.impact(strike.kind === "bash" ? 0.8 : 0.6);
+            if (strike.kind === "bash") {
+                combat.disarm(BASH_DISARM_SECONDS);
+                ui.showMessage("The shield bash leaves you unable to attack!");
+            }
+        }
+        groundStrikesView.update(groundStrikes.pending);
         const playerBody = alive ? player.footprint() : undefined;
         props.update(dt, {
             player: playerBody && {

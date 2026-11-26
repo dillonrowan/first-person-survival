@@ -402,10 +402,61 @@ export class Npcs implements BodySource<Npc> {
      * map square is not loaded, the tiles are taken or its model fails to load.
      */
     async summon(id: number, x: number, y: number, plane: number, orientation = 0): Promise<Npc | undefined> {
+        const region = this.regions.get(regionKey(x >> 6, y >> 6));
+        const loaded = region && (await this.regionModel(region, id));
+        if (!region || !loaded) {
+            return undefined;
+        }
+        const size = Math.max(1, this.manifest.appearances[loaded.index].size);
+        if (!this.occupancy.isFree(plane, x, y, size)) {
+            return undefined;
+        }
+        const npc = this.createNpc(region, { appearance: loaded.index, x, y, plane, orientation }, loaded.model);
+        this.summoned.add(npc);
+        return npc;
+    }
+
+    /**
+     * Turns an NPC into another (Vet'ion into his second form, exported as summonOnly): the new one
+     * stands on its tiles facing its way, keeps its XP ledger and takes over its spawn, so the first
+     * comes back there once the new one has died. The old NPC is removed. Undefined, the old one left
+     * as it was, when the new NPC was not exported, its model fails to load or the old one is gone.
+     */
+    async transform(npc: Npc, id: number): Promise<Npc | undefined> {
+        const region = [...this.regions.values()].find((r) => r.npcs.includes(npc));
+        const loaded = region && (await this.regionModel(region, id));
+        if (!region || !loaded || npc.gone || !region.npcs.includes(npc)) {
+            return undefined;
+        }
+        const size = Math.max(1, this.manifest.appearances[loaded.index].size);
+        const spawn = this.spawnOf.get(npc);
+        region.npcs.splice(region.npcs.indexOf(npc), 1);
+        npc.releaseOccupancy(this.occupancy);
+        npc.dispose();
+        const next = this.createNpc(
+            region,
+            {
+                appearance: loaded.index,
+                x: Math.round(npc.body.x - size / 2),
+                y: Math.round(npc.body.y - size / 2),
+                plane: npc.plane,
+                orientation: npc.orientation,
+            },
+            loaded.model,
+        );
+        if (this.summoned.has(npc)) {
+            this.summoned.add(next);
+        } else if (spawn) {
+            this.spawnOf.set(next, spawn);
+        }
+        next.xpLedger.add(npc.xpLedger.drain());
+        return next;
+    }
+
+    /** An NPC's model for a region, loaded (and counted as one of the region's) if it is not yet. */
+    private async regionModel(region: RegionNpcs, id: number): Promise<{ index: number; model: SharedNpcModel } | undefined> {
         const index = this.manifest.appearances.findIndex((a) => a.id === id);
-        const key = regionKey(x >> 6, y >> 6);
-        const region = this.regions.get(key);
-        if (index < 0 || !region) {
+        if (index < 0) {
             return undefined;
         }
         let model = region.models.get(index);
@@ -421,18 +472,12 @@ export class Npcs implements BodySource<Npc> {
                 region.loading.set(index, loading);
             }
             model = await loading;
-            if (!model || this.regions.get(key) !== region) {
+            if (!model || ![...this.regions.values()].includes(region)) {
                 return undefined;
             }
             region.models.set(index, model);
         }
-        const size = Math.max(1, this.manifest.appearances[index].size);
-        if (!this.occupancy.isFree(plane, x, y, size)) {
-            return undefined;
-        }
-        const npc = this.createNpc(region, { appearance: index, x, y, plane, orientation }, model);
-        this.summoned.add(npc);
-        return npc;
+        return { index, model };
     }
 
     private createNpc(region: RegionNpcs, spawn: NpcSpawnInfo, model: SharedNpcModel): Npc {
