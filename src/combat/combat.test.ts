@@ -536,6 +536,33 @@ describe("NPC attack styles against the player", () => {
         expect(none.pushes).toHaveLength(1);
     });
 
+    it("never rolls below a strike's min hit (Callisto's swipe)", () => {
+        const low = setup(scripted(0, 0, 0.5));
+        expect(low.combat.receiveStrike(low.player, strike("melee", { minHit: 3 }), true).damage).toBe(3);
+        const top = setup(scripted(0, 0.99, 0.5));
+        expect(top.combat.receiveStrike(top.player, strike("melee", { minHit: 3 }), true).damage).toBe(4);
+    });
+
+    it("deals a set damage without a roll, and throws the player its own distance (Callisto's knockback)", () => {
+        // No accuracy or damage roll: the knock back roll (0.5 < 1), then the knock down roll (0.5 >= 0).
+        const thrown = setup(scripted(0.5, 0.5));
+        const knockBack = { chance: 1, downChance: 0, tiles: 1, stun: 1.2 };
+        const report = thrown.combat.receiveStrike(
+            thrown.player,
+            strike("magic", { direct: true, spell: "damaging", damage: 5, knockBack }),
+            true,
+        );
+        expect(report).toMatchObject({ outcome: "hit", damage: 5, missed: false, knocked: "back" });
+        expect(thrown.combat.combatant.health).toBe(thrown.combat.combatant.maxHealth - 5);
+        expect(thrown.pushes[1]).toBeCloseTo(1 / tuning.knockBackAir);
+        expect(thrown.combat.combatant.reactionTime).toBeCloseTo(1.2);
+        // Against the wall: no throw (and, for Artio's, no stun).
+        const wall = setup(scripted(0.5, 0.5));
+        wall.combat.receiveStrike(wall.player, strike("magic", { direct: true, damage: 2, knockBack: { ...knockBack, tiles: 0, stun: 0 } }), true);
+        expect(wall.pushes).toHaveLength(1);
+        expect(wall.combat.stunned).toBe(false);
+    });
+
     it("hits with a King Black Dragon breath's own max, and rolls its effect on a successful hit", () => {
         const [fiery, toxic, icy, shocking] = NPC_EFFECTS[239].breaths!;
         // Hit, top of the range, rounding.

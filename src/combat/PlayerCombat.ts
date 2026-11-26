@@ -181,6 +181,13 @@ export type IncomingStrike = {
     spell?: "damaging" | "curse";
     /** A blow that can knock the player back and down; a parried one cannot. */
     knockBack?: KnockBack;
+    /** Least damage a successful roll deals (Callisto's melee: 35 to 55). */
+    minHit?: number;
+    /**
+     * A set damage instead of an accuracy and damage roll; it always lands (Callisto's knockback,
+     * which hurts by how close the wall behind the player is).
+     */
+    damage?: number;
     /** One of a dragon's breaths: its own max hits, and an effect its successful hit may bring. */
     breath?: DragonBreath;
 };
@@ -551,7 +558,9 @@ export class PlayerCombat {
                 this.style.defence,
             ),
         );
-        const success = this.random() < chance;
+        // A set damage is not rolled: it always lands.
+        const fixed = strike.damage;
+        const success = fixed !== undefined || this.random() < chance;
         if (strike.spell === "curse") {
             const report: StrikeReport = { ...none, outcome: "hit", missed: !success, spell: "curse" };
             this.onStruck?.(report);
@@ -563,8 +572,13 @@ export class PlayerCombat {
         if (shielded && !breath) {
             max = Math.floor(max * this.shield!.dragonfireFactor);
         }
-        const base = success ? Math.floor(this.random() * (max + 1)) : 0;
-        const damage = success ? stochasticRound(base * clamp(strike.rate ?? 1, 0, 1), this.random) : 0;
+        const min = Math.min(max, Math.ceil((strike.minHit ?? 0) * (strike.share ?? 1)));
+        let damage = fixed ?? 0;
+        if (fixed === undefined && success) {
+            const base = min + Math.floor(this.random() * (max - min + 1));
+            // A min hit holds however soon the attack came.
+            damage = Math.max(min, stochasticRound(base * clamp(strike.rate ?? 1, 0, 1), this.random));
+        }
         if (guarded) {
             // The weapon takes the blow, but one that would have landed still gets some through.
             const through = damage > 0 ? Math.max(1, Math.round(damage * tuning.blockDamageShare)) : 0;
@@ -608,13 +622,18 @@ export class PlayerCombat {
             player.applyImpulse((dx / d) * push, (dy / d) * push);
         }
         let knocked: StrikeReport["knocked"];
-        if (strike.knockBack && !this.combatant.dead && this.random() < strike.knockBack.chance) {
-            knocked = this.random() < strike.knockBack.downChance ? "down" : "back";
-            // Thrown up and away: a short hop that carries knockBackTiles unless a wall stops it.
-            const speed = tuning.knockBackTiles / tuning.knockBackAir;
-            player.applyImpulse((dx / d) * speed, (dy / d) * speed, (tuning.gravity * tuning.knockBackAir) / 2);
+        const knockBack = strike.knockBack;
+        if (knockBack && !this.combatant.dead && this.random() < knockBack.chance) {
+            knocked = this.random() < knockBack.downChance ? "down" : "back";
+            // Thrown up and away: a short hop that carries the knock back's tiles unless a wall stops it.
+            const tiles = knockBack.tiles ?? tuning.knockBackTiles;
+            if (tiles > 0) {
+                const speed = tiles / tuning.knockBackAir;
+                player.applyImpulse((dx / d) * speed, (dy / d) * speed, (tuning.gravity * tuning.knockBackAir) / 2);
+            }
             // Knocked down, the player lies there a while; knocked back, only their next move waits.
-            this.combatant.stun(knocked === "down" ? tuning.knockdownDuration : tuning.knockBackStun);
+            const stun = knocked === "down" ? tuning.knockdownDuration : (knockBack.stun ?? tuning.knockBackStun);
+            if (stun > 0) this.combatant.stun(stun);
         }
         if (this.combatant.reaction !== "flinch") {
             this.melee.cancel();

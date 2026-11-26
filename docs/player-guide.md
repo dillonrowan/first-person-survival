@@ -293,7 +293,7 @@ Aim at an NPC or interactive object and approach within interaction range. When 
 | `T` | Use the third available action, when present |
 
 Available actions depend on the target. NPCs can offer actions such as `Talk-to` or `Attack`.
-NPCs never start a fight on their own: they leave you alone until you hit, kick or shoot them (or
+NPCs other than bosses never start a fight on their own: they leave you alone until you hit, kick or shoot them (or
 knock them down with a thrown prop), and only the NPC you attacked fights back. Attacking an NPC
 makes it fight you to the end: NPCs never flee, and they move faster once they are fighting you.
 Bigger and taller NPCs are heavier: blows push them, and knock them flying, less far. An NPC may
@@ -303,7 +303,13 @@ Some NPCs fight in more than one way. Dragons sometimes breathe fire in a cone i
 when you stand next to them, so step out of the cone or behind them (or wear the anti-dragon
 shield). The King Black Dragon breathes from across his lair: fire, or a toxic breath that may
 poison you, an icy one that may freeze you in place, or a shocking one that may drain your combat
-levels; the anti-dragon shield cuts all four and makes their effects rarer. Archers and mages keep their distance and shoot arrows or cast spells at where you were
+levels; the anti-dragon shield cuts all four and makes their effects rarer. Callisto (in his den
+in the deep Wilderness) and Artio (in Hunter's End) attack as soon as you walk in: a heavy swipe
+when you are next to them, crescents across the den when you are not, and now and then a slow
+white orb you can sidestep, which throws you three tiles back and hurts more the closer the wall
+behind you is. At two thirds and one third of their health they roar and red bear traps spring up
+across the den; stepping on one hurts and holds you for a few seconds, and in the last third new
+traps come with every attack. Archers and mages keep their distance and shoot arrows or cast spells at where you were
 standing, so strafing out of the way or putting a wall between you works.
 
 Ladders, stairs, cave mouths and trapdoors use the same keys. A trapdoor or manhole is closed at

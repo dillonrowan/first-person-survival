@@ -3,6 +3,22 @@
 
 import { NpcModelData, decodeNpcModel, encodeNpcModel } from "./NpcFormat";
 
+/**
+ * A spot animation id, or `"<id>@<seq>"` for that graphic's model played with another sequence:
+ * the bear traps of Callisto and Artio idle and spring with sequences the cache gives their loc,
+ * not a graphic.
+ */
+export type GfxId = number | `${number}@${number}`;
+
+/** The spot animation and, for an `"<id>@<seq>"` id, the sequence that replaces its own. */
+export function parseGfxId(id: GfxId): { spot: number; seq?: number } {
+    if (typeof id === "number") {
+        return { spot: id };
+    }
+    const [spot, seq] = id.split("@").map(Number);
+    return { spot, seq };
+}
+
 /** Spot animation ids of one spell: on the caster, in flight, and on the target. */
 export type SpellGraphics = { cast: number; projectile: number; impact: number };
 
@@ -60,7 +76,7 @@ export type SpellGfx = {
 export type SpellGfxManifest = {
     format: 1;
     source: string;
-    /** File of each spot animation id, relative to the manifest. */
+    /** File of each spot animation id (GfxId), relative to the manifest. */
     files: Record<string, string>;
 };
 

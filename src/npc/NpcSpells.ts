@@ -1,5 +1,5 @@
 import type { SkillId } from "../combat/SkillId";
-import { SPELL_GRAPHICS, type SpellGraphics } from "../world/SpellGfxFormat";
+import { type GfxId, SPELL_GRAPHICS, type SpellGraphics } from "../world/SpellGfxFormat";
 
 /**
  * What NPC ranged and magic attacks look like and do beyond damage. The cache has the graphics
@@ -26,6 +26,22 @@ export type NpcSpell = {
     onlyIfUndrained?: boolean;
     /** Seconds a landed cast holds the player in place. */
     bind?: number;
+    /** It throws the player back and hurts by how close the wall is, not by a roll (Callisto's). */
+    knockBack?: SpellKnockBack;
+};
+
+/**
+ * Callisto's and Artio's knockback [wiki: Callisto/Strategies]: it "attempts to knock the target 3
+ * tiles", dealing 5 if they fly all 3, and 20, 35 or 50 if a wall stops them after 2, 1 or 0.
+ */
+export type SpellKnockBack = {
+    tiles: number;
+    /** Damage by the tiles the player flies before something stops them (index 0: none). */
+    damage: readonly number[];
+    /** Seconds it holds the player after ("temporarily stunned"). */
+    stun: number;
+    /** Bear traps stop the player as a wall does (Callisto's; Artio's only stop at walls). */
+    trapsBlock: boolean;
 };
 
 /** An effect of an NPC's successful hits, whatever the style. */
@@ -79,7 +95,7 @@ export type NpcEffects = {
     ranged?: AttackGfx;
     onHit?: HitEffect[];
     /** Other spot animations its fight plays (Scurrius's falling debris), exported with the rest. */
-    other?: number[];
+    other?: GfxId[];
 };
 
 const spell = (id: string): AttackGfx => SPELL_GRAPHICS[id] as SpellGraphics;
@@ -147,6 +163,31 @@ const scurrius: NpcEffects = {
     other: [2644],
 };
 
+/**
+ * The bear traps Callisto and Artio roar across their dens: the trap loc (47146) appearing
+ * (FX_CALLISTO_TRAP, sequence TRAP_BEAR01_SPAWN), waiting (TRAP_BEAR01_IDLE) and snapping shut
+ * (TRAP_BEAR01_ACTIVATE).
+ */
+export const BEAR_TRAP_GFX = { spawn: 2343, idle: "2343@10000", spring: "2343@9999" } as const satisfies Record<string, GfxId>;
+/** The red glow of their roar: FX_CALLISTO_ENRAGE, and its _SMALL version for the smaller Artio. */
+export const BEAR_ENRAGE_GFX = { callisto: 2352, artio: 2353 } as const;
+
+// Callisto and Artio [wiki: Callisto, Artio and their Strategies pages]: crescents shot from the
+// den's far side (FX_CALLISTO_RANGED_SPOTANIM / _PROJECTILE / _IMPACT), and the slow knockback orb,
+// which "uses the same projectile ... as the King Black Dragon's icy breath" [wiki: Callisto trivia].
+// Neither page says how long the knockback stuns, nor that Artio's does. [design: Callisto 2 ticks]
+const bearKnockBack = (stun: number, trapsBlock: boolean): NpcSpell => ({
+    name: "Knockback",
+    gfx: { projectile: 395 },
+    damaging: true,
+    knockBack: { tiles: 3, damage: [50, 35, 20, 5], stun, trapsBlock },
+});
+const bear = (enrage: number, knockBack: NpcSpell): NpcEffects => ({
+    ranged: { cast: 2349, projectile: 2350, impact: 2351 },
+    magic: [knockBack],
+    other: [enrage, BEAR_TRAP_GFX.spawn, BEAR_TRAP_GFX.idle, BEAR_TRAP_GFX.spring],
+});
+
 /** Effects by NPC id. */
 export const NPC_EFFECTS: Record<number, NpcEffects> = {
     // ----- Magic -----
@@ -189,7 +230,8 @@ export const NPC_EFFECTS: Record<number, NpcEffects> = {
     // Tortoise: "the mage will use a bluish spell, the archer will shoot a steel arrow" [wiki]. [design: Water Strike]
     6076: { magic: [strike("water-strike", "Water Strike")], ranged: ARROW.steel },
     // Bosses, by their Jagex graphic names.
-    6609: { ranged: { cast: 2349, projectile: 2350, impact: 2351 }, magic: [{ name: "Shockwave", gfx: { projectile: 395 }, damaging: true }] }, // Callisto [wiki: the KBD's icy breath projectile]
+    6609: bear(BEAR_ENRAGE_GFX.callisto, bearKnockBack(2 * 0.6, true)), // Callisto
+    11992: bear(BEAR_ENRAGE_GFX.artio, bearKnockBack(0, false)), // Artio
     6610: { ranged: { projectile: 2356, impact: 2357 }, magic: [{ name: "Magic", gfx: { projectile: 2358, impact: 2359 }, damaging: true }] }, // Venenatis
     6611: { magic: [{ name: "Lightning", gfx: { cast: 2344, impact: 2346 }, damaging: true }] }, // Vet'ion
     8058: { ranged: { projectile: 1477, impact: 1478 }, magic: [{ name: "Magic", gfx: { projectile: 1479, impact: 1480 }, damaging: true }] }, // Vorkath
@@ -253,8 +295,8 @@ export const NPC_EFFECTS: Record<number, NpcEffects> = {
 };
 
 /** Every spot animation the table uses, for the export. */
-export function npcGraphicIds(): number[] {
-    const ids = new Set<number>();
+export function npcGraphicIds(): GfxId[] {
+    const ids = new Set<GfxId>();
     const add = (g?: AttackGfx) => [g?.cast, g?.projectile, g?.impact].forEach((id) => id !== undefined && ids.add(id));
     for (const e of Object.values(NPC_EFFECTS)) {
         add(e.ranged);
@@ -262,7 +304,7 @@ export function npcGraphicIds(): number[] {
         e.breaths?.forEach((b) => add(b.gfx));
         e.other?.forEach((id) => ids.add(id));
     }
-    return [...ids].sort((a, b) => a - b);
+    return [...ids].sort((a, b) => parseFloat(String(a)) - parseFloat(String(b)) || String(a).localeCompare(String(b)));
 }
 
 /** Levels a drain takes from one skill at this current level. */

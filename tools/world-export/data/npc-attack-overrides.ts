@@ -36,15 +36,23 @@ const ROCK_GREY = 0x777777;
 const ROCK_BROWN = 0x6b4a2b;
 const SPIT_GREEN = 0x55cc33;
 const LONG_RANGE_FIRE: NpcAttackOverride = { styles: { dragonfire: { longRange: true } } };
+const BEAR: NpcAttackOverride = {
+    styles: { ranged: { minGap: A, projectile: "rock", color: 0xd8d0c0 }, magic: { minGap: 0, weight: 0.25 } },
+    extraSeqs: [
+        10015, // NPC_CALLISTO_ENRAGED01: the roar
+        10017, // NPC_CALLISTO_DEATH01
+    ],
+};
 
 export const OVERRIDES: Record<string, NpcAttackOverride> = {
     // Melee when adjacent, the other style otherwise.
     "Crazy archaeologist": { styles: { ranged: { minGap: A, projectile: "rock", color: ROCK_BROWN } } },
     "Deranged archaeologist": { styles: { ranged: { minGap: A, projectile: "rock", color: ROCK_BROWN } } },
-    Callisto: {
-        styles: { ranged: { minGap: A, projectile: "rock", color: ROCK_GREY }, magic: { minGap: A, weight: 0.25 } },
-        note: "TODO special: knockback and stun of the magic attack, bear traps.",
-    },
+    // Callisto and Artio swipe when they can reach the player and fire crescents when they cannot
+    // [wiki]; now and then the knockback orb, from any distance ("occasionally"). [design: 1 in 5]
+    // Their fight is src/npc/Callisto.ts: the roar that lays the bear traps, and their death.
+    Callisto: BEAR,
+    Artio: BEAR,
     Venenatis: { styles: { ranged: { minGap: A }, magic: { minGap: A } }, note: "TODO special: webs, spiderlings." },
     // Her magic is lightning (KALPHITE_LIGHTNING); the wiki: ranged spines shot from her abdomen.
     "Kalphite Queen": { styles: { ranged: { minGap: A }, magic: { minGap: A, seq: 1172 } } },

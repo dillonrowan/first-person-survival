@@ -20,6 +20,10 @@ import { GIANT_RAT_ID, SCURRIUS_IDS, ScurriusFight } from "./npc/Scurrius";
 import { BRYOPHYTA_ID, BryophytaFight, GROWTHLING_ID } from "./npc/Bryophyta";
 import { OBOR_ID, OborFight } from "./npc/Obor";
 import { KING_BLACK_DRAGON_ID, KingBlackDragonFight } from "./npc/KingBlackDragon";
+import { BEAR_BOSSES, CallistoFight, knockBackPath } from "./npc/Callisto";
+import { BearTraps, TRAP_BIND_SECONDS } from "./npc/BearTraps";
+import { BearTrapsView } from "./npc/BearTrapsView";
+import { BLOCKS_TILE } from "./physics/TileColliders";
 import { applyDrain, curseMessage, runHitEffects } from "./npc/NpcHitEffects";
 import { NpcProjectile, ProjectileTarget, launchNpcProjectile, stepNpcProjectiles } from "./npc/NpcProjectiles";
 import { presenceFor } from "./npc/NpcSenses";
@@ -246,9 +250,12 @@ async function main(): Promise<void> {
         : undefined;
     // Boss fights: Scurrius (npc/Scurrius.ts), with the rubble his stomps bring down and the rats he
     // calls up, Bryophyta (npc/Bryophyta.ts) with her growthlings, Obor (npc/Obor.ts) with his slam,
-    // and the King Black Dragon (npc/KingBlackDragon.ts; his breaths are in npc/NpcSpells.ts).
+    // the King Black Dragon (npc/KingBlackDragon.ts; his breaths are in npc/NpcSpells.ts), and
+    // Callisto and Artio (npc/Callisto.ts) with their bear traps.
     const fallingBricks = new FallingBricks();
     const fallingBricksView = new FallingBricksView(scene, spellEffects, (plane, x, y) => world.groundHeight(plane, x, y));
+    const bearTraps = new BearTraps();
+    const bearTrapsView = new BearTrapsView(scene, spellGfx, spellEffects, (plane, x, y) => world.groundHeight(plane, x, y));
     if (npcs) {
         npcs.behaviourFor = (npc) => {
             const say = (text: string) => ui.showMessage(text);
@@ -272,6 +279,26 @@ async function main(): Promise<void> {
             }
             if (npc.appearance.id === KING_BLACK_DRAGON_ID) {
                 return new KingBlackDragonFight(npc);
+            }
+            const bear = BEAR_BOSSES.find((b) => b.id === npc.appearance.id);
+            if (bear) {
+                return new CallistoFight(npc, bear, {
+                    traps: bearTraps,
+                    random: Math.random,
+                    open: (x, y, plane) => (world.collisionFlags(plane, x, y) & BLOCKS_TILE) === 0,
+                    roar: (boss, b) => {
+                        // The boss glows red as it roars [wiki]: the glow is its own howling shape, laid
+                        // over it and facing its way.
+                        spellEffects.play(
+                            b.enrageGfx,
+                            () => ({ x: boss.body.x, y: boss.body.y, z: boss.body.z, yaw: Math.atan2(-boss.forward.x, boss.forward.y) }),
+                            0,
+                            1,
+                            boss.plane,
+                        );
+                        say(`${b.name} roars, and bear traps spring up across the den!`);
+                    },
+                });
             }
             return undefined;
         };
@@ -585,6 +612,7 @@ async function main(): Promise<void> {
                     rate: event.rate,
                     share: 1 / a.hitTimes.length,
                     ...(a.knockBack ? { knockBack: a.knockBack } : {}),
+                    ...(a.minHit ? { minHit: a.minHit } : {}),
                 },
                 npc.facingCos(body.x, body.y) >= Math.cos(tuning.npcStrikeCone),
             );
@@ -1076,6 +1104,7 @@ async function main(): Promise<void> {
                 deadFor = 0;
                 npcProjectiles.length = 0;
                 fallingBricks.clear();
+                bearTraps.clear();
                 combat.combatant.reset();
                 player.stamina.value = player.stamina.max;
                 player.teleport(spawn.x + 0.5, spawn.y + 0.5, spawn.plane);
@@ -1114,9 +1143,30 @@ async function main(): Promise<void> {
             (plane, x, y) => world.groundHeight(plane, x, y),
             (minX, minY, maxX, maxY) => world.obstacleTop(minX, minY, maxX, maxY),
         )) {
+            // Callisto's knockback orb: 3 tiles back, hurting by how soon a wall (or his trap) stops it.
+            const kb = p.npcSpell?.knockBack;
+            const thrown =
+                kb &&
+                knockBackPath(
+                    (plane, x, y) => world.collisionFlags(plane, x, y),
+                    player.plane,
+                    player.x,
+                    player.y,
+                    p.fromX,
+                    p.fromY,
+                    kb.tiles,
+                    kb.trapsBlock ? (x, y) => bearTraps.at(x, y, player.plane) : undefined,
+                );
             const struck = combat.receiveStrike(
                 player,
                 {
+                    ...(kb && thrown
+                        ? {
+                              damage: kb.damage[thrown.clear],
+                              // A trap behind the player catches them: they land in it.
+                              knockBack: { chance: 1, downChance: 0, tiles: thrown.clear + (thrown.trap ? 1 : 0), stun: kb.stun },
+                          }
+                        : {}),
                     ...(p.npcSpell ? { spell: p.npcSpell.damaging ? ("damaging" as const) : ("curse" as const) } : {}),
                     fromX: p.fromX,
                     fromY: p.fromY,
@@ -1174,6 +1224,16 @@ async function main(): Promise<void> {
             hitFeel.impact(0.6);
         }
         fallingBricksView.update(fallingBricks.falling);
+        // Callisto's and Artio's bear traps catch whoever steps on one, holding them a few seconds.
+        for (const damage of bearTraps.update(npcDt, alive ? playerTarget() : undefined, (trap) => bearTrapsView.spring(trap))) {
+            combat.combatant.hurt(damage, "flinch");
+            combatHud.showDamage(damage);
+            hitsplats.addPlayer("damage", damage);
+            hitFeel.impact(0.6);
+            player.boundFor = Math.max(player.boundFor, TRAP_BIND_SECONDS);
+            ui.showMessage("You're caught in a bear trap!");
+        }
+        bearTrapsView.update(npcDt, bearTraps.traps);
         const playerBody = alive ? player.footprint() : undefined;
         props.update(dt, {
             player: playerBody && {

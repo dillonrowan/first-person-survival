@@ -349,8 +349,9 @@ caster with a spell list casts one, picked at random, per magic attack `[design:
 frequencies]` (dark wizards: Water Strike and Confuse at level 7, Earth Strike and Weaken at 20; the
 elemental wizards their Strike and Weaken; Skeleton Mage Fire Strike and Vulnerability; Suqah Ice
 Barrage and Water Wave; Battle mages their god spell, which has no projectile, only the impact). Ranged
-NPCs fire their arrows, bolts, rocks or spit; bosses (Callisto, Venenatis, Vet'ion, Vorkath, the Chaos
-Elemental, Scurrius, the King Black Dragon's four breaths) their own projectiles. The cast graphic plays on the NPC 92 RS units up `[design]`; the
+NPCs fire their arrows, bolts, rocks or spit; bosses (Callisto and Artio's crescents and knockback
+orb, Venenatis, Vet'ion, Vorkath, the Chaos Elemental, Scurrius, the King Black Dragon's four
+breaths) their own projectiles. The cast graphic plays on the NPC 92 RS units up `[design]`; the
 projectile flies with its OSRS model; on reaching the player the impact (a missed spell: the splash)
 plays at the player's hands. NPCs not in the table keep their exported placeholder.
 
@@ -958,6 +959,10 @@ Event 2152 (weapon swoosh) comes 0.15–0.25 s before the impact; that is the vi
   (Obor's slam: 25% of his clubs, a third of those also knock down [wiki]) throws the player
   `knockBackTiles` 2 in a short hop unless a wall stops them, then holds them `knockBackStun`
   0.6 s, or `knockdownDuration` 2 s when knocked down; a parried blow does not knock back.
+  Callisto's and Artio's knockback orb is not rolled [wiki: Callisto/Strategies]: it throws the
+  player up to 3 tiles away from the boss and deals 5, 20, 35 or 50 as a wall (for Callisto also
+  one of his bear traps) stops them after 3, 2, 1 or 0 tiles; Callisto's then holds them 1.2 s
+  `[design]`. Their swipe never lands for less than its min hit (Callisto 35, Artio 15) [wiki].
 - Attack styles: the OSRS wiki lists the styles of every monster (melee, ranged, magic,
   dragonfire, icy breath), which the cache does not. `npm run fetch-wiki-attacks` saves them to
   `tools/world-export/data/npc-attacks-wiki.json`; the exporter turns them into

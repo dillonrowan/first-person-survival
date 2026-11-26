@@ -35,6 +35,10 @@ export type KnockBack = {
     chance: number;
     /** Chance a knock back also knocks them down. */
     downChance: number;
+    /** Tiles it throws the player (tuning.knockBackTiles when absent); 0 throws them nowhere. */
+    tiles?: number;
+    /** Seconds a knock back (not down) holds the player (tuning.knockBackStun when absent). */
+    stun?: number;
 };
 
 /** One attack style of an NPC, as written to npcs.json (NpcAppearanceInfo.attackStyles). */

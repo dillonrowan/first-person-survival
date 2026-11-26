@@ -139,6 +139,7 @@ const WAYS: { name: string; start: [number, number, number]; loc: [number, numbe
     { name: "the King Black Dragon lever", start: [3067, 10255, 0], loc: [3067, 10253], action: "Pull", to: [2271, 4680] },
     { name: "a Stronghold of Security portal", start: [1863, 5237, 0], loc: [1863, 5238], action: "Use", to: [1914, 5222] },
     { name: "Callisto's Den", start: [3291, 3847, 0], loc: [3291, 3849], action: "Enter", to: [3358, 10317] },
+    { name: "Hunter's End", start: [3115, 3674, 0], loc: [3115, 3676], action: "Enter", to: [1758, 11533] },
     { name: "the Silk Chasm", start: [3321, 3792, 0], loc: [3321, 3794], action: "Enter", to: [3422, 10190] },
     { name: "the Theatre of Blood", start: [3678, 3214, 0], loc: [3678, 3216], action: "Enter", to: [3190, 4446] },
     { name: "the Tombs of Amascut", start: [3357, 9110, 0], loc: [3357, 9112], action: "Enter", to: [3548, 5163] },
@@ -319,6 +320,112 @@ test("the King Black Dragon claws and breathes his four breaths, and dies with h
     expect(death.frame).toBeGreaterThan(0);
     expect(errors).toEqual([]);
 });
+
+for (const bear of [
+    { name: "Callisto", start: [3359, 10335] },
+    { name: "Artio", start: [1759, 11551] },
+] as const) {
+    test(`${bear.name} swipes, fires crescents and knocks back, roars up bear traps, and dies with his own animation`, async ({ page }) => {
+        test.setTimeout(400_000);
+        const errors: string[] = [];
+        page.on("pageerror", (e) => errors.push(String(e)));
+        await page.goto(`/?x=${bear.start[0]}&y=${bear.start[1]}`);
+        await page.waitForFunction(
+            (name) => !!window.game?.player?.ready && window.game.npcs.all().some((n: any) => n.appearance.name === name),
+            bear.name,
+            { timeout: 180_000, polling: 1000 },
+        );
+        // Survive the fight and note every strike that reaches the player.
+        await page.evaluate((name) => {
+            const g = window.game!;
+            g.tuning.playerUnlimitedHealth = true;
+            const w = window as any;
+            w.__struck = [];
+            const struck = g.combat.onStruck;
+            g.combat.onStruck = (r: any) => {
+                w.__struck.push({ style: r.style, damage: r.damage, knocked: r.knocked, missed: r.missed });
+                struck(r);
+            };
+            const boss = g.npcs.all().find((n: any) => n.appearance.name === name);
+            g.player.yaw = Math.atan2(-(boss.body.x - g.player.x), boss.body.y - g.player.y);
+        }, bear.name);
+        // Aggressive: crescents while the player is out of reach (kept so, at the den's far end from
+        // the boss), and in time the knockback orb.
+        await page.waitForFunction(
+            (name) => {
+                const g = window.game!;
+                const s = (window as any).__struck as { style: string; knocked?: string }[];
+                const boss = g.npcs.all().find((n: any) => n.appearance.name === name);
+                const gap = Math.hypot(boss.body.x - g.player.x, boss.body.y - g.player.y) - boss.body.radius;
+                if (!s.some((r) => r.style === "ranged") && gap < 3 && g.player.boundFor <= 0) {
+                    const den = boss.behaviour.boss.arena;
+                    const north = boss.body.y < (den.minY + den.maxY) / 2;
+                    g.player.teleport((den.minX + den.maxX) / 2, north ? den.maxY - 1.5 : den.minY + 2.5, den.plane);
+                }
+                return s.some((r) => r.style === "ranged") && s.some((r) => r.style === "magic" && r.knocked);
+            },
+            bear.name,
+            { timeout: 240_000, polling: 500 },
+        );
+        await shot(page, `${bear.name}-1-fight`);
+        const knock = await page.evaluate(() => ((window as any).__struck as any[]).find((r) => r.style === "magic" && r.knocked));
+        // 5, 20, 35 or 50 by how far the player flew [wiki].
+        expect([5, 20, 35, 50]).toContain(knock.damage);
+
+        // At 66% the boss roars and lays bear traps; one snaps shut on the player.
+        await page.evaluate((name) => {
+            const boss = window.game!.npcs.all().find((n: any) => n.appearance.name === name);
+            boss.combatant.health = Math.floor(boss.combatant.maxHealth * 0.6);
+        }, bear.name);
+        await page.waitForFunction(
+            (name) => {
+                const boss = window.game!.npcs.all().find((n: any) => n.appearance.name === name);
+                return boss.behaviour.roared.size === 1 && boss.behaviour.world.traps.traps.length > 0;
+            },
+            bear.name,
+            { timeout: 60_000, polling: 100 },
+        );
+        await page.waitForTimeout(1000);
+        await shot(page, `${bear.name}-2-traps`);
+        const caught = await page.evaluate(async (name) => {
+            const g = window.game!;
+            const boss = g.npcs.all().find((n: any) => n.appearance.name === name);
+            const trap = boss.behaviour.world.traps.traps[0];
+            g.player.teleport(trap.x + 0.5, trap.y + 0.5, trap.plane);
+            await new Promise((r) => setTimeout(r, 600));
+            return { bound: g.player.boundFor, log: document.querySelector("#message-log")?.textContent ?? "" };
+        }, bear.name);
+        expect(caught.log).toMatch(/roars, and bear traps spring up/);
+        expect(caught.log).toMatch(/caught in a bear trap/);
+        expect(caught.bound).toBeGreaterThan(0);
+
+        // His swipe once next to him: 35-55 for Callisto, 15-35 for Artio [wiki].
+        await page.evaluate((name) => {
+            const g = window.game!;
+            const boss = g.npcs.all().find((n: any) => n.appearance.name === name);
+            g.player.teleport(boss.body.x, boss.body.y + boss.body.radius + 0.6, boss.plane);
+            g.player.yaw = Math.PI;
+        }, bear.name);
+        await page.waitForFunction(() => ((window as any).__struck as any[]).some((r) => r.style === "melee" && !r.missed), undefined, {
+            timeout: 120_000,
+            polling: 250,
+        });
+        const swipe = await page.evaluate(() => ((window as any).__struck as any[]).find((r) => r.style === "melee" && !r.missed));
+        expect(swipe.damage).toBeGreaterThanOrEqual(bear.name === "Callisto" ? 35 : 15);
+
+        // Killed, the boss plays the death animation, and the traps go.
+        const death = await page.evaluate(async (name) => {
+            const g = window.game!;
+            const boss = g.npcs.all().find((n: any) => n.appearance.name === name);
+            boss.combatant.hurt(boss.combatant.health, "flinch");
+            await new Promise((r) => setTimeout(r, 1500));
+            return { ragdoll: !!boss.ragdoll, frame: boss.visualAnimationFrame, traps: boss.behaviour.world.traps.traps.length };
+        }, bear.name);
+        expect(death).toMatchObject({ ragdoll: false, traps: 0 });
+        expect(death.frame).toBeGreaterThan(0);
+        expect(errors).toEqual([]);
+    });
+}
 
 for (const boss of [
     { name: "Obor", start: [3088, 9799], chest: [3085, 9797], key: "Giant key" },

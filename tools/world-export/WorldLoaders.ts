@@ -186,6 +186,7 @@ export function createWorldLoaders(files: CacheFiles): WorldLoaders {
         npcTypeLoader,
         seqTypeLoader,
         seqFrameLoader,
+        skeletalSeqLoader,
         npcModelLoader,
         objTypeLoader: new ArchiveObjTypeLoader(info, configIndex.getArchive(ConfigType.DAT2.objs)),
         modelLoader,

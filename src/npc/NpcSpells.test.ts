@@ -34,6 +34,15 @@ describe("NPC spells and effects", () => {
     it("lists every graphic the table uses for the export", () => {
         const ids = npcGraphicIds();
         for (const id of [94, 102, 1291, 276, 330, 2350, 168, 10, 27]) expect(ids).toContain(id);
+        // Callisto's and Artio's roar glows and bear trap, with the trap loc's own sequences.
+        for (const id of [2352, 2353, 2343, "2343@10000", "2343@9999"]) expect(ids).toContain(id);
+    });
+
+    it("gives Callisto and Artio their crescents and knockback orb", () => {
+        for (const id of [6609, 11992]) {
+            expect(NPC_EFFECTS[id].ranged).toEqual({ cast: 2349, projectile: 2350, impact: 2351 });
+            expect(pickNpcSpell(id, () => 0)).toMatchObject({ name: "Knockback", gfx: { projectile: 395 } });
+        }
     });
 
     it("computes drains from the current level", () => {

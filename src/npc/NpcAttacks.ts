@@ -46,9 +46,11 @@ export type NpcAttack = {
      * A boss move that is no blow: its impact brings bricks down or calls minions (the fight
      * handles it, see Scurrius.ts). It deals no damage itself.
      */
-    special?: "bricks" | "summon";
+    special?: "bricks" | "summon" | "traps";
     /** The blow can knock the player back and down (Obor's slam, see Obor.ts). */
     knockBack?: KnockBack;
+    /** Least damage a successful hit deals (Callisto's swipe, see Callisto.ts). */
+    minHit?: number;
 };
 
 const attack = (

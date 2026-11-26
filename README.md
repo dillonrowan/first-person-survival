@@ -201,9 +201,9 @@ longer match the cache are skipped and counted in the export log).
 - NPCs are solid: the player is pushed out of their collision cylinder and slides around them,
   and NPCs wait instead of walking into the player. Skeletal animations (Callisto, the Tombs
   of Amascut bosses) are baked like frame ones. Deaths and knockdowns are ragdolls, except for
-  Scurrius, Bryophyta, Obor and the King Black Dragon, who play their OSRS death animations and
-  are never knocked down (`src/npc/Scurrius.ts`, `src/npc/Bryophyta.ts`, `src/npc/Obor.ts`,
-  `src/npc/KingBlackDragon.ts`).
+  Scurrius, Bryophyta, Obor, the King Black Dragon, Callisto and Artio, who play their OSRS death
+  animations and are never knocked down (`src/npc/Scurrius.ts`, `src/npc/Bryophyta.ts`,
+  `src/npc/Obor.ts`, `src/npc/KingBlackDragon.ts`, `src/npc/Callisto.ts`).
   Dev builds can draw the collision circles with `?debug=collision`.
 - NPC attacks are the cache's own melee animations, baked into each NPC file with the moment the
   blow lands (`tools/world-export/NpcAttackAnims.ts`). The cache does not say which animation an
