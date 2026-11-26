@@ -73,6 +73,29 @@ async function exitNear(page: Page, radius: number) {
     }, radius);
 }
 
+/**
+ * Kills the NPC stored in `window.__dying`, waits until its death animation has started and
+ * returns its state. Waits on the animation, not a fixed time: a frame advances the game by at
+ * most 0.05 s, so under CI's software renderer (a few fps) game time runs far behind real time.
+ */
+async function killAndWatchDeath(page: Page) {
+    await page.evaluate(() => {
+        const npc = (window as any).__dying;
+        npc.combatant.hurt(npc.combatant.health, "flinch");
+    });
+    await page.waitForFunction(() => (window as any).__dying.visualAnimationFrame > 0, undefined, { timeout: 60_000, polling: 100 });
+    return page.evaluate(() => {
+        const npc = (window as any).__dying;
+        return {
+            ragdoll: !!npc.ragdoll,
+            frame: npc.visualAnimationFrame as number,
+            dead: npc.combatant.dead,
+            steadfast: npc.combatant.steadfast,
+            traps: npc.behaviour?.world?.traps?.traps.length,
+        };
+    });
+}
+
 const clearColour = (page: Page) =>
     page.evaluate(() => {
         let c = { r: 0, g: 0, b: 0 };
@@ -311,13 +334,10 @@ test("the King Black Dragon claws and breathes his four breaths, and dies with h
     expect(seen.log).toMatch(/dragon's (fiery|toxic|icy|shocking) breath/);
 
     // Killed, he plays his death animation instead of falling as a ragdoll.
-    const death = await page.evaluate(async () => {
-        const g = window.game!;
-        const kbd = g.npcs.all().find((n: any) => n.appearance.name === "King Black Dragon");
-        kbd.combatant.hurt(kbd.combatant.health, "flinch");
-        await new Promise((r) => setTimeout(r, 1500));
-        return { ragdoll: !!kbd.ragdoll, frame: kbd.visualAnimationFrame, steadfast: kbd.combatant.steadfast };
+    await page.evaluate(() => {
+        (window as any).__dying = window.game!.npcs.all().find((n: any) => n.appearance.name === "King Black Dragon");
     });
+    const death = await killAndWatchDeath(page);
     expect(death).toMatchObject({ ragdoll: false, steadfast: true });
     expect(death.frame).toBeGreaterThan(0);
     expect(errors).toEqual([]);
@@ -416,13 +436,10 @@ for (const bear of [
         expect(swipe.damage).toBeGreaterThanOrEqual(bear.name === "Callisto" ? 35 : 15);
 
         // Killed, the boss plays the death animation, and the traps go.
-        const death = await page.evaluate(async (name) => {
-            const g = window.game!;
-            const boss = g.npcs.all().find((n: any) => n.appearance.name === name);
-            boss.combatant.hurt(boss.combatant.health, "flinch");
-            await new Promise((r) => setTimeout(r, 1500));
-            return { ragdoll: !!boss.ragdoll, frame: boss.visualAnimationFrame, traps: boss.behaviour.world.traps.traps.length };
+        await page.evaluate((name) => {
+            (window as any).__dying = window.game!.npcs.all().find((n: any) => n.appearance.name === name);
         }, bear.name);
+        const death = await killAndWatchDeath(page);
         expect(death).toMatchObject({ ragdoll: false, traps: 0 });
         expect(death.frame).toBeGreaterThan(0);
         expect(errors).toEqual([]);
@@ -536,12 +553,10 @@ for (const lord of [
         expect(second.log).toContain("Now... DO IT AGAIN!!!");
 
         // Killed in it, he plays his death animation.
-        const death = await page.evaluate(async () => {
-            const boss = (window as any).__fight.npc;
-            boss.combatant.hurt(boss.combatant.health, "flinch");
-            await new Promise((r) => setTimeout(r, 1500));
-            return { ragdoll: !!boss.ragdoll, frame: boss.visualAnimationFrame, dead: boss.combatant.dead };
+        await page.evaluate(() => {
+            (window as any).__dying = (window as any).__fight.npc;
         });
+        const death = await killAndWatchDeath(page);
         expect(death).toMatchObject({ ragdoll: false, dead: true });
         expect(death.frame).toBeGreaterThan(0);
         expect(errors).toEqual([]);
