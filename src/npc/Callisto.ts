@@ -21,9 +21,13 @@ import { BEAR_ENRAGE_GFX } from "./NpcSpells";
  *   (BearTraps.ts); after the 33% roar, new traps "with every attack".
  * - Aggressive: a player in the den is attacked at once.
  *
- * The wiki gives no number of traps; the values marked [design] are this game's. The splash of the
- * swipe and the knockback onto other players, and the bosses breaking free of the player's binds,
- * have nothing to act on here (one player, no freezing spells).
+ * The wiki gives no number of traps; the values marked [design] are this game's.
+ *
+ * Deferred until the game has them:
+ * - Protection prayers: Protect from Magic negates the knockback (a slow, dodgeable orb stands in
+ *   for it), Protect from Missiles the crescents, and Protect from Melee halves the swipe.
+ * - Freezes: the roar breaks the boss free, and the first freeze on him always lands.
+ * - Multiplayer: the swipe and the knockback splash onto players around the target.
  */
 
 /** Their sequences (NPC_CALLISTO_*), baked as extra clips (npc-attack-overrides extraSeqs). */
