@@ -7,7 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 export type SkillLocIndex = {
-    /** Tree or rock loc id → its depleted look (stump, empty rock). Ids from 1_000_000 are the rock id + 1_000_000: that rock without its ore colours. */
+    /** Tree, rock or boss chest loc id → its depleted look (stump, empty rock, open chest). Ids from 1_000_000 are the rock id + 1_000_000: that rock without its ore colours. */
     resources: Record<string, number>;
     /** Farming patch multiloc ids: each varbit value's look gets a mesh. */
     patches: number[];

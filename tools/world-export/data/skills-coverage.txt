@@ -167,6 +167,7 @@ fishing: skipped Fishing spot (karambwan) / ? (no action)
 fishing: 154/160 spawned spot actions resolved; missing 4714:Fish 4712:Fish 4713:Fish 1542:Use-rod 7323:Use-rod 8523:Catch
 recipes: Smithing 288, Fletching 451, Cooking 335, Herblore 269, Crafting 434
 thieving: 55 pickpockets, 23 stalls
+chests: Chest (Obor's lair) (21 rows), Chest (Bryophyta's lair) (25 rows)
 farming: skipped Hammerstone hops (no RuneLite produce)
 farming: skipped Asgarnian hops (no RuneLite produce)
 farming: skipped Jute fibre (no RuneLite produce)

@@ -45,8 +45,16 @@ test("a caught pickpocket turns the NPC on the player", async ({ page }, info) =
     // Level 1 succeeds about 70% of the time: try until caught.
     let caught = false;
     for (let i = 0; i < 40 && !caught; i++) {
-        await page.waitForFunction(() => !window.game!.skillSystem.active, undefined, { timeout: 10_000, polling: 100 });
-        caught = await page.evaluate(() => window.game!.skillSystem.thieving.stunned);
+        // Resolve the attempt on the game clock, not by waiting: a frame advances the game by at
+        // most 0.05 s, so under CI's software renderer (a few fps) the attempt's 2 ticks take
+        // longer in real time than any sensible wait.
+        const after = await page.evaluate(() => {
+            const g = window.game!;
+            for (let t = 0; t < 5 && g.skillSystem.active; t++) g.clock.advance(1);
+            return { active: !!g.skillSystem.active, stunned: g.skillSystem.thieving.stunned };
+        });
+        expect(after.active, "the attempt resolves within 5 ticks").toBe(false);
+        caught = after.stunned;
         if (!caught) expect(await attempt()).toBe(true);
     }
     expect(caught).toBe(true);

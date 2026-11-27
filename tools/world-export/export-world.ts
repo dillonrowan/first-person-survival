@@ -10,6 +10,8 @@
 //   npm run export-world -- --workers 4
 //   npm run export-world -- --no-npcs            skip the NPC models and spawns
 //   npm run export-world -- --npcs-only          re-bake only the NPCs of the exported map
+//   npm run export-world -- --npcs-only --npc-ids 7222,7223   re-bake only these NPC ids and merge them
+//                                                into the exported npcs.json (minutes, not hours)
 //   npm run export-world -- --squares "29,110;39,75"   these map squares only (instead of --area)
 //   npm run export-world -- --merge ...          re-export the selected squares into the existing
 //                                                world, keeping every other file (items, weapons,
@@ -45,7 +47,15 @@ import { ExportResult, ExportTask, ExportWorkerData } from "./export-worker";
 import { encodePng } from "./png";
 import { BRIGHTNESS } from "./FaceColors";
 import { AttackIndex, buildAttackIndex, readAnimationNames } from "./NpcAttackAnims";
-import { NpcAppearanceTask, NpcSpawnOverrides, applySpawnOverrides, finalizeNpcManifest, readNpcSpawnFile, selectNpcs } from "./NpcSpawns";
+import {
+    NpcAppearanceTask,
+    NpcSpawnOverrides,
+    applySpawnOverrides,
+    finalizeNpcManifest,
+    mergeNpcManifest,
+    readNpcSpawnFile,
+    selectNpcs,
+} from "./NpcSpawns";
 import { TextureLoader } from "./rs/texture/TextureLoader";
 import { DUNGEON_LINKS_FILE, readDungeonLinkFile, readDungeonOverrides, selectDungeonSquares } from "./DungeonLinks";
 import { createEdgeOpen } from "./DungeonInventory";
@@ -136,7 +146,17 @@ function defaultWorkerCount(): number {
     return Math.max(1, Math.min(6, byCores, byMemory));
 }
 
-type Args = { area: Area | "dungeons" | "links"; squares?: [number, number][]; merge: boolean; workers: number; npcs: boolean; npcsOnly: boolean; npcDataOnly: boolean };
+type Args = {
+    area: Area | "dungeons" | "links";
+    squares?: [number, number][];
+    merge: boolean;
+    workers: number;
+    npcs: boolean;
+    npcsOnly: boolean;
+    npcDataOnly: boolean;
+    /** With --npcs-only: bake only these NPC ids and merge them into the exported npcs.json. */
+    npcIds?: Set<number>;
+};
 
 function parseArgs(argv: string[]): Args {
     let area: Args["area"] = "dungeons";
@@ -145,6 +165,7 @@ function parseArgs(argv: string[]): Args {
     let npcs = true;
     let npcsOnly = false;
     let npcDataOnly = false;
+    let npcIds: Set<number> | undefined;
     let workers = defaultWorkerCount();
     for (let i = 0; i < argv.length; i++) {
         const arg = argv[i];
@@ -184,6 +205,13 @@ function parseArgs(argv: string[]): Args {
             npcsOnly = true;
         } else if (arg === "--npc-data-only") {
             npcDataOnly = true;
+        } else if (arg === "--npc-ids" && value) {
+            i++;
+            const ids = value.split(",").map(Number);
+            if (ids.some((id) => !Number.isInteger(id))) {
+                throw new Error(`--npc-ids expects "id,id", got "${value}"`);
+            }
+            npcIds = new Set(ids);
         } else if (arg === "--workers" && value) {
             i++;
             workers = Math.max(1, Number(value) | 0);
@@ -191,7 +219,10 @@ function parseArgs(argv: string[]): Args {
             throw new Error(`Unknown argument "${arg}"`);
         }
     }
-    return { area, ...(squares ? { squares } : {}), merge, workers, npcs, npcsOnly, npcDataOnly };
+    if (npcIds && !npcsOnly) {
+        throw new Error("--npc-ids needs --npcs-only");
+    }
+    return { area, ...(squares ? { squares } : {}), merge, workers, npcs, npcsOnly, npcDataOnly, ...(npcIds ? { npcIds } : {}) };
 }
 
 /**
@@ -412,6 +443,8 @@ async function exportNpcs(
     loaders: ReturnType<typeof createWorldLoaders>,
     exportedRegions: [number, number][],
     workerCount: number,
+    /** Bake only these NPC ids and merge them into the exported npcs.json. */
+    onlyIds?: ReadonlySet<number>,
 ): Promise<NonNullable<WorldManifest["npcs"]> | undefined> {
     const exportedKeys = new Set(exportedRegions.map(([x, y]) => (x << 8) | y));
     // Only each square's overlays are kept: whole scenes for every square with a spawn would take
@@ -437,8 +470,10 @@ async function exportNpcs(
     const spawnOverrides = fs.existsSync(NPC_SPAWN_OVERRIDES_FILE)
         ? (JSON.parse(fs.readFileSync(NPC_SPAWN_OVERRIDES_FILE, "utf8")) as NpcSpawnOverrides)
         : {};
+    const records = applySpawnOverrides(readNpcSpawnFile(NPC_SPAWN_FILE), spawnOverrides);
+    // Only the asked-for ids: the water test below builds the scene of every square it looks at.
     const selection = selectNpcs(
-        applySpawnOverrides(readNpcSpawnFile(NPC_SPAWN_FILE), spawnOverrides),
+        onlyIds ? records.filter((r) => onlyIds.has(r.id)) : records,
         (mapX, mapY) => exportedKeys.has((mapX << 8) | mapY),
         loaders.npcTypeLoader,
         loaders.varManager,
@@ -460,6 +495,7 @@ async function exportNpcs(
         if (rules) {
             task.attackStyles = rules.infos;
             task.styleSeqs = rules.seqs;
+            if (rules.extraSeqs) task.extraSeqs = rules.extraSeqs;
             styled++;
         }
     }
@@ -480,7 +516,9 @@ async function exportNpcs(
     console.log("Indexing attack animations...");
     const attackIndex = createAttackIndex(loaders);
 
-    fs.rmSync(NPC_DIR, { recursive: true, force: true });
+    if (!onlyIds) {
+        fs.rmSync(NPC_DIR, { recursive: true, force: true });
+    }
     fs.mkdirSync(NPC_DIR, { recursive: true });
     console.log(`Exporting ${selection.appearances.length} NPC models...`);
     const built = new Set<number>();
@@ -519,12 +557,16 @@ async function exportNpcs(
         console.warn(`${failed.length} NPC models failed and were skipped: ${failed.join(" ")}`);
     }
 
-    const manifest: NpcManifest = finalizeNpcManifest(
+    const fresh: NpcManifest = finalizeNpcManifest(
         selection,
         built,
         `osrs-${cache.download.revision}`,
     );
-    fs.writeFileSync(path.join(OUT_DIR, NPC_MANIFEST_FILE), JSON.stringify(manifest));
+    const manifestFile = path.join(OUT_DIR, NPC_MANIFEST_FILE);
+    const manifest = onlyIds
+        ? mergeNpcManifest(JSON.parse(fs.readFileSync(manifestFile, "utf8")) as NpcManifest, fresh, onlyIds)
+        : fresh;
+    fs.writeFileSync(manifestFile, JSON.stringify(manifest));
 
     console.log(`${styled} NPCs with styled attacks, ${fallbacks} fallback animations`);
     const { skipped } = selection;
@@ -572,7 +614,7 @@ function selectDungeons(loaders: ReturnType<typeof createWorldLoaders>): [number
 }
 
 async function main() {
-    const { area, squares, merge, workers, npcs, npcsOnly, npcDataOnly } = parseArgs(process.argv.slice(2));
+    const { area, squares, merge, workers, npcs, npcsOnly, npcDataOnly, npcIds } = parseArgs(process.argv.slice(2));
 
     console.log("Reading cache...");
     const cache = readCacheFiles(CACHE_DIR);
@@ -595,8 +637,8 @@ async function main() {
             throw new Error(`No exported map in ${OUT_DIR}; run a full export first`);
         }
         const world: WorldManifest = JSON.parse(fs.readFileSync(worldFile, "utf8"));
-        world.npcs = await exportNpcs(cache, loaders, world.regions, workers);
-        world.groundItems = exportGroundItems(loaders, world.regions);
+        world.npcs = await exportNpcs(cache, loaders, world.regions, workers, npcIds);
+        if (!npcIds) world.groundItems = exportGroundItems(loaders, world.regions);
         fs.writeFileSync(worldFile, JSON.stringify(world));
         console.log("Done: NPCs re-exported");
         return;

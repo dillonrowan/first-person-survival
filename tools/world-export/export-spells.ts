@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 import { gzipSync } from "fflate";
 
 import { npcGraphicIds } from "../../src/npc/NpcSpells";
-import { SPELL_GRAPHICS, SPLASH_GRAPHIC, SpellGfxManifest, encodeSpellGfx } from "../../src/world/SpellGfxFormat";
+import { GfxId, SPELL_GRAPHICS, SPLASH_GRAPHIC, SpellGfxManifest, encodeSpellGfx, parseGfxId } from "../../src/world/SpellGfxFormat";
 import { readCacheFiles } from "./cache-files";
 import { FaceColors } from "./FaceColors";
 import { ConfigType } from "./rs/cache/ConfigType";
@@ -31,7 +31,7 @@ const spots = new ArchiveSpotAnimTypeLoader(loaders.info, loaders.configIndex.ge
 const faceColors = new FaceColors(loaders.textureLoader);
 
 // The splash, the spells, and the NPC attack graphics (arrows, rocks, spit, boss attacks).
-const ids = new Set<number>([SPLASH_GRAPHIC, ...npcGraphicIds()]);
+const ids = new Set<GfxId>([SPLASH_GRAPHIC, ...npcGraphicIds()]);
 for (const g of Object.values(SPELL_GRAPHICS)) {
     ids.add(g.cast).add(g.projectile).add(g.impact);
 }
@@ -40,13 +40,17 @@ fs.rmSync(OUT_DIR, { recursive: true, force: true });
 fs.mkdirSync(OUT_DIR, { recursive: true });
 const manifest: SpellGfxManifest = { format: 1, source: `osrs-${loaders.info.revision}`, files: {} };
 let bytes = 0;
-for (const id of [...ids].sort((a, b) => a - b)) {
-    const gfx = bakeSpotAnim(spots.load(id), { ...loaders, faceColors });
+for (const id of [...ids].sort((a, b) => parseFloat(String(a)) - parseFloat(String(b)) || String(a).localeCompare(String(b)))) {
+    // "<id>@<seq>": the graphic's model played with another sequence (a loc's, as the bear traps').
+    const { spot, seq } = parseGfxId(id);
+    const type = spots.load(spot);
+    const posed = seq === undefined ? type : Object.assign(Object.create(Object.getPrototypeOf(type)), type, { sequenceId: seq });
+    const gfx = bakeSpotAnim(posed, { ...loaders, faceColors });
     if (!gfx) {
         console.warn(`Spot animation ${id} has no model; skipped`);
         continue;
     }
-    const file = `${id}.bin`;
+    const file = `${String(id).replace("@", "_")}.bin`;
     // A fixed timestamp, so an unchanged graphic exports to the same bytes.
     const data = gzipSync(encodeSpellGfx(gfx), { level: 9, mtime: 0 });
     fs.writeFileSync(path.join(OUT_DIR, file), data);

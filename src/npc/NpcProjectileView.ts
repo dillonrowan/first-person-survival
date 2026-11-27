@@ -64,7 +64,7 @@ export class NpcProjectileView {
             if (p && (!view || this.keys[i] !== key || upgrade)) {
                 view?.removeFromParent();
                 const id = p.gfx?.projectile;
-                // An attack with graphics but no projectile (a god spell, Vet'ion's lightning) flies unseen.
+                // An attack with graphics but no projectile (a god spell) flies unseen.
                 view =
                     p.gfx && id === undefined
                         ? new THREE.Group()

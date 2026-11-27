@@ -2795,6 +2795,252 @@
    ],
    "dungeon": "",
    "source": "hand (cache locs, OSRS Wiki descriptions)"
+  },
+  {
+   "locId": 14203,
+   "name": "Broken bars",
+   "action": "Climb-through",
+   "from": [
+    3282,
+    9867,
+    0
+   ],
+   "to": [
+    3291,
+    9867,
+    0
+   ],
+   "dungeon": "Varrock Sewers",
+   "source": "hand (cache locs, OSRS Wiki: Scurrius)"
+  },
+  {
+   "locId": 14204,
+   "name": "Sewage water",
+   "action": "Cross",
+   "from": [
+    3288,
+    9867,
+    0
+   ],
+   "to": [
+    3281,
+    9867,
+    0
+   ],
+   "dungeon": "Varrock Sewers",
+   "source": "hand (cache locs, OSRS Wiki: Scurrius)"
+  },
+  {
+   "locId": 32534,
+   "name": "Gate",
+   "action": "Open",
+   "from": [
+    3174,
+    9901,
+    0
+   ],
+   "to": [
+    3215,
+    9937,
+    0
+   ],
+   "dungeon": "Bryophyta's lair",
+   "source": "hand (cache locs, OSRS Wiki: Bryophyta)"
+  },
+  {
+   "locId": 32535,
+   "name": "Rock Pile",
+   "action": "Clamber",
+   "from": [
+    3212,
+    9937,
+    0
+   ],
+   "to": [
+    3174,
+    9899,
+    0
+   ],
+   "dungeon": "Varrock Sewers",
+   "source": "hand (cache locs, OSRS Wiki: Bryophyta)"
+  },
+  {
+   "locId": 29486,
+   "name": "Gate",
+   "action": "Open",
+   "from": [
+    3095,
+    9833,
+    0
+   ],
+   "to": [
+    3091,
+    9814,
+    0
+   ],
+   "dungeon": "Obor's lair",
+   "source": "hand (cache locs, OSRS Wiki: Obor)",
+   "note": "Gate from the hill giants into the lair's safe zone"
+  },
+  {
+   "locId": 29487,
+   "name": "Gate",
+   "action": "Open",
+   "from": [
+    3095,
+    9832,
+    0
+   ],
+   "to": [
+    3091,
+    9814,
+    0
+   ],
+   "dungeon": "Obor's lair",
+   "source": "hand (cache locs, OSRS Wiki: Obor)",
+   "note": "Gate from the hill giants into the lair's safe zone"
+  },
+  {
+   "locId": 29488,
+   "name": "Gate",
+   "action": "Open",
+   "from": [
+    3092,
+    9815,
+    0
+   ],
+   "to": [
+    3096,
+    9832,
+    0
+   ],
+   "dungeon": "Obor's lair",
+   "source": "hand (cache locs, OSRS Wiki: Obor)",
+   "note": "Back out to the hill giants"
+  },
+  {
+   "locId": 29489,
+   "name": "Gate",
+   "action": "Open",
+   "from": [
+    3091,
+    9815,
+    0
+   ],
+   "to": [
+    3096,
+    9832,
+    0
+   ],
+   "dungeon": "Obor's lair",
+   "source": "hand (cache locs, OSRS Wiki: Obor)",
+   "note": "Back out to the hill giants"
+  },
+  {
+   "locId": 29488,
+   "name": "Gate",
+   "action": "Quick-exit",
+   "from": [
+    3092,
+    9815,
+    0
+   ],
+   "to": [
+    3096,
+    9832,
+    0
+   ],
+   "dungeon": "Obor's lair",
+   "source": "hand (cache locs, OSRS Wiki: Obor)"
+  },
+  {
+   "locId": 29489,
+   "name": "Gate",
+   "action": "Quick-exit",
+   "from": [
+    3091,
+    9815,
+    0
+   ],
+   "to": [
+    3096,
+    9832,
+    0
+   ],
+   "dungeon": "Obor's lair",
+   "source": "hand (cache locs, OSRS Wiki: Obor)"
+  },
+  {
+   "locId": 29491,
+   "name": "Rocks",
+   "action": "Climb",
+   "from": [
+    3091,
+    9806,
+    0
+   ],
+   "to": [
+    3091,
+    9804,
+    0
+   ],
+   "dungeon": "Obor's lair",
+   "source": "hand (cache locs, OSRS Wiki: Obor)",
+   "note": "Down into the arena"
+  },
+  {
+   "locId": 29491,
+   "name": "Rocks",
+   "action": "Climb",
+   "from": [
+    3092,
+    9806,
+    0
+   ],
+   "to": [
+    3092,
+    9804,
+    0
+   ],
+   "dungeon": "Obor's lair",
+   "source": "hand (cache locs, OSRS Wiki: Obor)",
+   "note": "Down into the arena"
+  },
+  {
+   "locId": 29491,
+   "name": "Rocks",
+   "action": "Climb",
+   "from": [
+    3091,
+    9805,
+    0
+   ],
+   "to": [
+    3091,
+    9808,
+    0
+   ],
+   "dungeon": "Obor's lair",
+   "source": "hand (cache locs, OSRS Wiki: Obor)",
+   "note": "Up to the safe zone"
+  },
+  {
+   "locId": 29491,
+   "name": "Rocks",
+   "action": "Climb",
+   "from": [
+    3092,
+    9805,
+    0
+   ],
+   "to": [
+    3092,
+    9808,
+    0
+   ],
+   "dungeon": "Obor's lair",
+   "source": "hand (cache locs, OSRS Wiki: Obor)",
+   "note": "Up to the safe zone"
   }
  ],
  "excludeSquares": []

@@ -11,9 +11,11 @@ Argos stores visual baselines remotely and compares screenshots from pull-reques
 - The NPC visual fixture is [npc-animation.html](../tests/fixtures/npc-animation.html).
 - Chromium runs in headless mode with SwiftShader WebGL.
 - Tests run one at a time (`workers: 1`): SwiftShader renders on the CPU, and parallel browsers
-  slow each other into timeouts.
+  slow each other into timeouts. `fullyParallel: true` changes nothing locally; it lets CI's
+  `--shard` split the suite by test instead of by file.
 - Text-rendering flags reduce differences between local machines and CI.
-- The `list` or `dot` reporter controls terminal output.
+- The `list` reporter controls terminal output locally; in CI, `dot` does, and the `github`
+  reporter turns failures into pull-request annotations.
 - The HTML reporter writes to `playwright-report/`.
 - Failed-test data writes to `test-results/`.
 - Failure screenshots and traces are collected for Playwright debugging.
@@ -53,17 +55,24 @@ Tests retain Playwright canvas screenshot buffers for hash and size assertions. 
 [.github/workflows/ci.yml](../.github/workflows/ci.yml) runs the visual job for pull requests targeting `main`
 and for every push to `main`. The `main` builds are the Argos baselines; without them every pull request
 is compared against a stale baseline and the same diffs reappear after being approved.
-The job installs Chromium and runs:
+The job runs on four machines at once, each taking a quarter of the tests. Each installs Chromium
+and runs:
 
 ```bash
-npm run test:e2e
+npm run test:e2e -- --shard=N/4
 ```
 
-The workflow provides the Argos project token as the `ARGOS_TOKEN` repository secret:
+Every CI job restores the exported world's LFS objects from the Actions cache, so they are
+downloaded again only when an LFS file changes.
+
+The workflow provides the Argos project token as the `ARGOS_TOKEN` repository secret, and a
+per-run nonce so Argos merges the four shards into one build (the Argos reporter refuses to run
+sharded without one):
 
 ```yaml
 env:
   ARGOS_TOKEN: ${{ secrets.ARGOS_TOKEN }}
+  ARGOS_PARALLEL_NONCE: ${{ github.run_id }}-${{ github.run_attempt }}
 ```
 
 Do not commit the token, put it in source files, or log it.

@@ -71,6 +71,26 @@ describe("attackRulesFor", () => {
     });
 });
 
+describe("Scurrius", () => {
+    it("bakes both tail swipes, his own throw and cast, and the clips of the rest of his fight", () => {
+        const rules = attackRulesFor(row("Scurrius", [["magic", 8], ["ranged", 7], ["melee", 13]]))!;
+        expect(rules.infos.map((i) => i.style)).toEqual(["melee", "magic", "ranged"]);
+        expect(rules.seqs).toEqual({ melee: [10692, 10693], ranged: 10694, magic: 10696 });
+        expect(rules.extraSeqs).toEqual(expect.arrayContaining([10688, 10691, 10698, 10700, 10704, 10705]));
+    });
+
+    it("gives Bryophyta the moss giant's club, the giants' spell, her stamp and her death", () => {
+        const rules = attackRulesFor(row("Bryophyta", [["melee", 16], ["magic", 10]], 6))!;
+        expect(rules.seqs).toEqual({ melee: 4658, magic: 7173 });
+        expect(rules.extraSeqs).toEqual([7183, 4659]);
+        expect(rules.infos[0].cooldownScale).toBe(1.5);
+    });
+
+    it("gives other NPCs no extra clips", () => {
+        expect(attackRulesFor(row("Green dragon", [["melee", 8], ["dragonfire", 50]]))!.extraSeqs).toBeUndefined();
+    });
+});
+
 describe("magicColor", () => {
     it("colours spells by caster", () => {
         expect(magicColor("Infernal Mage")).toBe(0xff7a1a);

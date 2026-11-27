@@ -298,7 +298,7 @@ export function chooseStyledAttacks(
     sameBase: readonly number[],
     armed: boolean,
     styles: readonly AttackStyle[],
-    seqs: Partial<Record<AttackStyle, number>>,
+    seqs: Partial<Record<AttackStyle, number | readonly number[]>>,
 ): StyledChoice[] {
     const melee = chooseAttacks(names, idleSeqId, frameBase, sameBase, armed).seqIds;
     const idleName = names.get(idleSeqId) ?? "";
@@ -306,7 +306,9 @@ export function chooseStyledAttacks(
     for (const style of styles) {
         const explicit = seqs[style];
         if (explicit !== undefined) {
-            out.push({ seqId: explicit, style, shove: false, fallback: false });
+            for (const seqId of typeof explicit === "number" ? [explicit] : explicit) {
+                out.push({ seqId, style, shove: false, fallback: false });
+            }
             continue;
         }
         if (style === "melee") {

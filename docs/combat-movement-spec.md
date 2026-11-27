@@ -349,8 +349,10 @@ caster with a spell list casts one, picked at random, per magic attack `[design:
 frequencies]` (dark wizards: Water Strike and Confuse at level 7, Earth Strike and Weaken at 20; the
 elemental wizards their Strike and Weaken; Skeleton Mage Fire Strike and Vulnerability; Suqah Ice
 Barrage and Water Wave; Battle mages their god spell, which has no projectile, only the impact). Ranged
-NPCs fire their arrows, bolts, rocks or spit; bosses (Callisto, Venenatis, Vet'ion, Vorkath, the Chaos
-Elemental) their own projectiles. The cast graphic plays on the NPC 92 RS units up `[design]`; the
+NPCs fire their arrows, bolts, rocks or spit; bosses (Callisto and Artio's crescents and knockback
+orb, Venenatis, Vorkath, the Chaos Elemental, Scurrius, the King Black Dragon's four
+breaths) their own projectiles. Vet'ion's and Calvar'ion's lightning is no projectile: it strikes
+marked tiles (`src/npc/Vetion.ts`). The cast graphic plays on the NPC 92 RS units up `[design]`; the
 projectile flies with its OSRS model; on reaching the player the impact (a missed spell: the splash)
 plays at the player's hands. NPCs not in the table keep their exported placeholder.
 
@@ -954,7 +956,18 @@ Event 2152 (weapon swoosh) comes 0.15–0.25 s before the impact; that is the vi
   roll gets through, with no shove or flinch. A hit rolls 0 to
   the style's wiki max hit (the OSRS formula from its levels without one), scaled by the share of
   its attack interval that has passed since its previous attack. A breath splits its max hit over its
-  four damage ticks. `hitPow` now only sizes the NPC's flinch and push.
+  four damage ticks. `hitPow` now only sizes the NPC's flinch and push. A blow with a knock back
+  (Obor's slam: 25% of his clubs, a third of those also knock down [wiki]) throws the player
+  `knockBackTiles` 2 in a short hop unless a wall stops them, then holds them `knockBackStun`
+  0.6 s, or `knockdownDuration` 2 s when knocked down; a parried blow does not knock back.
+  Callisto's and Artio's knockback orb is not rolled [wiki: Callisto/Strategies]: it throws the
+  player up to 3 tiles away from the boss and deals 5, 20, 35 or 50 as a wall (for Callisto also
+  one of his bear traps) stops them after 3, 2, 1 or 0 tiles; Callisto's then holds them 1.2 s
+  `[design]`. Their swipe never lands for less than its min hit (Callisto 35, Artio 15) [wiki].
+  Vet'ion's and Calvar'ion's lightning and shield bash are not rolled either: five bolts each hit
+  3x3 tiles 1.2 s after their tile glows (the cache graphic's 60 client cycles), 0 to the max hit on
+  the centre and to a third of it around `[design]`; the bash hits the tiles under its shadows for
+  0 to 35 (Calvar'ion 26) and keeps the player from attacking, kicking and casting for 4.8 s [wiki].
 - Attack styles: the OSRS wiki lists the styles of every monster (melee, ranged, magic,
   dragonfire, icy breath), which the cache does not. `npm run fetch-wiki-attacks` saves them to
   `tools/world-export/data/npc-attacks-wiki.json`; the exporter turns them into
@@ -977,6 +990,10 @@ Event 2152 (weapon swoosh) comes 0.15–0.25 s before the impact; that is the vi
   (no damage) unless the attack breaks parries. Arrows, spells and breath cannot be parried.
 - Anti-dragon shield (worn in the shield slot): dragonfire's max hit is a tenth, but not icy
   breath's, and not while a bow takes both hands. Its defence bonuses count like any shield's.
+  The King Black Dragon's breaths have their own maxima [wiki: Dragonfire/King Black Dragon]: fire
+  65, or 15 behind the shield; his toxic, icy and shocking breaths 50, or 10. Half his breaths are
+  fire, a sixth each special [wiki: Mod Ash]; a special's successful hit poisons (from 8), freezes
+  (6 s) or drains 2 from each drainable skill half the time, one time in eight behind the shield.
 - Death: after 4 s (`mm_player_death_fadeout_duration`) the player respawns with full health,
   keeping items and skills.
 - Items: a 28-slot inventory, a bank, 11 equipment slots, NPC drops from the wiki drop tables

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { PlayerSkills, RESTORE_INTERVAL } from "../combat/Skills";
 import { xpForLevel } from "../combat/Osrs";
 import { applyDrain, runHitEffects } from "./NpcHitEffects";
-import { NPC_EFFECTS, drainAmount, npcGraphicIds, pickNpcSpell } from "./NpcSpells";
+import { NPC_EFFECTS, drainAmount, npcGraphicIds, pickBreath, pickNpcSpell, poisonsOnlyByBreath } from "./NpcSpells";
 
 const memory = () => {
     const data = new Map<string, string>();
@@ -34,6 +34,15 @@ describe("NPC spells and effects", () => {
     it("lists every graphic the table uses for the export", () => {
         const ids = npcGraphicIds();
         for (const id of [94, 102, 1291, 276, 330, 2350, 168, 10, 27]) expect(ids).toContain(id);
+        // Callisto's and Artio's roar glows and bear trap, with the trap loc's own sequences.
+        for (const id of [2352, 2353, 2343, "2343@10000", "2343@9999"]) expect(ids).toContain(id);
+    });
+
+    it("gives Callisto and Artio their crescents and knockback orb", () => {
+        for (const id of [6609, 11992]) {
+            expect(NPC_EFFECTS[id].ranged).toEqual({ cast: 2349, projectile: 2350, impact: 2351 });
+            expect(pickNpcSpell(id, () => 0)).toMatchObject({ name: "Knockback", gfx: { projectile: 395 } });
+        }
     });
 
     it("computes drains from the current level", () => {
@@ -99,5 +108,23 @@ describe("temporary skill drains", () => {
     it("applies a curse's drain to each of its skills", () => {
         const skills = skillsAt(30);
         expect(applyDrain(skills, { skills: ["melee", "defence"], flat: 5 })).toEqual({ melee: 5, defence: 5 });
+    });
+});
+
+describe("the King Black Dragon's breaths", () => {
+    it("breathes fire half the time and each special a sixth [wiki: Mod Ash]", () => {
+        const counts: Record<string, number> = {};
+        for (let i = 0; i < 600; i++) {
+            const b = pickBreath(239, () => (i + 0.5) / 600)!;
+            counts[b.name] = (counts[b.name] ?? 0) + 1;
+        }
+        expect(counts).toEqual({ fiery: 300, toxic: 100, icy: 100, shocking: 100 });
+        expect(pickBreath(512, Math.random)).toBeUndefined();
+    });
+
+    it("exports their projectiles, and poisons only with the toxic one", () => {
+        expect(npcGraphicIds()).toEqual(expect.arrayContaining([393, 394, 395, 396]));
+        expect(poisonsOnlyByBreath(239)).toBe(true);
+        expect(poisonsOnlyByBreath(512)).toBe(false);
     });
 });

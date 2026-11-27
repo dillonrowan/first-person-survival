@@ -13,7 +13,20 @@ import type { NpcAttack, StrikeEvent } from "./npc/NpcAttacks";
 import { BreathView } from "./npc/BreathView";
 import { inBreathCone } from "./npc/Breath";
 import { NpcProjectileView } from "./npc/NpcProjectileView";
-import { NPC_EFFECTS, npcGraphicIds, pickNpcSpell } from "./npc/NpcSpells";
+import { FREEZE_SECONDS, NPC_EFFECTS, npcGraphicIds, pickBreath, pickNpcSpell, poisonsOnlyByBreath } from "./npc/NpcSpells";
+import { FallingBricks } from "./npc/FallingBricks";
+import { FallingBricksView } from "./npc/FallingBricksView";
+import { GIANT_RAT_ID, SCURRIUS_IDS, ScurriusFight } from "./npc/Scurrius";
+import { BRYOPHYTA_ID, BryophytaFight, GROWTHLING_ID } from "./npc/Bryophyta";
+import { OBOR_ID, OborFight } from "./npc/Obor";
+import { KING_BLACK_DRAGON_ID, KingBlackDragonFight } from "./npc/KingBlackDragon";
+import { BEAR_BOSSES, CallistoFight, knockBackPath } from "./npc/Callisto";
+import { BearTraps, TRAP_BIND_SECONDS } from "./npc/BearTraps";
+import { BearTrapsView } from "./npc/BearTrapsView";
+import { GroundStrikes } from "./npc/GroundStrikes";
+import { GroundStrikesView } from "./npc/GroundStrikesView";
+import { BASH_DISARM_SECONDS, SKELETAL_LORDS, VetionFight } from "./npc/Vetion";
+import { BLOCKS_TILE } from "./physics/TileColliders";
 import { applyDrain, curseMessage, runHitEffects } from "./npc/NpcHitEffects";
 import { NpcProjectile, ProjectileTarget, launchNpcProjectile, stepNpcProjectiles } from "./npc/NpcProjectiles";
 import { presenceFor } from "./npc/NpcSenses";
@@ -238,6 +251,94 @@ async function main(): Promise<void> {
               return decodeNpcModel(await gunzip(await response.arrayBuffer()));
           })
         : undefined;
+    // Boss fights: Scurrius (npc/Scurrius.ts), with the rubble his stomps bring down and the rats he
+    // calls up, Bryophyta (npc/Bryophyta.ts) with her growthlings, Obor (npc/Obor.ts) with his slam,
+    // the King Black Dragon (npc/KingBlackDragon.ts; his breaths are in npc/NpcSpells.ts),
+    // Callisto and Artio (npc/Callisto.ts) with their bear traps, and Vet'ion and Calvar'ion
+    // (npc/Vetion.ts) with their lightning, shield bash, hounds and second form.
+    const fallingBricks = new FallingBricks();
+    const fallingBricksView = new FallingBricksView(scene, spellEffects, (plane, x, y) => world.groundHeight(plane, x, y));
+    const bearTraps = new BearTraps();
+    const bearTrapsView = new BearTrapsView(scene, spellGfx, spellEffects, (plane, x, y) => world.groundHeight(plane, x, y));
+    const groundStrikes = new GroundStrikes();
+    const groundStrikesView = new GroundStrikesView(scene, (plane, x, y) => world.groundHeight(plane, x, y));
+    /** One fight per skeletal lord, shared by the NPCs of both his forms. */
+    const lordFights = new Map<number, VetionFight>();
+    if (npcs) {
+        npcs.behaviourFor = (npc) => {
+            const say = (text: string) => ui.showMessage(text);
+            if (SCURRIUS_IDS.has(npc.appearance.id)) {
+                return new ScurriusFight(npc, {
+                    bricks: fallingBricks,
+                    summonRat: (x, y, plane) => npcs.summon(GIANT_RAT_ID, x, y, plane),
+                    random: Math.random,
+                    say,
+                });
+            }
+            if (npc.appearance.id === BRYOPHYTA_ID) {
+                return new BryophytaFight(npc, {
+                    summonGrowthling: (x, y, plane) => npcs.summon(GROWTHLING_ID, x, y, plane),
+                    random: Math.random,
+                    say,
+                });
+            }
+            if (npc.appearance.id === OBOR_ID) {
+                return new OborFight(npc, Math.random);
+            }
+            if (npc.appearance.id === KING_BLACK_DRAGON_ID) {
+                return new KingBlackDragonFight(npc);
+            }
+            const bear = BEAR_BOSSES.find((b) => b.id === npc.appearance.id);
+            if (bear) {
+                return new CallistoFight(npc, bear, {
+                    traps: bearTraps,
+                    random: Math.random,
+                    open: (x, y, plane) => (world.collisionFlags(plane, x, y) & BLOCKS_TILE) === 0,
+                    roar: (boss, b) => {
+                        // The boss glows red as it roars [wiki]: the glow is its own howling shape, laid
+                        // over it and facing its way.
+                        spellEffects.play(
+                            b.enrageGfx,
+                            () => ({ x: boss.body.x, y: boss.body.y, z: boss.body.z, yaw: Math.atan2(-boss.forward.x, boss.forward.y) }),
+                            0,
+                            1,
+                            boss.plane,
+                        );
+                        say(`${b.name} roars, and bear traps spring up across the den!`);
+                    },
+                });
+            }
+            const lord = SKELETAL_LORDS.find((l) => l.forms.includes(npc.appearance.id));
+            if (lord) {
+                let fight = lordFights.get(lord.forms[0]);
+                if (!fight) {
+                    fight = new VetionFight(lord, {
+                        strikes: groundStrikes,
+                        random: Math.random,
+                        open: (x, y, plane) => (world.collisionFlags(plane, x, y) & BLOCKS_TILE) === 0,
+                        summon: (id, x, y, plane) => npcs.summon(id, x, y, plane),
+                        transform: (boss, id) => npcs.transform(boss, id),
+                        playOn: (boss, gfx) =>
+                            spellEffects.play(
+                                gfx,
+                                () => ({ x: boss.body.x, y: boss.body.y, z: boss.body.z, yaw: Math.atan2(-boss.forward.x, boss.forward.y) }),
+                                0,
+                                1,
+                                boss.plane,
+                            ),
+                        playAt: (gfx, x, y, plane) => {
+                            const z = world.groundHeight(plane, x + 0.5, y + 0.5);
+                            spellEffects.play(gfx, () => ({ x: x + 0.5, y: y + 0.5, z }), 0, 1, plane);
+                        },
+                        say,
+                    });
+                    lordFights.set(lord.forms[0], fight);
+                }
+                return fight.attach(npc);
+            }
+            return undefined;
+        };
+    }
     const input = new Input(canvas);
     // Physics props (spec 19): crates, barrels and sacks exported as loose objects.
     const props = new WorldProps(
@@ -455,7 +556,13 @@ async function main(): Promise<void> {
             spellEffects.play(graphics.cast, atHands, 0, CAST_VIEW_SCALE);
         }
     };
-    combat.onStruck = ({ outcome, style, shielded, damage, missed, poisoned, spell }) => {
+    combat.onStruck = ({ outcome, style, shielded, damage, missed, poisoned, spell, knocked, breath }) => {
+        if (knocked) {
+            ui.showMessage(knocked === "down" ? "You're knocked down!" : "You're knocked back!");
+            // Thrown off their feet, the player's head snaps about and the view sways while they lie there.
+            hitFeel.impact(1);
+            stunFeel.kick(Math.random() < 0.5 ? -1 : 1, knocked === "down" ? 1 : 0.5);
+        }
         if (outcome === "hit") {
             combatHud.showDamage(damage, missed);
             // A curse does no damage, and a splashed spell shows only its splash: no hitsplat (OSRS).
@@ -466,7 +573,9 @@ async function main(): Promise<void> {
                 ui.showMessage("You have been poisoned!");
             }
             if (style === "dragonfire") {
-                ui.showMessage(shielded ? "You manage to resist some of the dragon fire!" : "You're horribly burnt by the dragon fire!");
+                ui.showMessage(
+                    shielded ? "You manage to resist some of the dragon fire!" : (breath?.message ?? "You're horribly burnt by the dragon fire!"),
+                );
             }
         } else if (outcome === "parried") {
             // A blow (an NPC's strike or its blow back from a parry) taken on the held weapon.
@@ -534,9 +643,12 @@ async function main(): Promise<void> {
                     push: a.push,
                     breaksParry: a.breaksParry,
                     style: "melee",
-                    attacker: npc.combatStats,
+                    // The King Black Dragon poisons only with his toxic breath.
+                    attacker: poisonsOnlyByBreath(npc.appearance.id) ? { ...npc.combatStats, poisonSeverity: 0 } : npc.combatStats,
                     rate: event.rate,
                     share: 1 / a.hitTimes.length,
+                    ...(a.knockBack ? { knockBack: a.knockBack } : {}),
+                    ...(a.minHit ? { minHit: a.minHit } : {}),
                 },
                 npc.facingCos(body.x, body.y) >= Math.cos(tuning.npcStrikeCone),
             );
@@ -583,9 +695,12 @@ async function main(): Promise<void> {
                 const effects = NPC_EFFECTS[npc.appearance.id];
                 const spell =
                     a.style === "magic" ? pickNpcSpell(npc.appearance.id, Math.random, (s) => skills.drained(s)) : undefined;
-                const gfx = spell ? spell.gfx : a.style === "ranged" ? effects?.ranged : undefined;
+                // A dragon with several breaths breathes one of them (the King Black Dragon).
+                const breath = a.style === "dragonfire" ? pickBreath(npc.appearance.id, Math.random) : undefined;
+                const gfx = spell ? spell.gfx : breath ? breath.gfx : a.style === "ranged" ? effects?.ranged : undefined;
                 projectile.shooter = npc;
                 if (spell) projectile.npcSpell = spell;
+                if (breath) projectile.breath = breath;
                 if (gfx) {
                     projectile.gfx = gfx;
                     if (gfx.cast !== undefined) {
@@ -715,14 +830,17 @@ async function main(): Promise<void> {
     });
     const skillSystem = skilling.system;
     let slayerWarned = -Infinity;
-    combat.canDamage = (target) => {
+    combat.damageTaken = (target) => {
         const id = (target as unknown as Partial<Npc>).appearance?.id;
-        if (id === undefined || skillSystem.slayer.canDamage(id)) return true;
-        if (performance.now() - slayerWarned > 3000) {
-            slayerWarned = performance.now();
-            ui.showMessage("You need a higher Slayer level to know how to wound this monster.");
+        if (id !== undefined && !skillSystem.slayer.canDamage(id)) {
+            if (performance.now() - slayerWarned > 3000) {
+                slayerWarned = performance.now();
+                ui.showMessage("You need a higher Slayer level to know how to wound this monster.");
+            }
+            return 0;
         }
-        return false;
+        // A boss shielded by its minions takes less or none (Bryophyta's growthlings, Vet'ion's hounds).
+        return (target as unknown as Partial<Npc>).behaviour?.damageTaken ?? 1;
     };
     // A weapon swung into a standing tree or rock lodges there (the blade meets the trunk); an axe
     // swung into a tree chops it. Mining is not done by swings but by clicking the rock with the
@@ -1022,6 +1140,10 @@ async function main(): Promise<void> {
             if (deadFor >= tuning.deathFade) {
                 deadFor = 0;
                 npcProjectiles.length = 0;
+                fallingBricks.clear();
+                bearTraps.clear();
+                groundStrikes.clear();
+                combat.disarmedFor = 0;
                 combat.combatant.reset();
                 player.stamina.value = player.stamina.max;
                 player.teleport(spawn.x + 0.5, spawn.y + 0.5, spawn.plane);
@@ -1060,9 +1182,30 @@ async function main(): Promise<void> {
             (plane, x, y) => world.groundHeight(plane, x, y),
             (minX, minY, maxX, maxY) => world.obstacleTop(minX, minY, maxX, maxY),
         )) {
+            // Callisto's knockback orb: 3 tiles back, hurting by how soon a wall (or his trap) stops it.
+            const kb = p.npcSpell?.knockBack;
+            const thrown =
+                kb &&
+                knockBackPath(
+                    (plane, x, y) => world.collisionFlags(plane, x, y),
+                    player.plane,
+                    player.x,
+                    player.y,
+                    p.fromX,
+                    p.fromY,
+                    kb.tiles,
+                    kb.trapsBlock ? (x, y) => bearTraps.at(x, y, player.plane) : undefined,
+                );
             const struck = combat.receiveStrike(
                 player,
                 {
+                    ...(kb && thrown
+                        ? {
+                              damage: kb.damage[thrown.clear],
+                              // A trap behind the player catches them: they land in it.
+                              knockBack: { chance: 1, downChance: 0, tiles: thrown.clear + (thrown.trap ? 1 : 0), stun: kb.stun },
+                          }
+                        : {}),
                     ...(p.npcSpell ? { spell: p.npcSpell.damaging ? ("damaging" as const) : ("curse" as const) } : {}),
                     fromX: p.fromX,
                     fromY: p.fromY,
@@ -1074,11 +1217,20 @@ async function main(): Promise<void> {
                     style: p.style,
                     direct: true,
                     ...(p.attacker ? { attacker: p.attacker } : {}),
+                    ...(p.breath ? { breath: p.breath } : {}),
                     rate: p.rate,
                     share: p.share,
                 },
                 true,
             );
+            if (struck.breathEffect === "freeze") {
+                // Icy breath freezes the player where they stand [wiki: 10 ticks].
+                player.boundFor = Math.max(player.boundFor, FREEZE_SECONDS);
+                ui.showMessage("You have been frozen!");
+            } else if (struck.breathEffect === "shock") {
+                ui.showMessage("The shock drains your stats!");
+                skillsChanged();
+            }
             if (struck.outcome === "hit") {
                 // The impact on the player (a missed spell: the splash), drawn where the hands are so
                 // it shows in first person, like the player's own cast graphic.
@@ -1103,6 +1255,36 @@ async function main(): Promise<void> {
         }
         projectileView.update(npcProjectiles);
         breathView.update(npcDt);
+        // Scurrius's rubble lands on whoever still stands on its shadow.
+        for (const damage of fallingBricks.update(npcDt, alive ? playerTarget() : undefined)) {
+            combat.combatant.hurt(damage, "flinch");
+            combatHud.showDamage(damage);
+            hitsplats.addPlayer("damage", damage);
+            hitFeel.impact(0.6);
+        }
+        fallingBricksView.update(fallingBricks.falling);
+        // Callisto's and Artio's bear traps catch whoever steps on one, holding them a few seconds.
+        for (const damage of bearTraps.update(npcDt, alive ? playerTarget() : undefined, (trap) => bearTrapsView.spring(trap))) {
+            combat.combatant.hurt(damage, "flinch");
+            combatHud.showDamage(damage);
+            hitsplats.addPlayer("damage", damage);
+            hitFeel.impact(0.6);
+            player.boundFor = Math.max(player.boundFor, TRAP_BIND_SECONDS);
+            ui.showMessage("You're caught in a bear trap!");
+        }
+        bearTrapsView.update(npcDt, bearTraps.traps);
+        // Vet'ion's lightning and shield bash hit whoever is still in their area.
+        for (const { strike, damage } of groundStrikes.update(npcDt, alive ? playerTarget() : undefined)) {
+            combat.combatant.hurt(damage, "flinch");
+            combatHud.showDamage(damage);
+            hitsplats.addPlayer(damage > 0 ? "damage" : "block", damage);
+            hitFeel.impact(strike.kind === "bash" ? 0.8 : 0.6);
+            if (strike.kind === "bash") {
+                combat.disarm(BASH_DISARM_SECONDS);
+                ui.showMessage("The shield bash leaves you unable to attack!");
+            }
+        }
+        groundStrikesView.update(groundStrikes.pending);
         const playerBody = alive ? player.footprint() : undefined;
         props.update(dt, {
             player: playerBody && {

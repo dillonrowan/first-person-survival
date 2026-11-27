@@ -91,7 +91,7 @@ game tick. Data comes from the
 OSRS wiki (`npm run fetch-wiki-skills`, committed in `tools/world-export/data/wiki/`) and the
 cache. The run order is `export-world`, then `export-skills`, then `export-items`
 (`export-skills` also writes `tools/world-export/data/skill-locs.json`, which `export-world`
-reads to give trees, rocks and patches their own meshes). Formulas and every
+reads to give trees, rocks, patches and boss chests their own meshes). Formulas and every
 [design] value are in [docs/skills-spec.md](docs/skills-spec.md).
 
 ### Export options
@@ -125,6 +125,28 @@ squares joined by walkable ground (about 360 squares, roughly 330 MB). In the ga
 entrance and press `E`; a trapdoor or manhole must be opened first (`E`), then climbed (`E`
 again). The screen fades through the transition, and dungeons are dark. Quest, item and level
 requirements are not checked yet; they are recorded in the links for later.
+
+## Windows release
+
+`npm run package:win` (Windows only) builds a copy players can run without installing anything:
+
+```
+release/FirstPersonSurvival/
+  FirstPersonSurvival.exe   the launcher, ~11 KB
+  game/                     the Vite build, ~2.6 GB
+```
+
+The launcher ([launcher/Launcher.cs](launcher/Launcher.cs)) serves `game/` at
+`http://localhost:47613/` and opens it in an Edge app window, falling back to Chrome and then the
+default browser. The game's own profile lives in `%LOCALAPPDATA%\FirstPersonSurvival\`. The port
+is fixed because saves are in localStorage, which is keyed by origin. Closing the window stops the
+launcher; running it again while the game is open just opens another window.
+[scripts/build-launcher.mjs](scripts/build-launcher.mjs) compiles it with the C# compiler from
+.NET Framework 4, which ships with Windows, so players need Windows 10 or 11 and nothing else.
+
+To share it, zip the whole `FirstPersonSurvival` folder. Players must extract it before running
+the exe. The exe is unsigned, so Windows SmartScreen asks them to confirm (**More info → Run
+anyway**). Mind the note on Jagex's assets under [Notes](#notes) before publishing it.
 
 ## How the cache becomes a 3D map
 
@@ -200,7 +222,11 @@ longer match the cache are skipped and counted in the export log).
   frame base rotates them.
 - NPCs are solid: the player is pushed out of their collision cylinder and slides around them,
   and NPCs wait instead of walking into the player. Skeletal animations (Callisto, the Tombs
-  of Amascut bosses) are baked like frame ones. Deaths and knockdowns are ragdolls.
+  of Amascut bosses) are baked like frame ones. Deaths and knockdowns are ragdolls, except for
+  Scurrius, Bryophyta, Obor, the King Black Dragon, Callisto and Artio, Vet'ion and Calvar'ion,
+  who play their OSRS death animations and are never knocked down (`src/npc/Scurrius.ts`,
+  `src/npc/Bryophyta.ts`, `src/npc/Obor.ts`, `src/npc/KingBlackDragon.ts`, `src/npc/Callisto.ts`,
+  `src/npc/Vetion.ts`).
   Dev builds can draw the collision circles with `?debug=collision`.
 - NPC attacks are the cache's own melee animations, baked into each NPC file with the moment the
   blow lands (`tools/world-export/NpcAttackAnims.ts`). The cache does not say which animation an
@@ -219,7 +245,8 @@ longer match the cache are skipped and counted in the export log).
   `docs/combat-movement-spec.md`). `tools/blender/check_attack.py` loads an attack into Blender
   to check its release frame and launch point.
 - `npm run export-world -- --no-npcs` skips them; `--npcs-only` re-bakes the NPCs of the exported
-  map without exporting it again.
+  map without exporting it again, and `--npcs-only --npc-ids 7222,7223` only those NPC ids, merged
+  into the exported `npcs.json`.
 
 Runtime (`src/`): three.js, one raw shader (`WorldMaterials.ts`), region streaming around the
 player (`World.ts`), and a first-person controller with tile collision (`Player.ts`). In dev
@@ -259,7 +286,7 @@ space, tile `(x, y)` at height `h` is `(x, h, -y)`, one unit per tile.
   Using them for a personal prototype is
   one thing; publishing a game built on them would need permission or your own replacement
   assets.
-- `vite build` copies `public/world/` into `dist/`, so a production build is ~1.5 GB.
+- `vite build` copies `public/world/` into `dist/`, so a production build is ~2.6 GB.
 
 ## Credits
 

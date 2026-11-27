@@ -84,9 +84,9 @@ describe("NPC model file", () => {
     });
 
     it("reads a version 3 file's attacks as melee clips with no sequence id or launch point", () => {
-        // Version 3 had a 4-byte attack header (hitCycle, flags). Build one from a v4 file with no attacks.
+        // Version 3 had a 4-byte attack header (hitCycle, flags). Build one from a file with no attacks.
         const base = encodeNpcModel(model({ idle: clip(2, 5) }));
-        const body = base.slice(0, base.length - 4); // drop the u32 attackCount (0)
+        const body = base.slice(0, base.length - 8); // drop the u32 attackCount and extraCount (0)
         const attackClip = clip(1, 5);
         const tail = new Uint8Array(4 + 4 + 8 + 4 + 32);
         const v = new DataView(tail.buffer);
@@ -107,6 +107,31 @@ describe("NPC model file", () => {
         expect(decoded.attacks).toHaveLength(1);
         expect(decoded.attacks![0]).toMatchObject({ hitCycle: 7, shove: true, seqId: -1, style: "melee", launch: [0, 0], frameStep: -1 });
         expect(Array.from(decoded.attacks![0].positions)).toEqual(Array.from(attackClip.positions));
+    });
+
+    it("round-trips the extra clips a boss plays by sequence id", () => {
+        const data = model({
+            idle: clip(2, 5),
+            attacks: [{ ...clip(3, 5), frameStep: -1, hitCycle: 4, shove: false, seqId: 10692, style: "melee", launch: [0, 0] }],
+            extras: [
+                { ...clip(2, 5), frameStep: -1, hitCycle: 1, shove: false, seqId: 10698, style: "melee", launch: [0, 0] },
+                { ...clip(4, 5), frameStep: 2, hitCycle: 3, shove: false, seqId: 10688, style: "melee", launch: [0.5, 1] },
+            ],
+        });
+
+        expect(plain(roundTrip(data))).toEqual(plain(data));
+    });
+
+    it("reads a version 4 file, which has no extra clips", () => {
+        const base = encodeNpcModel(model({ idle: clip(2, 5) }));
+        const bytes = base.slice(0, base.length - 4); // drop the u32 extraCount (0)
+        new DataView(bytes.buffer).setUint32(4, 4, true); // version
+
+        const decoded = decodeNpcModel(bytes.buffer as ArrayBuffer);
+
+        expect(decoded.attacks).toBeUndefined();
+        expect(decoded.extras).toBeUndefined();
+        expect(decoded.idle?.frameLengths.length).toBe(2);
     });
 
     it("round-trips a model without clips", () => {

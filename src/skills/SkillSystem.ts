@@ -2,6 +2,7 @@ import type { Npc } from "../npc/Npc";
 import type { RecipeDef, ShopDef } from "../world/SkillFormat";
 import type { SkillLocInstance } from "../world/SkillLocs";
 import { Artisan } from "./artisan";
+import { BossChests } from "./chests";
 import { Farming } from "./farming";
 import { Fires } from "./fires";
 import { Fishing } from "./fishing";
@@ -46,6 +47,7 @@ export class SkillSystem {
     readonly farming: Farming;
     readonly slayer: Slayer;
     readonly runecraft: Runecraft;
+    readonly chests: BossChests;
 
     constructor(
         readonly ctx: SkillContext,
@@ -60,6 +62,7 @@ export class SkillSystem {
         this.farming = new Farming(ctx, this);
         this.slayer = new Slayer(ctx);
         this.runecraft = new Runecraft(ctx, this);
+        this.chests = new BossChests(ctx);
         ctx.clock.onTick((t) => this.tick(t));
     }
 
@@ -184,7 +187,7 @@ export class SkillSystem {
 
     /** The look of a skill loc: depleted or patch state. */
     look(instance: SkillLocInstance): number | undefined {
-        return this.gathering.look(instance) ?? this.farming.look(instance);
+        return this.gathering.look(instance) ?? this.farming.look(instance) ?? this.chests.look(instance);
     }
 
     /** The actions shown for a skill loc; none for a loc no skill uses (house hotspots of old exports). */
@@ -204,6 +207,8 @@ export class SkillSystem {
                 return this.gathering.mine(instance, role.index);
             case "stall":
                 return this.thieving.steal(instance, role.index);
+            case "chest":
+                return this.chests.open(instance, role.index);
             case "facility":
                 return this.artisan.facilityAction(instance, role.facility, action);
             case "ruins":
@@ -284,5 +289,6 @@ export class SkillSystem {
     /** An attackable NPC died. */
     onNpcDeath(npc: Npc): void {
         this.slayer.onKill(npc);
+        this.chests.onNpcDeath(npc);
     }
 }

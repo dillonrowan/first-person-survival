@@ -8,12 +8,14 @@ export default defineConfig({
     expect: {
         timeout: 10_000,
     },
-    fullyParallel: false,
     // One browser at a time: the game renders in SwiftShader on the CPU, and parallel workers
-    // starve each other into timeouts.
+    // starve each other into timeouts. CI splits the suite across machines with --shard instead;
+    // fullyParallel lets it split by test rather than by file, so dungeons.spec.ts is spread out.
+    fullyParallel: true,
     workers: 1,
     reporter: [
-        [process.env.CI ? "dot" : "list"],
+        // "github" turns failures into annotations on the pull request.
+        ...(process.env.CI ? [["github"], ["dot"]] as const : [["list"]] as const),
         ["html", { open: "never", outputFolder: "playwright-report" }],
         [
             "@argos-ci/playwright/reporter",

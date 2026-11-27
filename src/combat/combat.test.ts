@@ -12,11 +12,12 @@ import { tuning } from "./tuning";
 import { ANTI_DRAGON_SHIELD } from "./Shields";
 import { WEAPONS, weaponById } from "./weapons";
 import type { AttackStyle } from "../npc/AttackStyle";
-import { fallbackCombatStats } from "./Osrs";
+import { fallbackCombatStats, xpForLevel } from "./Osrs";
 import { XpLedger } from "./XpLedger";
 import { NO_GEAR, type CombatGear } from "./Equipment";
 import { PlayerSkills } from "./Skills";
 import { Spellbook, SPELLS } from "./Spells";
+import { NPC_EFFECTS } from "../npc/NpcSpells";
 
 /** The attacker stats of a level 1 NPC with these max hits. */
 const attackerStats = (maxHit: Partial<Record<AttackStyle, number>>) => ({ ...fallbackCombatStats(1), maxHit });
@@ -377,6 +378,7 @@ describe("NPC attack styles against the player", () => {
     function setup(random = scripted(...HITS_FOR_MAX)) {
         const combat = new PlayerCombat(source([]) as never, noWalls, random);
         const pushes: number[] = [];
+        const lifts: number[] = [];
         const player = {
             ...attacker,
             z: 0,
@@ -385,10 +387,13 @@ describe("NPC attack styles against the player", () => {
             grounded: true,
             verticalSpeed: 0,
             stamina: { value: 10, spend: () => true },
-            applyImpulse: (x: number, y: number) => pushes.push(Math.hypot(x, y)),
+            applyImpulse: (x: number, y: number, z = 0) => {
+                pushes.push(Math.hypot(x, y));
+                lifts.push(z);
+            },
         };
         combat.update(0.01, player, { attackDown: false, forward: 0, strafe: 0 });
-        return { combat, player, pushes };
+        return { combat, player, pushes, lifts };
     }
     // Max hits per style; the scripted rolls hit and roll the top of the range.
     const maxHits = { melee: 4, ranged: 4, magic: 4, dragonfire: 50, icebreath: 20 };
@@ -509,6 +514,90 @@ describe("NPC attack styles against the player", () => {
         const breath = setup(scripted(0.999, 0.1));
         breath.combat.receiveStrike(breath.player, strike("dragonfire", { attacker: poisonous, direct: true }), true);
         expect(breath.combat.combatant.poison.active).toBe(false);
+    });
+
+    it("knocks the player back, and sometimes down, with a blow that carries a knock back", () => {
+        const slam = { chance: 0.25, downChance: 1 / 3 };
+        // Hit, damage, rounding; then the knock back roll (0.1 < 0.25) and the knock down roll.
+        const down = setup(scripted(0, 0.99, 0.5, 0.1, 0.2));
+        expect(down.combat.receiveStrike(down.player, strike("melee", { knockBack: slam }), true).knocked).toBe("down");
+        // The push of any hit, then the throw: knockBackTiles over a hop of knockBackAir seconds.
+        expect(down.pushes[1]).toBeCloseTo(tuning.knockBackTiles / tuning.knockBackAir);
+        expect(down.lifts[1]).toBeGreaterThan(0);
+        expect(down.combat.stunned).toBe(true);
+        expect(down.combat.combatant.reactionTime).toBeCloseTo(tuning.knockdownDuration);
+
+        const back = setup(scripted(0, 0.99, 0.5, 0.1, 0.9));
+        expect(back.combat.receiveStrike(back.player, strike("melee", { knockBack: slam }), true).knocked).toBe("back");
+        expect(back.combat.combatant.reactionTime).toBeCloseTo(tuning.knockBackStun);
+
+        const none = setup(scripted(0, 0.99, 0.5, 0.5));
+        expect(none.combat.receiveStrike(none.player, strike("melee", { knockBack: slam }), true).knocked).toBeUndefined();
+        expect(none.pushes).toHaveLength(1);
+    });
+
+    it("never rolls below a strike's min hit (Callisto's swipe)", () => {
+        const low = setup(scripted(0, 0, 0.5));
+        expect(low.combat.receiveStrike(low.player, strike("melee", { minHit: 3 }), true).damage).toBe(3);
+        const top = setup(scripted(0, 0.99, 0.5));
+        expect(top.combat.receiveStrike(top.player, strike("melee", { minHit: 3 }), true).damage).toBe(4);
+    });
+
+    it("deals a set damage without a roll, and throws the player its own distance (Callisto's knockback)", () => {
+        // No accuracy or damage roll: the knock back roll (0.5 < 1), then the knock down roll (0.5 >= 0).
+        const thrown = setup(scripted(0.5, 0.5));
+        const knockBack = { chance: 1, downChance: 0, tiles: 1, stun: 1.2 };
+        const report = thrown.combat.receiveStrike(
+            thrown.player,
+            strike("magic", { direct: true, spell: "damaging", damage: 5, knockBack }),
+            true,
+        );
+        expect(report).toMatchObject({ outcome: "hit", damage: 5, missed: false, knocked: "back" });
+        expect(thrown.combat.combatant.health).toBe(thrown.combat.combatant.maxHealth - 5);
+        expect(thrown.pushes[1]).toBeCloseTo(1 / tuning.knockBackAir);
+        expect(thrown.combat.combatant.reactionTime).toBeCloseTo(1.2);
+        // Against the wall: no throw (and, for Artio's, no stun).
+        const wall = setup(scripted(0.5, 0.5));
+        wall.combat.receiveStrike(wall.player, strike("magic", { direct: true, damage: 2, knockBack: { ...knockBack, tiles: 0, stun: 0 } }), true);
+        expect(wall.pushes).toHaveLength(1);
+        expect(wall.combat.stunned).toBe(false);
+    });
+
+    it("hits with a King Black Dragon breath's own max, and rolls its effect on a successful hit", () => {
+        const [fiery, toxic, icy, shocking] = NPC_EFFECTS[239].breaths!;
+        // Hit, top of the range, rounding.
+        const fire = setup(scripted(0, 0.99, 0.5));
+        expect(fire.combat.receiveStrike(fire.player, strike("dragonfire", { direct: true, breath: fiery }), true).damage).toBe(65);
+        const shielded = setup(scripted(0, 0.99, 0.5));
+        shielded.combat.shield = ANTI_DRAGON_SHIELD;
+        const behind = shielded.combat.receiveStrike(shielded.player, strike("dragonfire", { direct: true, breath: fiery }), true);
+        expect(behind).toMatchObject({ damage: 15, shielded: true });
+
+        // Then the effect roll: 0.4 < 1/2 unprotected.
+        const poisoned = setup(scripted(0, 0.99, 0.5, 0.4));
+        const report = poisoned.combat.receiveStrike(poisoned.player, strike("dragonfire", { direct: true, breath: toxic }), true);
+        expect(report).toMatchObject({ damage: 50, poisoned: true, breathEffect: "poison" });
+        expect(poisoned.combat.combatant.poison.damage).toBe(8);
+
+        const frozen = setup(scripted(0, 0.99, 0.5, 0.4));
+        expect(frozen.combat.receiveStrike(frozen.player, strike("dragonfire", { direct: true, breath: icy }), true).breathEffect).toBe("freeze");
+
+        const shocked = setup(scripted(0, 0.99, 0.5, 0.4));
+        shocked.combat.skills.addXp({ melee: xpForLevel(50) });
+        const melee = shocked.combat.skills.current("melee");
+        expect(shocked.combat.receiveStrike(shocked.player, strike("dragonfire", { direct: true, breath: shocking }), true).breathEffect).toBe("shock");
+        expect(shocked.combat.skills.current("melee")).toBe(melee - 2);
+
+        // Behind a shield the chance falls to 1/8: 0.4 misses.
+        const guarded = setup(scripted(0, 0.99, 0.5, 0.4));
+        guarded.combat.shield = ANTI_DRAGON_SHIELD;
+        const iced = guarded.combat.receiveStrike(guarded.player, strike("dragonfire", { direct: true, breath: icy }), true);
+        expect(iced).toMatchObject({ damage: 10, shielded: true });
+        expect(iced.breathEffect).toBeUndefined();
+
+        // A missed breath brings nothing.
+        const missed = setup(scripted(0.999, 0));
+        expect(missed.combat.receiveStrike(missed.player, strike("dragonfire", { direct: true, breath: icy }), true).breathEffect).toBeUndefined();
     });
 
     it("splits a breath max hit over its ticks", () => {

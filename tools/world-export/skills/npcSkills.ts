@@ -1,6 +1,7 @@
-// Thieving (stalls, pickpockets), Hunter, Slayer and shops: the skills that act on NPCs or stalls.
+// Thieving (stalls, pickpockets), Hunter, Slayer and shops: the skills that act on NPCs or stalls;
+// and the boss chests, which a kill unlocks.
 
-import type { HunterDef, HunterMethod, PickpocketDef, ShopDef, SlayerDef, StallDef } from "../../../src/world/SkillFormat";
+import type { ChestDef, HunterDef, HunterMethod, PickpocketDef, ShopDef, SlayerDef, StallDef } from "../../../src/world/SkillFormat";
 import { parseSeconds } from "../fetch-wiki-skills";
 import { stripNameTags } from "../NpcSpawns";
 import { SkillsExportContext, num } from "./SkillContext";
@@ -45,6 +46,55 @@ export function exportThieving(ctx: SkillsExportContext): { stalls: StallDef[]; 
     }
     ctx.log(`thieving: ${pickpockets.length} pickpockets, ${stalls.length} stalls`);
     return { stalls, pickpockets };
+}
+
+/**
+ * The boss chests: the wiki page, the boss, its key, and which version of the page's table (the
+ * members one where the page has two) [OSRS Wiki: Chest (Obor's lair), Chest (Bryophyta's lair)].
+ */
+const BOSS_CHESTS = [
+    { page: "Chest (Obor's lair)", boss: "Obor", key: "Giant key" },
+    { page: "Chest (Bryophyta's lair)", boss: "Bryophyta", key: "Mossy key", table: "Members" },
+];
+
+/**
+ * Each boss chest: its closed loc ids (the ones with "Open"; the page's other ids are its open
+ * look, `openLocIds`), the boss's NPC ids, the key, and the loot, with the key's own row (another
+ * key, 1/16) split off as a tertiary roll.
+ */
+export function exportBossChests(ctx: SkillsExportContext): { chests: ChestDef[]; openLocIds: Map<number, number> } {
+    const chests: ChestDef[] = [];
+    const openLocIds = new Map<number, number>();
+    for (const c of BOSS_CHESTS) {
+        const ids = ctx.pageLocIds(c.page);
+        const opens = (id: number) => ctx.loaders.locTypeLoader.load(id).actions.some((a) => a?.toLowerCase() === "open");
+        const closed = ids.filter(opens);
+        const open = ids.find((id) => !opens(id));
+        const key = ctx.resolveItem(c.key);
+        const npcIds = [...new Set([...ctx.pageNpcIds(c.boss), ...ctx.spawnedNamed(c.boss)])];
+        if (closed.length === 0 || key === undefined || npcIds.length === 0) {
+            ctx.log(`chests: ${c.page} skipped (locs ${closed.join(",")}, key ${key}, npcs ${npcIds.join(",")})`);
+            continue;
+        }
+        const rows = ctx.lootOf(c.page, "reward", c.table);
+        // One roll on the main table. Obor's rarities add up to 123/118, so they are scaled to fit
+        // one roll (rollLoot would otherwise roll each row on its own).
+        const loot = rows.filter((r) => r.item !== key);
+        const total = loot.filter((r) => r.p < 1).reduce((sum, r) => sum + r.p, 0);
+        const scale = total > 1 ? 1 / total : 1;
+        chests.push({
+            name: c.page,
+            boss: c.boss,
+            locIds: closed,
+            npcIds,
+            key,
+            loot: loot.map((r) => (r.p < 1 ? { ...r, p: r.p * scale } : r)),
+            tertiary: rows.filter((r) => r.item === key),
+        });
+        if (open !== undefined) for (const id of closed) openLocIds.set(id, open);
+    }
+    ctx.log(`chests: ${chests.map((c) => `${c.name} (${c.loot.length} rows)`).join(", ")}`);
+    return { chests, openLocIds };
 }
 
 const HUNTER_METHODS: Record<string, HunterMethod> = { "Bird snare": "bird snare", "Box trap": "box trap", "Insect net": "net" };

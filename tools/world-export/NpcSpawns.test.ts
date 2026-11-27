@@ -4,6 +4,7 @@ import {
     NpcSpawnRecord,
     applySpawnOverrides,
     finalizeNpcManifest,
+    mergeNpcManifest,
     resolveDisplayType,
     selectNpcs,
     stripNameTags,
@@ -245,6 +246,52 @@ describe("finalizeNpcManifest", () => {
         expect(manifest.source).toBe("osrs-242");
         // The exporter-only sequence ids are not part of the game's manifest.
         expect(manifest.appearances[0]).not.toHaveProperty("idleSeqId");
+    });
+});
+
+describe("summon-only spawns", () => {
+    it("bakes a boss's minion without placing it", () => {
+        const selection = selectNpcs(
+            [spawn(1), { ...spawn(7223, 3296, 9866), summonOnly: true }],
+            everywhere,
+            loader([npc(1), npc(7223, { name: "Giant rat" })]),
+            vars,
+        );
+        expect(selection.appearances.map((a) => a.id)).toEqual([1, 7223]);
+        expect(selection.spawns.map((s) => s.appearance)).toEqual([0]);
+
+        const manifest = finalizeNpcManifest(selection, new Set([0, 1]), "osrs-242");
+        expect(manifest.appearances.map((a) => a.id)).toEqual([1, 7223]);
+        expect(manifest.spawns).toHaveLength(1);
+    });
+
+    it("keeps the flag through the overrides", () => {
+        const out = applySpawnOverrides([], { add: [{ id: 7223, name: "Giant rat", x: 3296, y: 9866, level: 0, summonOnly: true }] });
+        expect(out).toEqual([{ id: 7223, name: "Giant rat", x: 3296, y: 9866, level: 0, summonOnly: true }]);
+    });
+});
+
+describe("re-baking some NPC ids", () => {
+    const selection = () =>
+        selectNpcs([spawn(1), spawn(2, 3230, 3220), spawn(1, 3231, 3221)], everywhere, loader([npc(1), npc(2)]), vars);
+
+    it("replaces them in the exported manifest and keeps the rest", () => {
+        const existing = finalizeNpcManifest(selection(), new Set([0, 1]), "osrs-242");
+        const fresh = finalizeNpcManifest(
+            selectNpcs([spawn(2, 3240, 3240)], everywhere, loader([npc(2, { combatLevel: 99 })]), vars),
+            new Set([0]),
+            "osrs-242",
+        );
+        const merged = mergeNpcManifest(existing, fresh, new Set([2]));
+        expect(merged.appearances.map((a) => [a.id, a.combatLevel])).toEqual([
+            [1, existing.appearances[0].combatLevel],
+            [2, 99],
+        ]);
+        expect(merged.spawns.map((s) => [s.x, s.appearance])).toEqual([
+            [3222, 0],
+            [3231, 0],
+            [3240, 1],
+        ]);
     });
 });
 

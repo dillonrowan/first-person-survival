@@ -1,5 +1,5 @@
 import type { SkillId } from "../combat/SkillId";
-import { SPELL_GRAPHICS, type SpellGraphics } from "../world/SpellGfxFormat";
+import { type GfxId, SPELL_GRAPHICS, type SpellGraphics } from "../world/SpellGfxFormat";
 
 /**
  * What NPC ranged and magic attacks look like and do beyond damage. The cache has the graphics
@@ -26,6 +26,22 @@ export type NpcSpell = {
     onlyIfUndrained?: boolean;
     /** Seconds a landed cast holds the player in place. */
     bind?: number;
+    /** It throws the player back and hurts by how close the wall is, not by a roll (Callisto's). */
+    knockBack?: SpellKnockBack;
+};
+
+/**
+ * Callisto's and Artio's knockback [wiki: Callisto/Strategies]: it "attempts to knock the target 3
+ * tiles", dealing 5 if they fly all 3, and 20, 35 or 50 if a wall stops them after 2, 1 or 0.
+ */
+export type SpellKnockBack = {
+    tiles: number;
+    /** Damage by the tiles the player flies before something stops them (index 0: none). */
+    damage: readonly number[];
+    /** Seconds it holds the player after ("temporarily stunned"). */
+    stun: number;
+    /** Bear traps stop the player as a wall does (Callisto's; Artio's only stop at walls). */
+    trapsBlock: boolean;
 };
 
 /** An effect of an NPC's successful hits, whatever the style. */
@@ -43,11 +59,43 @@ export type HitEffect = {
     message?: string;
 };
 
+/**
+ * One of a dragon's breaths, flown as a projectile: the King Black Dragon's fiery, toxic, icy and
+ * shocking breath [wiki: King Black Dragon/Strategies].
+ */
+export type DragonBreath = {
+    name: "fiery" | "toxic" | "icy" | "shocking";
+    /** Relative pick chance among the dragon's breaths. */
+    weight: number;
+    gfx: AttackGfx;
+    /** Max hit unprotected, and behind an anti-dragon shield [wiki: Dragonfire/King Black Dragon]. */
+    max: number;
+    shieldedMax: number;
+    /** Shown when it burns a player without a shield [wiki: King Black Dragon trivia]. */
+    message: string;
+    /** What a successful hit may also do (BREATH_EFFECT_CHANCE): poison, freeze or drain. */
+    effect?: "poison" | "freeze" | "shock";
+};
+
+/**
+ * Chance a special breath's effect comes with a successful hit: "a 50% chance ... Antifire shields
+ * ... reduce the effect chance to 1 in 8" [wiki: King Black Dragon/Strategies].
+ */
+export const BREATH_EFFECT_CHANCE = { unprotected: 1 / 2, shielded: 1 / 8 } as const;
+/** Icy breath "freezes the player for 10 ticks (6 seconds)" [wiki]. */
+export const FREEZE_SECONDS = 10 * 0.6;
+/** Shocking breath "drains two levels off of all the player's stats" [wiki]: the drainable ones here. */
+export const SHOCK_DRAIN: Drain = { skills: ["melee", "defence", "ranged", "magic"], flat: 2 };
+
 export type NpcEffects = {
     /** One picked at random per magic attack. */
     magic?: NpcSpell[];
+    /** A dragon's breaths, one picked by weight per dragonfire attack. Only its toxic breath poisons. */
+    breaths?: DragonBreath[];
     ranged?: AttackGfx;
     onHit?: HitEffect[];
+    /** Other spot animations its fight plays (Scurrius's falling debris), exported with the rest. */
+    other?: GfxId[];
 };
 
 const spell = (id: string): AttackGfx => SPELL_GRAPHICS[id] as SpellGraphics;
@@ -94,6 +142,60 @@ const battleMage = (impact: number): NpcEffects => ({
     magic: [{ name: "God spell", gfx: { impact }, damaging: true }],
 });
 
+// The King Black Dragon: half his breaths are fire, the other half his three specials in equal
+// shares [wiki: Mod Ash], flown as DRAGON_RANGED_FIRE / TOXIC / ICE / LIGHTNING_ATTACK.
+const kingBlackDragon: NpcEffects = {
+    breaths: [
+        { name: "fiery", weight: 3, gfx: { projectile: 393 }, max: 65, shieldedMax: 15, message: "You're horribly burnt by the dragon's fiery breath!" },
+        { name: "toxic", weight: 1, gfx: { projectile: 394 }, max: 50, shieldedMax: 10, message: "You're badly scalded by the dragon's toxic breath!", effect: "poison" },
+        { name: "icy", weight: 1, gfx: { projectile: 395 }, max: 50, shieldedMax: 10, message: "You're chilled to the bone by the dragon's icy breath!", effect: "freeze" },
+        { name: "shocking", weight: 1, gfx: { projectile: 396 }, max: 50, shieldedMax: 10, message: "You're zapped by the dragon's shocking breath!", effect: "shock" },
+    ],
+};
+
+// Scurrius, by the graphics on his model's ids (50142-50155) and their VFX_RAT_BOSS_* sequences:
+// the fur ball (on the projectile spin PROJANIM_DUKE_SPIT) and its impact (PROJ_RANGED_IMPACT_02),
+// the bolt of electricity (PROJ_MAGIC), its cast glow (ATTACK_MAGIC) and impact (PROJ_MAGIC_IMPACT),
+// and the falling debris of his stomp (FALLING_DEBRIS).
+const scurrius: NpcEffects = {
+    ranged: { projectile: 2642, impact: 2643 },
+    magic: [{ name: "Bolts of Electricity", gfx: { cast: 2638, projectile: 2640, impact: 3845 }, damaging: true }],
+    other: [2644],
+};
+
+/**
+ * The bear traps Callisto and Artio roar across their dens: the trap loc (47146) appearing
+ * (FX_CALLISTO_TRAP, sequence TRAP_BEAR01_SPAWN), waiting (TRAP_BEAR01_IDLE) and snapping shut
+ * (TRAP_BEAR01_ACTIVATE).
+ */
+export const BEAR_TRAP_GFX = { spawn: 2343, idle: "2343@10000", spring: "2343@9999" } as const satisfies Record<string, GfxId>;
+/** The red glow of their roar: FX_CALLISTO_ENRAGE, and its _SMALL version for the smaller Artio. */
+export const BEAR_ENRAGE_GFX = { callisto: 2352, artio: 2353 } as const;
+
+// Callisto and Artio [wiki: Callisto, Artio and their Strategies pages]: crescents shot from the
+// den's far side (FX_CALLISTO_RANGED_SPOTANIM / _PROJECTILE / _IMPACT), and the slow knockback orb,
+// which "uses the same projectile ... as the King Black Dragon's icy breath" [wiki: Callisto trivia].
+// Neither page says how long the knockback stuns, nor that Artio's does. [design: Callisto 2 ticks]
+const bearKnockBack = (stun: number, trapsBlock: boolean): NpcSpell => ({
+    name: "Knockback",
+    gfx: { projectile: 395 },
+    damaging: true,
+    knockBack: { tiles: 3, damage: [50, 35, 20, 5], stun, trapsBlock },
+});
+const bear = (enrage: number, knockBack: NpcSpell): NpcEffects => ({
+    ranged: { cast: 2349, projectile: 2350, impact: 2351 },
+    magic: [knockBack],
+    other: [enrage, BEAR_TRAP_GFX.spawn, BEAR_TRAP_GFX.idle, BEAR_TRAP_GFX.spring],
+});
+
+/**
+ * Vet'ion's and Calvar'ion's graphics, purple in the first form and orange in the second: the
+ * lightning crackling on the raised sword (VFX_SPELLCAST_VETION_01), a tile's glow and the bolt
+ * that strikes it 60 client cycles later (VFX_SPELLIMPACT_VETION_01), and the rubble the shield
+ * bash throws up in front of him (VFX_MELEE_IMPACT_VETION_01, bursting at 60 cycles).
+ */
+export const VETION_GFX = { cast: [2344, 2345], bolt: [2346, 2347], bash: 2348 } as const;
+
 /** Effects by NPC id. */
 export const NPC_EFFECTS: Record<number, NpcEffects> = {
     // ----- Magic -----
@@ -136,10 +238,13 @@ export const NPC_EFFECTS: Record<number, NpcEffects> = {
     // Tortoise: "the mage will use a bluish spell, the archer will shoot a steel arrow" [wiki]. [design: Water Strike]
     6076: { magic: [strike("water-strike", "Water Strike")], ranged: ARROW.steel },
     // Bosses, by their Jagex graphic names.
-    6609: { ranged: { cast: 2349, projectile: 2350, impact: 2351 }, magic: [{ name: "Shockwave", gfx: { projectile: 395 }, damaging: true }] }, // Callisto [wiki: the KBD's icy breath projectile]
+    6609: bear(BEAR_ENRAGE_GFX.callisto, bearKnockBack(2 * 0.6, true)), // Callisto
+    11992: bear(BEAR_ENRAGE_GFX.artio, bearKnockBack(0, false)), // Artio
     6610: { ranged: { projectile: 2356, impact: 2357 }, magic: [{ name: "Magic", gfx: { projectile: 2358, impact: 2359 }, damaging: true }] }, // Venenatis
-    6611: { magic: [{ name: "Lightning", gfx: { cast: 2344, impact: 2346 }, damaging: true }] }, // Vet'ion
+    6611: { other: [...VETION_GFX.cast, ...VETION_GFX.bolt, VETION_GFX.bash] }, // Vet'ion and Calvar'ion
     8058: { ranged: { projectile: 1477, impact: 1478 }, magic: [{ name: "Magic", gfx: { projectile: 1479, impact: 1480 }, damaging: true }] }, // Vorkath
+    7221: scurrius, 7222: scurrius,
+    239: kingBlackDragon,
     // Chaos Elemental: Discord, its damaging attack. [design: both styles]
     2054: {
         magic: [{ name: "Discord", gfx: { cast: 556, projectile: 557, impact: 558 }, damaging: true }],
@@ -198,14 +303,16 @@ export const NPC_EFFECTS: Record<number, NpcEffects> = {
 };
 
 /** Every spot animation the table uses, for the export. */
-export function npcGraphicIds(): number[] {
-    const ids = new Set<number>();
+export function npcGraphicIds(): GfxId[] {
+    const ids = new Set<GfxId>();
     const add = (g?: AttackGfx) => [g?.cast, g?.projectile, g?.impact].forEach((id) => id !== undefined && ids.add(id));
     for (const e of Object.values(NPC_EFFECTS)) {
         add(e.ranged);
         e.magic?.forEach((s) => add(s.gfx));
+        e.breaths?.forEach((b) => add(b.gfx));
+        e.other?.forEach((id) => ids.add(id));
     }
-    return [...ids].sort((a, b) => a - b);
+    return [...ids].sort((a, b) => parseFloat(String(a)) - parseFloat(String(b)) || String(a).localeCompare(String(b)));
 }
 
 /** Levels a drain takes from one skill at this current level. */
@@ -224,4 +331,21 @@ export function pickNpcSpell(npcId: number, random: () => number, drained?: (ski
     const list = all.filter((s) => !(s.onlyIfUndrained && s.drain && drained && s.drain.skills.some(drained)));
     if (list.length === 0) return all.find((s) => s.damaging);
     return list[Math.floor(random() * list.length) % list.length];
+}
+
+/** The breath a dragon breathes for this dragonfire attack, by weight; undefined if it has none listed. */
+export function pickBreath(npcId: number, random: () => number): DragonBreath | undefined {
+    const breaths = NPC_EFFECTS[npcId]?.breaths;
+    if (!breaths?.length) return undefined;
+    let r = random() * breaths.reduce((sum, b) => sum + b.weight, 0);
+    for (const b of breaths) {
+        r -= b.weight;
+        if (r < 0) return b;
+    }
+    return breaths[breaths.length - 1];
+}
+
+/** True for an NPC whose poison comes only from a breath (the King Black Dragon's toxic breath). */
+export function poisonsOnlyByBreath(npcId: number): boolean {
+    return !!NPC_EFFECTS[npcId]?.breaths?.some((b) => b.effect === "poison");
 }

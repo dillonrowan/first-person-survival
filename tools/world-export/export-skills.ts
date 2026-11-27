@@ -26,7 +26,7 @@ import { Model } from "./rs/model/Model";
 import { createWorldLoaders } from "./WorldLoaders";
 import { exportFarming } from "./skills/farming";
 import { exportFishing, exportFishingPlaces, exportRocks, exportTools, exportTrees } from "./skills/gathering";
-import { exportHunter, exportShops, exportSlayer, exportThieving } from "./skills/npcSkills";
+import { exportBossChests, exportHunter, exportShops, exportSlayer, exportThieving } from "./skills/npcSkills";
 import { exportRunecraft } from "./skills/places";
 import { exportFills, exportLogs, exportRecipes, facilityLocs } from "./skills/recipes";
 import { createSkillsContext, loadWikiData } from "./skills/SkillContext";
@@ -85,6 +85,7 @@ function main(): void {
     const catches = new Set(fishing.flatMap((f) => f.catches.map((c) => c.item)));
     const recipes = exportRecipes(ctx, cookingCharts, catches);
     const { stalls, pickpockets } = exportThieving(ctx);
+    const { chests, openLocIds } = exportBossChests(ctx);
     const farming = exportFarming(ctx);
     const runecraft = exportRunecraft(ctx);
     if (!runecraft) throw new Error("No rune or pure essence item");
@@ -96,6 +97,7 @@ function main(): void {
     trees.forEach((t, index) => t.locIds.forEach((id) => set(id, { role: "tree", index })));
     rocks.forEach((r, index) => r.locIds.forEach((id) => set(id, { role: "rock", index })));
     stalls.forEach((s, index) => s.locIds.forEach((id) => set(id, { role: "stall", index })));
+    chests.forEach((c, index) => c.locIds.forEach((id) => set(id, { role: "chest", index })));
     for (const a of runecraft.altars) {
         a.ruinsLocIds.forEach((id) => set(id, { role: "ruins", rune: a.rune }));
         a.altarLocIds.forEach((id) => set(id, { role: "altar", rune: a.rune }));
@@ -112,6 +114,8 @@ function main(): void {
         if (role.role === "tree") index.resources[id] = trees[role.index].stumpLocId;
         // Rune essence never depletes, so it stays part of the map.
         else if (role.role === "rock" && !rocks[role.index].essence) index.resources[id] = rocks[role.index].depletedLocId;
+        // A boss chest shows its open look while it is open.
+        else if (role.role === "chest" && openLocIds.has(Number(id))) index.resources[id] = openLocIds.get(Number(id))!;
         else if (role.role === "patch") index.patches.push(Number(id));
         else index.statics.push(Number(id));
     }
@@ -135,6 +139,7 @@ function main(): void {
         logs: exportLogs(ctx),
         fills: exportFills(ctx),
         stalls,
+        chests,
         pickpockets,
         hunter: exportHunter(ctx),
         farming,

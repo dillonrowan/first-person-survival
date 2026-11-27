@@ -2,7 +2,7 @@ import * as THREE from "three";
 
 import { CLIENT_CYCLE_SECONDS } from "../npc/NpcAnimation";
 import type { NpcMeshData } from "../world/NpcFormat";
-import { SpellGfx, SpellGfxManifest, decodeSpellGfx } from "../world/SpellGfxFormat";
+import { GfxId, SpellGfx, SpellGfxManifest, decodeSpellGfx } from "../world/SpellGfxFormat";
 import { gunzip } from "../world/gunzip";
 
 type Materials = { opaque: THREE.Material; transparent: THREE.Material };
@@ -85,7 +85,7 @@ function geometryOf(part: NpcMeshData, level: number): THREE.BufferGeometry {
  * undefined and callers draw their fallback.
  */
 export class SpellGfxLibrary {
-    private readonly loaded = new Map<number, SpellGfx | null>();
+    private readonly loaded = new Map<GfxId, SpellGfx | null>();
     private readonly built = new Map<string, BuiltGfx>();
 
     private constructor(
@@ -110,12 +110,12 @@ export class SpellGfxLibrary {
     }
 
     /** Starts loading these spot animations so the first cast does not wait. */
-    preload(ids: number[]): void {
+    preload(ids: readonly GfxId[]): void {
         for (const id of ids) this.request(id);
     }
 
     /** A new object showing spot animation `id`, or undefined while it loads or if it is missing. */
-    create(id: number, level = 0): SpellGfxObject | undefined {
+    create(id: GfxId, level = 0): SpellGfxObject | undefined {
         const gfx = this.request(id);
         if (!gfx) {
             return undefined;
@@ -133,11 +133,11 @@ export class SpellGfxLibrary {
         return new SpellGfxObject(built, this.materials);
     }
 
-    private request(id: number): SpellGfx | undefined {
+    private request(id: GfxId): SpellGfx | undefined {
         if (this.loaded.has(id)) {
             return this.loaded.get(id) ?? undefined;
         }
-        const file = this.manifest?.files[id];
+        const file = this.manifest?.files[String(id)];
         if (!file) {
             this.loaded.set(id, null);
             return undefined;
@@ -169,7 +169,7 @@ export class SpellEffects {
      * Plays spot animation `id` at the anchor (world x east, y north, z up, in tiles), `height`
      * tiles above it, turned to the anchor's yaw (the player's facing) if it has one.
      */
-    play(id: number, anchor: GfxAnchor, height: number, scale = 1, level = 0): void {
+    play(id: GfxId, anchor: GfxAnchor, height: number, scale = 1, level = 0): void {
         const object = this.library.create(id, level);
         if (!object) {
             return;

@@ -2,7 +2,7 @@ import { firstWallHit, ObstacleTop, segmentCircle } from "../combat/Bow";
 import type { Box, FlagsAt } from "../physics/TileColliders";
 import type { NpcCombatStats } from "../world/NpcFormat";
 import { AttackStyle, ProjectileInfo, ProjectileKind, RANGED_MAX } from "./AttackStyle";
-import type { AttackGfx, NpcSpell } from "./NpcSpells";
+import type { AttackGfx, DragonBreath, NpcSpell } from "./NpcSpells";
 
 /** An arrow, spell, rock, spit or fireball an NPC has shot at the player. Positions in tiles. */
 export type NpcProjectile = {
@@ -25,6 +25,8 @@ export type NpcProjectile = {
     gfx?: AttackGfx;
     /** The spell it carries, if the NPC has a spell list: a curse deals no damage, but drains or binds. */
     npcSpell?: NpcSpell;
+    /** The dragon breath it is (the King Black Dragon's four): its max hits and effect. */
+    breath?: DragonBreath;
     /** The NPC that shot it, for its on-hit effects. */
     shooter?: object;
     /** Where it was shot from, for the push direction. */

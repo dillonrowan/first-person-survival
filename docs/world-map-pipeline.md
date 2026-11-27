@@ -43,7 +43,8 @@ lists the mineable rocks, named from `skills.json`). The order is:
 `public/ui/` (outside `public/world/`, so the exports above never delete it).
 `npm run export-spells` bakes the OSRS spell graphics (the cast, projectile and impact spot
 animations of the 20 combat spells, the Confuse, Weaken and Curse curses, the splash, and every
-NPC ranged and magic attack graphic in `NPC_EFFECTS`) frame by frame from the cache to
+NPC ranged and magic attack graphic in `NPC_EFFECTS`, with the bosses' other graphics such as
+Callisto's bear traps) frame by frame from the cache to
 `public/spells/`, in seconds; it also stays outside `public/world/`. It uses the texture atlas
 from `export-world`.
 | 3. Play     | `npm run dev`            | Every time you play                           | No                | The world, in the browser |
@@ -109,10 +110,10 @@ attack animations are baked frame by frame into `npcs/{id}_{displayId}.bin`, and
 written to `npcs.json` (with the attack styles of NPCs that use more than melee, from the OSRS wiki). The game plays the baked frames back and wanders the NPCs itself.
 
 **Skill locs.** Trees, rocks, farming patches, facilities (furnaces, ranges,
-anvils…), stalls and runecraft altars become interactive locs of kind `skill` in the
+anvils…), stalls, runecraft altars and the boss chests (Obor's, Bryophyta's) become interactive locs of kind `skill` in the
 region file. Mysterious ruins do not: the placed ruins are multilocs whose ids the wiki does not
 list, so the game places their targets itself at each altar's ruins tile from `skills.json`. Which locs those are comes from `tools/world-export/data/skill-locs.json`, written
-by `npm run export-skills`. Trees and rocks get their own meshes plus a stump or empty-rock mesh,
+by `npm run export-skills`. Trees, rocks and boss chests get their own meshes plus a stump, empty-rock or open-chest mesh,
 and patches one mesh per growth state, so the game can swap them;
 the others stay part of the region meshes. They keep their collision.
 

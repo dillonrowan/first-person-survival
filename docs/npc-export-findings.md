@@ -123,7 +123,7 @@ Callisto and Vet'ion (skeletal, without clips then) now bake theirs like the res
 | ------------------------ | ------ | ---------------------------------------------------------------------------------------------------------------------- |
 | Outside the exported area | 11,694 | The default area is the surface (map y 65 and below). Dungeons, minigames and instances are not exported; `--area all` includes them. |
 | Name mismatch            | 237    | The list dates from 2023. If the cache NPC with that id has a different name, the id was likely renumbered; it is skipped rather than shown wrongly. |
-| No idle animation        | 127    | Neither the spawn's NPC nor the one shown has an idle sequence. rs-map-viewer skips these too. Not inspected by name yet. A hand-added spawn marked `still` in `data/npc-spawn-overrides.json` (the Great Olm) is kept in its base pose. |
+| No idle animation        | 127    | Neither the spawn's NPC nor the one shown has an idle sequence. rs-map-viewer skips these too. Not inspected by name yet. A hand-added spawn marked `still` in `data/npc-spawn-overrides.json` (the Great Olm) is kept in its base pose; one marked `summonOnly` (Scurrius's giant rats, Bryophyta's growthlings) is baked but not placed. |
 | No model                 | 0      |                                                                                                                        |
 
 ## Attack animation audit (November 2026)
@@ -174,8 +174,14 @@ revenants, the Suqah, metal dragons' ranged attack); the wiki describes no separ
 - Per-frame alpha changes are not baked; faces keep their base alpha (skeletal ones included).
 - NPCs are solid for the player (cylinder collision, see `src/physics/Bodies.ts`). Attack
   animations are baked since format 3 (melee) and, since format 4, one per extra attack style
-  (breath, cast, bow shot, spit) for the NPCs the OSRS wiki gives several styles; the cache has no
-  death animation, so deaths are ragdolls. Which styles an NPC uses is not in the cache (server
+  (breath, cast, bow shot, spit) for the NPCs the OSRS wiki gives several styles. Format 5 adds
+  extra clips a boss fight plays by sequence id (`extraSeqs` in `data/npc-attack-overrides.ts`):
+  Scurrius's stomp, summon, eating, run, enrage and death; Bryophyta's stamp and death; Obor's and
+  the King Black Dragon's deaths; Callisto's and Artio's roar and death; Vet'ion's and Calvar'ion's
+  lightning swing, shield bash, rise, enrage and death, both forms' (each form is its own NPC; the
+  second, 6612 and 11994, and their hounds are baked `summonOnly` for the fight to turn into and
+  call up). Deaths are otherwise ragdolls, though the
+  cache has death sequences. Which styles an NPC uses is not in the cache (server
   data): `npm run fetch-wiki-attacks` refreshes `data/npc-attacks-wiki.json` from the wiki, and
   `tools/world-export/list-npc-seqs.ts <npcId>` lists the named sequences of an NPC's skeleton
   when an attack needs an explicit sequence in `data/npc-attack-overrides.ts`.
@@ -184,7 +190,10 @@ revenants, the Suqah, metal dragons' ranged attack); the wiki describes no separ
   ids as item bonuses (5-8 defence; the attack bonus and often the ranged defence are missing). The
   exporter fills the gaps from the wiki's `infobox_monster` bucket (`npm run fetch-wiki-attacks`)
   and writes them as `NpcAppearanceInfo.combat`, with drop tables (the wiki's `dropsline` bucket)
-  as `drops`.
+  as `drops`. A page with several versions of its table (members and free-to-play, a monster's
+  areas) keeps one: the members one, else the one named for the NPC level, else the first, beside
+  the rows every version shares. Keys, clue scrolls and the like are tertiary rows that roll on
+  their own; the main table is one roll, scaled to fit where the wiki's chances add up past 1.
 - Items: item definitions carry the examine text (opcode 3), the stackable flag (11), the inventory
   icon camera (4-8 and 95) and scale (110-112), and the equipment bonuses, attack speed (param 14)
   and skill requirements (params 434-437) as params: 0-4 attack, 5-9 defence, 10 melee strength,
@@ -194,11 +203,15 @@ revenants, the Suqah, metal dragons' ranged attack); the wiki describes no separ
 - Wandering is client-side only and uses a simplified size-N footprint rule.
 - The spawn list is from 2023. Newer content has no spawns until the list is updated.
 - Ground items come from the wiki's item spawn lines (`npm run fetch-wiki-items`), written to
-  `ground-items.json`; bank booths and chests are exported as `bank` interactives.
+  `ground-items.json`; bank booths and chests are exported as `bank` interactives (the boss chests
+  of Obor and Bryophyta are skill locs, from `export-skills`).
 - Spot animations (config archive 13, `rs/config/spotanimtype/SpotAnimType.ts`): opcode 1 model
   (u16), 3 model (int, rev 242 uses this), 2 sequence, 4/5 width and height scale, 6 orientation
   (degrees), 7/8 ambient and contrast, 10 a flag with no data (the Surge impacts), 40/41 recolours
-  and retextures. Spell graphics are baked from them by `npm run export-spells`.
+  and retextures. Spell graphics are baked from them by `npm run export-spells`; a skeletal
+  sequence (Callisto's red enrage glow) is sampled every few cycles, and a `"<id>@<seq>"` id bakes
+  a graphic's model with another sequence (Callisto's bear trap, whose idle and spring the cache
+  gives its loc 47146).
 
 ## Tests
 

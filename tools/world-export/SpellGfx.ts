@@ -8,6 +8,7 @@ import { Model } from "./rs/model/Model";
 import { ModelData } from "./rs/model/ModelData";
 import type { ModelLoader } from "./rs/model/ModelLoader";
 import type { SeqFrameLoader } from "./rs/model/seq/SeqFrameLoader";
+import type { SkeletalSeqLoader } from "./rs/model/skeletal/SkeletalSeqLoader";
 import type { TextureLoader } from "./rs/texture/TextureLoader";
 
 /** Depth priority bias, as for NPCs. */
@@ -25,8 +26,13 @@ export type SpotAnimSource = {
     textureLoader: TextureLoader;
     seqTypeLoader: Pick<SeqTypeLoader, "load">;
     seqFrameLoader: Pick<SeqFrameLoader, "load">;
+    /** Skeletal sequences; without it a graphic on one stays in its base pose. */
+    skeletalSeqLoader?: Pick<SkeletalSeqLoader, "load">;
     faceColors: FaceColors;
 };
+
+/** Most frames baked from a skeletal sequence; a longer one is sampled every few cycles. */
+const MAX_SKELETAL_FRAMES = 30;
 
 /**
  * Bakes a spot animation the way the client draws it (SpotAnimation.getModel): the model recoloured
@@ -46,7 +52,11 @@ export function bakeSpotAnim(spot: SpotAnimType, src: SpotAnimSource): SpellGfx 
 
     const seq = spot.sequenceId >= 0 ? src.seqTypeLoader.load(spot.sequenceId) : undefined;
     const animated = seq && !seq.isSkeletalSeq() && seq.frameIds && seq.frameIds.length > 0;
-    const frameCount = animated ? seq.frameIds.length : 1;
+    // A skeletal sequence (Callisto's enrage glow) runs per client cycle: sampled every `step`.
+    const skeletal = seq?.isSkeletalSeq() ? src.skeletalSeqLoader?.load(seq.skeletalId) : undefined;
+    const duration = skeletal ? seq!.getSkeletalDuration() : 0;
+    const step = Math.max(1, Math.ceil(duration / MAX_SKELETAL_FRAMES));
+    const frameCount = animated ? seq.frameIds.length : duration > 0 ? Math.ceil(duration / step) : 1;
     const frameLengths: number[] = [];
     const frames: NpcModelData[] = [];
     for (let f = 0; f < frameCount; f++) {
@@ -55,6 +65,9 @@ export function bakeSpotAnim(spot: SpotAnimType, src: SpotAnimSource): SpellGfx 
         if (seqFrame) {
             model = Model.copyAnimated(lit, !seqFrame.hasAlphaTransform, !seqFrame.hasColorTransform);
             model.animate(seqFrame, undefined, seq!.op14);
+        } else if (skeletal && duration > 0) {
+            model = Model.copyAnimated(lit, !skeletal.hasAlphaTransform, true);
+            model.animateSkeletal(skeletal, seq!.skeletalStart + f * step);
         } else {
             model = Model.copyAnimated(lit, true, true);
         }
@@ -72,7 +85,7 @@ export function bakeSpotAnim(spot: SpotAnimType, src: SpotAnimSource): SpellGfx 
             opaque: meshes?.opaque ?? EMPTY_MESH,
             transparent: meshes?.transparent ?? EMPTY_MESH,
         });
-        frameLengths.push(animated ? Math.max(1, seq.frameLengths[f] ?? 1) : 1);
+        frameLengths.push(animated ? Math.max(1, seq.frameLengths[f] ?? 1) : duration > 0 ? Math.min(step, duration - f * step) : 1);
     }
     if (frames.every((f) => f.opaque.indices.length === 0 && f.transparent.indices.length === 0)) {
         return undefined;
