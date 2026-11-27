@@ -1,0 +1,35 @@
+name: Release
+
+# Pushing a tag such as v0.2.0 builds the Windows release on a Windows machine and publishes it
+# as a GitHub Release with that name. README.md links to the newest release's zips.
+on:
+    push:
+        tags: ["v*"]
+
+permissions:
+    contents: write
+
+jobs:
+    windows:
+        runs-on: windows-latest
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  lfs: true
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 22
+                  cache: npm
+            - run: npm ci
+            # The game build, the launcher exe and the zips (scripts/package-windows.mjs).
+            - run: npm run package:win
+            - name: Publish the release
+              env:
+                  GH_TOKEN: ${{ github.token }}
+              run: |
+                  $notes = @"
+                  Download every zip below, extract them all into the same folder, then run FirstPersonSurvival\FirstPersonSurvival.exe. Needs Windows 10 or 11; nothing to install.
+
+                  Windows' Extract All puts each zip in its own folder unless you change the path: give both the same one. Windows may warn that the exe is unrecognised: choose More info, then Run anyway.
+                  "@
+                  gh release create $env:GITHUB_REF_NAME (Get-ChildItem release\*.zip).FullName --title "First-Person Survival $env:GITHUB_REF_NAME" --notes $notes

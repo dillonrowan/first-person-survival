@@ -6,6 +6,19 @@ live in `public/world/`; the game loads those files and never needs the source c
 This is currently a simple web app: you can walk (or fly) through the version-controlled
 exported world map in first person, with collision.
 
+## Play on Windows
+
+Download both parts (about 1.2 GB each):
+
+- [FirstPersonSurvival-windows-part1.zip](https://github.com/dillonrowan/first-person-survival/releases/latest/download/FirstPersonSurvival-windows-part1.zip)
+- [FirstPersonSurvival-windows-part2.zip](https://github.com/dillonrowan/first-person-survival/releases/latest/download/FirstPersonSurvival-windows-part2.zip)
+
+Extract **both into the same folder** (Windows' "Extract All" suggests a different folder for
+each, so give both the same path), then run `FirstPersonSurvival\FirstPersonSurvival.exe`. It
+needs Windows 10 or 11 and nothing else installed. Windows may say the app is unrecognised: choose
+**More info → Run anyway**. The game comes in two parts because GitHub release files must be
+under 2 GB.
+
 ## Quick start
 
 Install Git LFS, clone the repository, and hydrate its exported world assets:
@@ -128,12 +141,15 @@ requirements are not checked yet; they are recorded in the links for later.
 
 ## Windows release
 
-`npm run package:win` (Windows only) builds a copy players can run without installing anything:
+`npm run package:win` (Windows only) builds what the download links above serve:
 
 ```
-release/FirstPersonSurvival/
-  FirstPersonSurvival.exe   the launcher, ~11 KB
-  game/                     the Vite build, ~2.6 GB
+release/
+  FirstPersonSurvival/                    the game as players get it
+    FirstPersonSurvival.exe               the launcher, ~11 KB
+    game/                                 the Vite build, ~2.6 GB
+  FirstPersonSurvival-windows-part1.zip   that folder, split into zips under 2 GB
+  FirstPersonSurvival-windows-part2.zip
 ```
 
 The launcher ([launcher/Launcher.cs](launcher/Launcher.cs)) serves `game/` at
@@ -141,12 +157,27 @@ The launcher ([launcher/Launcher.cs](launcher/Launcher.cs)) serves `game/` at
 default browser. The game's own profile lives in `%LOCALAPPDATA%\FirstPersonSurvival\`. The port
 is fixed because saves are in localStorage, which is keyed by origin. Closing the window stops the
 launcher; running it again while the game is open just opens another window.
-[scripts/build-launcher.mjs](scripts/build-launcher.mjs) compiles it with the C# compiler from
-.NET Framework 4, which ships with Windows, so players need Windows 10 or 11 and nothing else.
+[scripts/package-windows.mjs](scripts/package-windows.mjs) compiles it with the C# compiler from
+.NET Framework 4 and zips the folder with Windows' `tar.exe`, so players need Windows 10 or 11 and
+nothing else.
 
-To share it, zip the whole `FirstPersonSurvival` folder. Players must extract it before running
-the exe. The exe is unsigned, so Windows SmartScreen asks them to confirm (**More info → Run
-anyway**). Mind the note on Jagex's assets under [Notes](#notes) before publishing it.
+Each zip holds part of the same `FirstPersonSurvival` folder (part 1 has the exe and everything
+but the map regions), so extracting them all into one place restores it. The script picks the
+number of parts from the build's size and fails if a zip would reach GitHub's 2 GiB limit; if the
+game ever needs a third part, it says so, and the links above need one more. The launcher checks
+that every part is there and, if one is missing, says which zip to extract where.
+
+To publish a release, push a version tag:
+
+```bash
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+[.github/workflows/release.yml](.github/workflows/release.yml) then builds the zips on a Windows
+runner and publishes them as a GitHub Release; the links above always serve the newest one. The
+exe is unsigned, so Windows SmartScreen asks players to confirm. Mind the note on Jagex's assets
+under [Notes](#notes) before publishing.
 
 ## How the cache becomes a 3D map
 
