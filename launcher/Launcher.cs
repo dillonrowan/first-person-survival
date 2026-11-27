@@ -3,7 +3,7 @@
 // fixed because saves live in localStorage, which is keyed by origin. When the window closes, the
 // launcher exits and the server stops.
 //
-// Built by scripts/build-launcher.mjs with the C# 5 compiler in .NET Framework 4, which ships
+// Built by scripts/package-windows.mjs with the C# 5 compiler in .NET Framework 4, which ships
 // with Windows, so players need nothing installed.
 
 using System;
@@ -64,6 +64,7 @@ static class Launcher
             Fail("The \"game\" folder is missing. Keep it next to " + Path.GetFileName(Application.ExecutablePath) + ".");
             return;
         }
+        if (!CheckParts(exeDir)) return;
 
         var listener = new HttpListener();
         listener.Prefixes.Add(Url);
@@ -96,6 +97,33 @@ static class Launcher
             MessageBox.Show("The game is open in your web browser.\n\nClick OK to quit the game.", Title);
         }
         listener.Stop();
+    }
+
+    /// The release comes as several zips (see scripts/package-windows.mjs), each adding a marker
+    /// file game/part-N-of-TOTAL. Windows' "Extract All" puts every zip in its own folder by
+    /// default, so a missing part usually sits in a folder next to this one: say where it goes.
+    static bool CheckParts(string exeDir)
+    {
+        string[] markers = Directory.GetFiles(root, "part-*-of-*");
+        if (markers.Length == 0) return true; // A build that was not split.
+        string name = Path.GetFileName(markers[0]);
+        int total = int.Parse(name.Substring(name.LastIndexOf('-') + 1));
+
+        var missing = new List<string>();
+        for (int i = 1; i <= total; i++)
+        {
+            if (!File.Exists(Path.Combine(root, "part-" + i + "-of-" + total)))
+            {
+                missing.Add("FirstPersonSurvival-windows-part" + i + ".zip");
+            }
+        }
+        if (missing.Count == 0) return true;
+
+        string target = Path.GetFullPath(Path.Combine(exeDir, ".."));
+        try { Clipboard.SetText(target); } catch (Exception) { }
+        Fail("Part of the game is missing. Extract " + string.Join(" and ", missing.ToArray())
+            + " into this folder (the path is copied, ready to paste into \"Extract All\"):\n\n" + target);
+        return false;
     }
 
     static void Serve(HttpListener listener)
